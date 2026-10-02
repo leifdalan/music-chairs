@@ -53,6 +53,16 @@ The policy ends when one of these is true:
 
 Until one of those triggers fires, every phase honors the greenfield rule.
 
+## Amendments in force
+
+Each entry names the surface that has left greenfield, when, on whose decision, and the regime that now applies to it. Every surface not listed here is still greenfield.
+
+- **music-chairs persisted database schema** — the SQLite schema owned by `project/app/.server/store.ts` and every row it stores. Left greenfield on 2026-10-02, by operator decision at the start of Phase 5 (first deployment for real use): "Migrations from now on". From then on:
+  - Every schema change ships with a forward-only migration that upgrades an existing database in place and keeps its rows; the migration is part of the same phase, with a test that upgrades a database built at the previous version and reads the old data back.
+  - The schema carries an explicit version (SQLite `PRAGMA user_version`); migrations run in order at open, inside a transaction, and a database newer than the code refuses to open.
+  - Migrations never run in reverse and no code reads two schema versions: the migration converts the data once, and the rest of the code knows only the current shape. Code-level shims, aliases and transitional paths stay forbidden.
+  - The Verification greps below flag version comparisons; the migration runner's version checks are the sanctioned exception for this surface.
+
 ## Per-phase waiver
 
 The human may grant a phase-specific waiver of this policy. For example: "This phase changes the recipe schema; keep a one-week migration window so I can re-render existing pipelines before the old format is dropped." Waivers are:
