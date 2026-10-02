@@ -429,3 +429,126 @@ Lessons:
 
 Remaining:
 - None
+
+## 2026-10-02 13:23 — START
+Phase 3 — Combined availability and confirming rehearsal times
+
+Execution trace: 97c16bae3bee4e6ca57288d61b1bec29
+
+Operator decisions recorded in plan/phase-3.md before this run: privacy is a per-group setting (counts by default, or names); everyone counts as required unless tagged optional; role rules deferred (INDEX deferred-work note); proposed then confirmed; recurring rehearsals work like availability.
+
+Planned work:
+- An overlap view of the group's availability that works at phone width.
+- A decision on availability privacy (brief, Open question 1): what members see versus what organizers see.
+- Optional-member tags (everyone else counts as required), with warnings shown before and after confirming; warnings never block. Role rules are deferred (Decisions).
+- Proposing and confirming rehearsals, one-off and recurring, with a free-text location (no venue management).
+- Organizer-only authority over these actions, including more than one organizer per group.
+- Tests for overlap computation, rule evaluation and the confirm flow.
+
+## 2026-10-02 13:51 — END
+Phase 3 — Combined availability and confirming rehearsal times
+
+Phase 3 is accepted on its gates. Each group now has a Schedule page: for the next eight weeks it shows when people are free (counts, or names when the organizer allows it; organizers always see who is free and who is missing), and organizers propose rehearsals with a location, see warnings for missing members who aren't tagged optional, confirm anyway, cancel single dates, set a last date or delete. On the group page organizers tag members optional, make other members organizers and choose what members see. How it reads and feels on a phone is still yours to judge through the User Demo below.
+
+Execution trace: 97c16bae3bee4e6ca57288d61b1bec29
+
+Files changed:
+- plan/phase-3.md, plan/INDEX.md — operator decisions, tightened User Demo and the role-rules deferred-work note, recorded before the run; Phase 3 ✅ and Phase 4 ⬅️ pending after this block
+- project/app/lib/overlap.ts — new: per-half-hour availability, free stretches, members free for an interval, missing non-optional members; builds only the dates it is asked for
+- project/app/.server/store.ts — device tokens separate from member ids; optional tags, roles with last-organizer protection, privacy setting, group-wide slot read; rehearsals and cancellations
+- project/app/.server/membership.ts — the cookie holds device tokens
+- project/app/routes/schedule.tsx — new: /g/:groupId/schedule overlap view, rehearsal lists and organizer actions
+- project/app/routes/group.tsx — organizer controls (optional, organizer, privacy) and Schedule link
+- project/app/routes/home.tsx, project/app/routes/join.tsx, project/app/routes/availability.tsx, project/app/routes.ts — device tokens; shared slot fields; route registration
+- project/app/components/slot-fields.tsx, project/app/components/text-field.tsx, project/app/lib/availability.ts — shared slot form fields; optional text field; location validation
+- project/app/app.css — schedule, rehearsal cards, warnings, member controls at phone width
+- project/tests/ — new overlap and schedule tests; store, group, home, join, availability and helper updates (120 tests)
+- project/scripts/smoke.sh, project/README.md — smoke proposes and confirms a rehearsal on a computed future date through a restart
+- plan/phase-4.md, plan/phase-6.md, plan/phase-7.md — inherited Phase 3 constraints (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 120/120, pytest 128): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.287 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 148.6 s (intelligence union 309.983 s minus the critic's 161.366 s); success
+- Coder: inline (no role span)
+- Critic (code review): 161.366 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1661.689 s; intelligence 309.983 s; gates 127.647 s; orchestration 1661.115 s; wait 307.160 s; failed 0 s; retry 0 s; unattributed 0.574 s (category totals are interval unions and may overlap)
+- Awaiting user input:
+  - 2026-10-02T20:15:08Z → 2026-10-02T20:22:32Z: 443.897 s (decision, before the trace started; exact monotonic)
+  - Total: 443.897 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: initial=7f7e0b37484ac9ee153bf7f224a7228714fb6d65eb6d44d49b52561926b1097e approved=e71cda40febfa4fd35b61c613e61acf54181ef53e63504da1507687dd1966796 final=e71cda40febfa4fd35b61c613e61acf54181ef53e63504da1507687dd1966796
+- Revision packets: 0
+- Advisory reports: 2 — plan review 8 findings (all adopted), code critique 6 findings (all adopted)
+- Gates: implementation-final=2, both recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material; the operator's decisions were collected before the trace started.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers overlap computation, a missing non-optional member that warns but still allows confirmation, the privacy setting (counts versus names for members, names and missing members for organizers), and organizer-only access including a second organizer and last-organizer protection; the production build proposes and confirms a rehearsal and keeps it across a restart (`project/scripts/smoke.sh`). `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below — readability of the overlap view at phone width, whether the warnings and "Propose this time" flow feel right, and the organizer controls on the group page
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-4.md — add "Inherited from Phase 3": rehearsal model and occurrence dates for RSVP, members already see the list on the schedule page, member id versus device token, privacy setting to consider for RSVP visibility — pending, applied after this block
+- AUTO: plan/phase-6.md — add "Inherited from Phase 3": link Google accounts to the stable member id; the device token stays the device secret — pending
+- AUTO: plan/phase-7.md — add "Inherited from Phase 3": confirmed rehearsals' storage and the changes calendar writes must follow — pending
+- DECIDE: None
+
+Lessons:
+- occurrence pending: icy-echidna — the operator's product questions were again asked at phase entry, before capture, and recorded in the phase file without a park (methodology)
+- filed pending: a local candidate — a timing threshold and a fixed calendar date in tests and smokes are proxies that either cannot fail or will fail for no reason; mutation-check thresholds and compute dates at run time
+- graduation DECIDE: none
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Start from a fresh database: stop any running server, move or delete `project/data/`, then `cd project && corepack pnpm run dev --host` and open the network URL on a phone (or a browser narrowed to about 375 px).
+- **Suggested inputs.** Create a group as organizer and join it in two private windows as `Cellist` and `Pianist`. Give the organizer and `Cellist` weekly availability on Thursdays 19:00–22:00; give `Pianist` none on Thursdays. Tag `Pianist` as optional, then untag them again. As organizer, propose next Thursday 19:30–21:30 with location `Studio B`, then confirm it.
+- **What to look for.** The overlap view shows Thursday evening as 2 of 3 free; with `Pianist` not optional, proposing and confirming show a warning that `Pianist` is unavailable, and confirming still works; with `Pianist` optional, no warning. Members see counts only until the organizer switches the group to show names. Only organizers see the propose, confirm and settings controls.
+- **Variations to explore.** Propose a weekly rehearsal and cancel one date. Switch the privacy setting and look again from a member window. Is the overlap view readable at phone width?
+
+Remaining:
+- Role rules ("at least one of our two keyboardists") are deferred by operator decision (plan/INDEX.md deferred-work note).
+- Editing a rehearsal's time is done by deleting and proposing again.
+- Weekly rehearsal dates beyond the eight-week window are not checked for warnings; the card says so.
+
+## 2026-10-02 13:51 — Close bookkeeping outcomes
+Phase 3 — Combined availability and confirming rehearsal times
+
+Execution trace: 97c16bae3bee4e6ca57288d61b1bec29
+
+- Status: applied and verified — Phase 3 ✅, Phase 4 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-4.md, plan/phase-6.md and plan/phase-7.md each gained an "Inherited from Phase 3" section.
+- Ripple DECIDE: none.
+- Lessons: icy-echidna gained its second occurrence (Phase 3 END); camouflaged-dragon filed as a local candidate (timing thresholds and fixed dates are proxies). ./bin/lessons validate: LESSONS OK; ./bin/lessons candidates: none graduation-ready.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

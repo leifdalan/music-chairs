@@ -2,18 +2,11 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import { rememberMembership } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
-import GroupPage, { loader } from "../app/routes/group";
-import { ORIGIN, routeArgs, thrownBy } from "./routes";
+import GroupPage, { action, loader } from "../app/routes/group";
+import { deviceCookie, ORIGIN, routeArgs, thrownBy } from "./routes";
 
 type GroupData = Awaited<ReturnType<typeof loader>>;
-
-/** A Cookie header for a device that is `memberId` in `groupId`. */
-async function deviceCookie(groupId: string, memberId: string): Promise<string> {
-  const setCookie = await rememberMembership(new Request(ORIGIN), groupId, memberId);
-  return setCookie.split(";")[0];
-}
 
 function load(groupId: string, cookie?: string) {
   return loader(routeArgs(`/g/${groupId}`, { groupId }, { cookie })) as Promise<GroupData>;
@@ -36,18 +29,29 @@ function band() {
 
 describe("group route", () => {
   it("gives the organizer the member list with roles and the invite link", async () => {
-    const { group, organizer } = band();
+    const { group, organizer, cellist } = band();
 
-    const loaded = await load(group.id, await deviceCookie(group.id, organizer.id));
+    const loaded = await load(group.id, await deviceCookie(group.id, organizer.deviceToken));
 
     expect(loaded).toEqual({
       groupName: "Thursday Quartet",
       timeZone: "Europe/London",
       members: [
-        { displayName: "Viola", role: "organizer", isViewer: true },
-        { displayName: "Cellist", role: "member", isViewer: false },
+        {
+          displayName: "Viola",
+          role: "organizer",
+          isViewer: true,
+          manage: { id: organizer.id, optional: false },
+        },
+        {
+          displayName: "Cellist",
+          role: "member",
+          isViewer: false,
+          manage: { id: cellist.id, optional: false },
+        },
       ],
       viewer: { displayName: "Viola", role: "organizer" },
+      showNames: false,
       inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
     });
   });
@@ -56,7 +60,7 @@ describe("group route", () => {
     const { group } = band();
     const pianist = getStore().addMember(group.id, "Pianist", "organizer");
 
-    const loaded = await load(group.id, await deviceCookie(group.id, pianist.id));
+    const loaded = await load(group.id, await deviceCookie(group.id, pianist.deviceToken));
 
     expect(loaded.inviteUrl).toBe(`${ORIGIN}/join/${group.inviteToken}`);
   });
@@ -64,7 +68,7 @@ describe("group route", () => {
   it("withholds the invite link from members and visitors", async () => {
     const { group, cellist } = band();
 
-    const asMember = await load(group.id, await deviceCookie(group.id, cellist.id));
+    const asMember = await load(group.id, await deviceCookie(group.id, cellist.deviceToken));
     const asVisitor = await load(group.id);
 
     expect(asMember.viewer).toEqual({ displayName: "Cellist", role: "member" });
@@ -78,26 +82,107 @@ describe("group route", () => {
     const { group } = band();
     const other = getStore().createGroup("Other", "Drummer", "Europe/London");
 
-    const crossGroup = await load(group.id, await deviceCookie(group.id, other.organizer.id));
+    const crossGroup = await load(
+      group.id,
+      await deviceCookie(group.id, other.organizer.deviceToken),
+    );
     const unknown = await load(group.id, await deviceCookie(group.id, "B".repeat(22)));
 
     expect(crossGroup.viewer).toBeNull();
     expect(unknown.viewer).toBeNull();
   });
 
-  it("never sends member ids or the invite token to non-organizers", async () => {
+  it("never sends device tokens, and keeps member ids and the invite token to organizers", async () => {
     const { group, organizer, cellist } = band();
 
-    for (const cookie of [await deviceCookie(group.id, cellist.id), undefined]) {
+    for (const cookie of [await deviceCookie(group.id, cellist.deviceToken), undefined]) {
       const loaded = await load(group.id, cookie);
       const page = JSON.stringify(loaded) + render(loaded);
-      for (const secret of [organizer.id, cellist.id, group.inviteToken]) {
-        expect(page).not.toContain(secret);
+      for (const hidden of [
+        organizer.deviceToken,
+        cellist.deviceToken,
+        organizer.id,
+        cellist.id,
+        group.inviteToken,
+      ]) {
+        expect(page).not.toContain(hidden);
       }
     }
-    const asOrganizer = await load(group.id, await deviceCookie(group.id, organizer.id));
+    const asOrganizer = await load(group.id, await deviceCookie(group.id, organizer.deviceToken));
     const organizerPage = JSON.stringify(asOrganizer) + render(asOrganizer);
-    for (const secret of [organizer.id, cellist.id]) expect(organizerPage).not.toContain(secret);
+    for (const secret of [organizer.deviceToken, cellist.deviceToken]) {
+      expect(organizerPage).not.toContain(secret);
+    }
+  });
+
+  function post(groupId: string, cookie: string | undefined, form: Record<string, string>) {
+    return action(routeArgs(`/g/${groupId}`, { groupId }, { cookie, form }));
+  }
+
+  function statusOf(value: unknown): number | undefined {
+    if (value instanceof Response) return value.status;
+    return (value as { init?: ResponseInit | null }).init?.status;
+  }
+
+  it("lets an organizer tag a member optional, switch privacy and promote a member", async () => {
+    const { group, organizer, cellist } = band();
+    const cookie = await deviceCookie(group.id, organizer.deviceToken);
+
+    const optional = await post(group.id, cookie, {
+      intent: "set-optional",
+      memberId: cellist.id,
+      value: "on",
+    });
+    const privacy = await post(group.id, cookie, { intent: "set-privacy", value: "on" });
+    const promoted = await post(group.id, cookie, {
+      intent: "set-role",
+      memberId: cellist.id,
+      value: "on",
+    });
+
+    for (const result of [optional, privacy, promoted]) expect(statusOf(result)).toBe(302);
+    expect(getStore().findMember(group.id, cellist.id)).toMatchObject({
+      optional: true,
+      role: "organizer",
+    });
+    expect(getStore().findGroup(group.id)?.showNames).toBe(true);
+    const asCellist = await load(group.id, await deviceCookie(group.id, cellist.deviceToken));
+    expect(asCellist.inviteUrl).toBe(`${ORIGIN}/join/${group.inviteToken}`);
+  });
+
+  it("refuses to remove the last organizer", async () => {
+    const { group, organizer } = band();
+    const cookie = await deviceCookie(group.id, organizer.deviceToken);
+
+    const result = await post(group.id, cookie, {
+      intent: "set-role",
+      memberId: organizer.id,
+      value: "off",
+    });
+
+    expect(statusOf(result)).toBe(400);
+    expect((result as { data: { problem: string } }).data.problem).toContain(
+      "at least one organizer",
+    );
+    expect(getStore().findMember(group.id, organizer.id)?.role).toBe("organizer");
+  });
+
+  it("refuses organizer settings from members and visitors", async () => {
+    const { group, organizer, cellist } = band();
+    const memberCookie = await deviceCookie(group.id, cellist.deviceToken);
+
+    const asMember = await thrownBy(
+      post(group.id, memberCookie, { intent: "set-role", memberId: cellist.id, value: "on" }),
+    );
+    const asVisitor = await thrownBy(
+      post(group.id, undefined, { intent: "set-privacy", value: "on" }),
+    );
+
+    expect(statusOf(asMember)).toBe(403);
+    expect((asVisitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(getStore().findMember(group.id, cellist.id)?.role).toBe("member");
+    expect(getStore().findGroup(group.id)?.showNames).toBe(false);
+    expect(getStore().findMember(group.id, organizer.id)?.role).toBe("organizer");
   });
 
   it.each([
@@ -112,7 +197,7 @@ describe("group route", () => {
   it("renders names, roles and the invite panel for an organizer", async () => {
     const { group, organizer } = band();
 
-    const html = render(await load(group.id, await deviceCookie(group.id, organizer.id)));
+    const html = render(await load(group.id, await deviceCookie(group.id, organizer.deviceToken)));
 
     expect(html).toContain("<h1>Thursday Quartet</h1>");
     expect(html).toMatch(/Viola.*\(you\).*organizer/s);
@@ -120,12 +205,16 @@ describe("group route", () => {
     expect(html).toContain(`value="${ORIGIN}/join/${group.inviteToken}"`);
     expect(html).toContain("Copy link");
     expect(html).toContain('role="status"');
+    expect(html).toContain('aria-label="Make optional: Cellist"');
+    expect(html).toContain('aria-label="Make organizer: Cellist"');
   });
 
   it("renders no invite panel for a member, and a join hint for a visitor", async () => {
     const { group, cellist } = band();
 
-    const memberHtml = render(await load(group.id, await deviceCookie(group.id, cellist.id)));
+    const memberHtml = render(
+      await load(group.id, await deviceCookie(group.id, cellist.deviceToken)),
+    );
     const visitorHtml = render(await load(group.id));
 
     expect(memberHtml).not.toContain("Copy link");

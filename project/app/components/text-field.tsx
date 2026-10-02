@@ -8,11 +8,13 @@ export function TextField({
   label,
   defaultValue,
   error,
+  optional = false,
 }: {
   name: string;
   label: string;
   defaultValue?: string;
   error?: string;
+  optional?: boolean;
 }) {
   const errorId = `${name}-error`;
   return (
@@ -22,7 +24,7 @@ export function TextField({
         id={name}
         name={name}
         type="text"
-        required
+        required={!optional}
         autoComplete="off"
         defaultValue={defaultValue}
         aria-invalid={error ? true : undefined}

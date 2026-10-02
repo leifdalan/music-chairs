@@ -17,6 +17,10 @@ informs: ["7"]
 - A record of the OAuth scopes requested now, and of what Google app verification the later Calendar scopes will need (brief, Open question 6), with human-only console steps filed in `user-actions/`.
 - Tests for session handling and linking, with Google's endpoints faked so tests stay hermetic.
 
+## Inherited from Phase 3
+
+Pinned by [Phase 3](phase-3.md): a member's `members.id` is a stable, non-secret identifier, and device identity is the separate secret `members.device_token` held in the `mc_members` cookie (`findViewer` in `project/app/.server/membership.ts`). Linking a Google account attaches to the member id, so availability, rehearsal and RSVP rows keyed by member id carry over; a signed-in session becomes another way to resolve the viewer alongside the device token.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers sign-in callback handling, session expiry, and linking.

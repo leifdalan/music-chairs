@@ -2,6 +2,7 @@ import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member } from "~/.server/store";
+import { SlotFields } from "~/components/slot-fields";
 import {
   addDays,
   describeSlot,
@@ -187,99 +188,13 @@ function SlotForm({
     startTime: editing ? timeInputValue(editing.startMinute) : "",
     endTime: editing ? timeInputValue(editing.endMinute) : "",
   };
-  const errors = actionData?.errors ?? {};
-  const error = (name: keyof SlotFormValues) =>
-    errors[name] ? (
-      <p className="field-error" id={`${name}-error`} role="alert">
-        {errors[name]}
-      </p>
-    ) : null;
-  const described = (name: keyof SlotFormValues, hint?: string) =>
-    errors[name] ? `${name}-error` : hint;
   return (
     <section aria-labelledby="slot-form-heading">
       <h2 id="slot-form-heading">{editing ? "Change a time" : "Add a time"}</h2>
       <Form method="post" className="stack slot-form" replace>
         <input type="hidden" name="intent" value={editing ? "update" : "create"} />
         {editing ? <input type="hidden" name="slotId" value={editing.id} /> : null}
-        <fieldset className="kind" aria-describedby={described("kind")}>
-          <legend>How often</legend>
-          <label>
-            <input
-              type="radio"
-              name="kind"
-              value="weekly"
-              defaultChecked={values.kind !== "once"}
-            />
-            Every week
-          </label>
-          <label>
-            <input type="radio" name="kind" value="once" defaultChecked={values.kind === "once"} />
-            One-off
-          </label>
-          {error("kind")}
-        </fieldset>
-        <div className="field">
-          <label htmlFor="startDate">Date</label>
-          <input
-            id="startDate"
-            name="startDate"
-            type="date"
-            required
-            defaultValue={values.startDate}
-            aria-invalid={errors.startDate ? true : undefined}
-            aria-describedby={described("startDate", "startDate-hint")}
-          />
-          <p className="hint" id="startDate-hint">
-            For every week, the first date; it repeats on that weekday.
-          </p>
-          {error("startDate")}
-        </div>
-        <div className="time-pair">
-          <div className="field">
-            <label htmlFor="startTime">From</label>
-            <input
-              id="startTime"
-              name="startTime"
-              type="time"
-              step={1800}
-              required
-              defaultValue={values.startTime}
-              aria-invalid={errors.startTime ? true : undefined}
-              aria-describedby={described("startTime")}
-            />
-            {error("startTime")}
-          </div>
-          <div className="field">
-            <label htmlFor="endTime">Until</label>
-            <input
-              id="endTime"
-              name="endTime"
-              type="time"
-              step={1800}
-              required
-              defaultValue={values.endTime}
-              aria-invalid={errors.endTime ? true : undefined}
-              aria-describedby={described("endTime", "endTime-hint")}
-            />
-            <p className="hint" id="endTime-hint">
-              :00 or :30. Use 00:00 for midnight.
-            </p>
-            {error("endTime")}
-          </div>
-        </div>
-        <div className="field weekly-only">
-          <label htmlFor="endDate">Last date (optional, every week only)</label>
-          <input
-            id="endDate"
-            name="endDate"
-            type="date"
-            defaultValue={values.endDate}
-            aria-invalid={errors.endDate ? true : undefined}
-            aria-describedby={described("endDate")}
-          />
-          {error("endDate")}
-        </div>
+        <SlotFields values={values} errors={actionData?.errors ?? {}} />
         <button type="submit" disabled={busy}>
           {editing ? "Save changes" : "Add time"}
         </button>

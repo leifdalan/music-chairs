@@ -54,7 +54,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
   const { group, organizer } = getStore().createGroup(groupName.value, displayName.value, timeZone);
   return redirect(`/g/${group.id}`, {
-    headers: { "Set-Cookie": await rememberMembership(request, group.id, organizer.id) },
+    headers: { "Set-Cookie": await rememberMembership(request, group.id, organizer.deviceToken) },
   });
 }
 

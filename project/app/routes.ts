@@ -4,5 +4,6 @@ export default [
   index("routes/home.tsx"),
   route("g/:groupId", "routes/group.tsx"),
   route("g/:groupId/availability", "routes/availability.tsx"),
+  route("g/:groupId/schedule", "routes/schedule.tsx"),
   route("join/:inviteToken", "routes/join.tsx"),
 ] satisfies RouteConfig;

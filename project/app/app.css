@@ -321,3 +321,106 @@ button.small {
 .occurrences li {
   border-bottom: 1px solid var(--border);
 }
+
+/* Group page */
+
+.group-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.members li {
+  flex-wrap: wrap;
+}
+
+.member-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* Schedule */
+
+.days,
+.stretches,
+.rehearsals,
+.warnings {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.days > li {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+
+.days h3 {
+  font-size: 1rem;
+  margin: 0.25rem 0;
+}
+
+.stretch {
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0;
+  border-left: 4px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--panel);
+}
+
+.stretch.everyone {
+  border-left-color: var(--accent);
+}
+
+.stretch p {
+  margin: 0;
+}
+
+.stretch-time {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 600;
+}
+
+.stretch-count {
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.propose-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.rehearsal {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rehearsal.proposed .slot-summary::after {
+  content: " (proposed)";
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.rehearsal .hint {
+  margin: 0 0 0.5rem;
+}
+
+.warnings {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+.end-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}

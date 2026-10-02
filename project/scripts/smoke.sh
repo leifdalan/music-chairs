@@ -1,7 +1,8 @@
 #!/bin/bash
 # Production-build smoke: builds the app, serves it with a throwaway database,
-# and checks the create → invite → join path, adding availability, not-found
-# pages, and that data survives a real server restart. Usage: scripts/smoke.sh [port] (default 3917).
+# and checks the create → invite → join path, adding availability, proposing
+# and confirming a rehearsal, not-found pages, and that data survives a real
+# server restart. Usage: scripts/smoke.sh [port] (default 3917).
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -98,6 +99,39 @@ availability_ok() {
 availability_ok || fail "availability page does not list the weekly time"
 echo "  weekly time listed on the availability page"
 
+echo "+ propose and confirm a rehearsal"
+# A Thursday about ten weeks ahead, so the proposal is never in the past; Node
+# does the date arithmetic because BSD and GNU date disagree.
+dates="$(corepack pnpm exec node -e '
+  const day = new Date(Date.now() + 70 * 86400000);
+  day.setUTCDate(day.getUTCDate() + ((4 - day.getUTCDay() + 7) % 7));
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  console.log(day.toISOString().slice(0, 10) + " " + day.getUTCDate() + " " + months[day.getUTCMonth()]);
+')"
+rehearsal_date="${dates%% *}"
+rehearsal_label="${dates#* }"
+[ -n "$rehearsal_date" ] || fail "could not compute the rehearsal date"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
+  --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
+  --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \
+  --data-urlencode "endTime=21:30" --data-urlencode "location=Studio B")"
+[ "$code" = 302 ] || fail "proposing a rehearsal returned HTTP $code"
+rehearsal="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
+  grep -o 'name="intent" value="confirm"/><input type="hidden" name="rehearsalId" value="[A-Za-z0-9_-]\{22\}"' |
+  grep -o '[A-Za-z0-9_-]\{22\}' | head -1)"
+[ -n "$rehearsal" ] || fail "schedule page shows no confirm button for the proposed rehearsal"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
+  --data-urlencode "intent=confirm" --data-urlencode "rehearsalId=$rehearsal")"
+[ "$code" = 302 ] || fail "confirming the rehearsal returned HTTP $code"
+schedule_ok() {
+  curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
+  grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 19:30–21:30" "$work/schedule.html" &&
+    grep -q "At Studio B" "$work/schedule.html" &&
+    grep -q "1 of 1 free" "$work/schedule.html"
+}
+schedule_ok || fail "schedule page does not show the confirmed rehearsal and the overlap"
+echo "  confirmed weekly rehearsal and overlap listed on the schedule page"
+
 for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"
   [ "$code" = 404 ] || fail "$path returned HTTP $code"
@@ -113,6 +147,7 @@ start_server
 curl -s -H "Cookie: $cookie" "$origin$location" | grep -q "Viola" || fail "group page lost its organizer after restart"
 curl -s "$invite" | grep -q "Thursday Quartet" || fail "invite link stopped working after restart"
 availability_ok || fail "availability lost after restart"
-echo "  group, organizer, invite link and availability present after restart"
+schedule_ok || fail "rehearsal lost after restart"
+echo "  group, organizer, invite link, availability and rehearsal present after restart"
 
 echo "SMOKE PASS"

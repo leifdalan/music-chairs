@@ -4,8 +4,19 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { isToken, openStore, type Store } from "../app/.server/store";
+import { isToken, openStore, type Member, type NewMember, type Store } from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
+
+/** A new member as every later read returns it: without the device token. */
+function withoutToken(member: NewMember): Member {
+  return {
+    id: member.id,
+    groupId: member.groupId,
+    displayName: member.displayName,
+    role: member.role,
+    optional: member.optional,
+  };
+}
 
 const opened: Store[] = [];
 const tempDirs: string[] = [];
@@ -27,7 +38,7 @@ describe("store", () => {
     const { group, organizer } = store.createGroup("Thursday Quartet", "Viola", "Europe/London");
 
     expect(store.findGroup(group.id)).toEqual(group);
-    expect(store.listMembers(group.id)).toEqual([organizer]);
+    expect(store.listMembers(group.id)).toEqual([withoutToken(organizer)]);
     expect(store.findGroup(group.id)?.timeZone).toBe("Europe/London");
     expect(organizer).toMatchObject({ groupId: group.id, displayName: "Viola", role: "organizer" });
   });
@@ -57,7 +68,7 @@ describe("store", () => {
     const cellist = store.addMember(group.id, "Cellist", "member");
     const second = store.addMember(group.id, "Pianist", "organizer");
 
-    expect(store.listMembers(group.id)).toEqual([organizer, cellist, second]);
+    expect(store.listMembers(group.id)).toEqual([organizer, cellist, second].map(withoutToken));
     expect(store.findMember(group.id, second.id)?.role).toBe("organizer");
   });
 
@@ -66,7 +77,9 @@ describe("store", () => {
     const first = store.createGroup("First", "Viola", "Europe/London");
     const second = store.createGroup("Second", "Cello", "Europe/London");
 
-    expect(store.findMember(first.group.id, first.organizer.id)).toEqual(first.organizer);
+    expect(store.findMember(first.group.id, first.organizer.id)).toEqual(
+      withoutToken(first.organizer),
+    );
     expect(store.findMember(second.group.id, first.organizer.id)).toBeNull();
   });
 
@@ -191,5 +204,105 @@ describe("availability store", () => {
     expect(() => store.addSlot(viola.id, { ...thursdays, endMinute: 18 * 60 })).toThrow();
     expect(() => store.addSlot(viola.id, { ...thursdays, endDate: "2026-09-01" })).toThrow();
     expect(store.listSlots(viola.id)).toEqual([]);
+  });
+});
+
+describe("members, privacy and roles", () => {
+  it("keeps device tokens out of every member read and finds members by token in their group", () => {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Other", "Drums", "Europe/London");
+
+    expect(isToken(organizer.deviceToken)).toBe(true);
+    expect(organizer.deviceToken).not.toBe(organizer.id);
+    expect(Object.keys(store.listMembers(group.id)[0])).not.toContain("deviceToken");
+    expect(store.findMemberByDevice(group.id, organizer.deviceToken)?.id).toBe(organizer.id);
+    expect(store.findMemberByDevice(other.group.id, organizer.deviceToken)).toBeNull();
+    expect(store.findMemberByDevice(group.id, organizer.id)).toBeNull();
+  });
+
+  it("tags members optional and switches the group's privacy setting", () => {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+
+    expect(store.findGroup(group.id)?.showNames).toBe(false);
+    store.setShowNames(group.id, true);
+    expect(store.setOptional(group.id, organizer.id, true)).toBe(true);
+
+    expect(store.findGroup(group.id)?.showNames).toBe(true);
+    expect(store.findMember(group.id, organizer.id)?.optional).toBe(true);
+    expect(store.setOptional(group.id, "Z".repeat(22), true)).toBe(false);
+  });
+
+  it("changes roles but never leaves a group without an organizer", () => {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const cello = store.addMember(group.id, "Cello", "member");
+
+    expect(store.setRole(group.id, organizer.id, "member")).toBe("last-organizer");
+    expect(store.setRole(group.id, cello.id, "organizer")).toBe("changed");
+    expect(store.setRole(group.id, organizer.id, "member")).toBe("changed");
+    expect(store.setRole(group.id, cello.id, "member")).toBe("last-organizer");
+    expect(store.setRole(group.id, "Z".repeat(22), "member")).toBe("unknown");
+  });
+
+  it("reads every member's availability in a group, and only that group", () => {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const cello = store.addMember(group.id, "Cello", "member");
+    const other = store.createGroup("Other", "Drums", "Europe/London");
+    store.addSlot(organizer.id, thursdays);
+    store.addSlot(cello.id, { ...thursdays, kind: "once", startDate: "2026-10-10" });
+    store.addSlot(other.organizer.id, thursdays);
+
+    const slots = store.listGroupSlots(group.id);
+
+    expect([...slots.keys()].sort()).toEqual([organizer.id, cello.id].sort());
+    expect(slots.get(cello.id)?.[0]).toMatchObject({ kind: "once", startDate: "2026-10-10" });
+  });
+});
+
+describe("rehearsals store", () => {
+  it("proposes, confirms, ends and deletes rehearsals within their group", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Other", "Drums", "Europe/London");
+
+    const weekly = store.addRehearsal(group.id, thursdays, "Studio B");
+    expect(store.findRehearsal(group.id, weekly.id)).toMatchObject({
+      status: "proposed",
+      location: "Studio B",
+    });
+    expect(store.confirmRehearsal(other.group.id, weekly.id)).toBe(false);
+    expect(store.confirmRehearsal(group.id, weekly.id)).toBe(true);
+    expect(store.findRehearsal(group.id, weekly.id)?.status).toBe("confirmed");
+
+    store.setCancelled(group.id, weekly.id, "2026-10-08", true);
+    store.setCancelled(group.id, weekly.id, "2026-10-29", true);
+    const ended = store.endRehearsal(group.id, weekly.id, "2026-10-22");
+    expect(ended).toMatchObject({
+      endDate: "2026-10-22",
+      status: "confirmed",
+      skips: ["2026-10-08"],
+    });
+    expect(store.endRehearsal(group.id, weekly.id, "2026-09-01")).toBeNull();
+
+    expect(store.listRehearsals(other.group.id)).toEqual([]);
+    expect(store.deleteRehearsal(other.group.id, weekly.id)).toBe(false);
+    expect(store.deleteRehearsal(group.id, weekly.id)).toBe(true);
+    expect(store.listRehearsals(group.id)).toEqual([]);
+  });
+
+  it("cancels only dates the rehearsal meets, and refuses to end a one-off", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const weekly = store.addRehearsal(group.id, thursdays, "");
+    const once = store.addRehearsal(group.id, { ...thursdays, kind: "once" }, "");
+
+    expect(store.setCancelled(group.id, weekly.id, "2026-10-09", true)).toBe(false);
+    expect(store.setCancelled(group.id, weekly.id, "2026-10-08", true)).toBe(true);
+    expect(store.setCancelled(group.id, weekly.id, "2026-10-08", false)).toBe(true);
+    expect(store.findRehearsal(group.id, weekly.id)?.skips).toEqual([]);
+    expect(store.endRehearsal(group.id, once.id, "2026-10-22")).toBeNull();
   });
 });

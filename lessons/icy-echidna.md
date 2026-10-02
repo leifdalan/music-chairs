@@ -9,6 +9,8 @@ source: kickoff
 occurrences:
   - date: 2026-10-02
     ref: "Phase 2 END"
+  - date: 2026-10-02
+    ref: "Phase 3 END"
 ---
 
 Phase 2 was a bootstrap sketch whose deliverables included decisions the brief left as open questions (recurrence lifetime, exceptions, time zones) and a User Demo "to be tightened at phase start". These are product decisions only the operator owns, and they shape the data model. Asking them once, right after preflight and before the 🚧 flip and authority capture, let the rulings be written into the phase file before the run hashed it, so there was no mid-run park, no authority-drift refusal and no planner guesswork.

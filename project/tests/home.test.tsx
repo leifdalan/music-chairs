@@ -68,7 +68,9 @@ describe("home route", () => {
     const memberships = await readMemberships(
       new Request("http://music-chairs.test/", { headers: { Cookie: cookieFrom(created) } }),
     );
-    expect(memberships).toEqual({ [groupId]: organizer.id });
+    expect(Object.keys(memberships)).toEqual([groupId]);
+    expect(getStore().findMemberByDevice(groupId, memberships[groupId])?.id).toBe(organizer.id);
+    expect(memberships[groupId]).not.toBe(organizer.id);
   });
 
   it.each([

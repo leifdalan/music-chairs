@@ -47,8 +47,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 |------------------------|--------------------------------------------------------------------|--------|
 | [Phase 1](phase-1.md)  | Groups, invite links and name-only joining                         | ✅     |
 | [Phase 2](phase-2.md)  | Availability entry: one-off and recurring                          | ✅     |
-| [Phase 3](phase-3.md)  | Combined availability and confirming rehearsal times               | ⬅️     |
-| [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ⏳     |
+| [Phase 3](phase-3.md)  | Combined availability and confirming rehearsal times               | ✅     |
+| [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ⬅️     |
 | [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ⏳     |
 | [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ⏳     |
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ⏳     |
@@ -58,6 +58,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 Every phase row carries exactly one recognized status. An idle incomplete
 project has exactly one `⬅️`; active work may have zero while its executable
 row is `🚧`; a complete project has zero; more than one is always invalid.
+
+**Deferred-work note (operator decision, 2026-10-02).** Role rules ("at least one of our two keyboardists", brief "Choosing rehearsal times") are deferred out of Phase 3, which ships optional-member tags instead (everyone else counts as required). Not operative during Phase 3; superseded when a later phase is planned to add them or the operator drops them from v1.
 
 ## Methodology work is not phase work
 

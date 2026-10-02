@@ -2,10 +2,9 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { rememberMembership } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import Availability, { action, loader } from "../app/routes/availability";
-import { ORIGIN, routeArgs, tempDatabase, thrownBy } from "./routes";
+import { deviceCookie, routeArgs, tempDatabase, thrownBy } from "./routes";
 
 const count = tempDatabase();
 
@@ -29,10 +28,6 @@ const weekly = {
   endTime: "22:00",
 };
 
-async function deviceCookie(groupId: string, memberId: string): Promise<string> {
-  return (await rememberMembership(new Request(ORIGIN), groupId, memberId)).split(";")[0];
-}
-
 async function band() {
   const store = getStore();
   const { group, organizer } = store.createGroup("Thursday Quartet", "Viola", "Europe/London");
@@ -41,8 +36,8 @@ async function band() {
     group,
     organizer,
     cellist,
-    cookie: await deviceCookie(group.id, organizer.id),
-    cellistCookie: await deviceCookie(group.id, cellist.id),
+    cookie: await deviceCookie(group.id, organizer.deviceToken),
+    cellistCookie: await deviceCookie(group.id, cellist.deviceToken),
   };
 }
 
@@ -197,8 +192,8 @@ describe("availability route", () => {
   it("writes nothing for a visitor or a cookie naming another group's member", async () => {
     const { group, organizer } = await band();
     const other = await band();
-    const forged = await deviceCookie(group.id, other.organizer.id);
-    await post(group.id, await deviceCookie(group.id, organizer.id), {
+    const forged = await deviceCookie(group.id, other.organizer.deviceToken);
+    await post(group.id, await deviceCookie(group.id, organizer.deviceToken), {
       intent: "create",
       ...weekly,
     });

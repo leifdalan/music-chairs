@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll } from "vitest";
 
+import { rememberMembership } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 
 export const ORIGIN = "http://music-chairs.test";
@@ -54,7 +55,13 @@ export async function thrownBy(promise: Promise<unknown>): Promise<unknown> {
  * route call in a test file (Vitest gives each file its own module graph).
  * The directory is removed after the file's tests finish.
  */
-type Table = "groups" | "members" | "availability" | "availability_skips";
+type Table =
+  | "groups"
+  | "members"
+  | "availability"
+  | "availability_skips"
+  | "rehearsals"
+  | "rehearsal_cancellations";
 
 export function tempDatabase(): (table: Table) => number {
   const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -73,4 +80,9 @@ export function tempDatabase(): (table: Table) => number {
       db.close();
     }
   };
+}
+
+/** A Cookie header for a device whose token is `deviceToken` in `groupId`. */
+export async function deviceCookie(groupId: string, deviceToken: string): Promise<string> {
+  return (await rememberMembership(new Request(ORIGIN), groupId, deviceToken)).split(";")[0];
 }

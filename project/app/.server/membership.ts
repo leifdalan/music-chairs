@@ -4,8 +4,8 @@ import { getStore, type Group, type Member } from "./store";
 
 type Memberships = Record<string, string>;
 
-// Which member this device is in each group: group id → member id. Unsigned on
-// purpose: member ids are unguessable and never sent to the browser in page
+// Which member this device is in each group: group id → device token. Unsigned
+// on purpose: device tokens are unguessable, never sent to the browser in page
 // data, and the brief leaves name-only impersonation to social contract.
 // `Secure` is added when the app is served over TLS (Phase 5).
 const membershipCookie = createCookie("mc_members", {
@@ -15,7 +15,7 @@ const membershipCookie = createCookie("mc_members", {
   maxAge: 60 * 60 * 24 * 400,
 });
 
-/** The group → member map this device carries; empty when absent or unreadable. */
+/** The group → device token map this device carries; empty when absent or unreadable. */
 export async function readMemberships(request: Request): Promise<Memberships> {
   const value: unknown = await membershipCookie.parse(request.headers.get("Cookie"));
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -30,14 +30,14 @@ export async function readMemberships(request: Request): Promise<Memberships> {
 export async function rememberMembership(
   request: Request,
   groupId: string,
-  memberId: string,
+  deviceToken: string,
 ): Promise<string> {
   const memberships = await readMemberships(request);
-  return membershipCookie.serialize({ ...memberships, [groupId]: memberId });
+  return membershipCookie.serialize({ ...memberships, [groupId]: deviceToken });
 }
 
 /** The member this device is in `group`, or null for a visitor or a stale entry. */
 export async function findViewer(request: Request, group: Group): Promise<Member | null> {
-  const memberId = (await readMemberships(request))[group.id];
-  return memberId ? getStore().findMember(group.id, memberId) : null;
+  const deviceToken = (await readMemberships(request))[group.id];
+  return deviceToken ? getStore().findMemberByDevice(group.id, deviceToken) : null;
 }

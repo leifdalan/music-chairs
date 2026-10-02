@@ -43,7 +43,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   const member = getStore().addMember(group.id, displayName.value, "member");
   return redirect(`/g/${group.id}`, {
-    headers: { "Set-Cookie": await rememberMembership(request, group.id, member.id) },
+    headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
 }
 

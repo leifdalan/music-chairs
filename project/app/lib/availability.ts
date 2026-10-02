@@ -30,6 +30,19 @@ export type SlotErrors = Partial<Record<keyof SlotFormValues, string>>;
 export type SlotParse =
   { ok: true; value: SlotInput } | { ok: false; errors: SlotErrors; values: SlotFormValues };
 
+export const LOCATION_MAX = 120;
+
+/** A rehearsal's free-text location: trimmed, may be empty, capped in code points. */
+export function validateLocation(
+  raw: unknown,
+): { ok: true; value: string } | { ok: false; error: string } {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (Array.from(value).length > LOCATION_MAX) {
+    return { ok: false, error: `Location must be at most ${LOCATION_MAX} characters.` };
+  }
+  return { ok: true, value };
+}
+
 /** Occurrences are listed from today for this many weeks. */
 export const UPCOMING_WEEKS = 8;
 
