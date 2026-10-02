@@ -1,0 +1,74 @@
+// Helpers for calling route loaders and actions directly, as React Router's
+// server does, without a browser or HTTP server.
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { afterAll } from "vitest";
+
+import { getStore } from "../app/.server/store";
+
+export const ORIGIN = "http://music-chairs.test";
+
+/** Loader/action arguments for `path`, with optional cookie and form fields. */
+export function routeArgs<P>(
+  path: string,
+  params: P,
+  options: { cookie?: string; form?: Record<string, string> } = {},
+) {
+  const headers = new Headers();
+  if (options.cookie) headers.set("Cookie", options.cookie);
+  const init: RequestInit = { headers };
+  if (options.form) {
+    init.method = "POST";
+    init.body = new URLSearchParams(options.form);
+  }
+  return {
+    request: new Request(new URL(path, ORIGIN), init),
+    params,
+    context: {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- route Args types carry router internals
+  } as any;
+}
+
+/** The `name=value` pair from a response's `Set-Cookie`, ready for a `Cookie` header. */
+export function cookieFrom(response: Response): string {
+  const setCookie = response.headers.get("Set-Cookie");
+  if (!setCookie) throw new Error("response sets no cookie");
+  return setCookie.split(";")[0];
+}
+
+/** The value a promise rejects with; fails if it resolves. */
+export async function thrownBy(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error) {
+    return error;
+  }
+  throw new Error("expected the call to throw");
+}
+
+/**
+ * Points the app's store at a fresh temporary database file and returns a row
+ * counter that reads it through a separate connection. Call before the first
+ * route call in a test file (Vitest gives each file its own module graph).
+ * The directory is removed after the file's tests finish.
+ */
+export function tempDatabase(): (table: "groups" | "members") => number {
+  const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
+  const filename = join(dir, "test.sqlite");
+  process.env.MUSIC_CHAIRS_DB = filename;
+  afterAll(() => {
+    getStore().close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return (table) => {
+    const db = new DatabaseSync(filename);
+    try {
+      const row = db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number };
+      return row.count;
+    } finally {
+      db.close();
+    }
+  };
+}

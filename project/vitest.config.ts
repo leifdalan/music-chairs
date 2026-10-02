@@ -10,6 +10,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Each test file gets a private in-memory database unless it points the
+    // store at a file of its own (see tests/routes.ts).
+    env: { MUSIC_CHAIRS_DB: ":memory:" },
     include: ["tests/**/*.test.{ts,tsx}"],
   },
 });

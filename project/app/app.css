@@ -1,0 +1,191 @@
+/* Mobile-first: one centered column that reads at phone width and on a laptop. */
+
+:root {
+  color-scheme: light dark;
+  --text: #1d1d1f;
+  --muted: #5f5f66;
+  --surface: #ffffff;
+  --panel: #f3f3f6;
+  --border: #c9c9d1;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --error: #b3261e;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f2f2f5;
+    --muted: #a8a8b3;
+    --surface: #16161a;
+    --panel: #24242b;
+    --border: #4a4a55;
+    --accent: #7c9dff;
+    --accent-text: #0d0d12;
+    --error: #ff8a80;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.site-header,
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.site-header a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Long unbroken names wrap rather than widening the page at phone width. */
+main {
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.eyebrow,
+.hint {
+  color: var(--muted);
+}
+
+.eyebrow {
+  margin-bottom: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+label {
+  font-weight: 600;
+}
+
+/* 16px inputs keep iOS Safari from zooming on focus. */
+input,
+button {
+  font: inherit;
+  font-size: 1rem;
+  width: 100%;
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+}
+
+input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+button {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--error);
+}
+
+.notice,
+.invite {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.invite {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.invite h2,
+.invite p {
+  margin: 0;
+}
+
+.members {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.members li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.role {
+  flex: none;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.role-organizer {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (min-width: 48rem) {
+  .site-header,
+  main {
+    padding: 1.5rem 0;
+  }
+
+  button {
+    width: auto;
+    padding: 0 1.5rem;
+  }
+}
