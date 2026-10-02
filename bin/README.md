@@ -18,13 +18,16 @@
 
 `./bin/check-candidate-partition` validates the live declaration and every tracked path. `./bin/check-candidate-partition --staged` validates indexed declaration bytes against the complete index. Missing, malformed, or incomplete classification exits nonzero; a valid declaration reports its digest and tracked-path count. The declaration format and review boundary are owned by [orchestration evidence](../policies/orchestration-evidence.md). The checker runs in the policy gate and opt-in commit hook; it does not install hooks or mutate Git configuration.
 
-### `setup` — provision the pinned, locked environment
+### `setup` — provision the pinned, locked environments
 
-Validates the `uv` prerequisite and the complete Python profile, then
-synchronizes the selected interpreter and exact locked dependencies. Before
-reporting success it imports the example package and pytest and runs
-`ruff --version` inside that environment. It works from any current directory
-and refuses a stale or missing lockfile.
+Validates the `uv` and `corepack` prerequisites and both profiles, then
+synchronizes the governance environment in `tooling/` (`uv sync --locked`) and
+installs the deliverable in `project/` (`pnpm install --frozen-lockfile`, with
+the pnpm version `project/package.json` pins). Before reporting success it
+probes each: pytest, PyYAML and `ruff --version` in `tooling/`; React Router,
+React's server renderer and every gate tool on the selected Node in
+`project/`. It works from any current directory and refuses a stale or missing
+lockfile.
 
 ```bash
 ./bin/setup
@@ -32,12 +35,15 @@ and refuses a stale or missing lockfile.
 
 ### `test` — full or focused repository tests
 
-With no arguments, runs the deliverable tests and root methodology tests.
-Arguments are forwarded to pytest from the repository root, so focused paths
-are stable from any caller directory.
+With no arguments, runs the deliverable's Vitest suite and then the root
+pytest suite; a Vitest failure stops the run with its exact status. Focused
+paths choose the runner: `project/...` goes to Vitest with the `project/`
+prefix removed, `tests/...` goes to pytest from the repository root, and an
+invocation naming both, or neither, is a usage error.
 
 ```bash
 ./bin/test
+./bin/test project/tests/site.test.ts
 ./bin/test tests/test_check.py -q
 ./bin/test --vital
 ./bin/test --changed-from HEAD~1
@@ -46,7 +52,8 @@ are stable from any caller directory.
 The governed lanes use the recipient-local `tests/proof-estate.yaml`. Vital
 runs every locally admitted fast family; changed runs the union of every family
 mapped to the live diff. Invalid governance, an unresolved ref, or an unmapped
-code path widens to the full suite; mapped code also selects the families of files that name it. The changed-path selection is the implementation-candidate gate; the handoff gate is the full `bin/check all`.
+code path widens to the full suite, and every change under `project/` is
+unmapped, so it always runs both suites; mapped code also selects the families of files that name it. The changed-path selection is the implementation-candidate gate; the handoff gate is the full `bin/check all`.
 
 ### `python` — repository-selected Python
 
@@ -60,7 +67,7 @@ requested command.
 ./bin/python -c 'print("hello")'
 ```
 
-The managed interpreter from `project/.python-version` is the default. To test
+The managed interpreter from `tooling/.python-version` is the default. To test
 one specific interpreter deliberately, set an executable absolute path:
 
 ```bash
@@ -69,13 +76,37 @@ TOOLCHAIN_PYTHON=/absolute/path/to/python ./bin/check all
 
 That override is authoritative. An invalid path, incompatible interpreter, or
 failed dependency probe stops the command; no managed or ambient fallback is
-tried. Select a base interpreter outside `project/.venv`; an interpreter inside
+tried. Select a base interpreter outside `tooling/.venv`; an interpreter inside
 the environment uv manages is rejected before synchronization can replace it.
+
+### `node` — repository-selected Node
+
+Runs the Node runtime the deliverable's gates use, after the same
+dependency-chain probe. The default is the Node `project/package.json` pins
+under `devEngines.runtime`, installed by pnpm as `project/node_modules/node` and
+locked by integrity in `project/pnpm-lock.yaml`; no `node` on `PATH` is used.
+
+```bash
+./bin/node --version
+```
+
+`TOOLCHAIN_NODE=/absolute/path/to/node` is the authoritative override, on the
+same terms as `TOOLCHAIN_PYTHON`: an invalid path, an unusable runtime, or a
+failed probe stops the command with no fallback, and a runtime inside
+`project/node_modules` is refused because installation may replace it.
+
+### `_node-toolchain` — shared Node resolver, launcher and probe
+
+Source-only helper used by `setup`, `test`, `check`, and `node`. It requires
+`corepack`, launches the pinned pnpm from inside `project/` (where corepack
+reads the pin), selects the managed Node or the authoritative override, runs
+each gate tool's declared entry file on that runtime, and probes the
+deliverable's dependency chain. It is not invoked directly.
 
 ### `_python-toolchain` — shared runtime resolver and probe
 
-Source-only helper used by `setup`, `test`, `check`, and `python`. It validates
-the Python bundle, resolves the managed default or authoritative override, and
+Source-only helper used by `setup`, `test`, `check`, `python`, and
+`test-governance`. It validates the governance environment's Python bundle, resolves the managed default or authoritative override, and
 runs the real project-and-tool dependency probe with the same selection
 arguments used by the eventual command. It is part of the atomic toolchain
 contract and is not invoked directly.
@@ -87,7 +118,10 @@ resolves the repo root from its own location, validates the complete toolchain
 bundle, probes the selected locked environment, then runs the selected named
 mode with the identical runtime selection.
 Its `test` mode delegates to `bin/test`. `all` runs lint, format verification,
-tests, and deterministic policy checks in order. Child failures retain their
+tests, and deterministic policy checks in order. `lint` runs ruff over the
+governance code, ESLint over the deliverable, and React Router type generation
+plus `tsc`; `format` runs `ruff format --check` and `prettier --check`. Each
+sub-gate reports its own line and each mode ends with one `CHECK <mode> PASS`. Child failures retain their
 exact status and emit a terminal `CHECK <name> FAIL`; success ends with
 `CHECK ALL PASS`. Every `all` run also captures a complete durable log and
 terminal run metadata under `.kickoff/check-all/`; success stores a receipt
@@ -175,10 +209,11 @@ Internal manager used by `bin/check all` and the pre-push hook. It identifies
 the complete candidate through `kickoff-tree-id`, records running and terminal
 metadata plus the full gate log, and writes a reusable success receipt only
 after the candidate, environment, and durable artifacts verify. Its environment
-descriptor comes through `bin/python`, so the implementation, actual version,
-resolved executable and base-executable identities and digests, platform, and
-uv version describe the runtime that ran the gate rather than the standalone
-receipt helper. Candidate and environment identities remain separate; no venv
+descriptor comes through `bin/python` and `bin/node`, so the Python
+implementation, actual version, resolved executable and base-executable
+identities and digests, platform and uv version, and the Node executable
+identity and digest, version, platform and pnpm version, describe the runtimes
+that ran the gate rather than the standalone receipt helper. Candidate and environment identities remain separate; no venv
 or external runtime tree is added to the candidate hash. Pre-push reuse
 additionally requires a clean tree and every non-deleted pushed ref to equal
 `HEAD`; any miss, malformed record, descriptor failure, corruption, or query
@@ -283,7 +318,7 @@ Watcher diagnostics distinguish requested `model`/`effort` from optional `harnes
 
 Behavioral coverage lives in `tests/test_kickoff_config.py`; `./bin/check all`
 lints and format-checks the manager and runs its tests alongside the canonical
-gate/hook tests and isolated example package tests.
+gate/hook tests and the deliverable's tests.
 
 The watcher records child-process status, fresh artifact status, and terminal
 event-stream completeness independently. Ordinary success requires all three.
