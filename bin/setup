@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Provision the repository's locked development environments.
+
+set -euo pipefail
+
+entrypoint_path="${BASH_SOURCE[0]}"
+while [[ -L "$entrypoint_path" ]]; do
+  entrypoint_dir="$(cd "$(dirname "$entrypoint_path")" && pwd)"
+  entrypoint_path="$(readlink "$entrypoint_path")"
+  [[ "$entrypoint_path" == /* ]] || entrypoint_path="$entrypoint_dir/$entrypoint_path"
+done
+repo_root="$(cd "$(dirname "$entrypoint_path")/.." && pwd)"
+python_project_root="$repo_root/tooling"
+node_project_root="$repo_root/project"
+
+usage() {
+  cat <<'USAGE'
+Usage: ./bin/setup
+
+Provision the repository's pinned, locked development environments: the
+governance environment in tooling/ and the deliverable in project/.
+USAGE
+}
+
+if [[ $# -gt 0 ]]; then
+  case "${1:-}" in
+    --help|-h)
+      if [[ $# -eq 1 ]]; then
+        usage
+        exit 0
+      fi
+      ;;
+  esac
+  usage >&2
+  exit 2
+fi
+
+for toolchain_helper in _python-toolchain _node-toolchain; do
+  if [[ ! -r "$repo_root/bin/$toolchain_helper" ]]; then
+    echo "SETUP ERROR missing required file: bin/$toolchain_helper" >&2
+    exit 1
+  fi
+  source "$repo_root/bin/$toolchain_helper"
+done
+python_toolchain_init SETUP
+node_toolchain_init SETUP
+
+fail() {
+  echo "SETUP FAIL (exit $1)" >&2
+  exit "$1"
+}
+
+echo "SETUP START"
+cd "$repo_root"
+if uv sync --project "$python_project_root" --locked "${python_toolchain_uv_args[@]}"; then
+  :
+else
+  fail $?
+fi
+if python_toolchain_probe; then
+  :
+else
+  fail $?
+fi
+if node_toolchain_pnpm install --frozen-lockfile; then
+  :
+else
+  fail $?
+fi
+if node_toolchain_probe; then
+  :
+else
+  fail $?
+fi
+echo "SETUP PASS"

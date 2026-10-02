@@ -1,0 +1,1168 @@
+# music-chairs proof estate. Generated at stamp from this repository's own inventory;
+# families, sizes, tiers and risk judgments are local. Sizes come from the first full run.
+schema: agentic.proof_estate.v3
+baseline_report: reports/test-governance/music-chairs-pre-reset-baseline.json
+audit_ledger: reports/test-governance/music-chairs-reset.jsonl
+effectiveness_corpus: tests/fixtures/test_governance/corpus.yaml
+effectiveness_report: reports/test-governance/music-chairs-effectiveness.jsonl
+effectiveness_floors:
+  min_historical_recall: 0.8
+  min_mutant_recall: 0.8
+  min_historical_cases: 0
+  min_mutant_cases: 0
+size_ceilings_seconds:
+  small: 2
+  medium: 20
+  large: 200
+time_budget:
+  test_lane_seconds: 150
+  tolerance: 0.25
+  reference_machine: null
+critical_risks:
+  custody:
+    state: applicable
+    direct_proof: pytest:tests/test_check_receipt.py::test_passed_run_is_durable_and_reusable_for_exact_clean_head
+  security:
+    state: applicable
+    direct_proof: pytest:tests/test_hermeticity.py::test_real_network_egress_fails_loudly
+  authority:
+    state: applicable
+    direct_proof: pytest:tests/test_kickoff_evidence.py::test_change_manifest_is_candidate_bound_and_detects_authority_drift
+  concurrency:
+    state: applicable
+    direct_proof: pytest:tests/test_execution_telemetry.py::test_concurrent_process_mutations_do_not_lose_spans
+  atomicity:
+    state: applicable
+    direct_proof: pytest:tests/test_kickoff_config.py::test_invalid_edit_is_atomic
+  corruption:
+    state: applicable
+    direct_proof: pytest:tests/test_kickoff_evidence.py::test_validate_detects_corrupt_evidence
+  recovery:
+    state: applicable
+    direct_proof: pytest:tests/test_execution_telemetry.py::test_lifecycle_idempotency_finalization_and_crash_recovery
+  public-contract:
+    state: applicable
+    direct_proof: gate:test
+  schema:
+    state: applicable
+    direct_proof: pytest:tests/test_test_governance.py::test_live_reset_validates
+  core-success:
+    state: applicable
+    direct_proof: pytest:tests/test_check.py::test_all_is_default_locked_ordered_and_cwd_independent
+  deploy:
+    state: not-applicable
+    rationale: music-chairs has no deployment surface yet; AWS deployment is Phase 5.
+    activation_trigger: Adding any deployment or publication command (Phase 5) makes direct deploy proof
+      mandatory.
+families:
+- id: check
+  kind: pytest
+  selectors:
+  - tests/test_check.py
+  source_paths:
+  - bin/check
+  - tests/test_check.py
+  covers:
+  - bin/check
+  - tests/test_check.py
+  contract: bin/check runs every gate in order on both runtimes, emits one summary per mode, propagates
+    child status, and rejects unformatted candidates without rewriting them.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: vital
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: check-catalogs
+  kind: pytest
+  selectors:
+  - tests/test_check_catalogs.py
+  source_paths:
+  - bin/check-catalogs
+  - tests/test_check_catalogs.py
+  covers:
+  - bin/check-catalogs
+  - tests/test_check_catalogs.py
+  contract: Catalogs, internal links, anchors, and the phase ledger stay synchronized and fail closed
+    on drift.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: check-hooks-installed
+  kind: pytest
+  selectors:
+  - tests/test_check_hooks_installed.py
+  source_paths:
+  - bin/check-hooks-installed
+  - tests/test_check_hooks_installed.py
+  covers:
+  - bin/check-hooks-installed
+  - tests/test_check_hooks_installed.py
+  contract: The opt-in hook witness reports an installed, stale, or absent hook path truthfully.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: check-plan-concreteness
+  kind: pytest
+  selectors:
+  - tests/test_check_plan_concreteness.py
+  source_paths:
+  - bin/check-plan-concreteness
+  - lib/agentic_starter/plan_artifact.py
+  - tests/test_check_plan_concreteness.py
+  covers:
+  - bin/check-plan-concreteness
+  - lib/agentic_starter/plan_artifact.py
+  - tests/test_check_plan_concreteness.py
+  contract: kickoff's pre-review check rejects plan artifacts that cite absent files or symbols.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: check-plan-delivery
+  kind: pytest
+  selectors:
+  - tests/test_check_plan_delivery.py
+  source_paths:
+  - bin/check-plan-delivery
+  - tests/test_check_plan_delivery.py
+  covers:
+  - bin/check-plan-delivery
+  - tests/test_check_plan_delivery.py
+  contract: kickoff's pre-critic check rejects an implementation missing what its plan named.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: check-receipt
+  kind: pytest
+  selectors:
+  - tests/test_check_receipt.py
+  source_paths:
+  - bin/check-receipt
+  - .githooks/pre-push
+  - tests/test_check_receipt.py
+  covers:
+  - bin/check-receipt
+  - .githooks/pre-push
+  - tests/test_check_receipt.py
+  contract: Full-gate receipts bind the exact candidate and both selected runtimes, and pre-push reuse
+    fails closed on any mismatch.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: vital
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: execution-dashboard
+  kind: pytest
+  selectors:
+  - tests/test_execution_dashboard.py
+  source_paths:
+  - bin/check-execution-dashboards
+  - bin/serve-execution-dashboard
+  - lib/agentic_starter/execution_dashboard.py
+  - reports/execution/**
+  - tests/render_execution_dashboard_fixture.py
+  - tests/test_execution_dashboard.py
+  covers:
+  - bin/check-execution-dashboards
+  - bin/serve-execution-dashboard
+  - lib/agentic_starter/execution_dashboard.py
+  - reports/execution/**
+  - tests/render_execution_dashboard_fixture.py
+  - tests/test_execution_dashboard.py
+  contract: Offline execution reports render deterministically from finalized evidence.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: execution-telemetry
+  kind: pytest
+  selectors:
+  - tests/test_execution_telemetry.py
+  source_paths:
+  - bin/execution-telemetry
+  - lib/agentic_starter/execution_telemetry.py
+  - tests/fixtures/execution_telemetry/**
+  - tests/test_execution_telemetry.py
+  covers:
+  - bin/execution-telemetry
+  - lib/agentic_starter/execution_telemetry.py
+  - tests/fixtures/execution_telemetry/**
+  - tests/test_execution_telemetry.py
+  contract: The append-only execution trace keeps exact spans, joins, park intervals, and crash recovery.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hermeticity
+  kind: pytest
+  selectors:
+  - tests/test_hermeticity.py
+  source_paths:
+  - tests/conftest.py
+  - tests/test_hermeticity.py
+  covers:
+  - tests/conftest.py
+  - tests/test_hermeticity.py
+  contract: The root suite's network-egress guard is armed and fails a test that reaches a nonlocal host.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: vital
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: install-hooks
+  kind: pytest
+  selectors:
+  - tests/test_install_hooks.py
+  source_paths:
+  - bin/install-hooks
+  - tests/test_install_hooks.py
+  covers:
+  - bin/install-hooks
+  - tests/test_install_hooks.py
+  contract: Hook installation is explicit, opt-in, and idempotent.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: kickoff-config
+  kind: pytest
+  selectors:
+  - tests/test_kickoff_config.py
+  source_paths:
+  - bin/kickoff-config
+  - kickoff.yaml
+  - tests/fixtures/kickoff_config_seed.yaml
+  - tests/test_kickoff_config.py
+  covers:
+  - bin/kickoff-config
+  - kickoff.yaml
+  - tests/fixtures/kickoff_config_seed.yaml
+  - tests/test_kickoff_config.py
+  contract: kickoff.yaml edits are validated, atomic, comment-preserving, and drive routing, preflight,
+    and timeouts.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: kickoff-control-plane
+  kind: pytest
+  selectors:
+  - tests/test_kickoff_control_plane.py
+  source_paths:
+  - bin/kickoff-command-zero
+  - lib/agentic_starter/kickoff_runbook.py
+  - lib/agentic_starter/workflow.py
+  - lib/agentic_starter/advisory.py
+  - tests/test_kickoff_control_plane.py
+  covers:
+  - bin/kickoff-command-zero
+  - lib/agentic_starter/kickoff_runbook.py
+  - lib/agentic_starter/workflow.py
+  - lib/agentic_starter/advisory.py
+  - tests/test_kickoff_control_plane.py
+  contract: Command admission, command zero, workflow routing, and advisory evidence follow the control-plane
+    contract.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: kickoff-evidence
+  kind: pytest
+  selectors:
+  - tests/test_kickoff_evidence.py
+  source_paths:
+  - bin/kickoff-evidence
+  - lib/agentic_starter/finding_schema.py
+  - tests/test_kickoff_evidence.py
+  covers:
+  - bin/kickoff-evidence
+  - lib/agentic_starter/finding_schema.py
+  - tests/test_kickoff_evidence.py
+  contract: Run evidence is candidate-bound, detects authority drift and corruption, and gates acceptance
+    on reviewed findings.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: large
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: kickoff-tree-id
+  kind: pytest
+  selectors:
+  - tests/test_kickoff_tree_id.py
+  source_paths:
+  - bin/kickoff-tree-id
+  - bin/check-candidate-partition
+  - lib/agentic_starter/candidate_boundaries.py
+  - candidate-partition.yaml
+  - tests/test_kickoff_tree_id.py
+  covers:
+  - bin/kickoff-tree-id
+  - bin/check-candidate-partition
+  - lib/agentic_starter/candidate_boundaries.py
+  - candidate-partition.yaml
+  - tests/test_kickoff_tree_id.py
+  contract: Full-tree and product identities hash exactly what the candidate partition declares.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: lessons
+  kind: pytest
+  selectors:
+  - tests/test_lessons.py
+  source_paths:
+  - bin/lessons
+  - tests/test_lessons.py
+  covers:
+  - bin/lessons
+  - tests/test_lessons.py
+  contract: The lessons ledger schema and queries validate and fail closed.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: log-control-plane
+  kind: pytest
+  selectors:
+  - tests/test_log_control_plane.py
+  source_paths:
+  - bin/check-log
+  - bin/check-log-prefix
+  - bin/check-log-monotonic
+  - bin/log-append
+  - bin/log-relocate
+  - bin/normalize-final-newline
+  - lib/agentic_starter/log_blocks.py
+  - tests/test_log_control_plane.py
+  covers:
+  - bin/check-log
+  - bin/check-log-prefix
+  - bin/check-log-monotonic
+  - bin/log-append
+  - bin/log-relocate
+  - bin/normalize-final-newline
+  - lib/agentic_starter/log_blocks.py
+  - tests/test_log_control_plane.py
+  contract: LOG.md stays append-only with a verified committed prefix and monotonic chronology.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: medium
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: mirror-parity
+  kind: pytest
+  selectors:
+  - tests/test_mirror_parity.py
+  source_paths:
+  - bin/check-harness-parity
+  - tests/test_mirror_parity.py
+  covers:
+  - bin/check-harness-parity
+  - tests/test_mirror_parity.py
+  contract: Every canonical skill and role has exactly one correct harness mirror.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: new-name
+  kind: pytest
+  selectors:
+  - tests/test_new_name.py
+  source_paths:
+  - bin/new-name
+  - tests/test_new_name.py
+  covers:
+  - bin/new-name
+  - tests/test_new_name.py
+  contract: Ledger slugs are collision-checked across every ledger directory.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: pre-commit
+  kind: pytest
+  selectors:
+  - tests/test_pre_commit.py
+  source_paths:
+  - .githooks/pre-commit
+  - tests/test_pre_commit.py
+  covers:
+  - .githooks/pre-commit
+  - tests/test_pre_commit.py
+  contract: The pre-commit hook runs its deterministic checks and refuses on failure.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: research-authority
+  kind: pytest
+  selectors:
+  - tests/test_research_authority.py
+  source_paths:
+  - tests/test_research_authority.py
+  covers:
+  - tests/test_research_authority.py
+  contract: Each role's search and retrieval budget matches its research authority.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: review-verdicts
+  kind: pytest
+  selectors:
+  - tests/test_review_verdicts.py
+  source_paths:
+  - bin/review-verdicts
+  - tests/test_review_verdicts.py
+  covers:
+  - bin/review-verdicts
+  - tests/test_review_verdicts.py
+  contract: Review verdicts harvested from harness traces are classified exactly.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: shell-syntax
+  kind: pytest
+  selectors:
+  - tests/test_shell_syntax.py
+  source_paths:
+  - bin/check-shell-syntax
+  - tests/test_shell_syntax.py
+  covers:
+  - bin/check-shell-syntax
+  - tests/test_shell_syntax.py
+  contract: Shell scripts parse before they are needed.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: test-governance
+  kind: pytest
+  selectors:
+  - tests/test_test_governance.py
+  source_paths:
+  - bin/test-governance
+  - lib/agentic_starter/test_governance.py
+  - tests/proof-estate.yaml
+  - tests/fixtures/test_governance/**
+  - reports/test-governance/**
+  - tests/test_test_governance.py
+  covers:
+  - bin/test-governance
+  - lib/agentic_starter/test_governance.py
+  - tests/proof-estate.yaml
+  - tests/fixtures/test_governance/**
+  - reports/test-governance/**
+  - tests/test_test_governance.py
+  contract: The proof estate validates, selects lanes safely, widens when unsure, and judges timing noise-robustly.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: toolchain-callers
+  kind: pytest
+  selectors:
+  - tests/test_toolchain_callers.py
+  source_paths:
+  - bin/check-toolchain-callers
+  - tests/test_toolchain_callers.py
+  covers:
+  - bin/check-toolchain-callers
+  - tests/test_toolchain_callers.py
+  contract: Operational callers use the repository runtime, never an ambient interpreter.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: toolchain-entrypoints
+  kind: pytest
+  selectors:
+  - tests/test_toolchain_entrypoints.py
+  source_paths:
+  - bin/setup
+  - bin/test
+  - bin/python
+  - bin/node
+  - bin/_python-toolchain
+  - bin/_node-toolchain
+  - tooling/**
+  - tests/test_toolchain_entrypoints.py
+  covers:
+  - bin/setup
+  - bin/test
+  - bin/python
+  - bin/node
+  - bin/_python-toolchain
+  - bin/_node-toolchain
+  - tooling/**
+  - tests/test_toolchain_entrypoints.py
+  contract: setup, test, python, and node select both pinned runtimes, route focused tests by path, honor
+    authoritative overrides, and never fall back.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: vital
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: treatise
+  kind: pytest
+  selectors:
+  - tests/test_treatise.py
+  source_paths:
+  - bin/treatise
+  - tests/test_treatise.py
+  covers:
+  - bin/treatise
+  - tests/test_treatise.py
+  contract: Treatise editorial records validate.
+  risk_class: methodology-machinery
+  oracle: Behavioral assertions over the real entry point or module, executed against controlled fixtures.
+  admission: 'Retained at stamp: inherited universal proof, adapted to this repository''s two-runtime
+    toolchain where it names the toolchain.'
+  nearest_overlap: No other family proves this contract at its owning boundary.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-changed
+  kind: gate
+  selectors:
+  - changed
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-format-node
+  kind: gate
+  selectors:
+  - format-node
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-format-python
+  kind: gate
+  selectors:
+  - format-python
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-lint-node
+  kind: gate
+  selectors:
+  - lint-node
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-lint-python
+  kind: gate
+  selectors:
+  - lint-python
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-lint-typecheck
+  kind: gate
+  selectors:
+  - lint-typecheck
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-candidate-partition
+  kind: gate
+  selectors:
+  - policy-candidate-partition
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-catalogs
+  kind: gate
+  selectors:
+  - policy-catalogs
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-config
+  kind: gate
+  selectors:
+  - policy-config
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-execution-dashboards
+  kind: gate
+  selectors:
+  - policy-execution-dashboards
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-harness-parity
+  kind: gate
+  selectors:
+  - policy-harness-parity
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-hooks-installed
+  kind: gate
+  selectors:
+  - policy-hooks-installed
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-lessons
+  kind: gate
+  selectors:
+  - policy-lessons
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-log
+  kind: gate
+  selectors:
+  - policy-log
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-shell-syntax
+  kind: gate
+  selectors:
+  - policy-shell-syntax
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-test-governance
+  kind: gate
+  selectors:
+  - policy-test-governance
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-test-time
+  kind: gate
+  selectors:
+  - policy-test-time
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-toolchain-callers
+  kind: gate
+  selectors:
+  - policy-toolchain-callers
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-policy-treatise
+  kind: gate
+  selectors:
+  - policy-treatise
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-test
+  kind: gate
+  selectors:
+  - test
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-vital
+  kind: gate
+  selectors:
+  - vital
+  source_paths:
+  - bin/check
+  covers:
+  - bin/check
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hook-githooks-pre-commit-bin-check-harness-parity
+  kind: hook
+  selectors:
+  - hook:.githooks/pre-commit:./bin/check-harness-parity
+  source_paths:
+  - .githooks/pre-commit
+  covers:
+  - .githooks/pre-commit
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hook-githooks-pre-commit-bin-check-toolchain-callers
+  kind: hook
+  selectors:
+  - hook:.githooks/pre-commit:./bin/check-toolchain-callers
+  source_paths:
+  - .githooks/pre-commit
+  covers:
+  - .githooks/pre-commit
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hook-githooks-pre-commit-bin-check-log-staged
+  kind: hook
+  selectors:
+  - hook:.githooks/pre-commit:./bin/check-log --staged
+  source_paths:
+  - .githooks/pre-commit
+  covers:
+  - .githooks/pre-commit
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hook-githooks-pre-commit-bin-check-candidate-partition-staged
+  kind: hook
+  selectors:
+  - hook:.githooks/pre-commit:./bin/check-candidate-partition --staged
+  source_paths:
+  - .githooks/pre-commit
+  covers:
+  - .githooks/pre-commit
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: hook-githooks-pre-commit-bin-test-governance-validate
+  kind: hook
+  selectors:
+  - hook:.githooks/pre-commit:./bin/test-governance validate
+  source_paths:
+  - .githooks/pre-commit
+  covers:
+  - .githooks/pre-commit
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: Retained as direct lifecycle wiring rather than a substitute for behavioral proof.
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []

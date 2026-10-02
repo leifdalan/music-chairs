@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Shared Node runtime selection and dependency-chain probe for the deliverable
+# in project/.
+#
+# Source this file after defining repo_root and node_project_root, then call
+# node_toolchain_init with the entry point's diagnostic prefix.
+#
+# project/package.json pins the package manager in its packageManager field,
+# and corepack launches exactly that pnpm. The default runtime is the Node that
+# the manifest's devEngines.runtime names and project/pnpm-lock.yaml locks by
+# integrity; pnpm installs it as project/node_modules/node. TOOLCHAIN_NODE
+# names an authoritative alternative and never falls back to that default or to
+# any node on PATH. Installation fetches and links packages only (pnpm runs no
+# dependency build scripts unless allowed), so the selected runtime governs
+# probing and every gate command.
+
+node_toolchain_init() {
+  node_toolchain_prefix="$1"
+
+  if ! command -v corepack >/dev/null 2>&1; then
+    echo "$node_toolchain_prefix ERROR missing prerequisite: corepack" >&2
+    return 1
+  fi
+
+  local required_path
+  for required_path in \
+    "$node_project_root/package.json" \
+    "$node_project_root/pnpm-lock.yaml"; do
+    if [[ ! -f "$required_path" ]]; then
+      echo \
+        "$node_toolchain_prefix ERROR missing required file: ${required_path#"$repo_root/"}" \
+        >&2
+      return 1
+    fi
+  done
+
+  # corepack must never stop to ask before fetching the pinned pnpm, and must
+  # never write a packageManager pin of its own into any manifest.
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+  export COREPACK_ENABLE_AUTO_PIN=0
+  node_toolchain_node="$node_project_root/node_modules/node/bin/node"
+  node_toolchain_runtime_description="managed runtime pinned by project/package.json and project/pnpm-lock.yaml"
+
+  if [[ -n "${TOOLCHAIN_NODE:-}" ]]; then
+    local command_exit
+    local resolved_node
+    if [[ "$TOOLCHAIN_NODE" != /* || ! -x "$TOOLCHAIN_NODE" ]]; then
+      echo \
+        "$node_toolchain_prefix ERROR authoritative TOOLCHAIN_NODE must be an executable absolute path: $TOOLCHAIN_NODE" \
+        >&2
+      echo "$node_toolchain_prefix ERROR no runtime fallback was attempted" >&2
+      return 1
+    fi
+    if [[ "$TOOLCHAIN_NODE" == "$node_project_root/node_modules/"* ]]; then
+      node_toolchain_refuse_self_reference
+      return 1
+    fi
+    if resolved_node=$("$TOOLCHAIN_NODE" -p 'process.execPath'); then
+      :
+    else
+      command_exit=$?
+      echo \
+        "$node_toolchain_prefix ERROR authoritative TOOLCHAIN_NODE is not a usable Node runtime: $TOOLCHAIN_NODE (exit $command_exit)" \
+        >&2
+      echo "$node_toolchain_prefix ERROR no runtime fallback was attempted" >&2
+      return "$command_exit"
+    fi
+    if [[ "$resolved_node" != /* || ! -x "$resolved_node" ]]; then
+      echo \
+        "$node_toolchain_prefix ERROR authoritative TOOLCHAIN_NODE did not resolve to an executable absolute path: $TOOLCHAIN_NODE" \
+        >&2
+      echo "$node_toolchain_prefix ERROR no runtime fallback was attempted" >&2
+      return 1
+    fi
+    if [[ "$resolved_node" == "$node_project_root/node_modules/"* ]]; then
+      node_toolchain_refuse_self_reference
+      return 1
+    fi
+    node_toolchain_node="$resolved_node"
+    node_toolchain_runtime_description="authoritative TOOLCHAIN_NODE=$TOOLCHAIN_NODE (resolved to $resolved_node)"
+  fi
+}
+
+# Run the pinned pnpm. corepack reads the pin from the working directory's
+# manifest, not from --dir, so it always launches from inside project/.
+node_toolchain_pnpm() {
+  (cd "$node_project_root" && corepack pnpm "$@")
+}
+
+node_toolchain_refuse_self_reference() {
+  echo \
+    "$node_toolchain_prefix ERROR authoritative TOOLCHAIN_NODE cannot point inside project/node_modules: $TOOLCHAIN_NODE" \
+    >&2
+  echo "$node_toolchain_prefix ERROR select a runtime outside the managed project environment" >&2
+  echo "$node_toolchain_prefix ERROR no runtime fallback was attempted" >&2
+}
+
+# Each gate tool, as "<executable> <package that declares it>".
+node_toolchain_tools=(
+  "eslint eslint"
+  "prettier prettier"
+  "tsc typescript"
+  "vitest vitest"
+  "react-router @react-router/dev"
+)
+
+# The absolute entry file of the executable a direct dependency declares.
+node_toolchain_entry_function='
+function toolEntry(packageName, executable) {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const directory = path.join(process.cwd(), "node_modules", packageName);
+  const manifest = JSON.parse(fs.readFileSync(path.join(directory, "package.json"), "utf8"));
+  const declared =
+    typeof manifest.bin === "string" ? manifest.bin : (manifest.bin ?? {})[executable];
+  if (!declared) {
+    throw new Error(`${packageName} declares no ${executable} executable`);
+  }
+  const entry = path.resolve(directory, declared);
+  fs.accessSync(entry, fs.constants.R_OK);
+  return entry;
+}
+'
+node_toolchain_entry_program="$node_toolchain_entry_function
+process.stdout.write(\`\${toolEntry(...process.argv.slice(1))}\\n\`);
+"
+
+node_toolchain_tool_package() {
+  local tool
+  for tool in "${node_toolchain_tools[@]}"; do
+    if [[ "${tool%% *}" == "$1" ]]; then
+      printf '%s\n' "${tool#* }"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Run one gate tool on the selected runtime, from the caller's working directory.
+node_toolchain_run() {
+  local tool="$1"
+  shift
+  local package
+  local entry
+  local command_exit
+
+  if ! package=$(node_toolchain_tool_package "$tool"); then
+    echo "$node_toolchain_prefix ERROR unknown Node tool: $tool" >&2
+    return 2
+  fi
+  if entry=$(cd "$node_project_root" &&
+    "$node_toolchain_node" -e "$node_toolchain_entry_program" "$package" "$tool"); then
+    :
+  else
+    command_exit=$?
+    echo \
+      "$node_toolchain_prefix ERROR could not resolve $tool from $package with $node_toolchain_runtime_description (exit $command_exit)" \
+      >&2
+    return "$command_exit"
+  fi
+  "$node_toolchain_node" "$entry" "$@"
+}
+
+node_toolchain_probe() {
+  local command_exit
+  local tool
+  local -a probe_tools=()
+  local probe
+
+  if [[ ! -x "$node_toolchain_node" ]]; then
+    echo \
+      "$node_toolchain_prefix ERROR selected Node runtime is not installed: ${node_toolchain_node#"$repo_root/"}; run ./bin/setup" \
+      >&2
+    return 1
+  fi
+  for tool in "${node_toolchain_tools[@]}"; do
+    probe_tools+=("${tool#* }" "${tool%% *}")
+  done
+  # Resolve every gate tool, then load the deliverable's runtime dependency chain.
+  probe="$node_toolchain_entry_function
+const pairs = process.argv.slice(1);
+for (let index = 0; index < pairs.length; index += 2) {
+  toolEntry(pairs[index], pairs[index + 1]);
+}
+(async () => {
+  await import('react-router');
+  await import('react-dom/server');
+  await import('@react-router/node');
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+"
+  if (cd "$node_project_root" && "$node_toolchain_node" -e "$probe" "${probe_tools[@]}"); then
+    return 0
+  else
+    command_exit=$?
+  fi
+
+  echo \
+    "$node_toolchain_prefix ERROR dependency-chain probe failed with $node_toolchain_runtime_description (exit $command_exit)" \
+    >&2
+  if [[ -n "${TOOLCHAIN_NODE:-}" ]]; then
+    echo "$node_toolchain_prefix ERROR no runtime fallback was attempted" >&2
+  fi
+  return "$command_exit"
+}

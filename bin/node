@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Run the repository-selected Node runtime.
+
+set -euo pipefail
+
+entrypoint_path="${BASH_SOURCE[0]}"
+while [[ -L "$entrypoint_path" ]]; do
+  entrypoint_dir="$(cd "$(dirname "$entrypoint_path")" && pwd)"
+  entrypoint_path="$(readlink "$entrypoint_path")"
+  [[ "$entrypoint_path" == /* ]] || entrypoint_path="$entrypoint_dir/$entrypoint_path"
+done
+repo_root="$(cd "$(dirname "$entrypoint_path")/.." && pwd)"
+node_project_root="$repo_root/project"
+
+toolchain_helper="$repo_root/bin/_node-toolchain"
+if [[ ! -r "$toolchain_helper" ]]; then
+  echo "NODE ERROR missing required file: bin/_node-toolchain" >&2
+  exit 1
+fi
+source "$toolchain_helper"
+node_toolchain_init NODE
+
+cd "$repo_root"
+node_toolchain_probe
+exec "$node_toolchain_node" "$@"

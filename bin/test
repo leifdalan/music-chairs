@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# Canonical repository test entry point.
+
+set -euo pipefail
+
+entrypoint_path="${BASH_SOURCE[0]}"
+while [[ -L "$entrypoint_path" ]]; do
+  entrypoint_dir="$(cd "$(dirname "$entrypoint_path")" && pwd)"
+  entrypoint_path="$(readlink "$entrypoint_path")"
+  [[ "$entrypoint_path" == /* ]] || entrypoint_path="$entrypoint_dir/$entrypoint_path"
+done
+repo_root="$(cd "$(dirname "$entrypoint_path")/.." && pwd)"
+python_project_root="$repo_root/tooling"
+node_project_root="$repo_root/project"
+
+usage() {
+  cat <<'EOF'
+Usage: ./bin/test [--vital | --changed-from <ref> | <project/... | tests/...> [arguments...]]
+
+Run the full repository test suite by default: the deliverable's Vitest suite
+in project/ and the root pytest suite in tests/. The governed --vital and
+--changed-from lanes select admitted proof families and widen to full when
+selection cannot be proved safe. Otherwise the named paths choose the runner:
+project/... paths go to Vitest with the project/ prefix removed, and tests/...
+paths go to pytest; one invocation may not name both. Paths are interpreted
+relative to the repo root.
+EOF
+}
+
+if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage
+  exit 0
+fi
+if [[ $# -ge 1 && "$1" == "--vital" && $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+if [[ $# -ge 1 && "$1" == "--changed-from" && ( $# -ne 2 || -z "${2:-}" ) ]]; then
+  usage >&2
+  exit 2
+fi
+
+use_python() {
+  if [[ ! -r "$repo_root/bin/_python-toolchain" ]]; then
+    echo "TEST ERROR missing required file: bin/_python-toolchain" >&2
+    exit 1
+  fi
+  source "$repo_root/bin/_python-toolchain"
+  python_toolchain_init TEST
+  cd "$repo_root"
+  python_toolchain_probe
+}
+
+use_node() {
+  if [[ ! -r "$repo_root/bin/_node-toolchain" ]]; then
+    echo "TEST ERROR missing required file: bin/_node-toolchain" >&2
+    exit 1
+  fi
+  source "$repo_root/bin/_node-toolchain"
+  node_toolchain_init TEST
+  cd "$repo_root"
+  node_toolchain_probe
+}
+
+run_pytest() {
+  cd "$repo_root"
+  exec uv run --project "$python_project_root" --locked "${python_toolchain_uv_args[@]}" \
+    python -m pytest "$@"
+}
+
+run_vitest() {
+  cd "$node_project_root"
+  node_toolchain_run vitest run "$@"
+}
+
+run_full_suite() {
+  use_node
+  use_python
+  if run_vitest; then
+    :
+  else
+    local command_exit=$?
+    echo "TEST FAIL project suite (exit $command_exit)" >&2
+    exit "$command_exit"
+  fi
+  # Every full run leaves its per-test timings where `test-governance timing` reads them.
+  run_pytest -q --junitxml "$repo_root/.kickoff/test-timing/full.xml" -o junit_family=xunit1 \
+    tests
+}
+
+if [[ $# -eq 0 ]]; then
+  run_full_suite
+fi
+
+run_governed_lane() {
+  local -a selection
+  local selection_mode
+  local selection_reason
+  local -a selectors
+
+  if [[ ! -x "$repo_root/bin/test-governance" ]]; then
+    echo "TEST ERROR missing required executable: bin/test-governance" >&2
+    return 1
+  fi
+  local selection_line
+  selection=()
+  # A read loop rather than mapfile: the entry point must run on bash 3.2.
+  while IFS= read -r selection_line; do
+    selection+=("$selection_line")
+  done < <("$repo_root/bin/test-governance" select "$@" --format lines)
+  if [[ ${#selection[@]} -lt 2 ]]; then
+    echo "TEST ERROR governance selection returned an incomplete response" >&2
+    return 1
+  fi
+  selection_mode="${selection[0]}"
+  selection_reason="${selection[1]}"
+  echo "TEST GOVERNED $selection_mode: $selection_reason"
+  if [[ "$selection_mode" == "FULL" ]]; then
+    run_full_suite
+  fi
+  if [[ "$selection_mode" != "FOCUSED" || ${#selection[@]} -lt 3 ]]; then
+    echo "TEST ERROR governance selection did not provide runnable selectors" >&2
+    return 1
+  fi
+  selectors=("${selection[@]:2}")
+  use_python
+  run_pytest -q "${selectors[@]}"
+}
+
+if [[ $# -eq 1 && "$1" == "--vital" ]]; then
+  run_governed_lane --tier vital
+fi
+
+if [[ $# -ge 1 && "$1" == "--changed-from" ]]; then
+  run_governed_lane --changed-from "$2"
+fi
+
+names_project=0
+names_tests=0
+for argument in "$@"; do
+  case "$argument" in
+    project|project/*) names_project=1 ;;
+    tests|tests/*) names_tests=1 ;;
+  esac
+done
+
+if [[ "$names_project" -eq 1 && "$names_tests" -eq 1 ]]; then
+  echo "TEST ERROR one invocation may not name both project/ and tests/; run each suite separately" >&2
+  exit 2
+fi
+
+if [[ "$names_project" -eq 1 ]]; then
+  vitest_arguments=()
+  for argument in "$@"; do
+    case "$argument" in
+      project) ;;
+      project/*) vitest_arguments+=("${argument#project/}") ;;
+      *) vitest_arguments+=("$argument") ;;
+    esac
+  done
+  use_node
+  # Expand safely when only "project" was named: bash 3.2 treats an empty array as unset.
+  run_vitest ${vitest_arguments[@]+"${vitest_arguments[@]}"}
+  exit $?
+fi
+
+if [[ "$names_tests" -eq 1 ]]; then
+  use_python
+  run_pytest "$@"
+fi
+
+echo "TEST ERROR focused arguments must name a project/... or tests/... path" >&2
+usage >&2
+exit 2

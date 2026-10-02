@@ -1,0 +1,25 @@
+{
+  "admissions": 0,
+  "baseline": {
+    "families": 127,
+    "leaves": 153
+  },
+  "baseline_inventory_sha256": "44d5c1b2b3838c463da60a0ceec0af8215c5fdf9c159f9bae3a95acc4ca1730d",
+  "current": {
+    "families": 127,
+    "leaves": 153
+  },
+  "dispositions": {
+    "consolidate": 0,
+    "delete": 0,
+    "repair": 0,
+    "retain": 153
+  },
+  "post_reset_retirements": 0,
+  "recall": {},
+  "recall_unmeasured": [
+    "historical_defect",
+    "holdout_mutant"
+  ],
+  "record_type": "proof-estate-reset"
+}

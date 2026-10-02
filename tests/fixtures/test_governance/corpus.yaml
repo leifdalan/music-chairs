@@ -1,0 +1,5 @@
+# Frozen, empty: music-chairs has no defect history of its own yet. Raise the case
+# floors in tests/proof-estate.yaml through reassess as real defects are closed.
+schema: agentic.effectiveness_corpus.v1
+selection_frozen: true
+cases: []

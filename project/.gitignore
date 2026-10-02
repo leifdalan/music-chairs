@@ -1,0 +1,10 @@
+# Dependencies, including the pnpm-managed Node runtime
+node_modules/
+
+# React Router and Vite output
+build/
+.react-router/
+
+# Test and tool output
+coverage/
+*.tsbuildinfo
