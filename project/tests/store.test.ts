@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { isToken, openStore, type Store } from "../app/.server/store";
@@ -67,6 +68,26 @@ describe("store", () => {
 
     expect(store.findMember(first.group.id, first.organizer.id)).toEqual(first.organizer);
     expect(store.findMember(second.group.id, first.organizer.id)).toBeNull();
+  });
+
+  it("refuses a database from an earlier schema with a message saying what to do", () => {
+    const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
+    tempDirs.push(dir);
+    const filename = join(dir, "phase-1.sqlite");
+    // A groups table as Phase 1 created it, without the time zone column.
+    const old = new DatabaseSync(filename);
+    old.exec(
+      "CREATE TABLE groups (id TEXT PRIMARY KEY, invite_token TEXT NOT NULL UNIQUE, " +
+        "name TEXT NOT NULL, created_at TEXT NOT NULL)",
+    );
+    old.close();
+
+    expect(() => openStore(filename)).toThrow(
+      `The database ${filename} does not match this version of music-chairs`,
+    );
+    expect(() => openStore(filename)).toThrow(
+      "move or delete that file and its -wal and -shm files",
+    );
   });
 
   it("keeps data after the database is closed and reopened", () => {

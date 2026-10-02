@@ -109,6 +109,28 @@ export function openStore(filename: string): Store {
     mkdirSync(dirname(resolve(filename)), { recursive: true });
   }
   const db = new DatabaseSync(filename);
+  try {
+    return buildStore(db, filename);
+  } catch (error) {
+    db.close();
+    if ((error as { code?: unknown }).code !== "ERR_SQLITE_ERROR") throw error;
+    // Until the first release the schema changes without migrations
+    // (policies/greenfield-until-released.md). `CREATE TABLE IF NOT EXISTS`
+    // leaves an older table as it was, so a database from an earlier version
+    // fails here, when the statements are prepared. Say so plainly instead of
+    // failing every request with SQLite's generic "SQL logic error".
+    throw new Error(
+      `The database ${resolve(filename)} does not match this version of music-chairs ` +
+        `(${(error as Error).message}). It was probably created by an earlier version, and ` +
+        "there are no migrations before the first release: stop the server, move or delete " +
+        "that file and its -wal and -shm files, then start again.",
+      { cause: error },
+    );
+  }
+}
+
+/** Applies the schema and prepares every statement; throws if the file's tables differ. */
+function buildStore(db: DatabaseSync, filename: string): Store {
   db.exec("PRAGMA foreign_keys = ON;");
   if (filename !== ":memory:") {
     db.exec("PRAGMA journal_mode = WAL;");

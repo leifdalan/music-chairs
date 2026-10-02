@@ -356,3 +356,76 @@ Execution trace: 37df859a216e4b4c9077148116e4e5c0
 - Lessons: lively-salamander gained its second occurrence (Phase 2 END); icy-echidna filed as a methodology candidate (ask a sketched phase's open brief questions at entry). ./bin/lessons validate: LESSONS OK; ./bin/lessons candidates: none graduation-ready.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-02 13:06 — END (correction)
+Phase 2 — Availability entry: one-off and recurring
+
+The demo failed because your local database came from Phase 1 and lacked the new time-zone column; the server only said "SQL logic error". Your old database is preserved as project/data/music-chairs.sqlite.phase1-backup (with its -shm and -wal files), and the server now stops with a message naming the file and telling you to move or delete it. Phase 2 stays ✅.
+
+Execution trace: 32c8285cf14448fb9dbd060daca0d778
+
+Follow-up route:
+- direct fix — one localized guard in the store's open path plus its test; no schema, route or data-shape change
+
+Role model/venue:
+- Coder: skipped (direct fix)
+- Critic: skipped (direct fix)
+
+Files changed:
+- project/app/.server/store.ts — openStore converts a SQLite error while applying the schema and preparing statements into an error naming the database file and the remedy (move or delete it and its -wal/-shm files); no migration or compatibility path
+- project/tests/store.test.ts — a Phase 1-shaped database is refused with that message (fails when the conversion is removed)
+- project/README.md — describes the refusal instead of a generic server error
+
+Build status:
+- Reproduced on a copy of the operator's database: "no such column: time_zone" (SQLite error string "SQL logic error")
+- Production build against a copy of that database: request answers 500 and the server log carries the new message
+- project/scripts/smoke.sh: OK; ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 88/88, pytest 128): OK; evidence validation EVIDENCE VALID
+- Handoff gate: runs after this block; delivery is contingent on the bare `./bin/check all`
+
+Delivery:
+- default — commit + fast-forward push after validation
+
+Lessons:
+- nice-ant filed — a phase that replaces persisted schema must put the reset in its demo entry point and refuse stale data by name (methodology)
+
+Remaining:
+- Restart your dev server so it opens a fresh database, then rerun the Phase 2 demo; the Phase 1 groups are in the backup file only.
+
+## 2026-10-02 13:08 — PARK
+Phase 2 — Availability entry: one-off and recurring
+
+Execution trace: 32c8285cf14448fb9dbd060daca0d778
+
+Reason: the handoff gate for the correction above failed: "EXECUTION DASHBOARDS FAIL: stale dashboard artifact: reports/execution/index-data.js". The correction's finalized trace changes the Phase 2 execution report, and I did not regenerate it before the gate. Nothing was committed; Phase 2 stays ✅.
+
+Resume: regenerate the Phase 2 execution report with the correction trace as accepted, then rerun the bare ./bin/check all.
+
+Lessons:
+- none new — close.md Step 11 already requires the report write before the handoff gate; I skipped it on the correction route
+
+## 2026-10-02 13:11 — END (correction, resumed)
+Phase 2 — Availability entry: one-off and recurring
+
+Execution trace: 32c8285cf14448fb9dbd060daca0d778
+
+Follow-up route:
+- direct fix — resumes the PARK above; only the execution report changed
+
+Role model/venue:
+- Coder: skipped (direct fix)
+- Critic: skipped (direct fix)
+
+Files changed:
+- reports/execution/ — Phase 2 report regenerated with the correction trace as accepted
+
+Build status:
+- A bare ./bin/check all passed after regeneration; the final bare ./bin/check all runs after this block and qualifies delivery
+
+Delivery:
+- default — commit + fast-forward push after validation
+
+Lessons:
+- none new (see the PARK above)
+
+Remaining:
+- None
