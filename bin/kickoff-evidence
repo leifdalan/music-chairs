@@ -1377,6 +1377,20 @@ def command_register_role_attempt(arguments: argparse.Namespace) -> None:
         for item in existing
     ):
         raise EvidenceError("duplicate role operation/attempt registration")
+    # Acceptance validation requires each operation's attempts to run 1..n
+    # within this run, and a registration is immutable once a role launches.
+    # Refuse the gap here, before the provider call, not after it.
+    expected = 1 + max(
+        (item["attempt"] for item in existing if item.get("operation") == record["operation"]),
+        default=0,
+    )
+    if record["attempt"] != expected:
+        raise EvidenceError(
+            f"role attempts are numbered per evidence run: the next {record['operation']} "
+            f"attempt in this run is {expected}, got {record['attempt']}. The phase-wide "
+            "advisory pass budget is tracked separately; a second pass carries --cause, "
+            "not a higher attempt number."
+        )
     append_jsonl(arguments.run_dir / "role-attempts.jsonl", record)
     atomic_json(arguments.output, record)
     if arguments.cause:

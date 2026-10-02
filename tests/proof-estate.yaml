@@ -370,7 +370,9 @@ families:
     toolchain where it names the toolchain.'
   nearest_overlap: No other family proves this contract at its owning boundary.
   historical_evidence: []
-  mutation_evidence: []
+  mutation_evidence:
+  - 'register-role-attempt contiguity guard disabled: test_role_attempts_must_be_registered_contiguously_within_a_run
+    fails'
   tier: changed
   size: large
   flake_rate: 0.0

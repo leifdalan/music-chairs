@@ -107,6 +107,13 @@ REQUIRED_FINDING_FIELDS = (
     "classification",
 )
 OPTIONAL_FINDING_FIELDS = ("resolved_in", "disposition")
+# Ingest refuses a whole batch over one path outside the repository, so the
+# schema tells the generating model the same rule the validator enforces.
+AFFECTED_PATHS_DESCRIPTION = (
+    "repository-relative paths of files in the reviewed repository (for example "
+    "src/module.py); never an absolute path, a ~ path, or a path outside the "
+    "repository. Describe out-of-repository context in evidence instead."
+)
 
 
 def _enum(values: set[str]) -> list[str]:
@@ -136,7 +143,7 @@ def finding_schema(kind: str) -> dict[str, Any]:
         "affected_paths": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "repo-relative paths",
+            "description": AFFECTED_PATHS_DESCRIPTION,
         },
         "required_outcome": {
             "type": "string",
@@ -184,7 +191,11 @@ def review_artifact_schema(kind: str) -> dict[str, Any]:
                 "type": "string",
                 "enum": ["critical", "high", "medium", "low", "informational"],
             },
-            "affected_paths": {"type": "array", "items": {"type": "string"}},
+            "affected_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": AFFECTED_PATHS_DESCRIPTION,
+            },
             "evidence": {"type": "string"},
             "consequence": {"type": "string"},
             "suggestion": {"type": "string"},

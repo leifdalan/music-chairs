@@ -617,6 +617,47 @@ def test_finding_state_is_stable_validated_and_reopen_is_counted(
     assert ledger["findings"][0]["state"] == "open"
 
 
+def test_role_attempts_must_be_registered_contiguously_within_a_run(
+    repository: Path, tmp_path: Path
+) -> None:
+    run_dir = tmp_path / "run"
+    initialize(repository, run_dir)
+
+    def register(attempt: int) -> subprocess.CompletedProcess[str]:
+        return run(
+            "register-role-attempt",
+            "--run-dir",
+            str(run_dir),
+            "--operation",
+            "role.code-review",
+            "--attempt",
+            str(attempt),
+            "--role",
+            "critic",
+            "--harness",
+            "native",
+            "--reason",
+            "initial" if attempt == 1 else "revision",
+            "--output",
+            str(run_dir / f"code-review-{attempt}.json"),
+        )
+
+    # A fresh run starts at 1 even when the phase is on its second pass.
+    skipped = register(2)
+    assert skipped.returncode != 0
+    assert "numbered per evidence run" in skipped.stderr
+    assert "next role.code-review attempt in this run is 1, got 2" in skipped.stderr
+    assert not (run_dir / "code-review-2.json").exists()
+    assert register(1).returncode == 0
+    assert "got 3" in register(3).stderr
+    assert register(2).returncode == 0
+    attempts = [
+        json.loads(line)["attempt"]
+        for line in (run_dir / "role-attempts.jsonl").read_text().splitlines()
+    ]
+    assert attempts == [1, 2]
+
+
 def test_role_artifacts_feed_findings_and_change_metadata_without_reparsing(
     repository: Path, tmp_path: Path
 ) -> None:

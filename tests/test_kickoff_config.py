@@ -989,6 +989,14 @@ def _assert_primary_routing_and_usage(tmp_path: Path) -> None:
 
     schema = review_artifact_schema("advisory-code")
     assert "verdict" not in schema["properties"]
+    # Ingest refuses a batch over one out-of-repository path; the schema the
+    # venue generates against states that rule up front.
+    for kind in ("advisory-code", "advisory-plan", "code", "plan"):
+        paths = review_artifact_schema(kind)["properties"]["findings"]["items"]["properties"][
+            "affected_paths"
+        ]
+        assert "repository-relative" in paths["description"]
+        assert "never an absolute path" in paths["description"]
     assert (
         "blocking"
         not in schema["properties"]["findings"]["items"]["properties"]["severity"]["enum"]

@@ -217,6 +217,8 @@ so the same argument would work for the first role registered and die on the
 second — an order-dependent trap that teaches the wrong contract and fails at the
 worst moment. Give each attempt its own `--output` path.
 
+Attempt numbers belong to the evidence run, not the phase: each operation's attempts in a run are 1, 2, … without gaps, and `register-role-attempt` refuses any other number before a role can launch. A fresh corrective run therefore registers its first critique as attempt 1 even when the phase's advisory budget is on its second pass; that budget lives in `.kickoff/advice-budgets` and the second pass carries `--cause`. A corrective run that registered attempt 2 once spent a successful critique pass and was then refused at acceptance, because the immutable registration could not be renumbered and the parked run could not donate its advice either.
+
 The watcher derives the trace, root span, operation and attempt from that authenticated registration. Callers supply only `--telemetry-role-registration` for telemetry routing. The registered trace root remains the role's parent, even while the orchestrator has a stage span open; a caller cannot replace it with the current stage. Role, model, venue and effort must still match the registration, with field-specific diagnostics on disagreement.
 
 ## Every registered attempt has an intelligence span, rejections included
