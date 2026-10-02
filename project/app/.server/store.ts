@@ -39,6 +39,10 @@ export type Rehearsal = Slot & { location: string; status: RehearsalStatus };
 
 export type RoleChange = "changed" | "unknown" | "last-organizer";
 
+export type RsvpAnswer = "yes" | "no" | "maybe";
+
+export type Rsvp = { rehearsalId: string; memberId: string; date: string; answer: RsvpAnswer };
+
 export type Store = {
   createGroup(
     name: string,
@@ -76,6 +80,28 @@ export type Store = {
   /** Cancels or restores one date; false when the rehearsal is unknown or does not meet that day. */
   setCancelled(groupId: string, rehearsalId: string, date: string, cancelled: boolean): boolean;
   deleteRehearsal(groupId: string, rehearsalId: string): boolean;
+  /**
+   * Sets (or, with null, clears) a member's answer for one date of a rehearsal.
+   * False when the rehearsal or member is not in the group, or the rehearsal
+   * does not meet on that date (including cancelled dates).
+   */
+  setRsvp(
+    groupId: string,
+    rehearsalId: string,
+    memberId: string,
+    date: string,
+    answer: RsvpAnswer | null,
+  ): boolean;
+  /** `setRsvp` for several dates at once, all or nothing. */
+  setRsvps(
+    groupId: string,
+    rehearsalId: string,
+    memberId: string,
+    dates: string[],
+    answer: RsvpAnswer | null,
+  ): boolean;
+  /** Every answer on the group's rehearsals. */
+  listRsvps(groupId: string): Rsvp[];
   close(): void;
 };
 
@@ -140,6 +166,14 @@ const SCHEMA = `
     rehearsal_id TEXT NOT NULL REFERENCES rehearsals(id) ON DELETE CASCADE,
     date TEXT NOT NULL,
     PRIMARY KEY (rehearsal_id, date)
+  );
+  CREATE TABLE IF NOT EXISTS rsvps (
+    rehearsal_id TEXT NOT NULL REFERENCES rehearsals(id) ON DELETE CASCADE,
+    member_id TEXT NOT NULL REFERENCES members(id),
+    date TEXT NOT NULL,
+    answer TEXT NOT NULL CHECK (answer IN ('yes', 'no', 'maybe')),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (rehearsal_id, member_id, date)
   );
 `;
 
@@ -348,6 +382,21 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const removeCancellation = db.prepare(
     "DELETE FROM rehearsal_cancellations WHERE rehearsal_id = ? AND date = ?",
   );
+  const upsertRsvp = db.prepare(
+    `INSERT INTO rsvps (rehearsal_id, member_id, date, answer, updated_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (rehearsal_id, member_id, date)
+     DO UPDATE SET answer = excluded.answer, updated_at = excluded.updated_at`,
+  );
+  const removeRsvp = db.prepare(
+    "DELETE FROM rsvps WHERE rehearsal_id = ? AND member_id = ? AND date = ?",
+  );
+  const removeRsvpsAfter = db.prepare("DELETE FROM rsvps WHERE rehearsal_id = ? AND date > ?");
+  const selectGroupRsvps = db.prepare(
+    `SELECT rsvps.rehearsal_id, rsvps.member_id, rsvps.date, rsvps.answer
+     FROM rsvps JOIN rehearsals ON rehearsals.id = rsvps.rehearsal_id
+     WHERE rehearsals.group_id = ?
+     ORDER BY rsvps.date, rsvps.rehearsal_id`,
+  );
 
   function toSlot(row: SlotRow): Slot {
     return {
@@ -399,6 +448,25 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       db.exec("ROLLBACK");
       throw error;
     }
+  }
+
+  /** Whether `memberId` may answer for `date` of the group's rehearsal. */
+  function canAnswer(groupId: string, rehearsalId: string, memberId: string, date: string) {
+    const rehearsal = findRehearsal(groupId, rehearsalId);
+    if (!rehearsal || !isToken(memberId) || !selectMember.get(groupId, memberId)) return false;
+    const meets =
+      rehearsal.kind === "once" ? date === rehearsal.startDate : isOccurrence(rehearsal, date);
+    return meets && !rehearsal.skips.includes(date);
+  }
+
+  function writeRsvp(
+    rehearsalId: string,
+    memberId: string,
+    date: string,
+    answer: RsvpAnswer | null,
+  ) {
+    if (answer === null) removeRsvp.run(rehearsalId, memberId, date);
+    else upsertRsvp.run(rehearsalId, memberId, date, answer, new Date().toISOString());
   }
 
   function addMember(groupId: string, displayName: string, role: Role): NewMember {
@@ -566,10 +634,11 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       if (!existing || existing.kind !== "weekly" || endDate < existing.startDate) return null;
       return transaction(() => {
         changeRehearsalEnd.run(endDate, groupId, rehearsalId);
-        // Cancellations after the new last date no longer mean anything.
+        // Cancellations and answers after the new last date no longer mean anything.
         for (const date of existing.skips) {
           if (date > endDate) removeCancellation.run(rehearsalId, date);
         }
+        removeRsvpsAfter.run(rehearsalId, endDate);
         return findRehearsal(groupId, rehearsalId);
       });
     },
@@ -583,6 +652,34 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     deleteRehearsal(groupId, rehearsalId) {
       if (!isToken(rehearsalId)) return false;
       return Number(removeRehearsal.run(groupId, rehearsalId).changes) > 0;
+    },
+    setRsvp(groupId, rehearsalId, memberId, date, answer) {
+      if (!canAnswer(groupId, rehearsalId, memberId, date)) return false;
+      writeRsvp(rehearsalId, memberId, date, answer);
+      return true;
+    },
+    setRsvps(groupId, rehearsalId, memberId, dates, answer) {
+      if (dates.length === 0) return false;
+      if (!dates.every((date) => canAnswer(groupId, rehearsalId, memberId, date))) return false;
+      transaction(() => {
+        for (const date of dates) writeRsvp(rehearsalId, memberId, date, answer);
+      });
+      return true;
+    },
+    listRsvps(groupId) {
+      return (
+        selectGroupRsvps.all(groupId) as {
+          rehearsal_id: string;
+          member_id: string;
+          date: string;
+          answer: RsvpAnswer;
+        }[]
+      ).map((row) => ({
+        rehearsalId: row.rehearsal_id,
+        memberId: row.member_id,
+        date: row.date,
+        answer: row.answer,
+      }));
     },
     close() {
       db.close();

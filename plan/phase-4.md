@@ -13,8 +13,17 @@ informs: ["5", "7"]
 
 - A member-facing list of proposed and confirmed rehearsals with time, location and RSVP state.
 - Yes / no / maybe RSVP on proposed and confirmed dates, changeable later, with a summary for organizers.
-- A decision on whether a read-only calendar feed (ICS) is offered to name-only members now or in [Phase 7](phase-7.md) (brief, Open question 5).
+- A decision on whether a read-only calendar feed (ICS) is offered to name-only members now or in [Phase 7](phase-7.md) (brief, Open question 5): deferred to Phase 7 (Decisions).
 - Tests for RSVP state changes and the member views.
+
+## Decisions (operator, 2026-10-02)
+
+Settled at phase start:
+
+- **RSVP visibility follows the names setting.** Organizers always see everyone's answers. Members see totals ("3 yes, 1 maybe") and, when the group shows names, who answered what.
+- **Weekly rehearsals are answered per date**, with a quick way to give the same answer to all upcoming dates at once.
+- **Both proposed and confirmed times take RSVPs**, and answers on a proposed time carry over when it is confirmed.
+- **The calendar feed (ICS) is deferred to Phase 7** (brief, Open question 5), to be decided together with Google Calendar writing.
 
 ## Inherited from Phase 3
 
@@ -27,9 +36,17 @@ Pinned by [Phase 3](phase-3.md) (see its Decisions section):
 
 ## Acceptance
 
-- `./bin/test project/tests` covers RSVP changes and what each role sees.
+Executable:
+
+- `./bin/test project/tests` covers RSVP changes (set, change, clear, answer all upcoming dates), answers carried from proposed to confirmed, and what each role sees (totals for members, names only when the group shows names, everyone's answers for organizers).
 - `./bin/check all` passes.
-- User Demo: two members RSVP differently to a confirmed rehearsal and the organizer sees both answers. To be tightened at phase start.
+
+User Demo:
+
+- **Entry point.** `cd project && corepack pnpm run dev --host` (the development server backs up an older database automatically), then open the network URL on a phone or a browser narrowed to about 375 px.
+- **Suggested inputs.** Create a group and join it in two private windows as `Cellist` and `Pianist`. As organizer, open Schedule, propose a weekly rehearsal on Thursdays 19:30–21:30 at `Studio B` starting next week, and confirm it. As `Cellist`, answer Yes for the first date and No for the second; as `Pianist`, answer Maybe for all upcoming dates at once.
+- **What to look for.** The organizer sees, per date, who said yes, no and maybe and who hasn't answered; members see totals only, and see names after the organizer switches the group to show names. Changing an answer updates the totals; answers given while the rehearsal was proposed are still there after confirming.
+- **Variations to explore.** Clear an answer. Cancel one date as organizer and check it disappears from the members' lists. Is answering comfortable on a phone?
 
 ## Brief refs
 

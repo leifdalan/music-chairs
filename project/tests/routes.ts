@@ -61,7 +61,8 @@ type Table =
   | "availability"
   | "availability_skips"
   | "rehearsals"
-  | "rehearsal_cancellations";
+  | "rehearsal_cancellations"
+  | "rsvps";
 
 export function tempDatabase(): (table: Table) => number {
   const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));

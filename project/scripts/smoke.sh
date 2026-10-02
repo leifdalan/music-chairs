@@ -1,7 +1,7 @@
 #!/bin/bash
 # Production-build smoke: builds the app, serves it with a throwaway database,
-# and checks the create → invite → join path, adding availability, proposing
-# and confirming a rehearsal, not-found pages, and that data survives a real
+# and checks the create → invite → join path, adding availability, proposing,
+# confirming and answering a rehearsal, not-found pages, and that data survives a real
 # server restart. Usage: scripts/smoke.sh [port] (default 3917).
 set -u
 cd "$(dirname "$0")/.." || exit 1
@@ -100,10 +100,11 @@ availability_ok || fail "availability page does not list the weekly time"
 echo "  weekly time listed on the availability page"
 
 echo "+ propose and confirm a rehearsal"
-# A Thursday about ten weeks ahead, so the proposal is never in the past; Node
-# does the date arithmetic because BSD and GNU date disagree.
+# The first Thursday at least a week ahead: never in the past, and inside the
+# eight-week window where its dates can be answered. Node does the date
+# arithmetic because BSD and GNU date disagree.
 dates="$(corepack pnpm exec node -e '
-  const day = new Date(Date.now() + 70 * 86400000);
+  const day = new Date(Date.now() + 7 * 86400000);
   day.setUTCDate(day.getUTCDate() + ((4 - day.getUTCDay() + 7) % 7));
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   console.log(day.toISOString().slice(0, 10) + " " + day.getUTCDate() + " " + months[day.getUTCMonth()]);
@@ -123,14 +124,19 @@ rehearsal="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=confirm" --data-urlencode "rehearsalId=$rehearsal")"
 [ "$code" = 302 ] || fail "confirming the rehearsal returned HTTP $code"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
+  --data-urlencode "intent=rsvp" --data-urlencode "rehearsalId=$rehearsal" \
+  --data-urlencode "date=$rehearsal_date" --data-urlencode "answer=yes")"
+[ "$code" = 302 ] || fail "answering yes returned HTTP $code"
 schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
   grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 19:30–21:30" "$work/schedule.html" &&
     grep -q "At Studio B" "$work/schedule.html" &&
-    grep -q "1 of 1 free" "$work/schedule.html"
+    grep -q "1 of 1 free" "$work/schedule.html" &&
+    grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html"
 }
-schedule_ok || fail "schedule page does not show the confirmed rehearsal and the overlap"
-echo "  confirmed weekly rehearsal and overlap listed on the schedule page"
+schedule_ok || fail "schedule page does not show the confirmed rehearsal, its RSVP and the overlap"
+echo "  confirmed weekly rehearsal, a yes answer and the overlap listed on the schedule page"
 
 for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"

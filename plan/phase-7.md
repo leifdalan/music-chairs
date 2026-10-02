@@ -24,6 +24,10 @@ Pinned by [Phase 2](phase-2.md): availability is stored as wall-clock dates and 
 
 Pinned by [Phase 3](phase-3.md): confirmed rehearsals live in `rehearsals` (`status = 'confirmed'`, location free text, weekly patterns with an optional `end_date` and cancelled dates in `rehearsal_cancellations`). Writing them to calendars must follow later changes made there: an organizer can cancel single dates, set a last date, or delete a rehearsal; editing times is done by deleting and proposing again.
 
+## Inherited from Phase 4
+
+Pinned by [Phase 4](phase-4.md): no calendar feed shipped; the operator deferred the ICS fallback for name-only members to this phase (Open question 5). Members' answers live per rehearsal date in `rsvps` (`yes`, `no`, `maybe`), which this phase can use when deciding whose calendars get an event for which dates.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers import mapping, event creation, update and cancellation.

@@ -340,3 +340,77 @@ describe("rehearsals store", () => {
     expect(store.endRehearsal(group.id, once.id, "2026-10-22")).toBeNull();
   });
 });
+
+describe("rsvp store", () => {
+  function setup() {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const cello = store.addMember(group.id, "Cello", "member");
+    const weekly = store.addRehearsal(group.id, thursdays, "Studio B");
+    return { store, group, organizer, cello, weekly };
+  }
+
+  it("sets, changes and clears an answer, and keeps it when the rehearsal is confirmed", () => {
+    const { store, group, cello, weekly } = setup();
+
+    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", "yes")).toBe(true);
+    store.confirmRehearsal(group.id, weekly.id);
+    expect(store.listRsvps(group.id)).toEqual([
+      { rehearsalId: weekly.id, memberId: cello.id, date: "2026-10-08", answer: "yes" },
+    ]);
+    store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", "no");
+    expect(store.listRsvps(group.id)[0].answer).toBe("no");
+    store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", null);
+    expect(store.listRsvps(group.id)).toEqual([]);
+  });
+
+  it("refuses answers for dates that don't happen, other groups and other groups' members", () => {
+    const { store, group, cello, weekly } = setup();
+    const other = store.createGroup("Other", "Drums", "Europe/London");
+    store.setCancelled(group.id, weekly.id, "2026-10-15", true);
+
+    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-09", "yes")).toBe(false);
+    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-15", "yes")).toBe(false);
+    expect(store.setRsvp(other.group.id, weekly.id, cello.id, "2026-10-08", "yes")).toBe(false);
+    expect(store.setRsvp(group.id, weekly.id, other.organizer.id, "2026-10-08", "yes")).toBe(false);
+    const once = store.addRehearsal(group.id, { ...thursdays, kind: "once" }, "");
+    expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-08", "yes")).toBe(false);
+    expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-01", "yes")).toBe(true);
+    expect(store.listRsvps(other.group.id)).toEqual([]);
+  });
+
+  it("answers several dates all or nothing", () => {
+    const { store, group, cello, weekly } = setup();
+
+    expect(
+      store.setRsvps(group.id, weekly.id, cello.id, ["2026-10-08", "2026-10-09"], "maybe"),
+    ).toBe(false);
+    expect(store.listRsvps(group.id)).toEqual([]);
+    expect(
+      store.setRsvps(group.id, weekly.id, cello.id, ["2026-10-08", "2026-10-15"], "maybe"),
+    ).toBe(true);
+    expect(store.listRsvps(group.id).map((r) => [r.date, r.answer])).toEqual([
+      ["2026-10-08", "maybe"],
+      ["2026-10-15", "maybe"],
+    ]);
+  });
+
+  it("drops answers after a new last date, keeps them on a cancelled date, and cascades on delete", () => {
+    const { store, group, cello, weekly } = setup();
+    store.setRsvps(
+      group.id,
+      weekly.id,
+      cello.id,
+      ["2026-10-08", "2026-10-15", "2026-10-22"],
+      "yes",
+    );
+
+    store.setCancelled(group.id, weekly.id, "2026-10-08", true);
+    store.endRehearsal(group.id, weekly.id, "2026-10-15");
+    store.setCancelled(group.id, weekly.id, "2026-10-08", false);
+    expect(store.listRsvps(group.id).map((r) => r.date)).toEqual(["2026-10-08", "2026-10-15"]);
+
+    store.deleteRehearsal(group.id, weekly.id);
+    expect(store.listRsvps(group.id)).toEqual([]);
+  });
+});

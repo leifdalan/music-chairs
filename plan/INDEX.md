@@ -48,8 +48,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 1](phase-1.md)  | Groups, invite links and name-only joining                         | ✅     |
 | [Phase 2](phase-2.md)  | Availability entry: one-off and recurring                          | ✅     |
 | [Phase 3](phase-3.md)  | Combined availability and confirming rehearsal times               | ✅     |
-| [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ⬅️     |
-| [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ⏳     |
+| [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ✅     |
+| [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ⬅️     |
 | [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ⏳     |
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ⏳     |
 

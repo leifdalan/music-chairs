@@ -47,7 +47,7 @@ corepack pnpm run preview
 scripts/smoke.sh
 ```
 
-`scripts/smoke.sh` builds the app, serves it on port 3917 (or the port given as its argument) with a throwaway database, and checks creating a group, the invite and join pages, adding availability, proposing and confirming a rehearsal on the schedule page, not-found pages and that data survives a server restart.
+`scripts/smoke.sh` builds the app, serves it on port 3917 (or the port given as its argument) with a throwaway database, and checks creating a group, the invite and join pages, adding availability, proposing, confirming and answering (RSVP) a rehearsal on the schedule page, not-found pages and that data survives a server restart.
 
 To try the app from a phone on the same network, start the development server with `corepack pnpm run dev --host` and open the network URL it prints.
 

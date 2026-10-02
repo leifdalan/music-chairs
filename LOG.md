@@ -587,3 +587,118 @@ Lessons:
 
 Remaining:
 - Restart your dev server if it was started before this fix; it then backs up any older database and starts fresh.
+
+## 2026-10-02 14:23 — START
+Phase 4 — Confirmed rehearsals for members, with RSVP
+
+Execution trace: 4d0f0bee88fc4fb78b6ae1797dc51033
+
+Operator decisions recorded in plan/phase-4.md before this run: RSVP visibility follows the names setting; weekly rehearsals answered per date with answer-all; proposed and confirmed both take RSVPs; calendar feed deferred to Phase 7.
+
+Planned work:
+- A member-facing list of proposed and confirmed rehearsals with time, location and RSVP state.
+- Yes / no / maybe RSVP on proposed and confirmed dates, changeable later, with a summary for organizers.
+- A decision on whether a read-only calendar feed (ICS) is offered to name-only members now or in Phase 7 (brief, Open question 5): deferred to Phase 7 (Decisions).
+- Tests for RSVP state changes and the member views.
+
+## 2026-10-02 14:39 — END
+Phase 4 — Confirmed rehearsals for members, with RSVP
+
+Phase 4 is accepted on its gates. Members now answer Yes, No or Maybe for each date of a proposed or confirmed rehearsal on the Schedule page, change or clear it, or answer every date in the coming eight weeks at once. Organizers see who said what and who hasn't answered; members see totals, and names only when the group shows names. With this, the whole scheduling loop works for name-only members. How answering feels on a phone is still yours to judge through the User Demo below; note the corrected step order there.
+
+Execution trace: 4d0f0bee88fc4fb78b6ae1797dc51033
+
+Files changed:
+- plan/phase-4.md — operator decisions and the tightened User Demo, recorded before the run
+- project/app/.server/store.ts — rsvps table; setRsvp, setRsvps (all or nothing), listRsvps; endRehearsal also drops answers after a new last date
+- project/app/routes/schedule.tsx — per-date answer state with the visibility rule; rsvp and rsvp-all for any member (always the viewer); one definition of answerable dates; answer rows on each rehearsal card
+- project/app/app.css — answer buttons, totals and name lines at phone width
+- project/tests/store.test.ts, project/tests/schedule.test.tsx, project/tests/routes.ts — RSVP store, route, visibility and rendering tests (135 tests)
+- project/scripts/smoke.sh, project/README.md — the smoke answers Yes for a rehearsal a week ahead and checks it across a restart
+- plan/INDEX.md — Phase 4 ✅, Phase 5 ⬅️ (pending, applied after this block)
+- plan/phase-7.md — inherited Phase 4 note (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 135/135, pytest 128): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.287 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 103.4 s (intelligence union 223.805 s minus the critic's 120.396 s); success
+- Coder: inline (no role span)
+- Critic (code review): 120.396 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 978.119 s; intelligence 223.805 s; gates 131.618 s; orchestration 977.477 s; wait 222.680 s; failed 0 s; retry 0 s; unattributed 0.642 s (category totals are interval unions and may overlap). The makespan includes an interruption while the operator re-authenticated during the final gate.
+- Awaiting user input:
+  - 2026-10-02T21:17:14Z → 2026-10-02T21:22:52Z: 338.194 s (decision, before the trace started; exact monotonic)
+  - Total: 338.194 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: initial=449afeb678c115984ea6ffd6a890a42afbd3114d04aeb717b9aae87a2bb4ac3b approved=10d5b6f3570671cc0f657afacb6dd921e0f9bf4722a52e3768b9b4249c770c7c final=10d5b6f3570671cc0f657afacb6dd921e0f9bf4722a52e3768b9b4249c770c7c
+- Revision packets: 0
+- Advisory reports: 2 — plan review 8 findings (all adopted), code critique 5 findings (4 adopted, 1 deferred: the User Demo's step order, because the phase file was a captured authority)
+- Gates: implementation-final=2, both recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers RSVP changes (set, change, clear, answer every offered date), answers carried from proposed to confirmed, refusal of past, cancelled and out-of-window dates, and what each role sees (totals for members, names only when the group shows names, everyone's answers and non-responders for organizers); the production build answers and keeps an RSVP across a restart (`project/scripts/smoke.sh`). `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below — whether answering is comfortable on a phone and the summaries read clearly
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-7.md — add "Inherited from Phase 4": no calendar feed shipped (deferred here by the operator); per-date answers in rsvps are available to the calendar write model — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrence pending: icy-echidna (3 occurrences) — operator product questions asked at phase entry, before capture (methodology)
+- filed pending: a methodology candidate — a User Demo written into the phase file at entry is captured as authority, so a demo defect found later cannot be fixed in that run; check each "what to look for" is reachable from the suggested inputs before capture
+- graduation DECIDE: icy-echidna → .claude/skills/kickoff/preflight.md (Step 1a): collect a sketched phase's owner decisions with the structured ask at entry, record them in the phase file, then mark 🚧 and capture — three phases used it without a mid-run park
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** `cd project && corepack pnpm run dev --host` (the development server backs up an older database automatically), then open the network URL on a phone or a browser narrowed to about 375 px.
+- **Suggested inputs.** Create a group and join it in two private windows as `Cellist` and `Pianist`. As organizer, open Schedule, propose a weekly rehearsal on Thursdays 19:30–21:30 at `Studio B` starting next week, and confirm it. As `Cellist`, answer Yes for the first date and No for the second; as `Pianist`, answer Maybe for all upcoming dates at once.
+- **What to look for.** The organizer sees, per date, who said yes, no and maybe and who hasn't answered; members see totals only, and see names after the organizer switches the group to show names. Changing an answer updates the totals; answers given while the rehearsal was proposed are still there after confirming.
+- **Variations to explore.** Clear an answer. Cancel one date as organizer and check it disappears from the members' lists. Is answering comfortable on a phone?
+- Corrected order (critique finding deferred from the phase file): to see answers carry over, have `Cellist` answer while the rehearsal is still proposed, then confirm it as organizer.
+
+Remaining:
+- The calendar feed for name-only members is deferred to Phase 7 by operator decision.
+- "Answer every date" covers the dates in the eight-week window; dates that enter the window later start unanswered.
+
+## 2026-10-02 14:40 — Close bookkeeping outcomes
+Phase 4 — Confirmed rehearsals for members, with RSVP
+
+Execution trace: 4d0f0bee88fc4fb78b6ae1797dc51033
+
+- Status: applied and verified — Phase 4 ✅, Phase 5 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-7.md gained an "Inherited from Phase 4" section.
+- Ripple DECIDE: none.
+- Lessons: icy-echidna gained its third occurrence (Phase 4 END) and is graduation-ready (DECIDE for the operator); gentle-pug filed as a methodology candidate. ./bin/lessons validate: LESSONS OK.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

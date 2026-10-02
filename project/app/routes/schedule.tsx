@@ -1,7 +1,13 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import { findViewer } from "~/.server/membership";
-import { getStore, type Group, type Member, type Rehearsal } from "~/.server/store";
+import {
+  getStore,
+  type Group,
+  type Member,
+  type Rehearsal,
+  type RsvpAnswer,
+} from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
 import { TextField } from "~/components/text-field";
 import {
@@ -46,6 +52,24 @@ async function groupAndViewer(
   return { group, viewer };
 }
 
+/**
+ * The dates members can answer for: from today to the end of the window (or a
+ * one-off rehearsal's own date beyond it), cancelled dates excluded. The loader
+ * and both answer intents use this one definition.
+ */
+/** The last date of the overlap and answer window that starts `today`. */
+function windowEnd(today: string): string {
+  return addDays(today, UPCOMING_WEEKS * 7 - 1);
+}
+
+function offeredDates(rehearsal: Rehearsal, today: string, until: string): string[] {
+  const last =
+    rehearsal.kind === "once" && rehearsal.startDate > until ? rehearsal.startDate : until;
+  return expandOccurrences([rehearsal], today, last).map((occurrence) => occurrence.date);
+}
+
+const ANSWERS: RsvpAnswer[] = ["yes", "no", "maybe"];
+
 function timeRange(start: number, end: number): string {
   return `${formatMinutes(start)}–${formatMinutes(end)}`;
 }
@@ -63,8 +87,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     slots: slots.get(member.id) ?? [],
   }));
   const names = new Map(members.map((member) => [member.id, member.displayName]));
+  const answers = new Map<string, Map<string, RsvpAnswer>>();
+  for (const rsvp of store.listRsvps(group.id)) {
+    const key = `${rsvp.rehearsalId}|${rsvp.date}`;
+    answers.set(key, (answers.get(key) ?? new Map()).set(rsvp.memberId, rsvp.answer));
+  }
   const today = todayInZone(group.timeZone, new Date());
-  const until = addDays(today, UPCOMING_WEEKS * 7 - 1);
+  const until = windowEnd(today);
   const rehearsals = store.listRehearsals(group.id);
   // Warnings reach past the overlap window for one-off rehearsals further out.
   const laterDates = rehearsals
@@ -117,24 +146,47 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       : null,
   };
 
+  function dateView(rehearsal: Rehearsal, date: string) {
+    const byMember = answers.get(`${rehearsal.id}|${date}`) ?? new Map<string, RsvpAnswer>();
+    const counts = { yes: 0, no: 0, maybe: 0 };
+    for (const answer of byMember.values()) counts[answer] += 1;
+    const answeredBy = (answer: RsvpAnswer) =>
+      members.filter((member) => byMember.get(member.id) === answer).map((m) => m.displayName);
+    return {
+      date,
+      mine: byMember.get(viewer.id) ?? null,
+      counts,
+      // Names follow the group's setting for members; "not answered" is for organizers only.
+      names: showNames
+        ? {
+            yes: answeredBy("yes"),
+            no: answeredBy("no"),
+            maybe: answeredBy("maybe"),
+            none: isOrganizer
+              ? members.filter((member) => !byMember.has(member.id)).map((m) => m.displayName)
+              : null,
+          }
+        : null,
+    };
+  }
+
   function rehearsalView(rehearsal: Rehearsal) {
-    const horizonEnd =
-      rehearsal.kind === "once" && rehearsal.startDate > until ? rehearsal.startDate : until;
-    const upcoming = expandOccurrences([rehearsal], today, horizonEnd);
+    const dates = offeredDates(rehearsal, today, until);
     const view = {
+      id: rehearsal.id,
       kind: rehearsal.kind,
       status: rehearsal.status,
       location: rehearsal.location,
       summary: describeSlot(rehearsal),
-      upcoming: upcoming.map((occurrence) => occurrence.date),
+      dates: dates.map((date) => dateView(rehearsal, date)),
     };
     if (!isOrganizer) return { ...view, organizer: null };
-    const warnings = upcoming
-      .map((occurrence) => ({
-        date: occurrence.date,
+    const warnings = dates
+      .map((date) => ({
+        date,
         missing: missingRequired(
           members,
-          freeDuring(cells, occurrence.date, rehearsal.startMinute, rehearsal.endMinute),
+          freeDuring(cells, date, rehearsal.startMinute, rehearsal.endMinute),
         ).map((member) => member.displayName),
       }))
       .filter((warning) => warning.missing.length > 0);
@@ -143,7 +195,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return {
       ...view,
       organizer: {
-        id: rehearsal.id,
         warnings,
         uncheckedAfter: runsPastWindow ? until : null,
         // Every date in the window the pattern meets, cancelled or not, for the toggles.
@@ -198,15 +249,45 @@ function problem(message: string) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  // The viewer is resolved before the form is read; only organizers may act.
+  // The viewer is resolved before the form is read. Any member may answer for
+  // themselves; every other intent is organizer-only.
   const { group, viewer } = await groupAndViewer(request, params.groupId);
-  if (viewer.role !== "organizer") throw data(null, { status: 403 });
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
   const back = redirect(`/g/${group.id}/schedule`);
+
+  if (intent === "rsvp" || intent === "rsvp-all") {
+    const rehearsal = store.findRehearsal(group.id, rehearsalId);
+    if (!rehearsal) throw data(null, { status: 404 });
+    const raw = form.get("answer");
+    const answer = ANSWERS.find((value) => value === raw) ?? null;
+    if (answer === null && raw !== "clear") return problem("Choose yes, no or maybe.");
+    const offered = offeredDates(rehearsal, today, windowEnd(today));
+    // The answering member is always the viewer, never a form field.
+    if (intent === "rsvp-all") {
+      if (
+        rehearsal.kind !== "weekly" ||
+        !store.setRsvps(group.id, rehearsal.id, viewer.id, offered, answer)
+      ) {
+        return problem("There are no dates to answer for this rehearsal.");
+      }
+      return back;
+    }
+    const date = form.get("date");
+    if (
+      !isDate(date) ||
+      !offered.includes(date) ||
+      !store.setRsvp(group.id, rehearsal.id, viewer.id, date, answer)
+    ) {
+      return problem("That date can't be answered. Reload the page and try again.");
+    }
+    return back;
+  }
+
+  if (viewer.role !== "organizer") throw data(null, { status: 403 });
 
   if (intent === "propose") {
     const parsed = parseSlotInput(form);
@@ -393,8 +474,8 @@ function RehearsalList({
         <p className="hint">{empty}</p>
       ) : (
         <ul className="rehearsals">
-          {items.map((item, index) => (
-            <RehearsalCard key={item.organizer?.id ?? index} item={item} busy={busy} />
+          {items.map((item) => (
+            <RehearsalCard key={item.id} item={item} busy={busy} />
           ))}
         </ul>
       )}
@@ -404,13 +485,50 @@ function RehearsalList({
 
 function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
   const organizer = item.organizer;
-  const next = item.upcoming.slice(0, 4).map(formatDate).join(", ");
+  const shown = item.dates.slice(0, 4);
+  const more = item.dates.slice(4);
   return (
     <li className={`rehearsal ${item.status}`}>
       <p className="slot-summary">{item.summary}</p>
       {item.location ? <p className="hint">At {item.location}</p> : null}
-      {item.kind === "weekly" ? (
-        <p className="hint">{next ? `Next: ${next}` : "No dates in the coming weeks."}</p>
+      {item.dates.length === 0 ? (
+        <p className="hint">No dates in the coming weeks.</p>
+      ) : (
+        <ul className="rsvp-dates">
+          {shown.map((date) => (
+            <RsvpRow
+              key={date.date}
+              rehearsalId={item.id}
+              summary={item.summary}
+              date={date}
+              busy={busy}
+            />
+          ))}
+        </ul>
+      )}
+      {more.length > 0 ? (
+        <details>
+          <summary>More dates ({more.length})</summary>
+          <ul className="rsvp-dates">
+            {more.map((date) => (
+              <RsvpRow
+                key={date.date}
+                rehearsalId={item.id}
+                summary={item.summary}
+                date={date}
+                busy={busy}
+              />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {item.kind === "weekly" && item.dates.length > 1 ? (
+        <Form method="post" replace className="rsvp-all">
+          <input type="hidden" name="intent" value="rsvp-all" />
+          <input type="hidden" name="rehearsalId" value={item.id} />
+          <span>Answer every date until {formatDate(item.dates[item.dates.length - 1].date)}:</span>
+          <AnswerButtons label={`every date of ${item.summary}`} current={undefined} busy={busy} />
+        </Form>
       ) : null}
       {organizer && organizer.warnings.length > 0 ? (
         <ul className="warnings" aria-label="Warnings">
@@ -432,7 +550,7 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           {item.status === "proposed" ? (
             <Form method="post" replace>
               <input type="hidden" name="intent" value="confirm" />
-              <input type="hidden" name="rehearsalId" value={organizer.id} />
+              <input type="hidden" name="rehearsalId" value={item.id} />
               <button type="submit" disabled={busy} aria-label={`Confirm ${item.summary}`}>
                 Confirm
               </button>
@@ -440,7 +558,7 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           ) : null}
           <Form method="post" replace>
             <input type="hidden" name="intent" value="delete" />
-            <input type="hidden" name="rehearsalId" value={organizer.id} />
+            <input type="hidden" name="rehearsalId" value={item.id} />
             <button
               type="submit"
               className="secondary"
@@ -470,7 +588,7 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
                       name="intent"
                       value={cancelled ? "restore-date" : "cancel-date"}
                     />
-                    <input type="hidden" name="rehearsalId" value={organizer.id} />
+                    <input type="hidden" name="rehearsalId" value={item.id} />
                     <input type="hidden" name="date" value={date} />
                     <button
                       type="submit"
@@ -487,10 +605,10 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           </ul>
           <Form method="post" replace className="end-form">
             <input type="hidden" name="intent" value="end" />
-            <input type="hidden" name="rehearsalId" value={organizer.id} />
-            <label htmlFor={`end-${organizer.id}`}>Last date</label>
+            <input type="hidden" name="rehearsalId" value={item.id} />
+            <label htmlFor={`end-${item.id}`}>Last date</label>
             <input
-              id={`end-${organizer.id}`}
+              id={`end-${item.id}`}
               name="endDate"
               type="date"
               required
@@ -502,6 +620,95 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           </Form>
         </details>
       ) : null}
+    </li>
+  );
+}
+
+type DateItem = RehearsalItem["dates"][number];
+
+const ANSWER_LABELS: Record<RsvpAnswer, string> = { yes: "Yes", no: "No", maybe: "Maybe" };
+
+/** Yes / No / Maybe as value-bearing submit buttons of the enclosing form. */
+function AnswerButtons({
+  label,
+  current,
+  busy,
+}: {
+  label: string;
+  current: RsvpAnswer | null | undefined;
+  busy: boolean;
+}) {
+  return (
+    <span className="answers">
+      {ANSWERS.map((answer) => (
+        <button
+          key={answer}
+          type="submit"
+          name="answer"
+          value={answer}
+          className={current === answer ? "answer chosen" : "answer secondary"}
+          // Per-date buttons toggle a current answer; answer-all buttons are plain actions.
+          aria-pressed={current === undefined ? undefined : current === answer}
+          aria-label={`${ANSWER_LABELS[answer]} for ${label}`}
+          disabled={busy}
+        >
+          {ANSWER_LABELS[answer]}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function RsvpRow({
+  rehearsalId,
+  summary,
+  date,
+  busy,
+}: {
+  rehearsalId: string;
+  summary: string;
+  date: DateItem;
+  busy: boolean;
+}) {
+  const { counts, names } = date;
+  // Names the rehearsal too, so two rehearsals on one date stay distinguishable.
+  const subject = `${formatDate(date.date)} (${summary})`;
+  const lines = names
+    ? ANSWERS.filter((answer) => names[answer].length > 0)
+        .map((answer) => `${ANSWER_LABELS[answer]}: ${names[answer].join(", ")}`)
+        .concat(names.none && names.none.length > 0 ? [`No answer: ${names.none.join(", ")}`] : [])
+    : [];
+  return (
+    <li className="rsvp-date">
+      <p className="rsvp-heading">
+        <strong>{formatDate(date.date)}</strong>
+        <span className="hint">
+          {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
+        </span>
+      </p>
+      <Form method="post" replace className="rsvp-form">
+        <input type="hidden" name="intent" value="rsvp" />
+        <input type="hidden" name="rehearsalId" value={rehearsalId} />
+        <input type="hidden" name="date" value={date.date} />
+        <AnswerButtons label={subject} current={date.mine} busy={busy} />
+        {date.mine ? (
+          <button
+            type="submit"
+            name="answer"
+            value="clear"
+            className="secondary small"
+            aria-label={`Clear my answer for ${subject}`}
+            disabled={busy}
+          >
+            Clear
+          </button>
+        ) : null}
+      </Form>
+      {lines.map((line) => (
+        <p key={line} className="hint rsvp-names">
+          {line}
+        </p>
+      ))}
     </li>
   );
 }
