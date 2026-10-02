@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -196,8 +196,19 @@ function toMember(row: MemberRow): Member {
   };
 }
 
-/** Opens (creating if needed) the SQLite database at `filename`; `:memory:` is private to the store. */
-export function openStore(filename: string): Store {
+/**
+ * Opens (creating if needed) the SQLite database at `filename`; `:memory:` is
+ * private to the store.
+ *
+ * Until the first release the schema changes without migrations
+ * (policies/greenfield-until-released.md), and `CREATE TABLE IF NOT EXISTS`
+ * leaves an older table as it was, so a database from an earlier version fails
+ * when the statements are prepared. With `resetIfStale` (local development)
+ * that file and its -wal/-shm files are renamed to a timestamped backup and a
+ * fresh database is created; otherwise opening refuses with a message saying
+ * what to do. Nothing is ever deleted.
+ */
+export function openStore(filename: string, options: { resetIfStale?: boolean } = {}): Store {
   if (filename !== ":memory:") {
     mkdirSync(dirname(resolve(filename)), { recursive: true });
   }
@@ -207,16 +218,24 @@ export function openStore(filename: string): Store {
   } catch (error) {
     db.close();
     if ((error as { code?: unknown }).code !== "ERR_SQLITE_ERROR") throw error;
-    // Until the first release the schema changes without migrations
-    // (policies/greenfield-until-released.md). `CREATE TABLE IF NOT EXISTS`
-    // leaves an older table as it was, so a database from an earlier version
-    // fails here, when the statements are prepared. Say so plainly instead of
-    // failing every request with SQLite's generic "SQL logic error".
+    const path = resolve(filename);
+    const reason = (error as Error).message;
+    if (options.resetIfStale && filename !== ":memory:") {
+      const backup = `${path}.stale-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+      for (const suffix of ["", "-wal", "-shm"]) {
+        if (existsSync(path + suffix)) renameSync(path + suffix, backup + suffix);
+      }
+      console.warn(
+        `music-chairs: ${path} was created by an earlier version (${reason}). ` +
+          `Moved it to ${backup} and started a fresh database.`,
+      );
+      return openStore(filename);
+    }
     throw new Error(
-      `The database ${resolve(filename)} does not match this version of music-chairs ` +
-        `(${(error as Error).message}). It was probably created by an earlier version, and ` +
-        "there are no migrations before the first release: stop the server, move or delete " +
-        "that file and its -wal and -shm files, then start again.",
+      `The database ${path} does not match this version of music-chairs (${reason}). ` +
+        "It was probably created by an earlier version, and there are no migrations before " +
+        "the first release: stop the server, move or delete that file and its -wal and -shm " +
+        "files, then start again.",
       { cause: error },
     );
   }
@@ -573,8 +592,15 @@ function buildStore(db: DatabaseSync, filename: string): Store {
 
 let shared: Store | undefined;
 
-/** The process-wide store for `MUSIC_CHAIRS_DB` (default `data/music-chairs.sqlite`), opened on first use. */
+/**
+ * The process-wide store for `MUSIC_CHAIRS_DB` (default `data/music-chairs.sqlite`),
+ * opened on first use. Outside production a database from an earlier version is
+ * backed up and replaced; a production server refuses it instead, because a
+ * silent reset there would hide real data.
+ */
 export function getStore(): Store {
-  shared ??= openStore(process.env.MUSIC_CHAIRS_DB || DEFAULT_DATABASE);
+  shared ??= openStore(process.env.MUSIC_CHAIRS_DB || DEFAULT_DATABASE, {
+    resetIfStale: process.env.NODE_ENV !== "production",
+  });
   return shared;
 }

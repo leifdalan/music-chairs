@@ -552,3 +552,38 @@ Execution trace: 97c16bae3bee4e6ca57288d61b1bec29
 - Lessons: icy-echidna gained its second occurrence (Phase 3 END); camouflaged-dragon filed as a local candidate (timing thresholds and fixed dates are proxies). ./bin/lessons validate: LESSONS OK; ./bin/lessons candidates: none graduation-ready.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-02 14:12 — END (correction)
+Phase 3 — Combined availability and confirming rehearsal times
+
+The errors came from your Phase 2 database meeting Phase 3's new columns. The server's refusal message was correct, but Node also printed SQLite's raw "SQL logic error" beneath it, and every schema-changing phase still left the reset to you. Your Phase 2 data is kept as project/data/music-chairs.sqlite.phase2-backup (with -wal/-shm). From now on the development server does this itself: it renames an older database to music-chairs.sqlite.stale-<timestamp>, logs one line, and starts fresh. Production servers still refuse. Phase 3 stays ✅.
+
+Execution trace: b9aa36c76a4249939d972c729e9e3041
+
+Follow-up route:
+- direct fix — one option on the store's open path, its use in getStore, two tests and the README; no schema, route or data-shape change
+
+Role model/venue:
+- Coder: skipped (direct fix)
+- Critic: skipped (direct fix)
+
+Files changed:
+- project/app/.server/store.ts — openStore(filename, { resetIfStale }) renames an earlier-schema database and its -wal/-shm files to a timestamped backup and opens a fresh one; getStore enables it unless NODE_ENV is production; the refusal is unchanged elsewhere
+- project/tests/store.test.ts — refusal leaves the file in place; development reset keeps the old data in the backup (read back) and opens a working fresh database; both fail under their mutations
+- project/README.md — describes the development reset and the production refusal
+- lessons/nice-ant.md — second occurrence
+
+Build status:
+- Reproduced on a copy of the operator's database: refusal message with the chained cause "SQL logic error"
+- Development server on a copy: backed up, one log line, fresh database served; production server on a copy: refused with the named file
+- project/scripts/smoke.sh: OK; ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 121/121, pytest 128): OK; evidence validation EVIDENCE VALID
+- Handoff gate: runs after this block and the regenerated report; delivery is contingent on the bare `./bin/check all`
+
+Delivery:
+- default — commit + fast-forward push after validation
+
+Lessons:
+- nice-ant recurred (2 occurrences) — demo instructions alone did not prevent a stale database; the development server now resets it with a backup (methodology)
+
+Remaining:
+- Restart your dev server if it was started before this fix; it then backs up any older database and starts fresh.

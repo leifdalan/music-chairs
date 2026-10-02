@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isToken, openStore, type Member, type NewMember, type Store } from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
@@ -83,24 +83,58 @@ describe("store", () => {
     expect(store.findMember(second.group.id, first.organizer.id)).toBeNull();
   });
 
-  it("refuses a database from an earlier schema with a message saying what to do", () => {
+  /** A database file whose groups table is Phase 1's, without later columns. */
+  function earlierDatabase(): { dir: string; filename: string } {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
     tempDirs.push(dir);
-    const filename = join(dir, "phase-1.sqlite");
-    // A groups table as Phase 1 created it, without the time zone column.
+    const filename = join(dir, "local.sqlite");
     const old = new DatabaseSync(filename);
     old.exec(
       "CREATE TABLE groups (id TEXT PRIMARY KEY, invite_token TEXT NOT NULL UNIQUE, " +
         "name TEXT NOT NULL, created_at TEXT NOT NULL)",
     );
+    old.exec("INSERT INTO groups VALUES ('old', 'invite', 'Phase 1 band', '2026-10-01')");
     old.close();
+    return { dir, filename };
+  }
 
-    expect(() => openStore(filename)).toThrow(
+  it("refuses a database from an earlier schema with a message saying what to do", () => {
+    const { filename } = earlierDatabase();
+
+    let refusal: unknown;
+    try {
+      openStore(filename);
+    } catch (error) {
+      refusal = error;
+    }
+
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toContain(
       `The database ${filename} does not match this version of music-chairs`,
     );
-    expect(() => openStore(filename)).toThrow(
+    expect((refusal as Error).message).toContain(
       "move or delete that file and its -wal and -shm files",
     );
+    expect(readdirSync(dirname(filename))).toEqual(["local.sqlite"]);
+  });
+
+  it("in development, backs up an earlier-schema database and starts a fresh one", () => {
+    const { dir, filename } = earlierDatabase();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = openStore(filename, { resetIfStale: true });
+    opened.push(store);
+
+    const backups = readdirSync(dir).filter((name) => name.startsWith("local.sqlite.stale-"));
+    expect(backups).toHaveLength(1);
+    const backup = new DatabaseSync(join(dir, backups[0]));
+    expect(backup.prepare("SELECT name FROM groups").all()).toEqual([{ name: "Phase 1 band" }]);
+    backup.close();
+    const { group } = store.createGroup("Fresh", "Viola", "Europe/London");
+    expect(store.findGroup(group.id)?.name).toBe("Fresh");
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(`Moved it to ${join(dir, backups[0])}`);
+    warn.mockRestore();
   });
 
   it("keeps data after the database is closed and reopened", () => {
