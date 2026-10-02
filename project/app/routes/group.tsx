@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { data } from "react-router";
+import { data, Link } from "react-router";
 
-import { readMemberships } from "~/.server/membership";
+import { findViewer } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { pageMeta } from "~/lib/site";
 
@@ -17,10 +17,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
   const group = store.findGroup(params.groupId);
   if (!group) throw data(null, { status: 404 });
-  const memberId = (await readMemberships(request))[group.id];
-  const viewer = memberId ? store.findMember(group.id, memberId) : null;
+  const viewer = await findViewer(request, group);
   return {
     groupName: group.name,
+    timeZone: group.timeZone,
     members: store.listMembers(group.id).map((member) => ({
       displayName: member.displayName,
       role: member.role,
@@ -33,14 +33,22 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export default function GroupPage({ loaderData }: Route.ComponentProps) {
-  const { groupName, members, viewer, inviteUrl } = loaderData;
+  const { groupName, timeZone, members, viewer, inviteUrl } = loaderData;
   return (
     <main>
       <h1>{groupName}</h1>
+      <p className="hint">Times in {timeZone}</p>
       {viewer ? (
-        <p className="hint">
-          You are <strong>{viewer.displayName}</strong> ({viewer.role}).
-        </p>
+        <>
+          <p className="hint">
+            You are <strong>{viewer.displayName}</strong> ({viewer.role}).
+          </p>
+          <p>
+            <Link to="availability" relative="path" className="button-link">
+              My availability
+            </Link>
+          </p>
+        </>
       ) : (
         <p className="notice">
           You haven't joined this group on this device. Ask an organizer for the invite link.

@@ -236,3 +236,123 @@ The END block headed 2026-10-02 12:05 was appended with the line "Lessons (per `
 
 - Changed: in the END block only, "Lessons (per `policies/lessons.md`):" → "Lessons:". No other byte of LOG.md changed (LOG.md sha256 33d8852aad9f6bdc9dca6efdab766c2a2d660de5b38f13deb089220114fa14ce → 0fc23996be06a7aa6a99c18b6197cd6b517c5f6b7c8109ecbfa150c5fb76343d before this entry). The accepted-close evidence keeps the digest of the block as originally written.
 - Template: the kickoff close resource's END template now prescribes "Lessons:" (separate methodology commit).
+
+## 2026-10-02 12:24 — START
+Phase 2 — Availability entry: one-off and recurring
+
+Execution trace: 37df859a216e4b4c9077148116e4e5c0
+
+Operator decisions recorded in plan/phase-2.md before this run: one time zone per group; weekly patterns run until ended (optional end date); exceptions skip a whole date; 30-minute steps.
+
+Planned work:
+- An availability model that represents one-off times and recurring patterns, including how a member marks that they cannot make one particular date of a recurring pattern and how long a pattern stays in effect (brief, Open question 2).
+- A decision on time zones (brief, Open question 4), recorded in the brief or this phase, and applied consistently to storage and display.
+- A mobile-first availability entry screen for the current member, with editing and removal.
+- Tests for the model (recurrence expansion, exceptions, boundaries) and for the loaders and actions.
+
+## 2026-10-02 12:53 — END
+Phase 2 — Availability entry: one-off and recurring
+
+Phase 2 is accepted on its gates. Members can now open "My availability" from their group page and add one-off times or weekly times (open-ended or with a last date), skip single dates of a weekly time, and edit or delete them; every group has one time zone, chosen when it is created and defaulted from the organizer's browser. Whether it is comfortable on a phone is still yours to judge through the User Demo below.
+
+Execution trace: 37df859a216e4b4c9077148116e4e5c0
+
+Files changed:
+- plan/phase-2.md — operator decisions (one zone per group; weekly until ended; skip whole dates; 30-minute steps) and the tightened User Demo, recorded before the run
+- project/app/lib/availability.ts — new: slot parsing, recurrence expansion with skips, group-zone today, zone canonicalization, fixed-format labels
+- project/app/.server/store.ts — groups gain a time zone; member-scoped availability and skip tables and functions
+- project/app/.server/membership.ts — findViewer: the one lookup of the member a device is in a group
+- project/app/routes/availability.tsx — new: /g/:groupId/availability page and actions (add, edit, delete, skip, restore)
+- project/app/routes/home.tsx — required time-zone select, defaulted from the browser after hydration
+- project/app/routes/group.tsx, project/app/routes/join.tsx, project/app/routes.ts — zone label and "My availability" link; shared viewer lookup; route registration
+- project/app/app.css — selects, radios, time pairs, slot and occurrence lists at phone width
+- project/tests/ — new availability and availability-route tests; store, home, group, join and helper updates (87 tests)
+- project/scripts/smoke.sh, project/README.md — smoke adds availability through restart; schema-reset note
+- plan/INDEX.md — Phase 2 ✅, Phase 3 ⬅️ (pending, applied after this block)
+- plan/phase-3.md, plan/phase-7.md — inherited Phase 2 constraints (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 87/87, pytest 128): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.287 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 155.0 s (intelligence union 325.783 s minus the critic's 170.786 s); success
+- Coder: inline (no role span)
+- Critic (code review): 170.786 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1740.197 s; intelligence 325.783 s; gates 126.533 s; orchestration 1739.553 s; wait 324.871 s; failed 0 s; retry 0 s; unattributed 0.644 s (category totals are interval unions and may overlap)
+- Awaiting user input:
+  - 2026-10-02T19:19:24Z → 2026-10-02T19:23:32Z: 247.392 s (decision, before the trace started; exact monotonic)
+  - Total: 247.392 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: initial=f3a3a2884b06caaf4a6af1f02635d7383fa4d36d693155269e229c9fd93ce129 approved=ef962f17071e7e94b4721ff962d2589ff194f4b0b14fd45ea1fa6122bb60d33d final=ef962f17071e7e94b4721ff962d2589ff194f4b0b14fd45ea1fa6122bb60d33d
+- Revision packets: 0
+- Advisory reports: 2 — plan review 9 findings (all adopted), code critique 7 findings (all adopted)
+- Gates: implementation-final=2, both recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- Asking the four product questions at phase entry, before authority capture, let the answers land in the phase file without a mid-run park.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers recurrence expansion with an exception date, editing and deleting availability, and the chosen time-zone rule (wall-clock storage in the group's zone, today computed in that zone, canonical zone names, host zone irrelevant); the production build serves the availability page and keeps it across a restart (`project/scripts/smoke.sh`). `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below — comfort of the native date and time pickers on a phone, the layout at about 375 px without zooming or sideways scrolling, whether the "Every Thursday from …" wording and the skip list read clearly, and that the add form clears after saving
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-3.md — add "Inherited from Phase 2": one zone per group, the slot and skip tables, reuse of expandOccurrences, members currently see only their own availability, findViewer for viewer and organizer checks — pending, applied after this block
+- AUTO: plan/phase-7.md — add "Inherited from Phase 2": import converts instants into the group zone and onto the 30-minute grid; writes convert wall-clock back to instants including the daylight-saving edge cases — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrence pending: lively-salamander — a red-witness mutation applied by sed silently matched nothing after Prettier reflowed the line, and the first "still green" run proved nothing; assert that an edit applied before trusting its result (local)
+- filed pending: a methodology candidate — when a sketched phase carries open brief questions, ask the operator at phase entry, before authority capture, so rulings land in the phase file without a park
+- graduation DECIDE: none
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** `cd project && corepack pnpm run dev --host`, then open the network URL on a phone (or a laptop browser narrowed to about 375 px) and join or open a group from Phase 1.
+- **Suggested inputs.** Add a weekly slot: Thursdays 19:00–22:00 starting this week, with no end date. Mark next Thursday as "can't make it". Add a one-off slot: Saturday 14:00–17:00 two weeks from now. Then change the weekly slot to 19:30–22:00 and delete the one-off.
+- **What to look for.** The upcoming list shows every Thursday at the new times except the skipped one, and the Saturday slot disappears once deleted; times are labelled with the group's time zone; every control is usable without zooming or sideways scrolling.
+- **Variations to explore.** Try an end time before the start time, or a time off the 30-minute grid. Give the weekly slot an end date and confirm later Thursdays disappear. Open the page in a second member's private window: do they see only their own availability?
+- Note: groups created before this phase have no time zone, so delete `project/data/` before trying the demo against an older local database.
+
+Remaining:
+- Changing a group's time zone after creation is not offered.
+- Daylight-saving edge cases (a time inside a skipped or repeated hour) are stored as entered; converting to instants is Phase 7's job.
+
+## 2026-10-02 12:54 — Close bookkeeping outcomes
+Phase 2 — Availability entry: one-off and recurring
+
+Execution trace: 37df859a216e4b4c9077148116e4e5c0
+
+- Status: applied and verified — Phase 2 ✅, Phase 3 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-3.md and plan/phase-7.md each gained an "Inherited from Phase 2" section.
+- Ripple DECIDE: none.
+- Lessons: lively-salamander gained its second occurrence (Phase 2 END); icy-echidna filed as a methodology candidate (ask a sketched phase's open brief questions at entry). ./bin/lessons validate: LESSONS OK; ./bin/lessons candidates: none graduation-ready.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

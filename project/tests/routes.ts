@@ -54,7 +54,9 @@ export async function thrownBy(promise: Promise<unknown>): Promise<unknown> {
  * route call in a test file (Vitest gives each file its own module graph).
  * The directory is removed after the file's tests finish.
  */
-export function tempDatabase(): (table: "groups" | "members") => number {
+type Table = "groups" | "members" | "availability" | "availability_skips";
+
+export function tempDatabase(): (table: Table) => number {
   const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
   const filename = join(dir, "test.sqlite");
   process.env.MUSIC_CHAIRS_DB = filename;

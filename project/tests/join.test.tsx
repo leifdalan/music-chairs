@@ -13,7 +13,7 @@ beforeAll(() => {
 });
 
 function newGroup() {
-  return getStore().createGroup("Thursday Quartet", "Viola").group;
+  return getStore().createGroup("Thursday Quartet", "Viola", "Europe/London").group;
 }
 
 function joinAs(inviteToken: string, displayName: string, cookie?: string) {

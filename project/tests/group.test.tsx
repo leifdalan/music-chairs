@@ -21,14 +21,15 @@ function load(groupId: string, cookie?: string) {
 
 function render(loaderData: GroupData): string {
   const Stub = createRoutesStub([{ id: "group", path: "/g/:groupId", Component: GroupPage }]);
+  // React separates adjacent text nodes with empty comments in server output.
   return renderToString(
     <Stub initialEntries={["/g/x"]} hydrationData={{ loaderData: { group: loaderData } }} />,
-  );
+  ).replaceAll("<!-- -->", "");
 }
 
 function band() {
   const store = getStore();
-  const { group, organizer } = store.createGroup("Thursday Quartet", "Viola");
+  const { group, organizer } = store.createGroup("Thursday Quartet", "Viola", "Europe/London");
   const cellist = store.addMember(group.id, "Cellist", "member");
   return { group, organizer, cellist };
 }
@@ -41,6 +42,7 @@ describe("group route", () => {
 
     expect(loaded).toEqual({
       groupName: "Thursday Quartet",
+      timeZone: "Europe/London",
       members: [
         { displayName: "Viola", role: "organizer", isViewer: true },
         { displayName: "Cellist", role: "member", isViewer: false },
@@ -74,7 +76,7 @@ describe("group route", () => {
 
   it("treats a membership from another group or a removed member as no viewer", async () => {
     const { group } = band();
-    const other = getStore().createGroup("Other", "Drummer");
+    const other = getStore().createGroup("Other", "Drummer", "Europe/London");
 
     const crossGroup = await load(group.id, await deviceCookie(group.id, other.organizer.id));
     const unknown = await load(group.id, await deviceCookie(group.id, "B".repeat(22)));
@@ -127,8 +129,11 @@ describe("group route", () => {
     const visitorHtml = render(await load(group.id));
 
     expect(memberHtml).not.toContain("Copy link");
+    expect(memberHtml).toContain("My availability");
+    expect(memberHtml).toContain("Times in Europe/London");
     expect(memberHtml).toMatch(/Cellist.*\(you\)/s);
     expect(visitorHtml).not.toContain("Copy link");
+    expect(visitorHtml).not.toContain("My availability");
     expect(visitorHtml).toContain("haven&#x27;t joined this group");
   });
 });

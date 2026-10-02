@@ -1,6 +1,6 @@
 import { data, Form, redirect, useNavigation } from "react-router";
 
-import { readMemberships, rememberMembership } from "~/.server/membership";
+import { findViewer, rememberMembership } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
 import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
@@ -17,8 +17,7 @@ function invitedGroup(inviteToken: string): Group {
 
 /** Whether this device already joined `group` as a member that still exists. */
 async function alreadyJoined(request: Request, group: Group): Promise<boolean> {
-  const memberId = (await readMemberships(request))[group.id];
-  return memberId !== undefined && getStore().findMember(group.id, memberId) !== null;
+  return (await findViewer(request, group)) !== null;
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {

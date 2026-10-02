@@ -1,5 +1,7 @@
 import { createCookie } from "react-router";
 
+import { getStore, type Group, type Member } from "./store";
+
 type Memberships = Record<string, string>;
 
 // Which member this device is in each group: group id → member id. Unsigned on
@@ -32,4 +34,10 @@ export async function rememberMembership(
 ): Promise<string> {
   const memberships = await readMemberships(request);
   return membershipCookie.serialize({ ...memberships, [groupId]: memberId });
+}
+
+/** The member this device is in `group`, or null for a visitor or a stale entry. */
+export async function findViewer(request: Request, group: Group): Promise<Member | null> {
+  const memberId = (await readMemberships(request))[group.id];
+  return memberId ? getStore().findMember(group.id, memberId) : null;
 }

@@ -16,6 +16,10 @@ informs: []
 - The sensitive Calendar scopes and the Google verification status they require, with human-only steps filed in `user-actions/`.
 - Tests with Google's Calendar API faked.
 
+## Inherited from Phase 2
+
+Pinned by [Phase 2](phase-2.md): availability is stored as wall-clock dates and minutes in the group's single IANA time zone (`groups.time_zone`), on a 30-minute grid, with weekly patterns and whole-date skips (`project/app/lib/availability.ts`, `project/app/.server/store.ts`). Importing free/busy therefore converts Google's instants into the group's zone and onto the 30-minute grid (deciding how partial half-hours round), and writing confirmed rehearsals converts wall-clock times back to instants in the group's zone, including the daylight-saving edge cases Phase 2 deliberately left unresolved (a time inside a skipped or repeated hour).
+
 ## Acceptance
 
 - `./bin/test project/tests` covers import mapping, event creation, update and cancellation.

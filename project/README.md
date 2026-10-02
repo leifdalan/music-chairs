@@ -47,7 +47,7 @@ corepack pnpm run preview
 scripts/smoke.sh
 ```
 
-`scripts/smoke.sh` builds the app, serves it on port 3917 (or the port given as its argument) with a throwaway database, and checks creating a group, the invite and join pages, not-found pages and that data survives a server restart.
+`scripts/smoke.sh` builds the app, serves it on port 3917 (or the port given as its argument) with a throwaway database, and checks creating a group, the invite and join pages, adding availability, not-found pages and that data survives a server restart.
 
 To try the app from a phone on the same network, start the development server with `corepack pnpm run dev --host` and open the network URL it prints.
 
@@ -59,7 +59,7 @@ Groups and members are stored in a SQLite database through Node's built-in `node
 MUSIC_CHAIRS_DB=/tmp/music-chairs-demo.sqlite corepack pnpm run dev
 ```
 
-Stop the server and delete `data/` to start over with an empty database. Tests never touch it: each test file uses an in-memory database or a temporary file of its own.
+Stop the server and delete `data/` to start over with an empty database. Until the first release the schema changes without migrations, so after pulling a change to it, delete `data/` before starting the server (pages fail with a server error against an older database). Tests never touch it: each test file uses an in-memory database or a temporary file of its own.
 
 ## Layout
 

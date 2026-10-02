@@ -1,7 +1,7 @@
 #!/bin/bash
 # Production-build smoke: builds the app, serves it with a throwaway database,
-# and checks the create → invite → join path, not-found pages, and that data
-# survives a real server restart. Usage: scripts/smoke.sh [port] (default 3917).
+# and checks the create → invite → join path, adding availability, not-found
+# pages, and that data survives a real server restart. Usage: scripts/smoke.sh [port] (default 3917).
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -64,7 +64,8 @@ echo "  server-rendered create-group form"
 
 echo "+ POST /?index"
 headers="$(curl -s -D - -o /dev/null -X POST "$origin/?index" \
-  --data-urlencode "groupName=Thursday Quartet" --data-urlencode "displayName=Viola" | tr -d '\r')"
+  --data-urlencode "groupName=Thursday Quartet" --data-urlencode "displayName=Viola" \
+  --data-urlencode "timeZone=Europe/London" | tr -d '\r')"
 status="$(printf '%s\n' "$headers" | head -1)"
 location="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "location" { print $2 }')"
 cookie="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "set-cookie" { print $2 }' | cut -d';' -f1)"
@@ -81,6 +82,22 @@ printf '%s' "$join_page" | grep -q "Thursday Quartet" || fail "invite URL does n
 printf '%s' "$join_page" | grep -q 'name="displayName"' || fail "invite URL shows no name field"
 echo "  invite URL returns the group's join page"
 
+echo "+ POST availability"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/availability" \
+  --data-urlencode "intent=create" --data-urlencode "kind=weekly" \
+  --data-urlencode "startDate=2026-01-01" --data-urlencode "startTime=19:00" \
+  --data-urlencode "endTime=22:00")"
+[ "$code" = 302 ] || fail "adding availability returned HTTP $code"
+availability_ok() {
+  curl -s -H "Cookie: $cookie" "$origin$location/availability" | sed 's/<!-- -->//g' >"$work/availability.html"
+  grep -q "Every Thursday from 1 Jan, 19:00–22:00" "$work/availability.html" &&
+    grep -q "All times are in Europe/London" "$work/availability.html" &&
+    grep -q '<ul class="occurrences"><li><span>Thu ' "$work/availability.html" &&
+    ! grep -q "No upcoming times" "$work/availability.html"
+}
+availability_ok || fail "availability page does not list the weekly time"
+echo "  weekly time listed on the availability page"
+
 for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"
   [ "$code" = 404 ] || fail "$path returned HTTP $code"
@@ -95,6 +112,7 @@ echo "  stopped: $origin refuses connections"
 start_server
 curl -s -H "Cookie: $cookie" "$origin$location" | grep -q "Viola" || fail "group page lost its organizer after restart"
 curl -s "$invite" | grep -q "Thursday Quartet" || fail "invite link stopped working after restart"
-echo "  group, organizer and invite link present after restart"
+availability_ok || fail "availability lost after restart"
+echo "  group, organizer, invite link and availability present after restart"
 
 echo "SMOKE PASS"
