@@ -31,7 +31,7 @@ A web app that helps small music ensembles find times to rehearse together in pe
 
 ## Project conventions
 
-React Router 8.4 framework mode, deliberately the latest major: the operator chose it on 2026-10-02 over the brief's "React Router v7", and the brief text still awaits that update. Loaders and actions run on React Router's own server; Vite 8 bundles; Vitest 5 tests headlessly in Node, and browser behavior belongs in `User Demo:` protocols. Database and AWS services are open, decided by phase planning.
+React Router 8.4 framework mode, the latest major, as the brief specifies. Loaders and actions run on React Router's own server; Vite 8 bundles; Vitest 5 tests headlessly in Node, and browser behavior belongs in `User Demo:` protocols. Database and AWS services are open, decided by phase planning.
 
 `project/package.json` pins pnpm 11.28.3 (`packageManager`, launched through `corepack` from inside `project/`) and Node 24.21.0 (`devEngines.runtime`, installed by pnpm and locked by integrity in `pnpm-lock.yaml`). TypeScript stays at 6.0.x because `typescript-eslint` 8.71 supports `>=4.8.4 <6.1.0`; raise it only when the lint stack's peer range admits the new version. Pin dependencies exactly. Type public functions.
 

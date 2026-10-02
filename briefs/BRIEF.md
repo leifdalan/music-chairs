@@ -54,7 +54,7 @@ The hardest part of playing music with other people is getting everyone into the
 
 ## Technology and constraints
 
-- **Frontend:** **React Router v7 in framework mode** (the successor to Remix v2), written in TypeScript. This is a deliberate choice over Remix 3, which is a different framework.
+- **Frontend:** **React Router v8 in framework mode** (the line that succeeded Remix v2), written in TypeScript. This is a deliberate choice over Remix 3, which is a different framework.
 - **Backend:** whatever is simplest. Using React Router's own server for loaders and actions, rather than a separate backend service, is the expected default. The specific database is left to planning.
 - **Hosting:** **AWS**. The specific services (for example Lambda versus containers, and which managed database) are left to planning.
 - **Google integration:** Google OAuth for sign-in, Calendar free/busy reads for availability import, and Calendar event writes for confirmed rehearsals.
