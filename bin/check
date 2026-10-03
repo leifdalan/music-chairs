@@ -106,7 +106,7 @@ run_lint() {
       ../bin/check-hooks-installed ../bin/check-shell-syntax ../bin/new-name \
       ../bin/check-plan-concreteness ../bin/check-plan-delivery ../bin/review-verdicts \
       ../bin/check-log-prefix ../bin/check-log-monotonic ../bin/kickoff-command-zero \
-      ../bin/log-append ../bin/log-relocate ../bin/normalize-final-newline ../bin/check-candidate-partition ../tests
+      ../bin/log-append ../bin/log-relocate ../bin/normalize-final-newline ../bin/check-candidate-partition ../bin/deploy ../tests
   ) || return $?
   (
     cd "$node_project_root"
@@ -132,7 +132,7 @@ run_format() {
       ../bin/check-hooks-installed ../bin/check-shell-syntax ../bin/new-name \
       ../bin/check-plan-concreteness ../bin/check-plan-delivery ../bin/review-verdicts \
       ../bin/check-log-prefix ../bin/check-log-monotonic ../bin/kickoff-command-zero \
-      ../bin/log-append ../bin/log-relocate ../bin/normalize-final-newline ../bin/check-candidate-partition ../tests
+      ../bin/log-append ../bin/log-relocate ../bin/normalize-final-newline ../bin/check-candidate-partition ../bin/deploy ../tests
   ) || return $?
   (
     cd "$node_project_root"

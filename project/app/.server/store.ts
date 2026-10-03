@@ -108,7 +108,8 @@ export type Store = {
 const DEFAULT_DATABASE = "data/music-chairs.sqlite";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 
-const SCHEMA = `
+/** Schema version 1: the shape music-chairs had when it was first deployed (Phase 5). */
+const BASELINE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS groups (
     id TEXT PRIMARY KEY,
     invite_token TEXT NOT NULL UNIQUE,
@@ -177,6 +178,62 @@ const SCHEMA = `
   );
 `;
 
+/**
+ * Ordered, forward-only schema migrations: entry i upgrades a database from
+ * version i to i + 1, recorded in SQLite's `user_version`. The persisted schema
+ * left greenfield on 2026-10-02 (policies/greenfield-until-released.md
+ * § Amendments in force), so every later schema change is appended here with a
+ * test that upgrades a database built at the previous version.
+ */
+export const MIGRATIONS: readonly string[] = [BASELINE_SCHEMA];
+
+/**
+ * Brings `db` up to the latest version in one transaction. Foreign keys are off
+ * while migrations run, so a table rebuild cannot cascade-delete child rows,
+ * and are checked before committing. A database newer than `migrations`
+ * refuses to open.
+ */
+export function migrate(db: DatabaseSync, migrations: readonly string[] = MIGRATIONS): void {
+  const current = (db.prepare("PRAGMA user_version").get() as { user_version: number })
+    .user_version;
+  if (current > migrations.length) {
+    throw new Error(
+      `The database's schema version (${current}) is newer than this version of ` +
+        `music-chairs supports (${migrations.length}); deploy the newer code instead.`,
+    );
+  }
+  if (current === migrations.length) return;
+  db.exec("PRAGMA foreign_keys = OFF;");
+  try {
+    db.exec("BEGIN");
+    let version = current;
+    try {
+      for (; version < migrations.length; version++) {
+        db.exec(migrations[version]);
+      }
+      const violations = db.prepare("PRAGMA foreign_key_check").all();
+      if (violations.length > 0) {
+        throw new Error(`Migration left ${violations.length} broken foreign-key references.`);
+      }
+      db.exec(`PRAGMA user_version = ${migrations.length};`);
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      // The baseline only fails on tables from before schema versioning: openStore
+      // treats that SQLite error as a stale database. A later step's failure becomes
+      // a plain Error so it is never mistaken for one.
+      if (version === 0) throw error;
+      throw new Error(
+        `Migrating the database from schema version ${current} to ${migrations.length} failed ` +
+          `and was rolled back (${(error as Error).message}); the data is unchanged.`,
+        { cause: error },
+      );
+    }
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON;");
+  }
+}
+
 /** A new unguessable identifier: 16 random bytes, base64url (22 characters). */
 function newToken(): string {
   return randomBytes(16).toString("base64url");
@@ -234,13 +291,13 @@ function toMember(row: MemberRow): Member {
  * Opens (creating if needed) the SQLite database at `filename`; `:memory:` is
  * private to the store.
  *
- * Until the first release the schema changes without migrations
- * (policies/greenfield-until-released.md), and `CREATE TABLE IF NOT EXISTS`
- * leaves an older table as it was, so a database from an earlier version fails
- * when the statements are prepared. With `resetIfStale` (local development)
- * that file and its -wal/-shm files are renamed to a timestamped backup and a
- * fresh database is created; otherwise opening refuses with a message saying
- * what to do. Nothing is ever deleted.
+ * The schema is brought up to date by `migrate`, whose failures propagate
+ * unchanged. A database from before schema versioning (a development build
+ * earlier than the first release) has tables `CREATE TABLE IF NOT EXISTS`
+ * leaves as they were, so it fails when the statements are prepared. With
+ * `resetIfStale` (local development) that file and its -wal/-shm files are
+ * renamed to a timestamped backup and a fresh database is created; otherwise
+ * opening refuses with a message saying what to do. Nothing is ever deleted.
  */
 export function openStore(filename: string, options: { resetIfStale?: boolean } = {}): Store {
   if (filename !== ":memory:") {
@@ -267,21 +324,21 @@ export function openStore(filename: string, options: { resetIfStale?: boolean } 
     }
     throw new Error(
       `The database ${path} does not match this version of music-chairs (${reason}). ` +
-        "It was probably created by an earlier version, and there are no migrations before " +
-        "the first release: stop the server, move or delete that file and its -wal and -shm " +
-        "files, then start again.",
+        "It was probably created by a development build from before schema versioning, which " +
+        "no migration reads: stop the server, move that file and its -wal and -shm files " +
+        "aside, then start again.",
       { cause: error },
     );
   }
 }
 
-/** Applies the schema and prepares every statement; throws if the file's tables differ. */
+/** Migrates the schema and prepares every statement; throws if the file's tables differ. */
 function buildStore(db: DatabaseSync, filename: string): Store {
-  db.exec("PRAGMA foreign_keys = ON;");
   if (filename !== ":memory:") {
     db.exec("PRAGMA journal_mode = WAL;");
   }
-  db.exec(SCHEMA);
+  migrate(db);
+  db.exec("PRAGMA foreign_keys = ON;");
 
   const insertGroup = db.prepare(
     `INSERT INTO groups (id, invite_token, name, time_zone, show_names, created_at)

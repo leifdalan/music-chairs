@@ -4,7 +4,15 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isToken, openStore, type Member, type NewMember, type Store } from "../app/.server/store";
+import {
+  isToken,
+  migrate,
+  MIGRATIONS,
+  openStore,
+  type Member,
+  type NewMember,
+  type Store,
+} from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
 
 /** A new member as every later read returns it: without the device token. */
@@ -113,7 +121,7 @@ describe("store", () => {
       `The database ${filename} does not match this version of music-chairs`,
     );
     expect((refusal as Error).message).toContain(
-      "move or delete that file and its -wal and -shm files",
+      "move that file and its -wal and -shm files aside",
     );
     expect(readdirSync(dirname(filename))).toEqual(["local.sqlite"]);
   });
@@ -134,6 +142,24 @@ describe("store", () => {
     expect(store.findGroup(group.id)?.name).toBe("Fresh");
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0][0])).toContain(`Moved it to ${join(dir, backups[0])}`);
+    warn.mockRestore();
+  });
+
+  it("in development, also backs up an unversioned database the baseline cannot index", () => {
+    const { dir, filename } = earlierDatabase();
+    const old = new DatabaseSync(filename);
+    // No joined_at, so the baseline's members_by_group index fails inside the migration.
+    old.exec("CREATE TABLE members (id TEXT PRIMARY KEY, group_id TEXT NOT NULL)");
+    old.close();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const store = openStore(filename, { resetIfStale: true });
+    opened.push(store);
+
+    expect(readdirSync(dir).filter((name) => name.startsWith("local.sqlite.stale-"))).toHaveLength(
+      1,
+    );
+    expect(store.createGroup("Fresh", "Viola", "Europe/London").group.name).toBe("Fresh");
     warn.mockRestore();
   });
 
@@ -412,5 +438,115 @@ describe("rsvp store", () => {
 
     store.deleteRehearsal(group.id, weekly.id);
     expect(store.listRsvps(group.id)).toEqual([]);
+  });
+});
+
+describe("schema migrations", () => {
+  function fileDatabase(): string {
+    const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
+    tempDirs.push(dir);
+    return join(dir, "live.sqlite");
+  }
+
+  function version(db: DatabaseSync): number {
+    return (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
+  }
+
+  it("starts a new database at the latest version and keeps rows across reopening", () => {
+    const filename = fileDatabase();
+    const first = openStore(filename);
+    const { group } = first.createGroup("Quartet", "Viola", "Europe/London");
+    first.close();
+
+    const second = openStore(filename);
+    opened.push(second);
+    const raw = new DatabaseSync(filename);
+
+    expect(version(raw)).toBe(MIGRATIONS.length);
+    expect(second.findGroup(group.id)?.name).toBe("Quartet");
+    raw.close();
+  });
+
+  it("refuses a database from a newer version, even in development", () => {
+    const filename = fileDatabase();
+    openStore(filename).close();
+    const raw = new DatabaseSync(filename);
+    raw.exec(`PRAGMA user_version = ${MIGRATIONS.length + 1};`);
+    raw.close();
+
+    expect(() => openStore(filename, { resetIfStale: true })).toThrow(
+      "is newer than this version of music-chairs supports",
+    );
+    expect(readdirSync(dirname(filename)).filter((name) => name.includes("stale"))).toEqual([]);
+  });
+
+  it("applies a later migration once, and a table rebuild keeps the child rows", () => {
+    const filename = fileDatabase();
+    const store = openStore(filename);
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const slot = store.addSlot(organizer.id, thursdays);
+    store.setSkip(organizer.id, slot.id, "2026-10-08", true);
+    store.close();
+
+    // A typical SQLite column change: rebuild the parent table of availability_skips.
+    const rebuild = `
+      CREATE TABLE availability_new (
+        id TEXT PRIMARY KEY,
+        member_id TEXT NOT NULL REFERENCES members(id),
+        kind TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT,
+        start_minute INTEGER NOT NULL,
+        end_minute INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT ''
+      );
+      INSERT INTO availability_new
+        SELECT id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at, ''
+        FROM availability;
+      DROP TABLE availability;
+      ALTER TABLE availability_new RENAME TO availability;
+    `;
+    const db = new DatabaseSync(filename);
+    db.exec("PRAGMA foreign_keys = ON;");
+    migrate(db, [...MIGRATIONS, rebuild]);
+    migrate(db, [...MIGRATIONS, rebuild]);
+
+    expect(version(db)).toBe(MIGRATIONS.length + 1);
+    expect(db.prepare("SELECT date FROM availability_skips").all()).toEqual([
+      { date: "2026-10-08" },
+    ]);
+    expect(db.prepare("SELECT note FROM availability").all()).toEqual([{ note: "" }]);
+    expect(db.prepare("SELECT name FROM groups WHERE id = ?").get(group.id)).toEqual({
+      name: "Quartet",
+    });
+    db.close();
+  });
+
+  it("rolls a failing migration back completely", () => {
+    const filename = fileDatabase();
+    const store = openStore(filename);
+    store.createGroup("Quartet", "Viola", "Europe/London");
+    store.close();
+    const db = new DatabaseSync(filename);
+
+    let failure: unknown;
+    try {
+      migrate(db, [...MIGRATIONS, "DELETE FROM groups; SELECT * FROM no_such_table;"]);
+    } catch (error) {
+      failure = error;
+    }
+    expect((failure as Error).message).toContain(
+      `from schema version ${MIGRATIONS.length} to ${MIGRATIONS.length + 1} failed`,
+    );
+    // Without the SQLite code, openStore never treats it as a stale database to move aside.
+    expect((failure as { code?: unknown }).code).toBeUndefined();
+    expect(() => migrate(db, [...MIGRATIONS, "DELETE FROM groups;"])).toThrow(
+      "broken foreign-key references",
+    );
+
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM groups").get()).toEqual({ n: 1 });
+    db.close();
   });
 });

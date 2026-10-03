@@ -1,0 +1,17 @@
+{
+  "account": "777460179484",
+  "profile": "music-chairs",
+  "region": "us-west-2",
+  "alertsRegion": "us-east-1",
+  "domain": "rehearse.dalan.dev",
+  "hostedZoneId": "Z05992221270I1PQFMDW3",
+  "stack": "music-chairs",
+  "alertsStack": "music-chairs-alerts",
+  "instanceName": "music-chairs-app",
+  "bundleId": "micro_3_0",
+  "blueprintId": "debian_12",
+  "availabilityZone": "us-west-2a",
+  "keyPairName": "music-chairs",
+  "sshUser": "admin",
+  "monthlyBudgetUsd": 10
+}

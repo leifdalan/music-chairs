@@ -1,0 +1,22 @@
+[Unit]
+Description=music-chairs web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Environment comes from the drop-in provision.sh writes
+# (/etc/systemd/system/music-chairs.service.d/environment.conf).
+User=music-chairs
+Group=music-chairs
+WorkingDirectory=/opt/music-chairs/current
+ExecStart=/opt/music-chairs/node/bin/node /opt/music-chairs/current/node_modules/@react-router/serve/bin.cjs ./build/server/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/music-chairs
+
+[Install]
+WantedBy=multi-user.target

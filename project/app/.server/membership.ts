@@ -4,15 +4,27 @@ import { getStore, type Group, type Member } from "./store";
 
 type Memberships = Record<string, string>;
 
+/**
+ * The site's public origin from `MUSIC_CHAIRS_PUBLIC_URL` (for example
+ * `https://rehearse.dalan.dev`), or null when unset, as in local development.
+ * Behind the HTTPS proxy the request URL is the internal `http://127.0.0.1`
+ * address, so links shown to people are built from this instead.
+ */
+export function publicOrigin(): string | null {
+  const configured = process.env.MUSIC_CHAIRS_PUBLIC_URL;
+  return configured ? new URL(configured).origin : null;
+}
+
 // Which member this device is in each group: group id → device token. Unsigned
 // on purpose: device tokens are unguessable, never sent to the browser in page
 // data, and the brief leaves name-only impersonation to social contract.
-// `Secure` is added when the app is served over TLS (Phase 5).
+// `Secure` whenever the site is served over HTTPS.
 const membershipCookie = createCookie("mc_members", {
   httpOnly: true,
   sameSite: "lax",
   path: "/",
   maxAge: 60 * 60 * 24 * 400,
+  secure: publicOrigin()?.startsWith("https:") ?? false,
 });
 
 /** The group → device token map this device carries; empty when absent or unreadable. */

@@ -28,6 +28,10 @@ Pinned by [Phase 3](phase-3.md): confirmed rehearsals live in `rehearsals` (`sta
 
 Pinned by [Phase 4](phase-4.md): no calendar feed shipped; the operator deferred the ICS fallback for name-only members to this phase (Open question 5). Members' answers live per rehearsal date in `rsvps` (`yes`, `no`, `maybe`), which this phase can use when deciding whose calendars get an event for which dates.
 
+## Inherited from Phase 5
+
+Pinned by [Phase 5](phase-5.md): the app runs on one Lightsail instance with a public address, so it reaches Google's APIs directly, with no VPC or NAT cost. Schema changes append a step to `MIGRATIONS` in `project/app/.server/store.ts` (forward-only), and the live data at `https://rehearse.dalan.dev` is kept across releases.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers import mapping, event creation, update and cancellation.

@@ -1,0 +1,534 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# ///
+"""Deploy music-chairs to AWS: infrastructure, a release, and a public smoke check.
+
+Settings live in project/deploy/config.json. Every subcommand first confirms that
+the AWS profile belongs to the configured account and refuses otherwise, before
+any other AWS or SSH call. Nothing secret is written to the repository: the
+alert email comes from MUSIC_CHAIRS_ALERT_EMAIL, the SSH key and pinned host key
+live under ~/.ssh, and the backup key is piped straight to the server.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import secrets
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PROJECT = ROOT / "project"
+DEPLOY = PROJECT / "deploy"
+PROTECTED = {"Instance", "StaticIp"}
+# Stack states a change set of type UPDATE may start from.
+UPDATABLE = {
+    "CREATE_COMPLETE",
+    "UPDATE_COMPLETE",
+    "UPDATE_ROLLBACK_COMPLETE",
+    "IMPORT_COMPLETE",
+    "IMPORT_ROLLBACK_COMPLETE",
+}
+REMOTE_DEPLOY_DIR = "/tmp/music-chairs-deploy"
+REMOTE_ARCHIVE = "/tmp/music-chairs-release.tgz"
+
+
+class DeployError(Exception):
+    """A refusal or failure with a message for the operator."""
+
+
+def tool(variable: str, default: str) -> str:
+    """The external command to run: an absolute override, or the default on PATH."""
+    override = os.environ.get(variable)
+    if override is not None:
+        if not os.path.isabs(override):
+            raise DeployError(f"{variable} must be an absolute path, got {override!r}")
+        return override
+    found = shutil.which(default)
+    if found is None:
+        raise DeployError(f"{default} is not installed or not on PATH")
+    return found
+
+
+class Deployment:
+    def __init__(self, profile: str, dry_run: bool) -> None:
+        self.config = json.loads((DEPLOY / "config.json").read_text())
+        self.profile = profile
+        self.dry_run = dry_run
+        self.aws_cli = tool("MUSIC_CHAIRS_AWS", "aws")
+        self.ssh_cli = tool("MUSIC_CHAIRS_SSH", "ssh")
+        ssh_dir = Path.home() / ".ssh"
+        self.key_file = ssh_dir / "music-chairs-lightsail"
+        self.known_hosts = ssh_dir / "music-chairs-known-hosts"
+
+    # -- AWS -----------------------------------------------------------------
+
+    def aws(self, *args: str, region: str | None = None, check: bool = True) -> dict:
+        command = [
+            self.aws_cli,
+            *args,
+            "--profile",
+            self.profile,
+            "--region",
+            region or self.config["region"],
+            "--output",
+            "json",
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        if check and result.returncode != 0:
+            raise DeployError(f"aws {' '.join(args[:2])} failed: {result.stderr.strip()}")
+        if result.returncode != 0:
+            return {"__error__": result.stderr}
+        return json.loads(result.stdout) if result.stdout.strip() else {}
+
+    def guard(self) -> None:
+        identity = self.aws("sts", "get-caller-identity")
+        account = identity.get("Account")
+        if account != self.config["account"]:
+            raise DeployError(
+                f"profile {self.profile!r} is signed in to account {account}, but music-chairs "
+                f"deploys only to {self.config['account']}; nothing was changed. Sign in with "
+                f"`aws login --profile {self.profile}` to the right account."
+            )
+        print(f"account {account} confirmed for profile {self.profile}")
+
+    def step(self, description: str) -> bool:
+        """Announce a step; in a dry run, report it and skip it."""
+        print(("would " if self.dry_run else "") + description)
+        return not self.dry_run
+
+    # -- infra ---------------------------------------------------------------
+
+    def ensure_key_pair(self) -> None:
+        name = self.config["keyPairName"]
+        if not self.step(f"ensure Lightsail key pair {name} and {self.key_file}"):
+            return
+        existing = self.aws("lightsail", "get-key-pair", "--key-pair-name", name, check=False)
+        if "__error__" not in existing:
+            if not self.key_file.exists():
+                raise DeployError(
+                    f"Lightsail key pair {name} exists but {self.key_file} is missing; its private "
+                    "key cannot be downloaded again. Restore the file from a backup, or follow "
+                    "'Lost SSH key' in project/deploy/README.md. Re-creating the key pair does not "
+                    "change the key the instance accepts. Nothing was changed."
+                )
+            return
+        if self.key_file.exists():
+            raise DeployError(
+                f"{self.key_file} exists but Lightsail has no key pair {name}; it is not "
+                "overwritten. Move it aside if it is no longer needed. Nothing was changed."
+            )
+        created = self.aws("lightsail", "create-key-pair", "--key-pair-name", name)
+        self.key_file.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(self.key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w") as handle:
+            handle.write(created["privateKeyBase64"])
+
+    def stack_status(self, name: str, region: str) -> str | None:
+        """The stack's status, or None when it does not exist."""
+        found = self.aws(
+            "cloudformation", "describe-stacks", "--stack-name", name, region=region, check=False
+        )
+        if "__error__" in found:
+            if "does not exist" in found["__error__"]:
+                return None
+            raise DeployError(f"could not read stack {name}: {found['__error__'].strip()}")
+        return found["Stacks"][0]["StackStatus"]
+
+    def change_set_type(self, name: str, region: str) -> str:
+        status = self.stack_status(name, region)
+        if status is None or status == "REVIEW_IN_PROGRESS":
+            return "CREATE"
+        if status in UPDATABLE:
+            return "UPDATE"
+        raise DeployError(
+            f"stack {name} is in state {status} and cannot be updated. If its first deploy "
+            "failed, see 'A failed first deploy' in project/deploy/README.md. Nothing was changed."
+        )
+
+    def deploy_stack(
+        self, name: str, template: Path, parameters: list[dict], region: str, protect: set[str]
+    ) -> None:
+        if not self.step(f"deploy stack {name} in {region} through a change set"):
+            return
+        change_type = self.change_set_type(name, region)
+        change_set = f"deploy-{int(time.time())}"
+        self.aws(
+            "cloudformation",
+            "create-change-set",
+            "--stack-name",
+            name,
+            "--change-set-name",
+            change_set,
+            "--change-set-type",
+            change_type,
+            "--template-body",
+            template.read_text(),
+            "--parameters",
+            json.dumps(parameters),
+            "--capabilities",
+            "CAPABILITY_IAM",
+            region=region,
+        )
+        waited = self.aws(
+            "cloudformation",
+            "wait",
+            "change-set-create-complete",
+            "--stack-name",
+            name,
+            "--change-set-name",
+            change_set,
+            region=region,
+            check=False,
+        )
+        described = self.aws(
+            "cloudformation",
+            "describe-change-set",
+            "--stack-name",
+            name,
+            "--change-set-name",
+            change_set,
+            region=region,
+        )
+        if "__error__" in waited:
+            reason = described.get("StatusReason", "")
+            self.aws(
+                "cloudformation",
+                "delete-change-set",
+                "--stack-name",
+                name,
+                "--change-set-name",
+                change_set,
+                region=region,
+                check=False,
+            )
+            if "didn't contain changes" in reason or "No updates" in reason:
+                print(f"stack {name} is already up to date")
+                return
+            raise DeployError(f"change set for {name} failed: {reason}")
+        for change in described.get("Changes", []):
+            resource = change.get("ResourceChange", {})
+            replaces = resource.get("Replacement") in ("True", "Conditional")
+            if resource.get("LogicalResourceId") in protect and (
+                resource.get("Action") == "Remove" or replaces
+            ):
+                self.aws(
+                    "cloudformation",
+                    "delete-change-set",
+                    "--stack-name",
+                    name,
+                    "--change-set-name",
+                    change_set,
+                    region=region,
+                    check=False,
+                )
+                raise DeployError(
+                    "refusing: this change would replace or remove "
+                    f"{resource['LogicalResourceId']}, which holds the live database. "
+                    "Nothing was changed."
+                )
+        self.aws(
+            "cloudformation",
+            "execute-change-set",
+            "--stack-name",
+            name,
+            "--change-set-name",
+            change_set,
+            region=region,
+        )
+        waiter = "stack-create-complete" if change_type == "CREATE" else "stack-update-complete"
+        self.aws("cloudformation", "wait", waiter, "--stack-name", name, region=region)
+        print(f"stack {name} deployed")
+
+    def infra(self) -> None:
+        config = self.config
+        self.ensure_key_pair()
+        parameters = {
+            "InstanceName": config["instanceName"],
+            "BundleId": config["bundleId"],
+            "BlueprintId": config["blueprintId"],
+            "AvailabilityZone": config["availabilityZone"],
+            "KeyPairName": config["keyPairName"],
+            "DomainName": config["domain"],
+            "HostedZoneId": config["hostedZoneId"],
+        }
+        self.deploy_stack(
+            config["stack"],
+            DEPLOY / "stack.yaml",
+            [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()],
+            config["region"],
+            PROTECTED,
+        )
+        email = os.environ.get("MUSIC_CHAIRS_ALERT_EMAIL", "").strip()
+        alerts = config["alertsStack"]
+        if email:
+            email_parameter = {"ParameterKey": "AlertEmail", "ParameterValue": email}
+        elif self.dry_run or self.stack_status(alerts, config["alertsRegion"]) in UPDATABLE:
+            email_parameter = {"ParameterKey": "AlertEmail", "UsePreviousValue": True}
+        else:
+            raise DeployError(
+                "set MUSIC_CHAIRS_ALERT_EMAIL for the first deploy of the alerts stack; it is "
+                "kept in AWS only, never in the repository"
+            )
+        self.deploy_stack(
+            alerts,
+            DEPLOY / "alerts.yaml",
+            [
+                {"ParameterKey": "DomainName", "ParameterValue": config["domain"]},
+                email_parameter,
+                {
+                    "ParameterKey": "MonthlyBudgetUsd",
+                    "ParameterValue": str(config["monthlyBudgetUsd"]),
+                },
+            ],
+            config["alertsRegion"],
+            set(),
+        )
+
+    # -- release -------------------------------------------------------------
+
+    def outputs(self) -> dict[str, str]:
+        stacks = self.aws("cloudformation", "describe-stacks", "--stack-name", self.config["stack"])
+        return {o["OutputKey"]: o["OutputValue"] for o in stacks["Stacks"][0].get("Outputs", [])}
+
+    def pin_host_key(self, address: str) -> None:
+        details = self.aws(
+            "lightsail",
+            "get-instance-access-details",
+            "--instance-name",
+            self.config["instanceName"],
+            "--protocol",
+            "ssh",
+        )["accessDetails"]
+        keys = [
+            f"{address} {key['algorithm']} {key['publicKey']}"
+            for key in details.get("hostKeys", [])
+        ]
+        if not keys:
+            raise DeployError(
+                "Lightsail reported no host keys for the instance yet; try again shortly"
+            )
+        self.known_hosts.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.known_hosts.write_text("\n".join(keys) + "\n")
+
+    def ssh(self, address: str, command: str, stdin: bytes | None = None) -> str:
+        argv = [
+            self.ssh_cli,
+            "-i",
+            str(self.key_file),
+            "-o",
+            f"UserKnownHostsFile={self.known_hosts}",
+            "-o",
+            "StrictHostKeyChecking=yes",
+            "-o",
+            "BatchMode=yes",
+            f"{self.config['sshUser']}@{address}",
+            command,
+        ]
+        result = subprocess.run(argv, input=stdin, capture_output=True, check=False)
+        if result.returncode != 0:
+            raise DeployError(
+                f"on the server, `{command.split()[0]} …` failed:\n"
+                + result.stderr.decode(errors="replace").strip()
+                + "\n"
+                + result.stdout.decode(errors="replace").strip()
+            )
+        return result.stdout.decode(errors="replace")
+
+    def release_name(self) -> str:
+        def git(*args: str) -> str:
+            return subprocess.run(
+                ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True
+            ).stdout.strip()
+
+        name = git("rev-parse", "--short", "HEAD")
+        if git("status", "--porcelain", "--", "project"):
+            name += "-dirty"
+        # Unique per install, so a reinstall of the same commit never overwrites the
+        # release being served and can still roll back to it.
+        return f"{name}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
+
+    def release(self) -> None:
+        config = self.config
+        if self.step("read the stack outputs and pin the instance's SSH host key"):
+            outputs = self.outputs()
+            address = outputs["StaticIpAddress"]
+            self.pin_host_key(address)
+        if self.step("upload project/deploy and run provision.sh (idempotent server setup)"):
+            node_version = json.loads((PROJECT / "package.json").read_text())["devEngines"][
+                "runtime"
+            ]["version"]
+            with tempfile.TemporaryFile() as bundle:
+                with tarfile.open(fileobj=bundle, mode="w:gz") as tar:
+                    for path in sorted(DEPLOY.iterdir()):
+                        tar.add(path, arcname=path.name)
+                bundle.seek(0)
+                self.ssh(
+                    address,
+                    f"rm -rf {REMOTE_DEPLOY_DIR} && mkdir -p {REMOTE_DEPLOY_DIR} && "
+                    f"tar -xzf - -C {REMOTE_DEPLOY_DIR}",
+                    stdin=bundle.read(),
+                )
+            env = {
+                "DOMAIN": config["domain"],
+                "PUBLIC_URL": f"https://{config['domain']}",
+                "NODE_VERSION": node_version,
+                "BUCKET": outputs["BackupBucketName"],
+                "REGION": config["region"],
+            }
+            assignments = " ".join(f"{k}={v}" for k, v in env.items())
+            print(
+                self.ssh(
+                    address, f"sudo env {assignments} bash {REMOTE_DEPLOY_DIR}/provision.sh"
+                ).strip()
+            )
+        if self.step("install the backup key on the server if it has none"):
+            self.ensure_backup_key(address, outputs["BackupUserName"])
+        if self.step(
+            "build the app and install it as a release (rolls back on a failed health check)"
+        ):
+            subprocess.run(["corepack", "pnpm", "run", "build"], cwd=PROJECT, check=True)
+            name = self.release_name()
+            with tempfile.TemporaryFile() as archive:
+                with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+                    for item in ("build", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"):
+                        tar.add(PROJECT / item, arcname=item)
+                archive.seek(0)
+                self.ssh(address, f"cat > {REMOTE_ARCHIVE}", stdin=archive.read())
+            print(
+                self.ssh(
+                    address,
+                    "sudo bash /usr/local/lib/music-chairs/install-release.sh "
+                    f"{REMOTE_ARCHIVE} {name}",
+                ).strip()
+            )
+        if self.step("check the running service carries the public URL"):
+            shown = self.ssh(address, "systemctl show -p Environment music-chairs")
+            expected = f"MUSIC_CHAIRS_PUBLIC_URL=https://{config['domain']}"
+            if expected not in shown:
+                raise DeployError(f"the running service lacks {expected}: {shown.strip()}")
+
+    def ensure_backup_key(self, address: str, user: str) -> None:
+        # Any SSH failure raises here, so an unreachable server never rotates the key.
+        state = self.ssh(
+            address,
+            "if sudo test -f /etc/music-chairs/backup.env; "
+            "then echo present; else echo missing; fi",
+        ).strip()
+        if state == "present":
+            return
+        if state != "missing":
+            raise DeployError(f"could not tell whether the server has a backup key: {state!r}")
+        # IAM allows two keys per user; old ones are useless once the server lost them.
+        for key in self.aws("iam", "list-access-keys", "--user-name", user)["AccessKeyMetadata"]:
+            self.aws(
+                "iam",
+                "delete-access-key",
+                "--user-name",
+                user,
+                "--access-key-id",
+                key["AccessKeyId"],
+            )
+        key = self.aws("iam", "create-access-key", "--user-name", user)["AccessKey"]
+        content = (
+            f"AWS_ACCESS_KEY_ID={key['AccessKeyId']}\n"
+            f"AWS_SECRET_ACCESS_KEY={key['SecretAccessKey']}\n"
+        )
+        self.ssh(
+            address,
+            "sudo install -o music-chairs -g music-chairs -m 600 /dev/stdin "
+            "/etc/music-chairs/backup.env",
+            stdin=content.encode(),
+        )
+
+    # -- smoke ---------------------------------------------------------------
+
+    def smoke(self) -> None:
+        origin = f"https://{self.config['domain']}"
+        if not self.step(f"run the non-mutating smoke against {origin}"):
+            return
+
+        def fetch(path: str, data: dict | None = None) -> tuple[int, str]:
+            body = urllib.parse.urlencode(data).encode() if data is not None else None
+            request = urllib.request.Request(origin + path, data=body)
+            try:
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    return response.status, response.read().decode()
+            except urllib.error.HTTPError as error:
+                return error.code, error.read().decode()
+            except OSError as error:  # DNS, connection, TLS certificate or timeout
+                return 0, str(error)
+
+        checks = [
+            ("GET /", fetch("/"), 200, 'name="groupName"'),
+            ("GET /healthz", fetch("/healthz"), 200, "ok"),
+            (
+                "GET /join/<unknown>",
+                fetch(f"/join/{secrets.token_urlsafe(16)}"),
+                404,
+                "Page not found",
+            ),
+            (
+                "POST /?index with a blank name",
+                fetch("/?index", {"groupName": " ", "displayName": "Smoke", "timeZone": "UTC"}),
+                400,
+                "Group name is required.",
+            ),
+        ]
+        failures = [
+            f"{label}: " + (f"HTTP {status}" if status else body)
+            for label, (status, body), want, text in checks
+            if status != want or text not in body
+        ]
+        for label, (status, _), _, _ in checks:
+            print(f"  {label} -> {status}")
+        if failures:
+            raise DeployError("smoke failed: " + "; ".join(failures))
+        print(f"smoke passed against {origin}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["infra", "release", "smoke", "all"])
+    parser.add_argument(
+        "--profile", default=None, help="AWS CLI profile (default from config.json)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="confirm the account, then list the steps without running them",
+    )
+    args = parser.parse_args()
+    try:
+        config = json.loads((DEPLOY / "config.json").read_text())
+        deployment = Deployment(args.profile or config["profile"], args.dry_run)
+        deployment.guard()
+        if args.command in ("infra", "all"):
+            deployment.infra()
+        if args.command in ("release", "all"):
+            deployment.release()
+        if args.command in ("smoke", "all"):
+            deployment.smoke()
+    except DeployError as error:
+        print(f"deploy: {error}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as error:
+        command = " ".join(str(part) for part in error.cmd)
+        print(f"deploy: `{command}` failed with exit status {error.returncode}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

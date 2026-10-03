@@ -702,3 +702,152 @@ Execution trace: 4d0f0bee88fc4fb78b6ae1797dc51033
 - Lessons: icy-echidna gained its third occurrence (Phase 4 END) and is graduation-ready (DECIDE for the operator); gentle-pug filed as a methodology candidate. ./bin/lessons validate: LESSONS OK.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-02 16:01 — START
+Phase 5 — Deploy to AWS
+
+Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
+
+Operator decisions recorded in plan/phase-5.md before this run: account 777460179484 (profile music-chairs, us-west-2) at https://rehearse.dalan.dev under $10/month; Lightsail micro_3_0 with a static IP and on-instance HTTPS; nightly S3 database backups kept 30 days; an admin IAM user for later deploys; budget and outage alerts emailed to the operator (address supplied at deploy time, never stored in the repository); the persisted schema leaves greenfield (policy amended in d8553ff), so this phase adds versioned migrations with the current schema as baseline.
+
+Planned work:
+- A recorded choice of AWS services consistent with the persistence layer chosen in Phase 1 (brief, Open question 7).
+- Infrastructure as code and a repeatable deploy command owned by the repository toolchain; secrets kept out of the repository.
+- A deploy smoke check against the deployed URL.
+- Direct proof for the deploy critical risk in tests/proof-estate.yaml, which this phase turns from not-applicable to applicable.
+- Any human-only steps (AWS account, billing, domain) filed in user-actions/.
+
+## 2026-10-02 16:59 — END
+Phase 5 — Deploy to AWS
+
+Phase 5 is accepted on its gates. music-chairs now runs at https://rehearse.dalan.dev on a $7/month Lightsail instance in your AWS account 777460179484, with HTTPS from a Let's Encrypt certificate, nightly database copies to a private S3 bucket, an outage check that emails you, and a monthly budget warning at $9.50 forecast and an alert at $10 actual. `./bin/deploy all` repeats the whole deploy; the live database is kept across releases and future schema changes ship as migrations. Whether it works well on real phones, and that the alert emails arrive, is still yours to check through the User Demo below. Please confirm AWS's subscription email so outage alerts are delivered.
+
+Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
+
+Files changed:
+- bin/deploy — new deploy command (infra, release, smoke, all; --dry-run, --profile): account guard first, change sets that refuse to replace or remove the instance or its static IP, refusal of stacks left by a failed first create, key-file collision refusal, SSH-safe backup-key installation, host-key pinning
+- project/deploy/ — config.json (account, region, names; nothing secret), stack.yaml (instance, static IP, DNS record, backup bucket and write-only backup user, retained on delete), alerts.yaml (HTTP health check, outage alarm, email topic, budget), Caddyfile, systemd units, provision.sh, install-release.sh (database copy before switching, restore and return on a failed health check, unique release names), backup.sh, README.md (deploying, secrets, backups and restoring, recovery)
+- project/app/.server/store.ts — versioned forward-only migrations (PRAGMA user_version) with the current schema as baseline; a failed later migration is reported as such and never mistaken for a stale database
+- project/app/.server/membership.ts, project/app/routes/group.tsx — public origin from MUSIC_CHAIRS_PUBLIC_URL for invite links; Secure cookie over HTTPS
+- project/app/routes/healthz.ts, project/app/routes.ts — /healthz for the health check and release switching
+- project/tests/store.test.ts, project/tests/public-url.test.ts, project/tests/healthz.test.ts — migration, public-URL and health tests (Vitest 143)
+- tests/test_deploy.py — 15 hermetic deploy tests including the direct proof that any other account is refused
+- tests/proof-estate.yaml, reports/test-governance/music-chairs-reset.jsonl — deploy risk now applicable with its direct proof; admission rows with red witnesses
+- bin/check, tests/test_check.py, bin/README.md, project/README.md — lint/format targets and documentation for bin/deploy
+- user-actions/heretic-sheep.md, user-actions/aquatic-chamois.md, user-actions/singing-iguana.md — admin IAM user, confirm the alert subscription, delete the unused hosted zone in the other account
+- plan/INDEX.md — Phase 5 ✅, Phase 6 ⬅️ (pending, applied after this block)
+- plan/phase-6.md, plan/phase-7.md — inherited Phase 5 notes (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): attempt 1 failed (Lightsail refused instance name music-chairs, already used by the key pair); attempt 2 OK (stacks created, release healthy, public smoke passed); attempt 3 OK on the final candidate (stacks already up to date, new release healthy)
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (widened to full: Vitest 143/143, pytest 143): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation); after the failed deploy gate, direct fix — three files renaming the Lightsail instance, low risk
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.288 (Claude Code, observed by `claude --version` at close), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 175.877 s; success
+- Coder: inline (no role span)
+- Critic (code review): 346.441 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 3355.633 s; intelligence 522.318 s; gates 681.912 s; orchestration 3354.926 s; wait 521.160 s; failed 74.693 s; retry/rework 604.649 s; unattributed 0.707 s (category totals are interval unions and may overlap). The acceptance stage includes a pause, not recorded as a park, while the operator switched accounts after a usage limit.
+- Awaiting user input:
+  - 2026-10-02T22:55:06Z → 2026-10-02T22:58:28Z: 201.976 s (decision, before the trace started; exact monotonic)
+  - 2026-10-02T23:03:03Z → 2026-10-02T23:03:28Z: 24.656 s (decision; exact monotonic)
+  - Total: 226.633 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=fbc0b5c78a088a35aae2ccf26257242d2312f0f1c11c52db71565f5456d17fed critiqued=ebc0cc7b5529e623e164be0d131d0a73bc9ea14c67b89ef98aba55c4e68e0878 approved=c299b682ef4ff9131ba04709de2a78e8f02d02a35125f1ac2ebf7660875304ba final=c299b682ef4ff9131ba04709de2a78e8f02d02a35125f1ac2ebf7660875304ba
+- Revision packets: 0
+- Advisory reports: 2 — plan review 12 findings (all adopted), code critique 14 findings (12 adopted, 2 deferred: a backup-failure alert is an operator decision, and the $9.50 ruling could not be written into the captured phase file, so it is recorded here)
+- Gates: 3 manifest generations (attempt 1 stopped at the failed deploy; attempt 2 superseded when the phase file was restored to its captured bytes); implementation-final attempt 3 = 4 gates, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- The deploy gate ran three times (about 75 s failed, 316 s first success, 15 s idempotent rerun); the rerun was cheap because unchanged stacks skip their change sets.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): the deploy command succeeds against account 777460179484 and the smoke check passes against https://rehearse.dalan.dev (home page, /healthz, unknown invite 404, blank group name refused); `./bin/deploy` refuses any other account (direct proof in tests/test_deploy.py); migrations, public-URL invite links and Secure cookies are covered by project/tests. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (padlock, invite links, two devices, phone speed), receipt and confirmation of the alert emails, and the first nightly backup appearing in the bucket
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-6.md — add "Inherited from Phase 5": public origin https://rehearse.dalan.dev from MUSIC_CHAIRS_PUBLIC_URL (publicOrigin) as the OAuth redirect base; Secure cookies in production; schema changes append to MIGRATIONS; server environment comes from the systemd drop-in that provision.sh writes, so a Google client secret needs a home there; releases go out with ./bin/deploy release — pending, applied after this block
+- AUTO: plan/phase-7.md — add "Inherited from Phase 5": the Lightsail instance reaches Google APIs directly (no VPC or NAT); schema changes append to MIGRATIONS — pending, applied after this block
+- AUTO: plan/INDEX.md Critical-Files Map — the AWS infrastructure row points at project/deploy/ and bin/deploy — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrence pending: gentle-pug — a critique fix to the captured phase file was refused by acceptance validation and had to be reverted (methodology)
+- occurrence pending: watchful-cockle — the tail alias and zsh noclobber struck again this phase (methodology)
+- filed pending: a local candidate — provider naming rules (Lightsail names are unique across resource types) escape hermetic fakes; assert them in a config test before the first real deploy
+- graduation DECIDE: icy-echidna → .claude/skills/kickoff/preflight.md (Step 1a), carried from Phase 4 and still awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev` on your phone (mobile data or Wi-Fi, no local server).
+- **Suggested inputs.** Create a group with your name and time zone; open the invite link on a second device (or a laptop) and join as `Cellist`; add a weekly availability slot on each device; propose and confirm a rehearsal and answer it from both devices.
+- **What to look for.** The browser shows a valid padlock for `rehearse.dalan.dev`; the invite link starts with `https://rehearse.dalan.dev/join/`; both devices see the same group, rehearsal and answers; pages load promptly on a phone.
+- **Variations to explore.** Confirm the budget and outage alert emails arrived (and click AWS's confirmation links). After the next nightly backup, check the S3 bucket holds a dated copy. Ask a bandmate to try the invite link on their own phone.
+- Operator ruling recorded here because the phase file was a captured authority: the budget warning fires on a forecast above $9.50 (not the $8 in the phase file) and the alert on actual spend above $10.
+
+Remaining:
+- Nothing alerts on a failed nightly backup; whether to add one is your decision (project/deploy/README.md says how to check it by hand).
+- Deploys still run as the root user until you finish user-actions/heretic-sheep.md.
+- The release on the server is named d8553ff-dirty-… because this phase was deployed before its commit; the next deploy after this commit gets a clean name.
+
+## 2026-10-02 16:59 — Close bookkeeping outcomes
+
+Phase 5 — Deploy to AWS
+
+Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
+
+- Status: applied and verified — Phase 5 ✅, Phase 6 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-6.md and plan/phase-7.md gained an "Inherited from Phase 5" section; the plan/INDEX.md Critical-Files Map row for AWS infrastructure now points at project/deploy/ and bin/deploy.
+- Ripple DECIDE: none.
+- Lessons: gentle-pug gained its second occurrence (Phase 5 END) and watchful-cockle its second; noble-tuna filed as a local candidate. ./bin/lessons validate: LESSONS OK. icy-echidna (3 occurrences) remains a graduation DECIDE for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-02 17:03 — PARK
+
+Phase 5 — Deploy to AWS
+
+Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
+
+The handoff gate (bare ./bin/check all) failed at policy-execution-dashboards: "private or out-of-scope dashboard data in reports/execution/2026-10-02/phase-5/data.js: https?://". The dashboard handoff written at close quoted full https:// addresses for the site and invite links, which the sanitized report forbids. Accepted implementation evidence and the verified status transition are unaffected; Phase 5 stays ✅. Correction: regenerate the handoff with bare host names, confirm the append-only log with bin/check-log, then rerun the bare handoff gate.
+
+Lessons:
+- none new — a handoff-content slip corrected at the owning artifact; the dashboard check named the cause exactly.
+
+## 2026-10-02 17:04 — Close repair
+
+Phase 5 — Deploy to AWS
+
+Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
+
+- Dashboard handoff regenerated with bare host names (no URLs); reports/execution/2026-10-02/phase-5/ re-rendered.
+- bin/check-log: LOG-PREFIX OK, LOG-CHRONOLOGY OK.
+- Next: rerun the bare ./bin/check all handoff gate; completion stays contingent on its receipt.

@@ -55,6 +55,28 @@ mapped to the live diff. Invalid governance, an unresolved ref, or an unmapped
 code path widens to the full suite, and every change under `project/` is
 unmapped, so it always runs both suites; mapped code also selects the families of files that name it. The changed-path selection is the implementation-candidate gate; the handoff gate is the full `bin/check all`.
 
+### `deploy` — deploy music-chairs to AWS
+
+Creates or updates the AWS infrastructure (`infra`), installs a release on the
+server (`release`) and checks the public site (`smoke`); `all` runs the three in
+order. Every subcommand first confirms that the AWS profile (default
+`music-chairs`, from `project/deploy/config.json`) is signed in to the
+configured account and refuses otherwise, before any other AWS or SSH call.
+It refuses an infrastructure change set that would replace or remove the
+instance holding the live database, and is non-interactive: the first alerts
+deploy needs `MUSIC_CHAIRS_ALERT_EMAIL`. `--dry-run` confirms the account and
+lists the steps. Exit status 1 on any refusal or failure. Tests replace the AWS
+CLI and ssh with `MUSIC_CHAIRS_AWS` and `MUSIC_CHAIRS_SSH`, which must be
+absolute paths. Details: `project/deploy/README.md`.
+
+```bash
+./bin/deploy all
+```
+
+```bash
+./bin/deploy release --dry-run
+```
+
 ### `python` — repository-selected Python
 
 Runs Python from the same managed, locked environment as setup and the gates.

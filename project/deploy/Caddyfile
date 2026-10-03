@@ -1,0 +1,19 @@
+# Rendered by provision.sh, which replaces __DOMAIN__ with the site's domain.
+
+# Plain HTTP: /healthz goes straight to the app so the Route 53 health check
+# (a basic HTTP check) sees the app's real answer; everything else, apart from
+# Caddy's own certificate challenges, redirects to HTTPS.
+http://__DOMAIN__ {
+	handle /healthz {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		redir https://{host}{uri} permanent
+	}
+}
+
+# HTTPS with a certificate Caddy obtains and renews automatically.
+__DOMAIN__ {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}

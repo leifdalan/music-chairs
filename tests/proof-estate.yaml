@@ -50,11 +50,52 @@ critical_risks:
     state: applicable
     direct_proof: pytest:tests/test_check.py::test_all_is_default_locked_ordered_and_cwd_independent
   deploy:
-    state: not-applicable
-    rationale: music-chairs has no deployment surface yet; AWS deployment is Phase 5.
-    activation_trigger: Adding any deployment or publication command (Phase 5) makes direct deploy proof
-      mandatory.
+    state: applicable
+    direct_proof: pytest:tests/test_deploy.py::test_deploy_refuses_any_account_but_the_configured_one
 families:
+- id: deploy
+  kind: pytest
+  selectors:
+  - tests/test_deploy.py
+  source_paths:
+  - bin/deploy
+  - project/deploy/config.json
+  - project/deploy/stack.yaml
+  - project/deploy/alerts.yaml
+  - project/deploy/install-release.sh
+  - project/deploy/provision.sh
+  - project/deploy/backup.sh
+  - tests/test_deploy.py
+  covers:
+  - bin/deploy
+  - project/deploy/config.json
+  - project/deploy/stack.yaml
+  - project/deploy/alerts.yaml
+  - project/deploy/install-release.sh
+  - project/deploy/provision.sh
+  - project/deploy/backup.sh
+  - tests/test_deploy.py
+  contract: The deploy command acts only on the configured AWS account, never replaces the instance
+    holding the live database, never prompts or leaks the alert email, and a failed release restores
+    the database copy and the previous release.
+  risk_class: deploy
+  oracle: Recorded calls of fake aws and ssh executables, exit statuses and messages from the real
+    entry point, parsed CloudFormation templates, and the file system left by install-release.sh with
+    fake systemctl, curl and sqlite3.
+  admission: 'Phase 5: the deploy critical risk became applicable when bin/deploy was added.'
+  nearest_overlap: No other family proves deployment behaviour.
+  historical_evidence: []
+  mutation_evidence:
+  - 'account comparison disabled in bin/deploy: test_deploy_refuses_any_account_but_the_configured_one
+    fails'
+  - 'replacement check disabled in bin/deploy: test_a_change_set_that_would_replace_the_instance_is_refused
+    fails'
+  - 'database restore removed from install-release.sh: test_a_release_that_fails_its_health_check_restores_the_data_and_the_previous_release
+    fails'
+  tier: changed
+  size: small
+  flake_rate: 0.0
+  replacement_lineage: []
 - id: check
   kind: pytest
   selectors:

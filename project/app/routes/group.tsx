@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
-import { findViewer } from "~/.server/membership";
+import { findViewer, publicOrigin } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { pageMeta } from "~/lib/site";
 
@@ -31,7 +31,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     })),
     viewer: viewer ? { displayName: viewer.displayName, role: viewer.role } : null,
     showNames: isOrganizer ? group.showNames : null,
-    inviteUrl: isOrganizer ? new URL(`/join/${group.inviteToken}`, request.url).href : null,
+    inviteUrl: isOrganizer
+      ? new URL(`/join/${group.inviteToken}`, publicOrigin() ?? request.url).href
+      : null,
   };
 }
 

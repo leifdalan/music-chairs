@@ -49,8 +49,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 2](phase-2.md)  | Availability entry: one-off and recurring                          | ✅     |
 | [Phase 3](phase-3.md)  | Combined availability and confirming rehearsal times               | ✅     |
 | [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ✅     |
-| [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ⬅️     |
-| [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ⏳     |
+| [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ✅     |
+| [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ⬅️     |
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
@@ -157,5 +157,5 @@ Shipped files are linked. A file a future phase will create may also appear, as 
 | Deliverable tests                    | `../project/tests/`                                       |
 | Deliverable runtime + metadata       | [`../project/package.json`](../project/package.json), [`../project/pnpm-lock.yaml`](../project/pnpm-lock.yaml), [`../project/react-router.config.ts`](../project/react-router.config.ts) |
 | Persistence layer                    | `../project/app/.server/` (Phase 1)                       |
-| AWS infrastructure                   | chosen by Phase 5                                         |
+| AWS infrastructure                   | [`../project/deploy/`](../project/deploy/README.md), [`../bin/deploy`](../bin/deploy) |
 | Governance environment               | [`../tooling/.python-version`](../tooling/.python-version), [`../tooling/pyproject.toml`](../tooling/pyproject.toml), [`../tooling/uv.lock`](../tooling/uv.lock) |

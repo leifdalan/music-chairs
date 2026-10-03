@@ -23,7 +23,7 @@ PYTHON_TARGETS = (
     "../bin/check-plan-concreteness ../bin/check-plan-delivery ../bin/review-verdicts "
     "../bin/check-log-prefix ../bin/check-log-monotonic ../bin/kickoff-command-zero "
     "../bin/log-append ../bin/log-relocate ../bin/normalize-final-newline "
-    "../bin/check-candidate-partition "
+    "../bin/check-candidate-partition ../bin/deploy "
     "../tests"
 )
 # A Node stub that answers the toolchain helper's queries and logs every probe

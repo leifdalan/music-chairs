@@ -51,6 +51,10 @@ scripts/smoke.sh
 
 To try the app from a phone on the same network, start the development server with `corepack pnpm run dev --host` and open the network URL it prints.
 
+## Production
+
+The app runs at https://rehearse.dalan.dev. Deploying, backups and restoring are described in [`deploy/README.md`](deploy/README.md).
+
 ## Data
 
 Groups and members are stored in a SQLite database through Node's built-in `node:sqlite` module, so there is no database service to install or run. By default the database is the file `data/music-chairs.sqlite`, relative to the directory the server starts in (this one, for every command above); it is created on first use and survives restarts. Set `MUSIC_CHAIRS_DB` to use a different file:

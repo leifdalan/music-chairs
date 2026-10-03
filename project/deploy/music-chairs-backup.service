@@ -1,0 +1,15 @@
+[Unit]
+Description=Copy the music-chairs database to S3
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=music-chairs
+Group=music-chairs
+ExecStart=/usr/local/lib/music-chairs/backup.sh
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/music-chairs

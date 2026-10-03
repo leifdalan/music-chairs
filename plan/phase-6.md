@@ -21,6 +21,10 @@ informs: ["7"]
 
 Pinned by [Phase 3](phase-3.md): a member's `members.id` is a stable, non-secret identifier, and device identity is the separate secret `members.device_token` held in the `mc_members` cookie (`findViewer` in `project/app/.server/membership.ts`). Linking a Google account attaches to the member id, so availability, rehearsal and RSVP rows keyed by member id carry over; a signed-in session becomes another way to resolve the viewer alongside the device token.
 
+## Inherited from Phase 5
+
+Pinned by [Phase 5](phase-5.md): the app is live at `https://rehearse.dalan.dev` and keeps the band's data across releases. The public origin comes from `MUSIC_CHAIRS_PUBLIC_URL` through `publicOrigin()` in `project/app/.server/membership.ts`, so OAuth redirect URIs are built from it, never from the request URL; cookies are `Secure` when that origin is HTTPS. Schema changes append a step to `MIGRATIONS` in `project/app/.server/store.ts` (forward-only; the baseline is never edited). The server's environment comes from the systemd drop-in that `project/deploy/provision.sh` writes, so a Google client secret needs a home there that stays out of the repository (as the backup key does, piped over SSH by `bin/deploy`); releases go out with `./bin/deploy release`.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers sign-in callback handling, session expiry, and linking.
