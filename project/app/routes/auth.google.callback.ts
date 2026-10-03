@@ -3,6 +3,7 @@ import { redirect } from "react-router";
 import {
   CALENDAR_SCOPES,
   callbackUrl,
+  CONTACTS_SCOPES,
   exchangeCode,
   forgetAccessToken,
   googleConfig,
@@ -36,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const code = url.searchParams.get("code");
   if (url.searchParams.get("error")) {
     if (saved?.purpose === "calendar") {
-      return redirect(withNotice(saved.returnTo, "calendar-declined"), { headers });
+      return redirect(withNotice(saved.returnTo, `${consentKind(saved)}-declined`), { headers });
     }
     return redirect("/?notice=signin-cancelled", { headers });
   }
@@ -117,16 +118,22 @@ async function saveCalendarGrant(
   const store = getStore();
   const session = await readAccount(request);
   const consenting = store.findAccountBySub(identity.sub);
+  const kind = consentKind(saved);
   if (!session || session.id !== saved.accountId || consenting?.id !== saved.accountId) {
-    return withNotice(saved.returnTo, "calendar-wrong-account");
+    return withNotice(saved.returnTo, `${kind}-wrong-account`);
   }
   if (!tokens.scopes.includes(saved.scope)) {
-    return withNotice(saved.returnTo, "calendar-declined");
+    return withNotice(saved.returnTo, `${kind}-declined`);
   }
   if (!store.saveGrant(session.id, tokens.refreshToken, tokens.scopes)) {
-    console.warn("music-chairs: Calendar consent returned no refresh token and none is stored");
-    return withNotice(saved.returnTo, "calendar-failed");
+    console.warn("music-chairs: Google consent returned no refresh token and none is stored");
+    return withNotice(saved.returnTo, `${kind}-failed`);
   }
   forgetAccessToken(session.id);
-  return withNotice(saved.returnTo, "calendar-connected");
+  return withNotice(saved.returnTo, `${kind}-connected`);
+}
+
+/** Whether a consent was for contacts or Calendar, which their notices name. */
+function consentKind(saved: OAuthState): "contacts" | "calendar" {
+  return saved.scope === CONTACTS_SCOPES.saved ? "contacts" : "calendar";
 }

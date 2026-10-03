@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { accessTokenFor, CALENDAR_SCOPES } from "../app/.server/google";
+import { accessTokenFor, CALENDAR_SCOPES, CONTACTS_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import { loader as startConsent } from "../app/routes/auth.google.calendar";
 import { loader as callback } from "../app/routes/auth.google.callback";
@@ -28,7 +28,11 @@ function person() {
 }
 
 /** Starts consent for `scope` as the session in `cookie`; returns what the browser carries back. */
-async function begin(cookie: string, scope: "busy" | "write", returnTo = "/g/abc/schedule") {
+async function begin(
+  cookie: string,
+  scope: "busy" | "write" | "contacts",
+  returnTo = "/g/abc/schedule",
+) {
   const response = (await startConsent(
     routeArgs(
       `/auth/google/calendar?scope=${scope}&returnTo=${encodeURIComponent(returnTo)}`,
@@ -228,5 +232,77 @@ describe("Google's answer to Calendar consent", () => {
     )) as Response;
 
     expect(response.headers.get("Location")).toBe("/g/abc/schedule?notice=calendar-declined");
+  });
+});
+
+describe("asking for contacts", () => {
+  const returnTo = "/g/abc/members/add";
+
+  it("asks for saved and other contacts together, offline, keeping earlier grants", async () => {
+    const { cookie } = await signedIn(person());
+
+    const { google } = await begin(cookie, "contacts", returnTo);
+
+    expect(Object.fromEntries(google.searchParams)).toMatchObject({
+      scope: `openid ${CONTACTS_SCOPES.saved} ${CONTACTS_SCOPES.other}`,
+      include_granted_scopes: "true",
+      access_type: "offline",
+    });
+  });
+
+  it("saves the grant and comes back with the contacts notices", async () => {
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const flow = await begin(cookie, "contacts", returnTo);
+    googleAnswers(
+      profile.sub,
+      flow.nonce,
+      `openid ${CONTACTS_SCOPES.saved} ${CONTACTS_SCOPES.other}`,
+    );
+
+    const response = await finish(`${flow.oauth}; ${cookie}`, flow.state);
+
+    expect(response.headers.get("Location")).toBe(`${returnTo}?notice=contacts-connected`);
+    expect(getStore().findGrant(account.id)?.scopes).toContain(CONTACTS_SCOPES.saved);
+  });
+
+  it("names a different account or a missing refresh token in the contacts words", async () => {
+    const profile = person();
+    const other = person();
+    getStore().upsertAccount(other);
+    const { cookie } = await signedIn(profile);
+    let flow = await begin(cookie, "contacts", returnTo);
+    googleAnswers(other.sub, flow.nonce, `openid ${CONTACTS_SCOPES.saved}`);
+    expect((await finish(`${flow.oauth}; ${cookie}`, flow.state)).headers.get("Location")).toBe(
+      `${returnTo}?notice=contacts-wrong-account`,
+    );
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    flow = await begin(cookie, "contacts", returnTo);
+    googleAnswers(profile.sub, flow.nonce, `openid ${CONTACTS_SCOPES.saved}`, null);
+    expect((await finish(`${flow.oauth}; ${cookie}`, flow.state)).headers.get("Location")).toBe(
+      `${returnTo}?notice=contacts-failed`,
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("calls a refused or partial grant declined, in the contacts words", async () => {
+    const profile = person();
+    const { cookie } = await signedIn(profile);
+    let flow = await begin(cookie, "contacts", returnTo);
+    googleAnswers(profile.sub, flow.nonce, `openid ${CONTACTS_SCOPES.other}`);
+    expect((await finish(`${flow.oauth}; ${cookie}`, flow.state)).headers.get("Location")).toBe(
+      `${returnTo}?notice=contacts-declined`,
+    );
+
+    flow = await begin(cookie, "contacts", returnTo);
+    const response = (await callback(
+      routeArgs(
+        `/auth/google/callback?error=access_denied&state=${flow.state}`,
+        {},
+        { cookie: `${flow.oauth}; ${cookie}` },
+      ),
+    )) as Response;
+    expect(response.headers.get("Location")).toBe(`${returnTo}?notice=contacts-declined`);
   });
 });

@@ -21,7 +21,12 @@ From the operator's list after Phase 9:
 
 - "Organizer should after auth'd with google should be able to add members from their contact/address book. Should have a member add section to the group which autocompletes from the contact data. Can also free text add group members."
 
-To settle at phase start: whether contacts include Google's "other contacts" (people the organizer has emailed), whether an added member's email is kept (for the Phase 12 sign-in match and the Gravatar), and what happens when an added name matches an existing member.
+Settled at phase start (2026-10-03):
+
+- **Autocomplete suggests saved contacts and Google's "other contacts"** (people the organizer has emailed).
+- **A member added from contacts keeps that email.** Organizers see it, as for other Google members; it is used for claiming the place and for that person's Gravatar.
+- **A member added from contacts claims their place only by signing in with the matching Google account**; typing their name does not work for them. A member added by typed name claims by name, as in Phase 12.
+- **An added name that matches an existing member is refused** ("Someone called X is already in the group"); rename one first.
 
 ## Prerequisites
 
@@ -40,7 +45,13 @@ Pinned by [Phase 12](phase-12.md): name-only members with role member can get ba
 - `./bin/test project/tests` covers adding by typed name, contact autocomplete from a faked People API answer, the contacts consent requested only on first use, organizer-only access, claiming an added place by name and by Google account, and that no contact data is stored beyond the members actually added.
 - `./bin/deploy all` and `./bin/deploy smoke` pass.
 - `./bin/check all` passes.
-- User Demo: as organizer signed in with Google, start typing a bandmate's name in "Add members", pick them from your contacts, add someone else by typing a name, then open the invite link as that person and claim the place. To be tightened at phase start.
+
+User Demo:
+
+- **Entry point.** On a laptop, open `https://rehearse.dalan.dev` as the organizer of a test group, signed in with Google. You need a second Google account you can sign in with (another account of yours, or a bandmate willing to help) saved in, or emailed from, your main account's Gmail.
+- **Suggested inputs.** In the group page's **Add members** section, choose to use your Google contacts and allow it on Google's screen. Start typing the second account's name, pick it from the suggestions, and add it. Then type a name that is in nobody's contacts, `Spare oboe`, and add it. Try adding `spare OBOE` again. Finally, on your phone in a private tab, open the group's invite link, tap **Sign in with Google** with the second account, and allow what Google asks.
+- **What to look for.** The suggestions show names with their email addresses, and only after you allowed contacts. Both new members appear in the member list at once; the contact shows its email to you as organizer. Adding `spare OBOE` is refused because someone of that name exists. On the phone, signing in with the second account lands you in the group as that member (not as a new one); typing that member's name on the invite page instead does not.
+- **Variations to explore.** On the laptop in a fresh private window, open the invite link and type `spare oboe`: you land as `Spare oboe`. Is the Add members field quick to use on a phone?
 
 ## Brief refs
 

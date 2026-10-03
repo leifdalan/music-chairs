@@ -9,8 +9,15 @@ type Answer = { status?: number; body?: unknown };
 
 export type GoogleFake = {
   calls: FakeCall[];
-  /** Calls to the Calendar API (not the token endpoint). */
+  /** Calls to the Calendar API (not the token endpoint or the People API). */
   calendarCalls(): FakeCall[];
+  /** Calls to the People API (contacts). */
+  peopleCalls(): FakeCall[];
+  /** Saved and other contacts the People API answers with, in pages of `contactsPageSize`. */
+  contacts: { name?: string; emails: string[] }[];
+  otherContacts: { name?: string; emails: string[] }[];
+  contactsPageSize: number;
+  peopleAnswer: Answer | null;
   busy: { start: string; end: string }[];
   freeBusyAnswer: Answer | null;
   /** One-off free/busy answers, used in order before `freeBusyAnswer`. */
@@ -25,7 +32,17 @@ export type GoogleFake = {
 export function fakeGoogle(): GoogleFake {
   const fake: GoogleFake = {
     calls: [],
-    calendarCalls: () => fake.calls.filter((call) => !call.url.includes("oauth2.googleapis.com")),
+    calendarCalls: () =>
+      fake.calls.filter(
+        (call) =>
+          !call.url.includes("oauth2.googleapis.com") &&
+          !call.url.includes("people.googleapis.com"),
+      ),
+    peopleCalls: () => fake.calls.filter((call) => call.url.includes("people.googleapis.com")),
+    contacts: [],
+    otherContacts: [],
+    contactsPageSize: 1000,
+    peopleAnswer: null,
     busy: [],
     freeBusyAnswer: null,
     freeBusyAnswers: [],
@@ -59,6 +76,24 @@ export function fakeGoogle(): GoogleFake {
           );
         }
         return reply(fake.codeAnswer ?? { status: 400, body: { error: "no code answer set" } });
+      }
+      if (url.startsWith("https://people.googleapis.com/")) {
+        if (fake.peopleAnswer) return reply(fake.peopleAnswer);
+        const parsed = new URL(url);
+        const other = parsed.pathname === "/v1/otherContacts";
+        const list = other ? fake.otherContacts : fake.contacts;
+        const start = Number(parsed.searchParams.get("pageToken") ?? 0);
+        const page = list.slice(start, start + fake.contactsPageSize).map((person) => ({
+          ...(person.name ? { names: [{ displayName: person.name }] } : {}),
+          emailAddresses: person.emails.map((value) => ({ value })),
+        }));
+        const next = start + fake.contactsPageSize;
+        return reply({
+          body: {
+            [other ? "otherContacts" : "connections"]: page,
+            ...(next < list.length ? { nextPageToken: String(next) } : {}),
+          },
+        });
       }
       const path = new URL(url).pathname.replace("/calendar/v3", "");
       if (path === "/freeBusy") {

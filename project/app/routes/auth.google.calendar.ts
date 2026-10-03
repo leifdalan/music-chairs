@@ -5,6 +5,7 @@ import { redirect } from "react-router";
 import {
   authorizationUrl,
   CALENDAR_SCOPES,
+  CONTACTS_SCOPES,
   callbackUrl,
   googleConfig,
   pkcePair,
@@ -14,7 +15,8 @@ import { readAccount, safeReturnTo, writeOAuthState } from "~/.server/membership
 import type { Route } from "./+types/auth.google.calendar";
 
 /**
- * Asks Google for one Calendar permission (`?scope=busy` or `?scope=write`)
+ * Asks Google for one Calendar permission (`?scope=busy` or `?scope=write`),
+ * or for reading contacts (`?scope=contacts`),
  * for the signed-in account, keeping earlier grants and requesting offline
  * access so the app can act later. Google returns to the shared callback.
  */
@@ -33,10 +35,15 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw redirect(`/auth/google?returnTo=${encodeURIComponent(returnTo)}`);
   }
   const wanted = url.searchParams.get("scope");
-  if (wanted !== "busy" && wanted !== "write") {
-    return new Response("Unknown Calendar permission.", { status: 400 });
+  if (wanted !== "busy" && wanted !== "write" && wanted !== "contacts") {
+    return new Response("Unknown Google permission.", { status: 400 });
   }
-  const scope = CALENDAR_SCOPES[wanted];
+  // Contacts are asked for together: saved and "other" contacts (plan/phase-13.md).
+  const scopes =
+    wanted === "contacts"
+      ? [CONTACTS_SCOPES.saved, CONTACTS_SCOPES.other]
+      : [CALENDAR_SCOPES[wanted]];
+  const scope = scopes[0];
   const state = randomBytes(16).toString("base64url");
   const nonce = randomBytes(16).toString("base64url");
   const { verifier, challenge } = pkcePair();
@@ -45,7 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     nonce,
     challenge,
     redirectUri: callbackUrl(request),
-    scopes: ["openid", scope],
+    scopes: ["openid", ...scopes],
     extra: {
       include_granted_scopes: "true",
       access_type: "offline",

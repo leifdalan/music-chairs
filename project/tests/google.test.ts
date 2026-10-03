@@ -65,6 +65,19 @@ describe("Google sign-in protocol", () => {
     expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
+  it("reports whether Google verified the email", async () => {
+    for (const [claim, verified] of [
+      [true, true],
+      ["true", true],
+      [false, false],
+      [undefined, false],
+    ] as const) {
+      tokenEndpoint({ id_token: idToken({ ...goodClaims, email_verified: claim }) });
+      const { profile } = await exchangeCode(config, params, now);
+      expect(profile.emailVerified).toBe(verified);
+    }
+  });
+
   it("exchanges the code with the verifier and returns the identity keyed by sub", async () => {
     const fake = tokenEndpoint({ id_token: idToken(goodClaims) });
 
@@ -74,8 +87,10 @@ describe("Google sign-in protocol", () => {
       sub: "google-sub-1",
       email: "cellist@example.test",
       name: "Cel List",
+      // These claims carry no email_verified, so the email is not treated as verified.
+      emailVerified: false,
     });
-    // A sign-in grants no Calendar access and keeps no refresh token.
+    // A token answer without Calendar scopes keeps no refresh token.
     expect(tokens).toEqual({ refreshToken: null, scopes: [] });
     const [url, init] = fake.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://oauth2.googleapis.com/token");

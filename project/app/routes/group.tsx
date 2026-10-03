@@ -83,6 +83,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
             id: member.id,
             optional: member.optional,
             email: member.googleEmail,
+            invitedEmail: member.invitedEmail,
             // The group's only organizer can be neither removed nor demoted.
             lastOrganizer: member.role === "organizer" && organizerCount <= 1,
           }
@@ -331,6 +332,13 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
       ) : null}
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members ({members.length})</h2>
+        {settings ? (
+          <p>
+            <Link to="members/add" relative="path" className="button-link secondary">
+              Add members
+            </Link>
+          </p>
+        ) : null}
         <ul className="members">
           {members.map((member, index) => (
             // Organizers' rows hold forms; keying them by member keeps each with its member.
@@ -349,6 +357,9 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                 ) : null}
                 {member.manage?.email ? (
                   <span className="member-email"> {member.manage.email}</span>
+                ) : null}
+                {member.manage?.invitedEmail ? (
+                  <span className="member-email"> invited as {member.manage.invitedEmail}</span>
                 ) : null}
               </span>
               <span className={`role role-${member.role}`}>

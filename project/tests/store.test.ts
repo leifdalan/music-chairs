@@ -27,6 +27,7 @@ function withoutToken(member: NewMember): Member {
     googleEmail: member.googleEmail,
     calendarSync: member.calendarSync,
     instrument: member.instrument,
+    invitedEmail: member.invitedEmail,
   };
 }
 
@@ -1149,6 +1150,32 @@ describe("schema migrations", () => {
     db.close();
   });
 
+  it("upgrades a version-7 database to invitations, leaving accounts unverified", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 7));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+      INSERT INTO accounts (id, google_sub, email, name, created_at)
+        VALUES ('a', 'sub', 'cellist@example.test', 'Cellist', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(7);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+
+    expect(store.listMembers("g")).toEqual([
+      expect.objectContaining({ displayName: "Cellist", invitedEmail: null }),
+    ]);
+    const db = new DatabaseSync(filename);
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(db.prepare("SELECT email_verified FROM accounts").get()).toEqual({ email_verified: 0 });
+    db.close();
+  });
+
   it("refuses a database from a newer version, even in development", () => {
     const filename = fileDatabase();
     openStore(filename).close();
@@ -1230,5 +1257,74 @@ describe("schema migrations", () => {
     expect(version(db)).toBe(MIGRATIONS.length);
     expect(db.prepare("SELECT COUNT(*) AS n FROM groups").get()).toEqual({ n: 1 });
     db.close();
+  });
+});
+
+describe("members added from contacts", () => {
+  const amy = { sub: "amy-sub", email: "Amy@Example.test", name: "Amy", emailVerified: true };
+
+  it("keeps the email lowercased, once per group", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Trio", "Viola", "Europe/London").group;
+
+    expect(store.addInvitedMember(group.id, "Amy", " AMY@example.test ").invitedEmail).toBe(
+      "amy@example.test",
+    );
+    expect(store.addInvitedMember(group.id, "Spare", null).invitedEmail).toBeNull();
+    expect(() => store.addInvitedMember(group.id, "Amy again", "amy@example.test")).toThrow();
+    expect(store.listMembers(group.id).map((member) => member.displayName)).toEqual([
+      "Viola",
+      "Amy",
+      "Spare",
+    ]);
+    expect(store.addInvitedMember(other.id, "Amy", "amy@example.test").invitedEmail).toBe(
+      "amy@example.test",
+    );
+  });
+
+  it("is claimed by the account with that verified email, and only once", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const invited = store.addInvitedMember(group.id, "Amy", "amy@example.test");
+    const account = store.upsertAccount(amy);
+
+    const claimed = store.claimInvitation(group.id, account.id);
+
+    expect(claimed).toMatchObject({
+      id: invited.id,
+      googleEmail: "Amy@Example.test",
+      invitedEmail: null,
+    });
+    expect(store.findMemberByAccount(group.id, account.id)?.id).toBe(invited.id);
+    expect(store.claimInvitation(group.id, account.id)).toBeNull();
+  });
+
+  it("is not claimed by an unverified email, another email or an account already in the group", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    store.addInvitedMember(group.id, "Amy", "amy@example.test");
+    const unverified = store.upsertAccount({ ...amy, emailVerified: false });
+    expect(store.claimInvitation(group.id, unverified.id)).toBeNull();
+
+    const bob = store.upsertAccount({ ...amy, sub: "bob-sub", email: "bob@example.test" });
+    expect(store.claimInvitation(group.id, bob.id)).toBeNull();
+
+    const verified = store.upsertAccount(amy);
+    store.addMember(group.id, "Amy B", "member", verified.id);
+    expect(store.claimInvitation(group.id, verified.id)).toBeNull();
+    expect(
+      store.listMembers(group.id).find((member) => member.displayName === "Amy"),
+    ).toMatchObject({ invitedEmail: "amy@example.test", googleEmail: null });
+  });
+
+  it("is never matched by name alone", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    store.addInvitedMember(group.id, "Amy", "amy@example.test");
+    const spare = store.addInvitedMember(group.id, "Spare", null);
+
+    expect(store.nameOnlyMatches(group.id, "amy")).toEqual([]);
+    expect(store.nameOnlyMatches(group.id, "spare").map((member) => member.id)).toEqual([spare.id]);
   });
 });

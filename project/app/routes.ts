@@ -7,6 +7,7 @@ export default [
   route("g/:groupId/availability", "routes/availability.tsx"),
   route("g/:groupId/schedule", "routes/schedule.tsx"),
   route("g/:groupId/profile", "routes/profile.ts"),
+  route("g/:groupId/members/add", "routes/members.add.tsx"),
   route("g/:groupId/requests/new", "routes/requests.new.tsx"),
   route("g/:groupId/requests/:requestId", "routes/request.tsx"),
   route("join/:inviteToken", "routes/join.tsx"),

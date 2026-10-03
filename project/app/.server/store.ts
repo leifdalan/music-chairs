@@ -34,6 +34,11 @@ export type Member = {
   calendarSync: boolean;
   /** What they play in this group, for example "cello, piano"; may be empty. */
   instrument: string;
+  /**
+   * For a member an organizer added from their contacts and nobody has claimed
+   * yet, the email they claim with (lowercased); otherwise null. Organizers only.
+   */
+  invitedEmail: string | null;
 };
 
 /**
@@ -47,8 +52,11 @@ export type NewMember = Member & { deviceToken: string };
 /** A Google account, identified by Google's stable `sub` (never by email). */
 export type Account = { id: string; email: string; name: string };
 
-/** The identity Google reports for a signed-in user. */
-export type GoogleProfile = { sub: string; email: string; name: string };
+/**
+ * The identity Google reports for a signed-in user. `emailVerified` is
+ * Google's `email_verified` claim; only a verified email can claim a place.
+ */
+export type GoogleProfile = { sub: string; email: string; name: string; emailVerified?: boolean };
 
 /**
  * `linked`: the member now belongs to the account (or already did).
@@ -146,6 +154,14 @@ export type Store = {
   nameOnlyMatches(groupId: string, name: string): Member[];
   /** A member's device token, for the server to remember them on a new device. */
   deviceTokenFor(groupId: string, memberId: string): string | null;
+  /** A role-member added by an organizer: name-only, or with an email to claim with. */
+  addInvitedMember(groupId: string, displayName: string, email: string | null): NewMember;
+  /**
+   * Links the group's unclaimed member invited with this account's email to
+   * the account and clears the invitation, all at once. Only a Google-verified
+   * email claims; null when nothing matches or the account is already a member.
+   */
+  claimInvitation(groupId: string, accountId: string): Member | null;
   /**
    * Deletes a member and their availability, answers and RSVPs, queueing the
    * Google Calendar events the app wrote for them for removal. The group's
@@ -479,6 +495,15 @@ export const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE members ADD COLUMN instrument TEXT NOT NULL DEFAULT '';
   `,
+  // Version 8 (Phase 13): the email a member added from contacts is kept under
+  // until they claim the place, and whether Google verified an account's email.
+  `
+  ALTER TABLE members ADD COLUMN invited_email TEXT;
+  CREATE UNIQUE INDEX members_invited_email ON members (group_id, invited_email)
+    WHERE invited_email IS NOT NULL;
+  ALTER TABLE accounts ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0
+    CHECK (email_verified IN (0, 1));
+  `,
 ];
 
 /**
@@ -554,6 +579,7 @@ type MemberRow = {
   google_email: string | null;
   calendar_sync: number;
   instrument: string;
+  invited_email: string | null;
 };
 type SlotRow = {
   id: string;
@@ -584,6 +610,7 @@ function toMember(row: MemberRow): Member {
     googleEmail: row.google_email,
     calendarSync: row.calendar_sync === 1,
     instrument: row.instrument,
+    invitedEmail: row.invited_email,
   };
 }
 
@@ -668,6 +695,16 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const changeProfile = db.prepare(
     "UPDATE members SET display_name = ?, instrument = ? WHERE group_id = ? AND id = ?",
   );
+  const changeInvitedEmail = db.prepare(
+    "UPDATE members SET invited_email = ? WHERE group_id = ? AND id = ?",
+  );
+  const selectVerifiedEmail = db.prepare(
+    "SELECT email FROM accounts WHERE id = ? AND email_verified = 1",
+  );
+  const selectInvited = db.prepare(
+    `SELECT id FROM members
+     WHERE group_id = ? AND invited_email = ? AND account_id IS NULL`,
+  );
   const selectDeviceToken = db.prepare(
     "SELECT device_token FROM members WHERE group_id = ? AND id = ?",
   );
@@ -718,7 +755,8 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   );
   // Member reads never select the device token.
   const memberSelect = `SELECT members.id, members.group_id, members.display_name, members.role,
-      members.optional, members.calendar_sync, members.instrument, accounts.email AS google_email
+      members.optional, members.calendar_sync, members.instrument, members.invited_email,
+       accounts.email AS google_email
     FROM members LEFT JOIN accounts ON accounts.id = members.account_id`;
   const selectMember = db.prepare(`${memberSelect} WHERE members.group_id = ? AND members.id = ?`);
   const selectMemberByDevice = db.prepare(
@@ -739,7 +777,8 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectAccountMemberships = db.prepare(
     `SELECT groups.id AS g_id, groups.invite_token, groups.name, groups.time_zone,
        groups.show_names, members.id, members.group_id, members.display_name, members.role,
-       members.optional, members.calendar_sync, members.instrument, accounts.email AS google_email
+       members.optional, members.calendar_sync, members.instrument, members.invited_email,
+       accounts.email AS google_email
      FROM members
      JOIN groups ON groups.id = members.group_id
      JOIN accounts ON accounts.id = members.account_id
@@ -747,8 +786,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
      ORDER BY groups.name, groups.created_at`,
   );
   const upsertAccountRow = db.prepare(
-    `INSERT INTO accounts (id, google_sub, email, name, created_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, name = excluded.name
+    `INSERT INTO accounts (id, google_sub, email, name, created_at, email_verified)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, name = excluded.name,
+       email_verified = excluded.email_verified
      RETURNING id, email, name`,
   );
   const insertSession = db.prepare(
@@ -1070,6 +1111,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       googleEmail: null,
       calendarSync: false,
       instrument: "",
+      invitedEmail: null,
       deviceToken: newToken(),
     };
     insertMember.run(
@@ -1164,9 +1206,35 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         .filter(
           (member) =>
             member.googleEmail === null &&
+            member.invitedEmail === null &&
             member.role === "member" &&
             sameName(member.displayName, name),
         );
+    },
+    addInvitedMember(groupId, displayName, email) {
+      return transaction(() => {
+        const member = addMember(groupId, displayName, "member");
+        if (email) {
+          const invited = email.trim().toLowerCase();
+          changeInvitedEmail.run(invited, groupId, member.id);
+          member.invitedEmail = invited;
+        }
+        return member;
+      });
+    },
+    claimInvitation(groupId, accountId) {
+      if (!isToken(accountId)) return null;
+      return transaction(() => {
+        const account = selectVerifiedEmail.get(accountId) as { email: string } | undefined;
+        const email = account?.email.trim().toLowerCase();
+        if (!email) return null;
+        if (selectMemberByAccount.get(groupId, accountId)) return null;
+        const row = selectInvited.get(groupId, email) as { id: string } | undefined;
+        if (!row) return null;
+        changeMemberAccount.run(accountId, groupId, row.id);
+        changeInvitedEmail.run(null, groupId, row.id);
+        return toMember(selectMember.get(groupId, row.id) as MemberRow);
+      });
     },
     deviceTokenFor(groupId, memberId) {
       if (!isToken(memberId)) return null;
@@ -1328,6 +1396,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         profile.email,
         profile.name,
         new Date().toISOString(),
+        profile.emailVerified ? 1 : 0,
       ) as Account;
     },
     createSession(accountId, now = new Date()) {

@@ -6,6 +6,11 @@ export const CALENDAR_NOTICES: Record<string, string> = {
   "calendar-wrong-account":
     "That was a different Google account from the one you're signed in with, so nothing changed.",
   "calendar-failed": "Connecting Google Calendar didn't work. Please try again.",
+  "contacts-connected": "Google contacts connected: start typing a name to see suggestions.",
+  "contacts-declined": "Google contacts access wasn't granted, so nothing changed.",
+  "contacts-wrong-account":
+    "That was a different Google account from the one you're signed in with, so nothing changed.",
+  "contacts-failed": "Connecting Google contacts didn't work. Please try again.",
 };
 
 /** The sentence for a request's calendar notice, if it has a known one. */

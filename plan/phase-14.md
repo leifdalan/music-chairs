@@ -34,3 +34,7 @@ To settle at phase start: whether the multi-select also applies to free times on
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Choosing rehearsal times", "Technology and constraints" (works well on a phone).
+
+## Inherited from Phase 13
+
+Pinned by [Phase 13](phase-13.md): organizers add members on their own page, `/g/:groupId/members/add` (`project/app/routes/members.add.tsx`), by typed name or from their Google contacts (`listContacts`, read only there, cached in memory for ten minutes and never stored). A member added from contacts carries `invitedEmail` (shown only to organizers) until a Google account with that verified email opens the invite link and claims the place (`claimInvitation`); invited members are never matched by name. `googleFetch` in `project/app/.server/google.ts` is the shared Google API request helper (token, one retry after a 401). Contacts consent uses `/auth/google/calendar?scope=contacts` and the `contacts-*` notices. The schema is at version 8; new tables or columns are migration 9 onward.

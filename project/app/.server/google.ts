@@ -7,6 +7,7 @@ const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
+const PEOPLE_API = "https://people.googleapis.com/v1";
 // A stalled call to Google fails after this long instead of holding a page or a sync.
 const GOOGLE_TIMEOUT_MS = 10_000;
 // Sign-in asks for the basic profile only.
@@ -20,6 +21,16 @@ const SIGN_IN_SCOPES = ["openid", "email", "profile"];
 export const CALENDAR_SCOPES = {
   busy: "https://www.googleapis.com/auth/calendar.freebusy",
   write: "https://www.googleapis.com/auth/calendar.events.owned",
+} as const;
+
+/**
+ * Reading an organizer's contacts (plan/phase-13.md): saved contacts, and the
+ * "other contacts" Google keeps for people they have emailed. Asked for only
+ * when an organizer first uses contact suggestions, never at sign-in.
+ */
+export const CONTACTS_SCOPES = {
+  saved: "https://www.googleapis.com/auth/contacts.readonly",
+  other: "https://www.googleapis.com/auth/contacts.other.readonly",
 } as const;
 
 /**
@@ -148,8 +159,10 @@ export async function exchangeCode(
   if (typeof claims.sub !== "string" || !claims.sub) throw new GoogleSignInError("no subject");
   const email = typeof claims.email === "string" ? claims.email : "";
   const name = typeof claims.name === "string" && claims.name ? claims.name : email;
+  // Google sends a boolean; some libraries document the string "true".
+  const emailVerified = claims.email_verified === true || claims.email_verified === "true";
   return {
-    profile: { sub: claims.sub, email, name },
+    profile: { sub: claims.sub, email, name, emailVerified },
     tokens: {
       refreshToken:
         typeof body.refresh_token === "string" && body.refresh_token ? body.refresh_token : null,
@@ -161,9 +174,13 @@ export async function exchangeCode(
 // Access tokens live only in memory, per account, until shortly before they expire.
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
 
-/** Forgets the cached access token, for example after the member grants more scopes. */
+/**
+ * Forgets the cached access token and contacts, for example after the member
+ * grants more scopes or Google refuses the grant.
+ */
 export function forgetAccessToken(accountId: string): void {
   accessTokens.delete(accountId);
+  contactsCache.delete(accountId);
 }
 
 /**
@@ -216,18 +233,18 @@ export async function accessTokenFor(accountId: string, now: Date = new Date()):
   return body.access_token;
 }
 
-/** A Calendar API call with the account's token; a 401 retries once with a fresh token. */
-async function calendarFetch(
+/** A Google API request with the account's access token, retried once after a 401. */
+async function googleFetch(
   accountId: string,
   method: string,
-  path: string,
+  url: string,
   body?: unknown,
 ): Promise<Response> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const token = await accessTokenFor(accountId);
     let response: Response;
     try {
-      response = await fetch(CALENDAR_API + path, {
+      response = await fetch(url, {
         signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
         method,
         headers: {
@@ -237,12 +254,97 @@ async function calendarFetch(
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (error) {
-      throw new GoogleApiError(`Calendar request failed: ${(error as Error).message}`);
+      throw new GoogleApiError(`Google request failed: ${(error as Error).message}`);
     }
     if (response.status !== 401) return response;
     forgetAccessToken(accountId);
   }
-  throw new GoogleAccessRevoked("Calendar API refused the access token");
+  throw new GoogleAccessRevoked("Google refused the access token");
+}
+
+/** A Calendar API call with the account's token; a 401 retries once with a fresh token. */
+function calendarFetch(
+  accountId: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<Response> {
+  return googleFetch(accountId, method, CALENDAR_API + path, body);
+}
+
+/** A contact suggestion: a name (empty when Google has none) and an email. */
+export type Contact = { name: string; email: string };
+
+/** The most contacts read from each source (saved, other). */
+const CONTACTS_PER_SOURCE = 1000;
+const CONTACTS_TTL_MS = 10 * 60_000;
+const contactsCache = new Map<string, { contacts: Contact[]; expiresAt: number }>();
+
+type PeoplePage = {
+  connections?: PeoplePerson[];
+  otherContacts?: PeoplePerson[];
+  nextPageToken?: string;
+};
+type PeoplePerson = {
+  names?: { displayName?: string }[];
+  emailAddresses?: { value?: string }[];
+};
+
+/** Up to CONTACTS_PER_SOURCE people from one People API list, page by page. */
+async function readPeople(accountId: string, url: string): Promise<PeoplePerson[]> {
+  const people: PeoplePerson[] = [];
+  let pageToken: string | undefined;
+  do {
+    const page = new URL(url);
+    if (pageToken) page.searchParams.set("pageToken", pageToken);
+    const response = await googleFetch(accountId, "GET", page.href);
+    if (!response.ok) throw new GoogleApiError(`contacts answered ${response.status}`);
+    const body = (await response.json().catch(() => null)) as PeoplePage | null;
+    if (!body) throw new GoogleApiError("contacts returned no usable answer");
+    people.push(...(body.connections ?? body.otherContacts ?? []));
+    pageToken = body.nextPageToken;
+  } while (pageToken && people.length < CONTACTS_PER_SOURCE);
+  return people.slice(0, CONTACTS_PER_SOURCE);
+}
+
+/**
+ * The organizer's contacts that have an email (names and emails only), saved
+ * contacts and, when granted, other contacts: deduplicated by email, sorted by
+ * name, cached for ten minutes. Nothing is stored or logged.
+ */
+export async function listContacts(accountId: string, now: Date = new Date()): Promise<Contact[]> {
+  // Expired lists leave memory on the next read, whoever's they are.
+  for (const [id, entry] of contactsCache) {
+    if (entry.expiresAt <= now.getTime()) contactsCache.delete(id);
+  }
+  const cached = contactsCache.get(accountId);
+  if (cached) return cached.contacts;
+  const grant = getStore().findGrant(accountId);
+  if (!grant?.scopes.includes(CONTACTS_SCOPES.saved)) return [];
+  const saved = await readPeople(
+    accountId,
+    `${PEOPLE_API}/people/me/connections?personFields=names,emailAddresses&pageSize=1000`,
+  );
+  const other = grant.scopes.includes(CONTACTS_SCOPES.other)
+    ? await readPeople(
+        accountId,
+        `${PEOPLE_API}/otherContacts?readMask=names,emailAddresses&pageSize=1000`,
+      )
+    : [];
+  const byEmail = new Map<string, Contact>();
+  for (const person of [...saved, ...other]) {
+    const name = person.names?.find((entry) => entry.displayName)?.displayName?.trim();
+    for (const address of person.emailAddresses ?? []) {
+      const email = address.value?.trim();
+      if (!email || byEmail.has(email.toLowerCase())) continue;
+      byEmail.set(email.toLowerCase(), { name: name ?? "", email });
+    }
+  }
+  const contacts = [...byEmail.values()].sort((a, b) =>
+    (a.name || a.email).localeCompare(b.name || b.email, "en"),
+  );
+  contactsCache.set(accountId, { contacts, expiresAt: now.getTime() + CONTACTS_TTL_MS });
+  return contacts;
 }
 
 /**

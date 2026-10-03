@@ -32,6 +32,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const group = invitedGroup(params.inviteToken);
   if (await alreadyJoined(request, group)) throw redirect(`/g/${group.id}`);
   const account = await readAccount(request);
+  // Signed in with the Google account an organizer added from their contacts:
+  // that place is theirs (plan/phase-13.md). Only a Google-verified email claims.
+  const claimed = account ? getStore().claimInvitation(group.id, account.id) : null;
+  if (claimed) throw await welcomeBack(request, group, claimed, `Welcome, ${claimed.displayName}`);
   return {
     groupName: group.name,
     account: account ? { name: account.name, email: account.email } : null,
@@ -48,10 +52,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
  * never linked to them here, since a typed name proves nothing about the
  * account (linking happens through sign-in on a device that holds the membership).
  */
-async function welcomeBack(request: Request, group: Group, member: Member) {
+async function welcomeBack(
+  request: Request,
+  group: Group,
+  member: Member,
+  message = `Welcome back, ${member.displayName}`,
+) {
   const token = getStore().deviceTokenFor(group.id, member.id);
   if (!token) throw data(null, { status: 404 });
-  return redirectWithToast(`/g/${group.id}`, `Welcome back, ${member.displayName}`, {
+  return redirectWithToast(`/g/${group.id}`, message, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, token) },
   });
 }
@@ -112,7 +121,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     const error =
       taken.role === "organizer"
         ? `${taken.displayName} is an organizer. Organizers get back in with Google, or from a device they used before.`
-        : `${taken.displayName} signs in with Google. Sign in with Google to get back in, or join with a different name.`;
+        : taken.invitedEmail !== null
+          ? `${taken.displayName} was added with an email address: sign in with Google using that address, or ask an organizer.`
+          : `${taken.displayName} signs in with Google. Sign in with Google to get back in, or join with a different name.`;
     return data({ error, value: displayName.value }, { status: 400 });
   }
 

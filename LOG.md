@@ -1796,3 +1796,110 @@ Execution trace: 0f277af20c9a469fb75e223eff354906
 - Lessons: gentle-pug gained its Phase 12 occurrence (5 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (5) and lively-salamander (3) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 16:17 — START
+
+Phase 13 — Adding members from Google contacts or by name
+
+Execution trace: 2db3beb187114f5a826e2beae21b3b60
+
+Operator decisions recorded in plan/phase-13.md before this run: from the list after Phase 9, an "Add members" section for organizers that autocompletes from their Google contacts and accepts any typed name. At phase start: suggestions include saved and "other" contacts; a member added from contacts keeps that email; such a member claims their place only by signing in with the matching Google account, while typed-name members claim by name; an added name matching an existing member is refused. The User Demo was tightened before capture.
+
+Planned work:
+- An "Add members" section on the group page for organizers: a field that autocompletes from the organizer's Google contacts once they are signed in with Google, and also accepts any typed name.
+- Members added this way appear in the member list straight away; a person added by name claims their place by typing that name on the invite page (Phase 12), and one added from contacts can also claim it by signing in with the matching Google account.
+- Google contacts access is asked for only when an organizer first uses contact autocomplete, and only contact names and email addresses are read.
+
+## 2026-10-03 16:43 — END
+Phase 13 — Adding members from Google contacts or by name
+
+Phase 13 is accepted on its gates and live at https://rehearse.dalan.dev. Organizers now have an **Add members** button under the group page's member list. It opens a page where they type a name, or, once they allow Google contacts, pick someone from their saved and "other" contacts as they type. A typed-name member gets in by typing that name on the invite link. A member added from contacts keeps their email (shown only to organizers, as "invited as …"), and gets in by signing in with Google using that address on the invite page: Google must have verified it, and the place is then linked to that account. Typing their name instead is refused with a pointer to Google sign-in. Adding a name that is already in the group, or an email already in it, is refused, as is an email with no name. Contacts are read only on that page, cached in memory for ten minutes and never stored, except the email of the one person added. The live database was upgraded in place to version 8. How it feels with real contacts, a second Google account and a phone is yours to judge through the User Demo below.
+
+Execution trace: 2db3beb187114f5a826e2beae21b3b60
+
+Files changed:
+- plan/phase-13.md — operator decisions settled at phase start (saved and other contacts; the contact keeps their email, organizers see it; claim only by Google with the matching account; typed names claim by name; a matching name is refused) and the tightened User Demo, recorded before the run
+- project/app/.server/store.ts — migration 8 (members.invited_email with a per-group unique index; accounts.email_verified); addInvitedMember, claimInvitation (verified email, one transaction); invited members never matched by name
+- project/app/.server/google.ts — contacts scopes; email_verified from the ID token; googleFetch shared by Calendar and People API calls; listContacts (saved and, when allowed, other contacts; 1,000 each; deduplicated; ten-minute in-memory cache, expired lists dropped)
+- project/app/lib/contacts.ts — new: reading "Name <email>" or a name; an email in place of the name refused
+- project/app/routes/members.add.tsx, project/app/routes.ts — new: the organizer-only Add members page and its route
+- project/app/routes/auth.google.calendar.ts, project/app/routes/auth.google.callback.ts, project/app/lib/calendar-notices.ts — contacts consent and its notices
+- project/app/routes/group.tsx — the Add members button; "invited as" for organizers
+- project/app/routes/join.tsx — claiming an invited place on the invite page; the invited-name refusal
+- project/tests/ — contacts (parsing, reading, paging, cap, permission, cache), add-members (adding, refusals, race, organizers only, suggestions, notices, no contacts in other pages or the database, claiming), store (migration 8, claiming, unique index), calendar-consent (contacts consent and all four notices), google (email_verified), the fake's People API (Vitest 457)
+- plan/INDEX.md — Phase 13 ✅, Phase 14 ⬅️ (pending, applied after this block)
+- plan/phase-14.md — inherited Phase 13 notes (pending AUTO ripple)
+- lessons/loyal-dinosaur.md — new; lessons/gentle-pug.md, lessons/lively-salamander.md — Phase 13 occurrences (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release c9d4d89-dirty-20261003T233929Z healthy; live database migrated to schema version 8 with row counts identical to the version-7 pre-release copy (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 457/457, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.288, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 167.359 s; first event 0.847 s; longest idle 33.839 s; success
+- Coder: inline (no role span)
+- Critic (code review): 176.125 s; first event 0.876 s; longest idle 28.397 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1491.390 s; intelligence 343.484 s; gates 151.921 s; orchestration 1490.735 s; wait 342.214 s; failed 0 s; retry 0 s; unattributed 0.655 s (category totals are interval unions and may overlap).
+- The session's context was compacted during implementation; the trace measures only its spans, and implementation time before and after compaction is inside orchestration.
+- Awaiting user input: none recorded as a park.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: critiqued=e2cedc5d858620a91a79ebb3d555f11c00e7ba1f41eb95b47aa2eca333a0c4e0 approved=4c8d6e277c8aa34af200bc83baf9529b0ab0e60263ff34ff75e2c5173ab29271 final=4c8d6e277c8aa34af200bc83baf9529b0ab0e60263ff34ff75e2c5173ab29271
+- Revision packets: 0
+- Advisory reports: 2 — plan review 8 findings (all adopted); code critique 6 findings (4 adopted, 1 adopted in part with two nits declined, 1 demo correction deferred to this block)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers adding by typed name and by contact, refusals (same name, same email including a Google-linked member's, a bare or nameless email, a lost double submit), organizers only, suggestions only after the contacts consent (never at sign-in), claiming by a verified matching Google account only (not unverified, not another address, not by typing the name), and that no contact beyond the one added reaches the database (write-ahead log included) or any other page; 30 guards mutation-checked (29 killed, the survivor equivalent). `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (real contacts and Google's consent screen, a second Google account, a phone)
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-14.md — add "Inherited from Phase 13": organizers add members on /g/:groupId/members/add, by name or from Google contacts; contact-added members carry `invitedEmail` until they claim with a verified matching Google account (`claimInvitation`); invited members are never matched by name; `googleFetch` is the shared Google API helper; schema at version 8 — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed: loyal-dinosaur — a check piped into tail, or read from a log the shell refused to overwrite, reported success it never earned (Phase 10 and twice in Phase 13)
+- occurrences pending: gentle-pug (6 after this phase) — a plan disposition moved Add members to its own page after the demo was captured; lively-salamander (4) — an edit script ran from project/ with a relative path
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (6) → policy; lively-salamander (4) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On a laptop, open https://rehearse.dalan.dev as the organizer of a test group, signed in with Google. You need a second Google account you can sign in with, saved in, or emailed from, your main account's Gmail.
+- **Suggested inputs.** On the group page, under the member list, tap **Add members**. Tap **Use your Google contacts** and allow it on Google's screen. Start typing the second account's name, pick it from the suggestions, and tap **Add**. Then type `Spare oboe` and add it. Try adding `spare OBOE`. Go back to the group page. Finally, on your phone in a private tab, open the group's invite link, tap **Sign in with Google** with the second account, and allow what Google asks.
+- **What to look for.** Suggestions appear only after you allowed contacts, written `Name <email>`. Each add shows "Added …" and keeps you on the page. Adding `spare OBOE` is refused because someone of that name exists. Back on the group page both new members are listed, and the contact shows "invited as <email>" to you. On the phone, signing in with the second account lands you in the group as that member, with "Welcome, <name>", not as a new member. Typing that member's name on the invite page instead is refused with a pointer to Google sign-in.
+- **Variations to explore.** On the laptop in a fresh private window, open the invite link and type `spare oboe`: you land as `Spare oboe`. Is the Add members page quick to use on a phone?
+- Notes (corrections to the demo captured in plan/phase-13.md): Add members is its own page, reached from the button under the member list (not a section of the group page), and new members show on the group page after you go back to it. A contact Google has no name for is offered as just `<email>`; add a name in front of it, since names are shown to the whole group. If the second account's Google email isn't verified, or it's a different spelling of the address (for example with dots in a Gmail address), it joins as a new member instead. To undo a contact-added member who can't sign in, remove them and add the name alone.
+
+Remaining:
+- None for this phase. Phases 14–15 follow.
