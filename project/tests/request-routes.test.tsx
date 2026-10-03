@@ -240,6 +240,17 @@ describe("creating and editing requests", () => {
     expect(html).toMatch(/name="windowStart-3"[^>]*value="22:00"/);
     expect(html).toContain("The end must be after the start.");
     expect(html).not.toContain('name="windowStart-4"');
+    // Rows open: the first empty one (row 1) and the one with an error (row 3).
+    const rows = [...html.matchAll(/<details class="window-row"( open="")?>/g)].map((match) =>
+      Boolean(match[1]),
+    );
+    expect(rows).toEqual([false, true, false, true]);
+    // The error marks both of row 3's fields and names the row in their labels.
+    expect(html).toMatch(
+      /name="windowStart-3"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*name="windowStart-3"/,
+    );
+    expect(html).toContain("Time 4: From");
+    expect(html).toContain("Time 4: until");
   });
 
   it("shows the organizer's mistakes and creates nothing", async () => {
@@ -631,9 +642,10 @@ describe("adding availability from a request", () => {
       expect(saved.headers.get("Location")).toBe(`/g/${group.id}/availability`);
     }
     const open = await created(group.id, organizerCookie, november);
-    expect(
-      (await loadAvailability(group.id, pianistCookie, `?request=${open}&window=5`)).fromRequest,
-    ).toBeNull();
+    // A window the request doesn't have: the request's calendar, with no window chosen.
+    const noWindow = (await loadAvailability(group.id, pianistCookie, `?request=${open}&window=5`))
+      .fromRequest;
+    expect(noWindow).toMatchObject({ id: open, window: null, values: null });
   });
 
   it("sends delete and skip back to availability even with a request named", async () => {

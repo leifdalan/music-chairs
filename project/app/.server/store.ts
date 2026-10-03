@@ -119,6 +119,8 @@ export type Store = {
   listSlots(memberId: string): Slot[];
   findSlot(memberId: string, slotId: string): Slot | null;
   addSlot(memberId: string, input: SlotInput): Slot;
+  /** Several times at once, all or none. */
+  addSlots(memberId: string, inputs: SlotInput[]): Slot[];
   updateSlot(memberId: string, slotId: string, input: SlotInput): Slot | null;
   deleteSlot(memberId: string, slotId: string): boolean;
   /** Skips or restores one date; false when the slot is unknown or does not meet that day. */
@@ -897,6 +899,21 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     return row ? toSlot(row) : null;
   }
 
+  function addSlot(memberId: string, input: SlotInput): Slot {
+    const id = newToken();
+    insertSlot.run(
+      id,
+      memberId,
+      input.kind,
+      input.startDate,
+      input.endDate,
+      input.startMinute,
+      input.endMinute,
+      new Date().toISOString(),
+    );
+    return { ...input, id, skips: [] };
+  }
+
   function transaction<T>(work: () => T): T {
     db.exec("BEGIN");
     try {
@@ -1023,19 +1040,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       return (selectSlots.all(memberId) as SlotRow[]).map(toSlot);
     },
     findSlot,
-    addSlot(memberId, input) {
-      const id = newToken();
-      insertSlot.run(
-        id,
-        memberId,
-        input.kind,
-        input.startDate,
-        input.endDate,
-        input.startMinute,
-        input.endMinute,
-        new Date().toISOString(),
-      );
-      return { ...input, id, skips: [] };
+    addSlot,
+    addSlots(memberId, inputs) {
+      return transaction(() => inputs.map((input) => addSlot(memberId, input)));
     },
     updateSlot(memberId, slotId, input) {
       const existing = findSlot(memberId, slotId);

@@ -63,8 +63,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ✅     |
 | [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ✅     |
 | [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ✅     |
-| [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ⬅️     |
-| [Phase 11](phase-11.md) | Managing groups and members, with a confirmation before anything destructive | ⏳     |
+| [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ✅     |
+| [Phase 11](phase-11.md) | Managing groups and members, with a confirmation before anything destructive | ⬅️     |
 | [Phase 12](phase-12.md) | Your profile menu, returning by name, and one Google sign-in for everything | ⏳     |
 | [Phase 13](phase-13.md) | Adding members from Google contacts or by name                     | ⏳     |
 | [Phase 14](phase-14.md) | Proposing several free times at once, and pending requests on the home screen | ⏳     |
@@ -179,6 +179,6 @@ Shipped files are linked. A file a future phase will create may also appear, as 
 | Deliverable runtime + metadata       | [`../project/package.json`](../project/package.json), [`../project/pnpm-lock.yaml`](../project/pnpm-lock.yaml), [`../project/react-router.config.ts`](../project/react-router.config.ts) |
 | Persistence layer                    | `../project/app/.server/` (Phase 1)                       |
 | Identity and Google sign-in          | [`../project/app/.server/google.ts`](../project/app/.server/google.ts), [`../project/app/.server/membership.ts`](../project/app/.server/membership.ts) |
-| Google Calendar                      | [`../project/app/.server/calendar-sync.ts`](../project/app/.server/calendar-sync.ts), [`../project/app/routes/availability.import.tsx`](../project/app/routes/availability.import.tsx), [`../project/app/routes/calendar-feed.ts`](../project/app/routes/calendar-feed.ts) |
+| Google Calendar                      | [`../project/app/.server/calendar-sync.ts`](../project/app/.server/calendar-sync.ts), [`../project/app/routes/availability.tsx`](../project/app/routes/availability.tsx), [`../project/app/lib/busy.ts`](../project/app/lib/busy.ts), [`../project/app/routes/calendar-feed.ts`](../project/app/routes/calendar-feed.ts) |
 | AWS infrastructure                   | [`../project/deploy/`](../project/deploy/README.md), [`../bin/deploy`](../bin/deploy) |
 | Governance environment               | [`../tooling/.python-version`](../tooling/.python-version), [`../tooling/pyproject.toml`](../tooling/pyproject.toml), [`../tooling/uv.lock`](../tooling/uv.lock) |

@@ -18,7 +18,7 @@ const SIGN_IN_SCOPES = ["openid", "email", "profile"];
  * calendars the member owns.
  */
 export const CALENDAR_SCOPES = {
-  import: "https://www.googleapis.com/auth/calendar.freebusy",
+  busy: "https://www.googleapis.com/auth/calendar.freebusy",
   write: "https://www.googleapis.com/auth/calendar.events.owned",
 } as const;
 

@@ -5,7 +5,6 @@ export default [
   route("healthz", "routes/healthz.ts"),
   route("g/:groupId", "routes/group.tsx"),
   route("g/:groupId/availability", "routes/availability.tsx"),
-  route("g/:groupId/availability/import", "routes/availability.import.tsx"),
   route("g/:groupId/schedule", "routes/schedule.tsx"),
   route("g/:groupId/requests/new", "routes/requests.new.tsx"),
   route("g/:groupId/requests/:requestId", "routes/request.tsx"),

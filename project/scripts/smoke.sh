@@ -91,7 +91,7 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$or
   --data-urlencode "endTime=22:00")"
 [ "$code" = 302 ] || fail "adding availability returned HTTP $code"
 availability_ok() {
-  curl -s -H "Cookie: $cookie" "$origin$location/availability" | sed 's/<!-- -->//g' >"$work/availability.html"
+  curl -s -H "Cookie: $cookie" "$origin$location/availability?times=list" | sed 's/<!-- -->//g' >"$work/availability.html"
   grep -q "Every Thursday from 1 Jan, 19:00–22:00" "$work/availability.html" &&
     grep -q "All times are in Europe/London" "$work/availability.html" &&
     grep -q '<ul class="occurrences"><li><span>Thu ' "$work/availability.html" &&

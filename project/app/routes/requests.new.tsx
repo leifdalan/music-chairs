@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { data, Form, Link, redirect } from "react-router";
 
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
-import { QuarterHours, TimeField } from "~/components/time-field";
-import { addDays, timeInputValue, todayInZone } from "~/lib/availability";
+import { TimeRange } from "~/components/time-range";
+import { QuarterHours } from "~/components/time-field";
+import { addDays, formatMinutes, timeInputValue, todayInZone } from "~/lib/availability";
 import {
   MAX_WINDOWS,
   parseRequestForm,
@@ -177,6 +179,7 @@ function RequestFields({
   backTo: string;
 }) {
   const rows = Array.from({ length: rowCount }, (_, index) => values.windows[index] ?? null);
+  const firstEmpty = rows.findIndex((row) => !row || (row.start === "" && row.end === ""));
   const error = (name: "name" | "startDate" | "endDate") =>
     errors[name] ? (
       <p className="field-error" id={`${name}-error`} role="alert">
@@ -253,35 +256,15 @@ function RequestFields({
           <QuarterHours id="window-times" />
           {rows.map((row, index) => {
             const rowError = errors.rows?.[index];
-            const errorId = `window-${index}-error`;
             return (
-              <div className="window-row" key={index}>
-                <TimeField
-                  id={`windowStart-${index}`}
-                  name={`windowStart-${index}`}
-                  label={`Time ${index + 1} from`}
-                  defaultValue={row?.start ?? ""}
-                  invalid={rowError !== undefined}
-                  describedBy={rowError ? errorId : undefined}
-                  listId="window-times"
-                />
-                <span aria-hidden="true">–</span>
-                <TimeField
-                  id={`windowEnd-${index}`}
-                  name={`windowEnd-${index}`}
-                  label={`Time ${index + 1} until`}
-                  defaultValue={row?.end ?? ""}
-                  end
-                  invalid={rowError !== undefined}
-                  describedBy={rowError ? errorId : undefined}
-                  listId="window-times"
-                />
-                {rowError ? (
-                  <p className="field-error" id={errorId} role="alert">
-                    {rowError}
-                  </p>
-                ) : null}
-              </div>
+              <WindowRow
+                key={index}
+                index={index}
+                row={row}
+                error={rowError}
+                // A row with an error, and the first empty row, start open.
+                open={rowError !== undefined || index === firstEmpty}
+              />
             );
           })}
           {errors.windows ? (
@@ -308,5 +291,44 @@ function RequestFields({
         </Link>
       </Form>
     </>
+  );
+}
+
+/** One time of day, folded into a summary line that follows what is chosen. */
+function WindowRow({
+  index,
+  row,
+  error,
+  open,
+}: {
+  index: number;
+  row: { start: string; end: string } | null;
+  error: string | undefined;
+  open: boolean;
+}) {
+  const typed = row && (row.start || row.end) ? `${row.start}–${row.end}` : null;
+  const [summary, setSummary] = useState(typed ?? "not set");
+  return (
+    <details className="window-row" open={open}>
+      <summary>
+        Time {index + 1}: {summary}
+      </summary>
+      <TimeRange
+        startName={`windowStart-${index}`}
+        endName={`windowEnd-${index}`}
+        startValue={row?.start ?? ""}
+        endValue={row?.end ?? ""}
+        rangeError={error}
+        labelPrefix={`Time ${index + 1}`}
+        listId="window-times"
+        onChange={(range, typed) => {
+          if (range) {
+            setSummary(`${formatMinutes(range.startMinute)}–${formatMinutes(range.endMinute)}`);
+          } else {
+            setSummary(typed ? "check the times" : "not set");
+          }
+        }}
+      />
+    </details>
   );
 }

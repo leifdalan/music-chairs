@@ -185,7 +185,8 @@ export function formatMeridiem(minutes: number): string {
   return `${twelve}:${String(inDay % 60).padStart(2, "0")}${hours < 12 ? "am" : "pm"}`;
 }
 
-function parseTime(value: string, label: string, end: boolean): number | string {
+/** A typed time on the 15-minute grid, or the message saying why it can't be read. */
+export function parseTime(value: string, label: string, end: boolean): number | string {
   const parsed = parseTimeText(value, { end });
   if (parsed.ok) return parsed.minutes;
   if (parsed.reason === "empty") return `${label} is required.`;

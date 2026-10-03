@@ -1,13 +1,24 @@
 import type { SlotErrors, SlotFormValues } from "~/lib/availability";
 
-import { TimeField } from "./time-field";
+import type { TimeWindow } from "~/lib/requests";
+
+import { TimeRange } from "./time-range";
 
 /**
  * How often, date, start/end times and an optional last date: the fields of
  * every slot-shaped form (member availability, organizer rehearsals). Values
  * and errors come from `parseSlotInput`, which validates them on the server.
  */
-export function SlotFields({ values, errors }: { values: SlotFormValues; errors: SlotErrors }) {
+export function SlotFields({
+  values,
+  errors,
+  presets,
+}: {
+  values: SlotFormValues;
+  errors: SlotErrors;
+  /** Ranges offered as chips above the time grid (a request's times of day). */
+  presets?: TimeWindow[];
+}) {
   const error = (name: keyof SlotFormValues) =>
     errors[name] ? (
       <p className="field-error" id={`${name}-error`} role="alert">
@@ -46,36 +57,17 @@ export function SlotFields({ values, errors }: { values: SlotFormValues; errors:
         </p>
         {error("startDate")}
       </div>
-      <div className="time-pair">
-        <div className="field">
-          <label htmlFor="startTime">From</label>
-          <TimeField
-            id="startTime"
-            name="startTime"
-            required
-            defaultValue={values.startTime}
-            invalid={Boolean(errors.startTime)}
-            describedBy={described("startTime")}
-          />
-          {error("startTime")}
-        </div>
-        <div className="field">
-          <label htmlFor="endTime">Until</label>
-          <TimeField
-            id="endTime"
-            name="endTime"
-            end
-            required
-            defaultValue={values.endTime}
-            invalid={Boolean(errors.endTime)}
-            describedBy={described("endTime", "endTime-hint")}
-          />
-          <p className="hint" id="endTime-hint">
-            Any time; rounded to the nearest 15 minutes. Use 00:00 for midnight.
-          </p>
-          {error("endTime")}
-        </div>
-      </div>
+      <TimeRange
+        startName="startTime"
+        endName="endTime"
+        startValue={values.startTime}
+        endValue={values.endTime}
+        presets={presets}
+        startError={errors.startTime}
+        endError={errors.endTime}
+        endHint="Any time; rounded to the nearest 15 minutes. Use 00:00 for midnight."
+        required
+      />
       <div className="field weekly-only">
         <label htmlFor="endDate">Last date (optional, every week only)</label>
         <input

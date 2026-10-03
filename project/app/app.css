@@ -521,33 +521,7 @@ button.small,
   overflow-wrap: anywhere;
 }
 
-/* Google Calendar: the import review list and the schedule's calendar panel. */
-.import-window {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: end;
-}
-
-.import-list fieldset {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-}
-
-.import-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
-}
-
-.import-row input:not([type="checkbox"]),
-.import-window input {
-  width: 7rem;
-}
-
+/* Google Calendar: the schedule's calendar panel. */
 .calendar-panel {
   display: grid;
   gap: 0.5rem;
@@ -726,14 +700,16 @@ button.is-saved {
 }
 
 .window-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.25rem 0.75rem;
 }
 
-.window-row .field-error {
-  grid-column: 1 / -1;
+.window-row summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 .limit label {
@@ -745,4 +721,198 @@ button.is-saved {
 
 .limit-most input[type="number"] {
   width: 4.5rem;
+}
+
+/* Availability views (Phase 10) */
+
+.view-switch {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.view-switch a {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.5rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.view-switch a.current {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.month h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.month-grid .day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  font-size: 0.9375rem;
+}
+
+.month-grid .day.blank {
+  border: none;
+}
+
+/* The whole date is the tap target; the checkbox covers it, unseen. */
+.calendar-entry .day input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.calendar-entry .day:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.calendar-entry .day:has(input:checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.calendar-entry .day.busy {
+  background: var(--panel);
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.day-busy,
+.day-skipped {
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.times-calendar .day {
+  justify-content: flex-start;
+  padding: 0.25rem 0.125rem;
+  min-height: 3.25rem;
+}
+
+.times-calendar .day.has-times {
+  border-color: var(--accent);
+}
+
+.day-time {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.dates {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.time-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+button.chip {
+  width: auto;
+  padding: 0.375rem 0.875rem;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 500;
+}
+
+button.chip.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* The grid scrolls inside a bounded box so the dates and the button stay in reach.
+   A swipe scrolls it (pan-y); taps choose cells; a mouse or pen can drag. */
+.time-grid {
+  max-height: max(16rem, 50vh);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: 3.25rem repeat(4, minmax(0, 1fr));
+  gap: 0.125rem;
+  margin-bottom: 0.125rem;
+}
+
+.time-hour {
+  display: flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+button.time-cell {
+  min-height: 2.75rem;
+  padding: 0;
+  border-radius: 0.375rem;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  touch-action: pan-y;
+}
+
+button.time-cell.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+button.time-cell.anchor {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.time-summary {
+  margin: 0.25rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.request-banner a {
+  font-weight: 600;
 }

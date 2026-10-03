@@ -1390,3 +1390,168 @@ Execution trace: 8d8fc8376031462490f72e8ee5c0bca0
 - Lessons: camouflaged-dragon gained its Phase 9 occurrence (4 total); ./bin/lessons validate: LESSONS OK. It remains graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 13:55 — START
+
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+Execution trace: d3508574170846a0b2e47fc0c7061db2
+
+Operator decisions recorded in plan/phase-10.md before this run: calendar view by default with a list view as the alternative, for entry and for "My times"; several dates picked at once share the same times, offered within the open request's time windows; Google Calendar clashes are checked each time the view opens and greyed but selectable; times brought in from Google stay inside the request's dates and windows. At phase start: each picked date becomes a one-off time; a day is greyed when Google shows anything busy during the chosen times; a tap grid of hour rows and quarter-hour cells replaces the time field on every page that asks for a time, with typing as a fallback; without an open request the calendar offers any times. The User Demo was tightened before capture.
+
+Planned work:
+- A calendar view, the default: multi-select dates, apply one set of times to all of them, offered within the open request's preset times of day ([Phase 9](plan/phase-9.md)).
+- Live Google Calendar conflicts: for a member with free/busy access, clashing days or times are greyed out each time the view opens, but can still be chosen as an override. This replaces the separate import page of [Phase 7](plan/phase-7.md).
+- A list view for entering days, with a visual date picker and the time picker of [Phase 8](plan/phase-8.md).
+- "My times" shown as a calendar or a list.
+
+## 2026-10-03 14:39 — PARK
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+Execution trace: d3508574170846a0b2e47fc0c7061db2
+
+Reason: every implementation gate passed on the final candidate, including the real deploy (the new calendar and list views are live), and the evidence validated, but the accepted close refused. plan/INDEX.md's Critical-Files Map still links to the import page this phase deletes, the close's catalog check refuses that dead link, and the close may change only the phase's status, so the link cannot be fixed inside this run. The plan put that edit at close instead of before authority capture; an orchestrator planning fault, not a product defect.
+
+State at park:
+- Final candidate ef74f9161f1f67a000f79177c2e00a10405e202611236d75514eec747e53b736 (working tree, uncommitted); primary decision recorded against it.
+- Plan review: 10 findings, all adopted. Code critique (pass 1 of 2): 11 findings, 9 adopted, 1 deferred to the END block (demo wording), 1 declined with evidence (Santiago changeover test).
+- Gates on the final candidate, all PASS: project/scripts/smoke.sh; ./bin/deploy all --profile music-chairs (release healthy, live data unchanged at schema version 5, old import route 404); ./bin/deploy smoke; ./bin/test --changed-from '@{upstream}' (Vitest 356/356, pytest 157). Evidence: EVIDENCE VALID.
+- The START block's three plan/-relative links were repaired with the operator's approval (uncommitted block; committed prefix verified unchanged).
+- No status change: Phase 10 stays 🚧. Nothing committed or pushed.
+
+Resume: diagnosed self-resume under policies/fail-closed-resume.md. The signature is novel for phase 10; budget 3 (restored by the operator's reply) → 2. Between runs, the INDEX map row is pointed at project/app/routes/availability.tsx and project/app/lib/busy.ts (the plan's PLAN-F008 disposition). A fresh full-cycle continuation run captures the corrected INDEX, carries this run's advice forward, keeps the same plan and product candidate, reruns the implementation gates, and closes.
+
+Lessons:
+- imposing-aardvark filed — a START block copying Deliverables verbatim carries plan/-relative links into LOG.md, where they break (methodology)
+- imperious-bug filed — a phase that deletes a file linked from plan/INDEX.md cannot close; update the INDEX before authority capture (methodology)
+- camouflaged-dragon recurred (5) — a connect test passed with its scope check removed because its member had no grant at all
+- gentle-pug recurred (3) — the demo's "From the request, open My availability" names a link the request page lacks
+- lively-salamander recurred (3) — an inline bin/python script used project-relative paths again
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (3) → policy; lively-salamander (3) → bin; all awaiting the operator
+
+Remaining:
+- Continuation run: INDEX map fix captured, advice carried, gates rerun, accepted close, ripple to plan/phase-12.md, handoff gate, delivery. The User Demo stays the operator's.
+
+## 2026-10-03 14:40 — START (resumed)
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+Execution trace: 3cc345e44519475da135f4b38f014859
+
+Continuation after the PARK of trace d3508574170846a0b2e47fc0c7061db2 (diagnosed self-resume, budget 3 → 2). Preserved: the independently reviewed plan (hash 8f09f2b99152c492f05b2c9871eed27e4e7fba986178dc656416ebdc7464bbde, all 10 plan findings adopted), the code critique pass 1 (11 findings, carried forward) and the implementation candidate ef74f9161f1f67a000f79177c2e00a10405e202611236d75514eec747e53b736. Between runs, plan/INDEX.md's Critical-Files Map row was pointed at project/app/routes/availability.tsx and project/app/lib/busy.ts (the plan's PLAN-F008 disposition), and this run captured it.
+
+Planned work:
+- Independent code critique pass 2 (the last allowed) of the complete diff against the preserved plan and current authorities.
+- Implementation gates on the final candidate, accepted close, ripple to plan/phase-12.md, handoff gate and delivery.
+
+## 2026-10-03 14:51 — END
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+Phase 10 is accepted on its gates and live at https://rehearse.dalan.dev. My availability now opens on a calendar: tick any number of dates, mark one range of times, and each date gets its own one-off time. Arriving from a request shows only that request's remaining dates, with its times of day as one-tap chips. For a member signed in with Google who allows it once, dates busy in their Google Calendar during the chosen times (or the request's times) are greyed each time the page opens, and can still be picked. Nothing from Google outside the request reaches the page. A list view keeps the one-off or every-week form. "My times" shows as a calendar or a list. Every form that asks for a time (availability, the propose form, a request's times of day) now has a tap grid of hour rows and quarter-hour cells: tap a start and an end, or drag with a mouse, with typed fields kept as the fallback. The old "Import from Google Calendar" page is gone, and existing Calendar permissions keep working. How the calendar and grid feel on a phone is yours to judge through the User Demo below.
+
+Execution trace: 3cc345e44519475da135f4b38f014859
+
+This closes the continuation run after the earlier PARK (trace d3508574170846a0b2e47fc0c7061db2), which stopped at accepted close because plan/INDEX.md linked to the deleted import page; the link was fixed between runs.
+
+Files changed:
+- plan/phase-10.md — operator decisions settled at phase start (one-off time per picked date; grey a day when busy during the chosen times; a tap grid everywhere with typing as a fallback; any times without a request) and the tightened User Demo, recorded before the run
+- project/app/lib/time-grid.ts, project/app/components/time-range.tsx — new: the tap grid (quarter-hour cells, taps and mouse/pen drags, preset chips, announced summary) over the typed fields, shown after hydration
+- project/app/lib/busy.ts — new, replacing project/app/lib/free-busy.ts: busy quarter-hour ranges per date from free/busy (daylight-saving aware), clipping, 56-day query chunks, the clash test
+- project/app/lib/calendar-grid.ts — new: month calendars of a date range
+- project/app/lib/zoned-time.ts — zonedInstants (every instant of a wall-clock time) and one cached formatter per zone
+- project/app/routes/availability.tsx — calendar and list entry views, request mode, multi-date save, live clashes with connect/failure states and consent notices, My times as calendar or list
+- project/app/components/slot-fields.tsx, project/app/routes/requests.new.tsx — times through the tap grid; request windows as folding rows with live summaries
+- project/app/.server/store.ts — addSlots (several times, all or none); project/app/lib/availability.ts — parseTime exported
+- project/app/.server/google.ts, project/app/routes/auth.google.calendar.ts — the free/busy consent key renamed busy (same Google scope)
+- project/app/routes/availability.import.tsx, its route in project/app/routes.ts, project/tests/import.test.tsx, project/tests/free-busy.test.ts — removed
+- project/app/app.css, project/README.md, project/scripts/smoke.sh — calendar, grid and chip styles; README describes clashes; the smoke reads the list view
+- project/tests/ — time grid, calendar layout, busy ranges, time range render, availability views (clashes from a faked free/busy), request rows, consent key, store (Vitest 356)
+- LOG.md — the START block's three relative phase links repaired to plan/phase-N.md with the operator's approval (uncommitted block, committed prefix verified unchanged before and after)
+- plan/INDEX.md — the Critical-Files Map's Google Calendar row points at project/app/routes/availability.tsx and project/app/lib/busy.ts (made between the runs and captured); Phase 10 ✅, Phase 11 ⬅️ (pending, applied after this block)
+- plan/phase-12.md — Phase 10 notes (pending AUTO ripple)
+- lessons/ — imposing-aardvark and imperious-bug filed, and occurrences for camouflaged-dragon, gentle-pug and lively-salamander, all at the PARK
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy of the final candidate): OK — release 87c4bdb-dirty-20261003T214756Z healthy; live database unchanged at schema version 5 with its data (verified read-only); the old import route answers 404 (checked after the parked run's deploy); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 356/356, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation), continued as a full-cycle continuation run after a close-time park (diagnosed self-resume, budget 3 → 2)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback; pass 1 in the parked run, pass 2 (the last) in this run with a recorded cause
+- Reviewer and critic: harness_version=2.1.288, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 177.056 s; first event 0.911 s; longest idle 40.298 s; success
+- Coder: inline (no role span)
+- Critic (code review): pass 1 281.942 s, first event 0.826 s, longest idle 43.650 s, success; pass 2 252.976 s, first event 0.596 s, longest idle 32.846 s, success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This continuation trace: makespan 613.771 s; intelligence 252.976 s; gates 150.616 s; orchestration 613.222 s; wait 252.498 s; failed 0 s; retry 0 s; unattributed 0.549 s (category totals are interval unions and may overlap). The parked trace measured makespan 2518.795 s; intelligence 458.997 s; gates 144.580 s.
+- Awaiting user input: none recorded as a park in either trace. The operator's ruling on the log links was asked and answered in conversation while the first run stayed open; that wait is inside its orchestration time.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=f4599eea11610d65a81e8cef396113f1b8273767b2e6f7295bc05e1c56b94c7f critiqued(pass 1)=f1181bdbd9cc1458ab934e1781ff64c066aefbb6b3d9efdabccc3a97cea16170 critiqued(pass 2)=ef74f9161f1f67a000f79177c2e00a10405e202611236d75514eec747e53b736 approved=6e78f2ecb2ec9113b32786d510d294b8c61d1a297d16a9e06606d96785b7fa5a final=6e78f2ecb2ec9113b32786d510d294b8c61d1a297d16a9e06606d96785b7fa5a
+- Revision packets: 0
+- Advisory reports: 3 — plan review 10 findings (all adopted); code critique pass 1, 11 findings (9 adopted; CODE-F005 deferred to this block; CODE-F007 declined with evidence, which pass 2 confirmed); pass 2, 6 findings (5 adopted; CODE-F012, the demo wording in the captured phase file, declined because changing it needs another park and no critique pass remains, so the corrected steps are below). Pen input taps like touch instead of dragging (CODE-F014), a deviation from PLAN-F002 because a pen drag on a touchscreen scrolls the grid.
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- Busy ranges built a new date formatter for every offset (about 3–4 per quarter hour); one cached formatter per zone removes that cost on every calendar load for busy members, with the same results (zone and busy tests unchanged).
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers multi-date entry (one one-off time per picked date, all or none), preset constraints (only the request's dates and windows offered, nothing from Google outside them), conflict marking from a faked free/busy answer and overriding it, the time grid's values (quarter-hour ranges, the typed fallback, every form that asks for a time), and both views of "My times"; `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (the calendar and the tap grid on a phone and a laptop, greying and overriding a real Google Calendar clash)
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/INDEX.md — the Critical-Files Map's Google Calendar row — applied between the runs (the cause of the park) and captured by this run
+- AUTO: plan/phase-12.md — add "Inherited from Phase 10": the import page is gone; Calendar access is the free/busy permission (`CALENDAR_SCOPES.busy`, `?scope=busy`) that greys clashes, plus `write`; a single consent at sign-in covers those two; times are entered with `TimeRange` — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed at the PARK: imposing-aardvark — a START block copying Deliverables verbatim carries plan/-relative links into LOG.md (methodology); imperious-bug — a phase that deletes a file linked from plan/INDEX.md cannot close, so update the INDEX before capture (methodology)
+- occurrences added at the PARK: camouflaged-dragon (5), gentle-pug (3), lively-salamander (3)
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (3) → policy; lively-salamander (3) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, open `https://rehearse.dalan.dev` as a member of a group, signed in with the Google account whose calendar you use, with an open request (for example `November concert`, 19:00–22:00 and 10:00–13:00). Beforehand, put one event in that Google Calendar on an evening inside the request's span, for example 20:00–21:00 on the second Tuesday.
+- **Suggested inputs.** From the request, open My availability. In the calendar view, tap three evenings, including the day of your event, choose the 19:00–22:00 window on the time grid, and save. Then switch to the list view, add one more date with the date picker and mark 18:30–20:15 on the grid by tapping (or dragging). Finally switch "My times" between calendar and list.
+- **What to look for.** The calendar shows the request's dates; your event's day is greyed and still selectable; the time grid offers the request's windows; saving adds a one-off time per picked date; nothing outside the request's dates and times is offered from Google. On a laptop, the propose form and the request form also use the time grid. "My times" shows the same times either way.
+- **Variations to explore.** Open My availability with no open request and mark any times. Try the grid with a mouse on a laptop and with your thumb on a phone. Is the grid easy to hit at phone size?
+- Notes: "From the request, open My availability" means tapping **Add 19:00–22:00** under "Your times in this span" on the request page; that opens the request's calendar with that time chosen. Saving returns to the request, so for the list-view step tap **Add** again and switch to **List**. My availability from the group page is the no-request variation. The first time, tap **See clashes from your Google Calendar** and allow access; Google shows its "unverified app" warning first. On a phone or with a pen, cells respond to taps (tap the start, then the end); dragging is for a mouse, so a swipe scrolls the grid.
+
+Remaining:
+- None for this phase. Phases 11–15 follow.
+
+## 2026-10-03 14:51 — Close bookkeeping outcomes
+
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+Execution trace: 3cc345e44519475da135f4b38f014859
+
+- Status: applied and verified — Phase 10 ✅, Phase 11 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-12.md gained an "Inherited from Phase 10" section, and its deliverable, acceptance and demo now speak of clashes instead of the removed import page (the operator's own words in its Decisions are unchanged). The INDEX map row was applied between the runs.
+- Ripple DECIDE: none.
+- Lessons: filed and recurred at the PARK; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (3) and lively-salamander (3) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

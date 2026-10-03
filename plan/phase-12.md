@@ -15,7 +15,7 @@ informs: ["13"]
 - Instrumentation shown with each member's name in the group's member list.
 - When joining through an invite link while signed in with Google, the name field is pre-filled from the Google account.
 - A name-only member returns on a new device by typing their name on the invite page: a case-insensitive match with an existing name-only member in that group signs this device in as them. A Google-linked member still signs in with Google.
-- "Sign in with Google" on the invite page, for joining as a member. It asks for sign-in and the Calendar access that import and calendar writing need, in one consent, so the "Import" and calendar-writing buttons just do their work afterwards instead of first sending the member to Google.
+- "Sign in with Google" on the invite page, for joining as a member. It asks for sign-in and the Calendar access that clashes and calendar writing need, in one consent, so My availability greys Google Calendar clashes and the calendar-writing switch just work afterwards instead of first sending the member to Google.
 
 ## Decisions (operator, 2026-10-03)
 
@@ -28,12 +28,16 @@ From the operator's list after Phase 9:
 
 To settle at phase start: whether every Google sign-in (not only from the invite link) asks for Calendar access up front, given that the app is unverified, so Google shows its "unverified app" warning at that sign-in; and what a member sees when they decline the Calendar part of the consent.
 
+## Inherited from Phase 10
+
+Pinned by [Phase 10](phase-10.md): the Phase 7 import page is gone. Calendar access is two permissions in `CALENDAR_SCOPES` (`project/app/.server/google.ts`): `busy` (free/busy, asked through `/auth/google/calendar?scope=busy`, which greys clashes on My availability's calendar view each time it opens) and `write` (rehearsal events). The single consent covers those two. Every time is entered with `TimeRange` (`project/app/components/time-range.tsx`), a tap grid over typed fields.
+
 ## Acceptance
 
-- `./bin/test project/tests` covers the profile menu's data (Gravatar address from the email, initials fallback, no other member's email exposed), editing name and instrumentation, the Google name pre-fill, returning by name (case-insensitive match; never a Google-linked member; never across groups), and the single consent's scopes with import and calendar writing working without a second consent (fake Google).
+- `./bin/test project/tests` covers the profile menu's data (Gravatar address from the email, initials fallback, no other member's email exposed), editing name and instrumentation, the Google name pre-fill, returning by name (case-insensitive match; never a Google-linked member; never across groups), and the single consent's scopes with clashes and calendar writing working without a second consent (fake Google).
 - `./bin/deploy all` and `./bin/deploy smoke` pass.
 - `./bin/check all` passes.
-- User Demo: on a phone, open an invite link, sign in with Google and see your name filled in; open the profile menu, add your instrumentation, and see your Gravatar; import from Google Calendar without a second Google screen; on another browser, type a name-only member's name in a different case and land as them. To be tightened at phase start.
+- User Demo: on a phone, open an invite link, sign in with Google and see your name filled in; open the profile menu, add your instrumentation, and see your Gravatar; see your Google Calendar clashes greyed on My availability without a second Google screen; on another browser, type a name-only member's name in a different case and land as them. To be tightened at phase start.
 
 ## Brief refs
 

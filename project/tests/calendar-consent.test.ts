@@ -28,7 +28,7 @@ function person() {
 }
 
 /** Starts consent for `scope` as the session in `cookie`; returns what the browser carries back. */
-async function begin(cookie: string, scope: "import" | "write", returnTo = "/g/abc/schedule") {
+async function begin(cookie: string, scope: "busy" | "write", returnTo = "/g/abc/schedule") {
   const response = (await startConsent(
     routeArgs(
       `/auth/google/calendar?scope=${scope}&returnTo=${encodeURIComponent(returnTo)}`,
@@ -79,7 +79,7 @@ async function finish(cookie: string, state: string) {
 describe("asking for Calendar access", () => {
   it("sends a visitor who isn't signed in to sign in first", async () => {
     const thrown = await thrownBy(
-      startConsent(routeArgs("/auth/google/calendar?scope=import&returnTo=%2Fg%2Fabc", {})),
+      startConsent(routeArgs("/auth/google/calendar?scope=busy&returnTo=%2Fg%2Fabc", {})),
     );
 
     expect((thrown as Response).headers.get("Location")).toBe("/auth/google?returnTo=%2Fg%2Fabc");
@@ -88,21 +88,22 @@ describe("asking for Calendar access", () => {
   it("refuses an unknown permission", async () => {
     const { cookie } = await signedIn(person());
 
-    const response = (await startConsent(
-      routeArgs("/auth/google/calendar?scope=everything", {}, { cookie }),
-    )) as Response;
-
-    expect(response.status).toBe(400);
+    for (const scope of ["everything", "import"]) {
+      const response = (await startConsent(
+        routeArgs(`/auth/google/calendar?scope=${scope}`, {}, { cookie }),
+      )) as Response;
+      expect(response.status).toBe(400);
+    }
   });
 
   it("asks only for the one Calendar scope, offline, keeping earlier grants", async () => {
     const profile = person();
     const { cookie } = await signedIn(profile);
 
-    const { google } = await begin(cookie, "import");
+    const { google } = await begin(cookie, "busy");
 
     expect(Object.fromEntries(google.searchParams)).toMatchObject({
-      scope: `openid ${CALENDAR_SCOPES.import}`,
+      scope: `openid ${CALENDAR_SCOPES.busy}`,
       include_granted_scopes: "true",
       access_type: "offline",
       prompt: "consent",
@@ -115,8 +116,8 @@ describe("Google's answer to Calendar consent", () => {
   it("saves the grant for the signed-in account and starts no session or link", async () => {
     const profile = person();
     const { account, cookie } = await signedIn(profile);
-    const { oauth, state, nonce } = await begin(cookie, "import");
-    googleAnswers(profile.sub, nonce, `openid ${CALENDAR_SCOPES.import}`);
+    const { oauth, state, nonce } = await begin(cookie, "busy");
+    googleAnswers(profile.sub, nonce, `openid ${CALENDAR_SCOPES.busy}`);
     const accounts = getStore().listAccountMemberships(account.id).length;
 
     const response = await finish(`${oauth}; ${cookie}`, state);
@@ -125,7 +126,7 @@ describe("Google's answer to Calendar consent", () => {
     expect(getStore().findGrant(account.id)).toEqual({
       accountId: account.id,
       refreshToken: "refresh-1",
-      scopes: [CALENDAR_SCOPES.import, "openid"],
+      scopes: [CALENDAR_SCOPES.busy, "openid"],
     });
     expect(Object.keys(setCookies(response))).toEqual(["mc_oauth"]);
     expect(getStore().listAccountMemberships(account.id)).toHaveLength(accounts);
@@ -175,8 +176,8 @@ describe("Google's answer to Calendar consent", () => {
   it("adds a later permission to the earlier one and keeps the refresh token", async () => {
     const profile = person();
     const { account, cookie } = await signedIn(profile);
-    let flow = await begin(cookie, "import");
-    googleAnswers(profile.sub, flow.nonce, `openid ${CALENDAR_SCOPES.import}`);
+    let flow = await begin(cookie, "busy");
+    googleAnswers(profile.sub, flow.nonce, `openid ${CALENDAR_SCOPES.busy}`);
     await finish(`${flow.oauth}; ${cookie}`, flow.state);
 
     flow = await begin(cookie, "write");
@@ -185,7 +186,7 @@ describe("Google's answer to Calendar consent", () => {
     await finish(`${flow.oauth}; ${cookie}`, flow.state);
 
     expect(getStore().findGrant(account.id)?.scopes).toEqual(
-      [CALENDAR_SCOPES.import, CALENDAR_SCOPES.write, "openid"].sort(),
+      [CALENDAR_SCOPES.busy, CALENDAR_SCOPES.write, "openid"].sort(),
     );
     expect(getStore().findGrant(account.id)?.refreshToken).toBe("refresh-1");
   });
@@ -193,8 +194,8 @@ describe("Google's answer to Calendar consent", () => {
   it("drops the cached access token when a new permission is saved", async () => {
     const profile = person();
     const { account, cookie } = await signedIn(profile);
-    let flow = await begin(cookie, "import");
-    googleAnswers(profile.sub, flow.nonce, `openid ${CALENDAR_SCOPES.import}`);
+    let flow = await begin(cookie, "busy");
+    googleAnswers(profile.sub, flow.nonce, `openid ${CALENDAR_SCOPES.busy}`);
     await finish(`${flow.oauth}; ${cookie}`, flow.state);
     await accessTokenFor(account.id);
     await accessTokenFor(account.id);
@@ -214,7 +215,7 @@ describe("Google's answer to Calendar consent", () => {
 
   it("treats Google's error answer as a declined permission", async () => {
     const { cookie } = await signedIn(person());
-    const { oauth, state } = await begin(cookie, "import");
+    const { oauth, state } = await begin(cookie, "busy");
 
     const response = (await callback(
       routeArgs(

@@ -207,7 +207,7 @@ describe("writing to Google Calendar", () => {
   });
 
   it("writes nothing for a member whose grant lacks the writing scope", async () => {
-    const { target } = syncingBand({ scopes: [CALENDAR_SCOPES.import] });
+    const { target } = syncingBand({ scopes: [CALENDAR_SCOPES.busy] });
 
     await syncMember(target);
 

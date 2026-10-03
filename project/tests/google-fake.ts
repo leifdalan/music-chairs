@@ -13,6 +13,8 @@ export type GoogleFake = {
   calendarCalls(): FakeCall[];
   busy: { start: string; end: string }[];
   freeBusyAnswer: Answer | null;
+  /** One-off free/busy answers, used in order before `freeBusyAnswer`. */
+  freeBusyAnswers: Answer[];
   /** Answers by "METHOD /path" prefix, consumed one at a time; a missing entry succeeds. */
   queue: Map<string, Answer[]>;
   refreshAnswer: Answer | null;
@@ -26,6 +28,7 @@ export function fakeGoogle(): GoogleFake {
     calendarCalls: () => fake.calls.filter((call) => !call.url.includes("oauth2.googleapis.com")),
     busy: [],
     freeBusyAnswer: null,
+    freeBusyAnswers: [],
     queue: new Map(),
     refreshAnswer: null,
     codeAnswer: null,
@@ -60,7 +63,8 @@ export function fakeGoogle(): GoogleFake {
       const path = new URL(url).pathname.replace("/calendar/v3", "");
       if (path === "/freeBusy") {
         return reply(
-          fake.freeBusyAnswer ?? { body: { calendars: { primary: { busy: fake.busy } } } },
+          fake.freeBusyAnswers.shift() ??
+            fake.freeBusyAnswer ?? { body: { calendars: { primary: { busy: fake.busy } } } },
         );
       }
       // Only the event paths the app may use exist; anything else is a loud 404.

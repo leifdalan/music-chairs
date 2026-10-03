@@ -14,7 +14,7 @@ import { readAccount, safeReturnTo, writeOAuthState } from "~/.server/membership
 import type { Route } from "./+types/auth.google.calendar";
 
 /**
- * Asks Google for one Calendar permission (`?scope=import` or `?scope=write`)
+ * Asks Google for one Calendar permission (`?scope=busy` or `?scope=write`)
  * for the signed-in account, keeping earlier grants and requesting offline
  * access so the app can act later. Google returns to the shared callback.
  */
@@ -33,7 +33,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw redirect(`/auth/google?returnTo=${encodeURIComponent(returnTo)}`);
   }
   const wanted = url.searchParams.get("scope");
-  if (wanted !== "import" && wanted !== "write") {
+  if (wanted !== "busy" && wanted !== "write") {
     return new Response("Unknown Calendar permission.", { status: 400 });
   }
   const scope = CALENDAR_SCOPES[wanted];
