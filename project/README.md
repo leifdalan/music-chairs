@@ -55,6 +55,10 @@ To try the app from a phone on the same network, start the development server wi
 
 Members can sign in with Google besides joining by name. Sign-in is offered only when both `MUSIC_CHAIRS_GOOGLE_CLIENT_ID` and `MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET` are set; otherwise the buttons are hidden and `/auth/google` answers 503. To try it locally, set both in your shell before `corepack pnpm run dev` and open `http://localhost:5173` (the OAuth client lists `http://localhost:5173/auth/google/callback` as a redirect URI). Never commit the secret. The tests fake Google and need neither.
 
+## Google Calendar and the calendar feed
+
+A signed-in member linked in a group can import free time from their primary Google Calendar (**My availability → Import from Google Calendar**: the next four weeks, reviewed before saving) and turn on **Add rehearsals to my Google Calendar** on the Schedule page, which keeps one event per upcoming confirmed date in their primary calendar (dates they answered No and cancelled dates are left off). Each permission is asked for only when used; the app is unverified, so Google shows an "unverified app" warning first. Every member, signed in or not, also gets a private **calendar feed** link (`/calendar/<token>.ics`) on the Schedule page that any calendar app can subscribe to. Turning writing off removes the upcoming events the app added; the Google permission itself stays until the member removes it at myaccount.google.com → Security → Third-party apps (see `deploy/README.md`). Locally these need the same two environment variables as sign-in; the tests fake Google.
+
 ## Production
 
 The app runs at https://rehearse.dalan.dev. Deploying, backups and restoring are described in [`deploy/README.md`](deploy/README.md).

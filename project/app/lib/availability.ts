@@ -219,6 +219,21 @@ export function expandOccurrences(slots: Slot[], from: string, to: string): Occu
   );
 }
 
+/** The last date of the overlap and answer window that starts `today`. */
+export function windowEnd(today: string): string {
+  return addDays(today, UPCOMING_WEEKS * 7 - 1);
+}
+
+/**
+ * The dates members can answer for (and that go on their calendars): from
+ * `today` to `until` (or a one-off's own date beyond it), skipped dates
+ * excluded. Answers, Google writes and the feed share this one definition.
+ */
+export function offeredDates(slot: Slot, today: string, until: string): string[] {
+  const last = slot.kind === "once" && slot.startDate > until ? slot.startDate : until;
+  return expandOccurrences([slot], today, last).map((occurrence) => occurrence.date);
+}
+
 /** "Every Thursday from 1 Oct until 24 Dec" or "Thu 8 Oct". */
 export function describeSlot(slot: SlotInput): string {
   const times = `${formatMinutes(slot.startMinute)}–${formatMinutes(slot.endMinute)}`;

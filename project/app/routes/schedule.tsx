@@ -1,6 +1,8 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
-import { findViewer } from "~/.server/membership";
+import { calendarViewer, scheduleSync } from "~/.server/calendar-sync";
+import { CALENDAR_SCOPES, googleConfig } from "~/.server/google";
+import { findViewer, publicOrigin } from "~/.server/membership";
 import {
   getStore,
   type Group,
@@ -17,11 +19,12 @@ import {
   formatDate,
   formatMinutes,
   isDate,
+  offeredDates,
   parseSlotInput,
   timeInputValue,
   todayInZone,
-  UPCOMING_WEEKS,
   validateLocation,
+  windowEnd,
   type SlotErrors,
   type SlotFormValues,
 } from "~/lib/availability";
@@ -32,6 +35,7 @@ import {
   missingRequired,
   type OverlapMember,
 } from "~/lib/overlap";
+import { calendarNotice } from "~/lib/calendar-notices";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/schedule";
@@ -50,22 +54,6 @@ async function groupAndViewer(
   const viewer = await findViewer(request, group);
   if (!viewer) throw redirect(`/g/${group.id}`);
   return { group, viewer };
-}
-
-/**
- * The dates members can answer for: from today to the end of the window (or a
- * one-off rehearsal's own date beyond it), cancelled dates excluded. The loader
- * and both answer intents use this one definition.
- */
-/** The last date of the overlap and answer window that starts `today`. */
-function windowEnd(today: string): string {
-  return addDays(today, UPCOMING_WEEKS * 7 - 1);
-}
-
-function offeredDates(rehearsal: Rehearsal, today: string, until: string): string[] {
-  const last =
-    rehearsal.kind === "once" && rehearsal.startDate > until ? rehearsal.startDate : until;
-  return expandOccurrences([rehearsal], today, last).map((occurrence) => occurrence.date);
 }
 
 const ANSWERS: RsvpAnswer[] = ["yes", "no", "maybe"];
@@ -129,6 +117,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const search = new URL(request.url).searchParams;
   return {
+    calendar: await calendarPanel(request, group, viewer),
     groupName: group.name,
     timeZone: group.timeZone,
     showNames: group.showNames,
@@ -248,6 +237,39 @@ function problem(message: string) {
   return data({ problem: message }, { status: 400 });
 }
 
+/**
+ * The viewer's own calendar options: their private feed link, and Google
+ * Calendar writing when this visitor may use it. Only the viewer's own feed
+ * token is ever included.
+ */
+async function calendarPanel(request: Request, group: Group, viewer: Member) {
+  const store = getStore();
+  const origin = publicOrigin() ?? new URL(request.url).origin;
+  const feedUrl = new URL(`/calendar/${store.feedTokenFor(viewer.id)}.ics`, origin).href;
+  let google: { state: "unlinked" | "other-account" | "connect" | "off" | "on" } | null = null;
+  if (googleConfig()) {
+    const capable = await calendarViewer(request, group);
+    const grant = capable ? store.findGrant(capable.account.id) : null;
+    google = !capable
+      ? { state: viewer.googleEmail ? "other-account" : "unlinked" }
+      : !grant?.scopes.includes(CALENDAR_SCOPES.write)
+        ? { state: "connect" }
+        : { state: capable.member.calendarSync ? "on" : "off" };
+  }
+  return {
+    feedUrl,
+    webcalUrl: feedUrl.replace(/^https?:/, "webcal:"),
+    google,
+    connectUrl: `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(`/g/${group.id}/schedule`)}`,
+    notice: calendarNotice(request),
+  };
+}
+
+/** Queues Google Calendar updates for every member of the group who writes to it. */
+function syncGroup(groupId: string): void {
+  scheduleSync(getStore().listSyncingMembers(groupId));
+}
+
 export async function action({ request, params }: Route.ActionArgs) {
   // The viewer is resolved before the form is read. Any member may answer for
   // themselves; every other intent is organizer-only.
@@ -258,6 +280,21 @@ export async function action({ request, params }: Route.ActionArgs) {
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
   const back = redirect(`/g/${group.id}/schedule`);
+  const syncViewer = () =>
+    scheduleSync(store.listSyncingMembers(group.id).filter((m) => m.memberId === viewer.id));
+
+  if (intent === "set-calendar") {
+    const capable = await calendarViewer(request, group);
+    const grant = capable ? store.findGrant(capable.account.id) : null;
+    if (!capable || !grant?.scopes.includes(CALENDAR_SCOPES.write)) {
+      return problem("Connect Google Calendar first.");
+    }
+    const on = form.get("value") === "on";
+    store.setCalendarSync(group.id, viewer.id, on);
+    // Turning it off removes the upcoming events the app wrote.
+    scheduleSync([{ memberId: viewer.id, groupId: group.id, accountId: capable.account.id }]);
+    return back;
+  }
 
   if (intent === "rsvp" || intent === "rsvp-all") {
     const rehearsal = store.findRehearsal(group.id, rehearsalId);
@@ -274,6 +311,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       ) {
         return problem("There are no dates to answer for this rehearsal.");
       }
+      syncViewer();
       return back;
     }
     const date = form.get("date");
@@ -284,6 +322,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     ) {
       return problem("That date can't be answered. Reload the page and try again.");
     }
+    syncViewer();
     return back;
   }
 
@@ -316,10 +355,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!store.findRehearsal(group.id, rehearsalId)) throw data(null, { status: 404 });
   if (intent === "confirm") {
     store.confirmRehearsal(group.id, rehearsalId);
+    syncGroup(group.id);
     return back;
   }
   if (intent === "delete") {
     store.deleteRehearsal(group.id, rehearsalId);
+    syncGroup(group.id);
     return back;
   }
   if (intent === "end") {
@@ -330,6 +371,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!store.endRehearsal(group.id, rehearsalId, endDate)) {
       return problem("The last date can't be before the rehearsal's first date.");
     }
+    syncGroup(group.id);
     return back;
   }
   if (intent === "cancel-date" || intent === "restore-date") {
@@ -342,14 +384,24 @@ export async function action({ request, params }: Route.ActionArgs) {
         "That date isn't one of this rehearsal's weeks. Reload the page and try again.",
       );
     }
+    syncGroup(group.id);
     return back;
   }
   return problem("Something went wrong with that request. Please try again.");
 }
 
 export default function Schedule({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupName, timeZone, showNames, isOrganizer, until, days, rehearsals, prefill } =
-    loaderData;
+  const {
+    groupName,
+    timeZone,
+    showNames,
+    isOrganizer,
+    until,
+    days,
+    rehearsals,
+    prefill,
+    calendar,
+  } = loaderData;
   const busy = useNavigation().state !== "idle";
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
@@ -377,6 +429,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         empty="Nothing confirmed yet."
       />
       <RehearsalList title="Proposed" items={proposed} busy={busy} empty="No proposed times." />
+      <CalendarPanel calendar={calendar} busy={busy} />
 
       {prefill ? (
         <ProposeForm
@@ -748,6 +801,86 @@ function ProposeForm({
           Propose
         </button>
       </Form>
+    </section>
+  );
+}
+
+function CalendarPanel({
+  calendar,
+  busy,
+}: {
+  calendar: {
+    feedUrl: string;
+    webcalUrl: string;
+    google: { state: "unlinked" | "other-account" | "connect" | "off" | "on" } | null;
+    connectUrl: string;
+    notice: string | null;
+  };
+  busy: boolean;
+}) {
+  const google = calendar.google;
+  return (
+    <section className="calendar-panel" aria-labelledby="calendar-heading">
+      <h2 id="calendar-heading">Rehearsals in your calendar</h2>
+      {calendar.notice ? (
+        <p className="notice" role="status">
+          {calendar.notice}
+        </p>
+      ) : null}
+      {google?.state === "on" || google?.state === "off" ? (
+        <Form method="post" replace>
+          <input type="hidden" name="intent" value="set-calendar" />
+          <input type="hidden" name="value" value={google.state === "on" ? "off" : "on"} />
+          <p className="hint">
+            {google.state === "on"
+              ? "Confirmed rehearsals are added to your Google Calendar, except dates you said No to."
+              : "Add confirmed rehearsals to your primary Google Calendar and keep them up to date."}
+          </p>
+          <button
+            type="submit"
+            className={google.state === "on" ? "secondary" : undefined}
+            disabled={busy}
+          >
+            {google.state === "on"
+              ? "Stop adding rehearsals to my Google Calendar"
+              : "Add rehearsals to my Google Calendar"}
+          </button>
+        </Form>
+      ) : null}
+      {google?.state === "connect" ? (
+        <p>
+          <a className="button-link" href={calendar.connectUrl}>
+            Connect Google Calendar to add rehearsals
+          </a>
+        </p>
+      ) : null}
+      {google?.state === "other-account" ? (
+        <p className="hint">
+          To add rehearsals to your Google Calendar, sign in with Google as this member.
+        </p>
+      ) : null}
+      {google?.state === "unlinked" ? (
+        <p className="hint">
+          Sign in with Google from the group page to add rehearsals to your Google Calendar.
+        </p>
+      ) : null}
+      <h3>Calendar feed</h3>
+      <p className="hint">
+        A private link any calendar app can subscribe to. It shows your confirmed rehearsals and
+        follows changes. Keep it to yourself: anyone with it can see the dates and places.
+      </p>
+      <input
+        aria-label="Calendar feed link"
+        type="text"
+        readOnly
+        value={calendar.feedUrl}
+        onFocus={(event) => event.currentTarget.select()}
+      />
+      <p>
+        <a className="button-link secondary" href={calendar.webcalUrl}>
+          Subscribe in your calendar app
+        </a>
+      </p>
     </section>
   );
 }

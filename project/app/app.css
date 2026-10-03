@@ -518,3 +518,44 @@ button.small,
 .member-email {
   overflow-wrap: anywhere;
 }
+
+/* Google Calendar: the import review list and the schedule's calendar panel. */
+.import-window {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.import-list fieldset {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.import-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.import-row input[type="time"] {
+  width: auto;
+}
+
+.calendar-panel {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.calendar-panel h2,
+.calendar-panel h3,
+.calendar-panel p {
+  margin: 0;
+}

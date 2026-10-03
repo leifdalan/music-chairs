@@ -28,7 +28,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   });
   return redirect(url, {
     headers: {
-      "Set-Cookie": await writeOAuthState({ state, nonce, verifier, returnTo }),
+      "Set-Cookie": await writeOAuthState({
+        state,
+        nonce,
+        verifier,
+        returnTo,
+        purpose: "signin",
+        scope: "",
+        accountId: "",
+      }),
       "Cache-Control": "no-store",
     },
   });

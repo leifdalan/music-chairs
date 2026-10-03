@@ -51,7 +51,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 4](phase-4.md)  | Confirmed rehearsals for members, with RSVP                        | ✅     |
 | [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ✅     |
 | [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ✅     |
-| [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ⬅️     |
+| [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ✅     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
@@ -60,6 +60,8 @@ project has exactly one `⬅️`; active work may have zero while its executable
 row is `🚧`; a complete project has zero; more than one is always invalid.
 
 **Deferred-work note (operator decision, 2026-10-02).** Role rules ("at least one of our two keyboardists", brief "Choosing rehearsal times") are deferred out of Phase 3, which ships optional-member tags instead (everyone else counts as required). Not operative during Phase 3; superseded when a later phase is planned to add them or the operator drops them from v1.
+
+**Deferred-work note (operator decision, 2026-10-02).** Phase 7 reads free/busy from, and writes rehearsal events to, each member's primary Google calendar only. Two follow-ups are deferred to a later feature: members choosing which of their calendars count as busy for import, and granular member-chosen control over which calendar rehearsal events are written to. Not operative during Phase 7; superseded when a later phase is planned to add them or the operator drops them.
 
 ## Methodology work is not phase work
 
@@ -158,5 +160,6 @@ Shipped files are linked. A file a future phase will create may also appear, as 
 | Deliverable runtime + metadata       | [`../project/package.json`](../project/package.json), [`../project/pnpm-lock.yaml`](../project/pnpm-lock.yaml), [`../project/react-router.config.ts`](../project/react-router.config.ts) |
 | Persistence layer                    | `../project/app/.server/` (Phase 1)                       |
 | Identity and Google sign-in          | [`../project/app/.server/google.ts`](../project/app/.server/google.ts), [`../project/app/.server/membership.ts`](../project/app/.server/membership.ts) |
+| Google Calendar                      | [`../project/app/.server/calendar-sync.ts`](../project/app/.server/calendar-sync.ts), [`../project/app/routes/availability.import.tsx`](../project/app/routes/availability.import.tsx), [`../project/app/routes/calendar-feed.ts`](../project/app/routes/calendar-feed.ts) |
 | AWS infrastructure                   | [`../project/deploy/`](../project/deploy/README.md), [`../bin/deploy`](../bin/deploy) |
 | Governance environment               | [`../tooling/.python-version`](../tooling/.python-version), [`../tooling/pyproject.toml`](../tooling/pyproject.toml), [`../tooling/uv.lock`](../tooling/uv.lock) |

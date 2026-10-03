@@ -2,9 +2,12 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { whenSynced } from "../app/.server/calendar-sync";
+import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import Schedule, { action, loader } from "../app/routes/schedule";
-import { deviceCookie, routeArgs, tempDatabase, thrownBy } from "./routes";
+import { fakeGoogle } from "./google-fake";
+import { deviceCookie, routeArgs, signedIn, tempDatabase, thrownBy } from "./routes";
 
 const count = tempDatabase();
 
@@ -546,5 +549,166 @@ describe("schedule route", () => {
       expect(html).toContain("Answer every date until Thu 26 Nov");
       expect(html).toContain("More dates (4)");
     });
+  });
+});
+
+describe("rehearsals in members' calendars", () => {
+  /** The band, with Cellist linked to a Google account signed in on Cellist's device. */
+  async function linkedBand(sub: string, scopes: string[] = []) {
+    const members = await band();
+    const store = getStore();
+    const { account, cookie } = await signedIn({ sub, email: `${sub}@example.test`, name: "C" });
+    store.linkMember(members.group.id, members.cellist.id, account.id);
+    if (scopes.length > 0) store.saveGrant(account.id, "refresh-1", scopes);
+    return { ...members, account, cellistSignedIn: `${members.cellistCookie}; ${cookie}` };
+  }
+
+  function withGoogle() {
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "secret");
+    return fakeGoogle();
+  }
+
+  function cleanUp() {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  }
+
+  it("gives each member only their own private feed link", async () => {
+    const { group, organizerCookie, cellistCookie, pianist } = await band();
+    const pianistFeed = getStore().feedTokenFor(pianist.id);
+
+    const asCellist = await load(group.id, cellistCookie);
+    const asOrganizer = await load(group.id, organizerCookie);
+
+    expect(asCellist.calendar.feedUrl).toMatch(/\/calendar\/[A-Za-z0-9_-]{22}\.ics$/);
+    expect(asCellist.calendar.webcalUrl.startsWith("webcal:")).toBe(true);
+    expect(asCellist.calendar.feedUrl).not.toBe(asOrganizer.calendar.feedUrl);
+    for (const page of [asCellist, asOrganizer]) {
+      expect(JSON.stringify(page)).not.toContain(pianistFeed);
+      expect(render(page)).not.toContain(pianistFeed);
+    }
+  });
+
+  it("offers Google Calendar writing only to the signed-in member it belongs to", async () => {
+    withGoogle();
+    try {
+      const { group, cellistCookie, cellistSignedIn, organizerCookie } =
+        await linkedBand("panel-sub");
+      const stranger = await signedIn({ sub: "panel-other", email: "o@example.test", name: "O" });
+
+      expect((await load(group.id, organizerCookie)).calendar.google).toEqual({
+        state: "unlinked",
+      });
+      expect(
+        (await load(group.id, `${cellistCookie}; ${stranger.cookie}`)).calendar.google,
+      ).toEqual({ state: "other-account" });
+      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({ state: "connect" });
+    } finally {
+      cleanUp();
+    }
+  });
+
+  it("refuses to turn writing on before Google Calendar is connected", async () => {
+    withGoogle();
+    try {
+      const { group, cellist, cellistSignedIn } = await linkedBand("switch-none");
+
+      const result = await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
+
+      expect(statusOf(result)).toBe(400);
+      expect(getStore().findMember(group.id, cellist.id)?.calendarSync).toBe(false);
+    } finally {
+      cleanUp();
+    }
+  });
+
+  it("follows every change that moves a date on or off the member's calendar", async () => {
+    const google = withGoogle();
+    try {
+      const { group, cellist, cellistSignedIn, organizerCookie } = await linkedBand("triggers", [
+        CALENDAR_SCOPES.write,
+      ]);
+      await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
+      await post(group.id, organizerCookie, {
+        ...nextThursday,
+        kind: "weekly",
+        endDate: "2026-10-29",
+      });
+      const [weekly] = getStore().listRehearsals(group.id);
+      const dates = () =>
+        getStore()
+          .listCalendarEvents(cellist.id)
+          .map((event) => event.date);
+      const step = async (cookie: string, form: Record<string, string>) => {
+        await post(group.id, cookie, { rehearsalId: weekly.id, ...form });
+        await whenSynced();
+        return dates();
+      };
+
+      expect(await step(organizerCookie, { intent: "confirm" })).toEqual([
+        "2026-10-08",
+        "2026-10-15",
+        "2026-10-22",
+        "2026-10-29",
+      ]);
+      expect(await step(organizerCookie, { intent: "cancel-date", date: "2026-10-15" })).toEqual([
+        "2026-10-08",
+        "2026-10-22",
+        "2026-10-29",
+      ]);
+      expect(await step(organizerCookie, { intent: "restore-date", date: "2026-10-15" })).toEqual([
+        "2026-10-08",
+        "2026-10-15",
+        "2026-10-22",
+        "2026-10-29",
+      ]);
+      expect(await step(organizerCookie, { intent: "end", endDate: "2026-10-22" })).toEqual([
+        "2026-10-08",
+        "2026-10-15",
+        "2026-10-22",
+      ]);
+      expect(
+        await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "no" }),
+      ).toEqual(["2026-10-15", "2026-10-22"]);
+      expect(
+        await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "yes" }),
+      ).toEqual(["2026-10-08", "2026-10-15", "2026-10-22"]);
+      expect(await step(cellistSignedIn, { intent: "set-calendar", value: "off" })).toEqual([]);
+      expect(await step(cellistSignedIn, { intent: "set-calendar", value: "on" })).toHaveLength(3);
+      expect(await step(organizerCookie, { intent: "delete" })).toEqual([]);
+      expect(google.calendarCalls().filter((call) => call.method === "DELETE")).toHaveLength(9);
+    } finally {
+      cleanUp();
+    }
+  });
+
+  it("writes confirmed dates once turned on, and follows the organizer's confirmations", async () => {
+    const google = withGoogle();
+    try {
+      const { group, cellist, cellistSignedIn, organizerCookie } = await linkedBand("switch-on", [
+        CALENDAR_SCOPES.write,
+      ]);
+      await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
+      await whenSynced();
+      expect(getStore().findMember(group.id, cellist.id)?.calendarSync).toBe(true);
+      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({ state: "on" });
+
+      await post(group.id, organizerCookie, nextThursday);
+      const [proposed] = getStore().listRehearsals(group.id);
+      await whenSynced();
+      expect(google.calendarCalls()).toEqual([]);
+      await post(group.id, organizerCookie, { intent: "confirm", rehearsalId: proposed.id });
+      await whenSynced();
+
+      const inserts = google.calendarCalls().filter((call) => call.method === "POST");
+      expect(inserts).toHaveLength(1);
+      expect(inserts[0].body).toMatchObject({ summary: "Thursday Quartet rehearsal" });
+      expect(getStore().listCalendarEvents(cellist.id)).toEqual([
+        expect.objectContaining({ rehearsalId: proposed.id, date: "2026-10-08" }),
+      ]);
+    } finally {
+      cleanUp();
+    }
   });
 });

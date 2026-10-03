@@ -41,8 +41,20 @@ const sessionCookie = createCookie(secure ? "__Host-mc_session" : "mc_session", 
   secure,
 });
 
-/** What the browser must bring back from Google for the sign-in to complete. */
-export type OAuthState = { state: string; nonce: string; verifier: string; returnTo: string };
+/**
+ * What the browser must bring back from Google for a consent to complete:
+ * `signin`, or `calendar` consent for `scope`, started by `accountId` (empty
+ * for sign-in).
+ */
+export type OAuthState = {
+  state: string;
+  nonce: string;
+  verifier: string;
+  returnTo: string;
+  purpose: "signin" | "calendar";
+  scope: string;
+  accountId: string;
+};
 
 // Unsigned on purpose: a browser can only alter its own copy, a changed verifier
 // fails the token exchange, and the callback requires Google's `state` to match.
@@ -123,12 +135,18 @@ export async function writeOAuthState(value: OAuthState): Promise<string> {
 export async function readOAuthState(request: Request): Promise<OAuthState | null> {
   const value: unknown = await oauthCookie.parse(request.headers.get("Cookie"));
   if (!value || typeof value !== "object") return null;
-  const { state, nonce, verifier, returnTo } = value as Record<string, unknown>;
+  const { state, nonce, verifier, returnTo, purpose, scope, accountId } = value as Record<
+    string,
+    unknown
+  >;
   return typeof state === "string" &&
     typeof nonce === "string" &&
     typeof verifier === "string" &&
-    typeof returnTo === "string"
-    ? { state, nonce, verifier, returnTo }
+    typeof returnTo === "string" &&
+    (purpose === "signin" || purpose === "calendar") &&
+    typeof scope === "string" &&
+    typeof accountId === "string"
+    ? { state, nonce, verifier, returnTo, purpose, scope, accountId }
     : null;
 }
 

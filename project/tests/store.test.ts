@@ -25,6 +25,7 @@ function withoutToken(member: NewMember): Member {
     role: member.role,
     optional: member.optional,
     googleEmail: member.googleEmail,
+    calendarSync: member.calendarSync,
   };
 }
 
@@ -548,6 +549,84 @@ describe("Google accounts and sessions", () => {
   });
 });
 
+describe("Google Calendar state", () => {
+  const scopeA = "https://www.googleapis.com/auth/calendar.freebusy";
+  const scopeB = "https://www.googleapis.com/auth/calendar.events.owned";
+
+  function linked() {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const account = store.upsertAccount({ sub: "cal-sub", email: "c@example.test", name: "C" });
+    const cellist = store.addMember(group.id, "Cellist", "member", account.id);
+    return { store, group, account, cellist };
+  }
+
+  it("merges granted scopes and keeps the refresh token when a later grant has none", () => {
+    const { store, account } = linked();
+
+    expect(store.saveGrant(account.id, null, [scopeA])).toBeNull();
+    store.saveGrant(account.id, "refresh-1", [scopeA]);
+    store.saveGrant(account.id, null, [scopeB, scopeA]);
+
+    expect(store.findGrant(account.id)).toEqual({
+      accountId: account.id,
+      refreshToken: "refresh-1",
+      scopes: [scopeB, scopeA].sort(),
+    });
+    store.deleteGrant(account.id);
+    expect(store.findGrant(account.id)).toBeNull();
+  });
+
+  it("lets a late refusal of an old refresh token leave a newer grant alone", () => {
+    const { store, account } = linked();
+    store.saveGrant(account.id, "old-token", [scopeA]);
+    store.saveGrant(account.id, "new-token", [scopeA]);
+
+    store.deleteGrant(account.id, "old-token");
+    expect(store.findGrant(account.id)?.refreshToken).toBe("new-token");
+    store.deleteGrant(account.id, "new-token");
+    expect(store.findGrant(account.id)).toBeNull();
+  });
+
+  it("lists only members who turned writing on, with their account", () => {
+    const { store, group, account, cellist } = linked();
+    store.addMember(group.id, "Pianist", "member");
+
+    expect(store.listSyncingMembers(group.id)).toEqual([]);
+    expect(store.setCalendarSync(group.id, cellist.id, true)).toBe(true);
+    expect(store.findMember(group.id, cellist.id)?.calendarSync).toBe(true);
+    expect(store.listSyncingMembers(group.id)).toEqual([
+      { memberId: cellist.id, groupId: group.id, accountId: account.id },
+    ]);
+    expect(store.listSyncingMembers()).toHaveLength(1);
+  });
+
+  it("remembers the events written for a member and forgets removed ones", () => {
+    const { store, cellist } = linked();
+    const event = { rehearsalId: "r", date: "2026-10-08", eventId: "mcabc" };
+
+    store.recordCalendarEvent(cellist.id, event);
+    store.recordCalendarEvent(cellist.id, { ...event, date: "2026-10-15", eventId: "mcdef" });
+    store.forgetCalendarEvent(cellist.id, "r", "2026-10-08");
+
+    expect(store.listCalendarEvents(cellist.id)).toEqual([
+      { rehearsalId: "r", date: "2026-10-15", eventId: "mcdef" },
+    ]);
+  });
+
+  it("gives each member one unguessable feed token", () => {
+    const { store, group, cellist } = linked();
+    const pianist = store.addMember(group.id, "Pianist", "member");
+
+    const token = store.feedTokenFor(cellist.id);
+
+    expect(isToken(token)).toBe(true);
+    expect(store.feedTokenFor(cellist.id)).toBe(token);
+    expect(store.feedTokenFor(pianist.id)).not.toBe(token);
+    expect(store.findMemberByFeed("not-a-token")).toBeNull();
+  });
+});
+
 describe("schema migrations", () => {
   function fileDatabase(): string {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -600,6 +679,32 @@ describe("schema migrations", () => {
     ]);
     expect(store.listMembers("g").map((m) => [m.displayName, m.googleEmail])).toEqual([
       ["Cellist", null],
+    ]);
+    check.close();
+  });
+
+  it("upgrades a version-2 database to Calendar grants, switches and feeds, keeping its data", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 2));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO accounts VALUES ('a', 'sub-a', 'a@example.test', 'A', '2026-10-01');
+      INSERT INTO members VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01', 'a');
+    `);
+    expect(version(raw)).toBe(2);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+    const check = new DatabaseSync(filename);
+
+    expect(version(check)).toBe(MIGRATIONS.length);
+    expect(check.prepare("SELECT calendar_sync, feed_token FROM members").all()).toEqual([
+      { calendar_sync: 0, feed_token: null },
+    ]);
+    expect(store.listMembers("g")).toEqual([
+      expect.objectContaining({ calendarSync: false, googleEmail: "a@example.test" }),
     ]);
     check.close();
   });

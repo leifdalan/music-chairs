@@ -1024,3 +1024,125 @@ Lessons:
 
 Remaining:
 - None for this correction.
+
+## 2026-10-02 23:07 — START
+
+Phase 7 — Google Calendar: free/busy import and writing confirmed rehearsals
+
+Execution trace: 07c852e3a6c44e998b4fe08dd07c93ee
+
+Operator decisions recorded in plan/phase-7.md before this run: one phase; confirmed rehearsals are written to each opted-in member's primary Google calendar (dates they answered No and cancelled dates left off; proposed times never), with no email invitations; every member also gets a private calendar feed (ICS) link; free/busy import reads the primary calendar for the next 4 weeks and proposes one-off slots, counting a half-hour free only when wholly free, reviewed before saving; narrowest Calendar scopes, requested only when used; the app stays unverified (up to 100 accounts). Member-chosen calendars for import and for writing are deferred (plan/INDEX.md note). The console steps are filed as user-actions/magnetic-nyala.md.
+
+Planned work:
+- Free/busy import into the availability model of Phase 2, reviewable before it is saved.
+- A decided calendar write model (brief, Open question 5): events on each member's own calendar or one organizer-owned event inviting everyone, and how changes and cancellations sync; plus the fallback for name-only members if Phase 4 did not already ship one.
+- The sensitive Calendar scopes and the Google verification status they require, with human-only steps filed in user-actions/.
+- Tests with Google's Calendar API faked.
+
+## 2026-10-03 09:17 — END
+Phase 7 — Google Calendar: free/busy import and writing confirmed rehearsals
+
+Phase 7 is accepted on its gates, and with it every phase in the plan is complete. Signed-in members can now fill in availability from their Google Calendar: the next four weeks of free time are proposed as one-off slots, and members untick or adjust them before saving. On the Schedule page a member can turn on "Add rehearsals to my Google Calendar". The app then keeps one event per upcoming confirmed date in their primary calendar, leaving off dates they said No to and cancelled dates, and follows every later change. Every member, signed in or not, also gets a private calendar feed link for any calendar app. The live database moved to schema version 3 with its data intact. The real Google consent screens, events appearing in your calendar and the feed subscription are yours to check through the User Demo below. That needs the two console steps in user-actions/magnetic-nyala.md first.
+
+Execution trace: 07c852e3a6c44e998b4fe08dd07c93ee
+
+Files changed:
+- plan/phase-7.md, plan/INDEX.md (deferred-work note), user-actions/magnetic-nyala.md — operator decisions, the tightened User Demo, deferred member-chosen calendars, and the console steps, recorded before the run
+- project/app/.server/store.ts — migration 3 (Calendar grants, per-group calendar switch, feed tokens, map of written events); grant, switch, feed and event-map functions
+- project/app/.server/google.ts — consent URLs with scopes and extra parameters, granted scopes and refresh tokens from the exchange, cached access tokens with refresh and revocation, free/busy and event calls with timeouts
+- project/app/.server/calendar-sync.ts — dates per member, deterministic event ids, removals-first sync with per-date failures, per-member queue and an hourly production sweep that also finishes removals after a member turns writing off
+- project/app/lib/zoned-time.ts, project/app/lib/free-busy.ts, project/app/lib/ics.ts, project/app/lib/calendar-notices.ts, project/app/lib/availability.ts — wall-clock to instant with daylight-saving handling, free/busy proposals, the iCalendar feed, consent notices, and the shared answer window
+- project/app/routes/auth.google.calendar.ts, project/app/routes/auth.google.callback.ts, project/app/routes/auth.google.ts, project/app/.server/membership.ts — Calendar consent with same-account and declined-scope checks; OAuth state carries purpose, scope and account
+- project/app/routes/availability.import.tsx, project/app/routes/availability.tsx, project/app/routes/schedule.tsx, project/app/routes/calendar-feed.ts, project/app/routes.ts, project/app/app.css — import review page, calendar panel and switch, sync after every change, the feed route
+- project/tests/ — zoned-time, free-busy, ics, calendar-sync, calendar-consent, import, feed tests and a shared Google fake; store, schedule and google tests extended (Vitest 243)
+- project/README.md, project/deploy/README.md — Calendar features, scopes, what turning writing off does, unverified-app limits
+- plan/INDEX.md — Phase 7 ✅ (pending, applied after this block)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release healthy; live database migrated to schema version 3 with its data (checked read-only over SSH); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 243/243, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.288 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 192.032 s (intelligence union 431.782 s minus the critic's 239.750 s); success
+- Coder: inline (no role span)
+- Critic (code review): 239.750 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 36537.540 s; intelligence 431.782 s; gates 149.230 s; orchestration 36536.954 s; wait 429.121 s; failed 0 s; retry 0 s; unattributed 0.586 s (category totals are interval unions and may overlap). The implementation stage spans an overnight pause after the session lost its sign-in; it was not recorded as an operator-input park, so the makespan overstates working time.
+- Awaiting user input: none recorded inside the trace (the operator's decisions came before it started)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=fa2cf400e6959b27d66fa3e8013d3bc0af53aac225b58d4d2c95640cd3763360 critiqued=6a86e575cd4824f13d2bafcb483dc3c0d650272be734349c2f79311f131d0954 approved=1bed10a3e879186cddf71d91845c85d567dd1728ba69949eb54b2c5a8cb34a93 final=1bed10a3e879186cddf71d91845c85d567dd1728ba69949eb54b2c5a8cb34a93
+- Revision packets: 0
+- Advisory reports: 2 — plan review 14 findings (all adopted), code critique 11 findings (10 adopted, 1 declined: the half-hour before a spring-forward jump stays unproposed, as planned)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers the free/busy mapping (zone conversion, the half-hour rule, the 4-week window, daylight-saving edges), review-then-save import (edits, refusals, revoked access, Google errors, borrowed devices), Calendar consent and its refusals, event creation, update and removal as dates are confirmed, cancelled, restored, ended, deleted or answered No, turning writing off (with retried removal), and the feed's content and secret link; `./bin/deploy all` and `./bin/deploy smoke` passed against https://rehearse.dalan.dev. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (real consent screens, events in Google Calendar, the feed in a calendar app, the import screen on a phone), after user-actions/magnetic-nyala.md
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/INDEX.md Critical-Files Map — add a "Google Calendar" row (sync, feed, import) — pending, applied after this block
+- DECIDE: None
+- none — no downstream sketches: Phase 7 is the last phase; member-chosen calendars stay in the INDEX deferred-work note
+
+Lessons:
+- filed pending: a methodology candidate — the agent shell is zsh, where an unquoted variable holding several paths is one word; a mutation loop built on it made no backups and let nine mutations pile up in uncommitted work
+- filed pending: a methodology candidate — backslash escapes written through a shell heredoc lost a backslash (\\; became \;) twice; write code with escapes through the file-writing tool
+- occurrence pending: camouflaged-dragon — a borrowed-device test and several sync-trigger tests passed without exercising their guard; found by single mutations and by the critique (local)
+- graduation DECIDE: none
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev`, signed in with Google, in a group where you are linked and the organizer.
+- **Suggested inputs.** Open **My availability** and choose **Import from Google Calendar**; grant access (Google shows an "unverified app" warning: choose **Advanced**, then continue). Review the proposed free slots for the next four weeks, untick one, and save. On **Schedule**, propose a weekly rehearsal on a day you are free, starting next week, and confirm it. Turn on **Add rehearsals to my Google Calendar**. Copy your **calendar feed link** and subscribe to it in another calendar app (for example Apple Calendar → File → New Calendar Subscription).
+- **What to look for.** The saved slots match the free time in your Google Calendar, without the one you unticked. Your primary Google Calendar shows each upcoming date of the confirmed rehearsal with its location. Answering **No** for one date removes that date from your Google Calendar; cancelling another date as organizer removes it too. The subscribed feed shows the same dates (calendar apps refresh feeds on their own schedule, from minutes to hours).
+- **Variations to explore.** Delete the rehearsal and check its events disappear. Turn calendar writing off and check the events the app added are removed. Does the import review screen work comfortably on a phone?
+- Note: turning on Google writing takes two clicks, **Connect Google Calendar to add rehearsals** (the Google consent) and then **Add rehearsals to my Google Calendar**.
+
+Remaining:
+- Member-chosen calendars (which calendars count as busy, and where events are written) are deferred by the operator (plan/INDEX.md note).
+- Google verification of the Calendar scopes stays deferred (user-actions/cherubic-fox.md); until then at most 100 Google accounts can grant Calendar access.
+- No in-app "disconnect Google Calendar"; turning writing off removes events but keeps the permission until the member removes it in their Google account.
+
+## 2026-10-03 09:17 — Close bookkeeping outcomes
+
+Phase 7 — Google Calendar: free/busy import and writing confirmed rehearsals
+
+Execution trace: 07c852e3a6c44e998b4fe08dd07c93ee
+
+- Status: applied and verified — Phase 7 ✅ in plan/INDEX.md ("close ledger verified"); every phase is complete, so no row is ⬅️.
+- Ripple AUTO: applied — the plan/INDEX.md Critical-Files Map gained a "Google Calendar" row.
+- Ripple DECIDE: none; no downstream phases.
+- Lessons: glistening-bear (zsh word splitting) and lucky-cockle (heredoc backslash loss) filed as methodology candidates; camouflaged-dragon gained its third occurrence and is now graduation-ready (DECIDE for the operator: proposed surface test policy). ./bin/lessons validate: LESSONS OK.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

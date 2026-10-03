@@ -86,7 +86,9 @@ type Table =
   | "rehearsal_cancellations"
   | "rsvps"
   | "accounts"
-  | "sessions";
+  | "sessions"
+  | "google_tokens"
+  | "calendar_events";
 
 export function tempDatabase(): (table: Table) => number {
   const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));

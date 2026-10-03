@@ -51,7 +51,7 @@ aws ssm put-parameter --profile music-chairs --region us-west-2 --name /music-ch
 ./bin/deploy release
 ```
 
-**Calendar scopes (Phase 7).** Google treats calendar access as a sensitive scope. Before many people can grant it, the app needs Google's verification: a public home page and a privacy policy on `dalan.dev`, `dalan.dev` verified in Google Search Console, a demo video of the consent flow and a justification for each scope. Until then users see an "unverified app" screen and at most 100 Google accounts can grant access.
+**Calendar.** Import asks for `calendar.freebusy` (busy periods only) and writing for `calendar.events.owned`, each only when a member uses it. Members' refresh tokens are stored in the database; they are useless without the client secret, which never leaves Parameter Store and the server's memory. The server re-syncs every member who writes to Google once an hour (`SWEEP_MINUTES` in `project/app/.server/calendar-sync.ts`), which retries failed updates and adds dates as the eight-week window moves. Turning writing off removes the upcoming events the app added but keeps the Google permission until the member removes it at myaccount.google.com → Security → Third-party apps. The app is unverified: Google shows a warning when members grant Calendar access, and at most 100 Google accounts can grant it. Verification is filed as `user-actions/cherubic-fox.md`.
 
 ## Backups and restoring
 

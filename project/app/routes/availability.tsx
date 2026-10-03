@@ -1,5 +1,6 @@
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
+import { googleConfig } from "~/.server/google";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member } from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
@@ -44,8 +45,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const slots = getStore().listSlots(viewer.id);
   const today = todayInZone(group.timeZone, new Date());
   const until = addDays(today, UPCOMING_WEEKS * 7 - 1);
-  const editId = new URL(request.url).searchParams.get("edit");
+  const search = new URL(request.url).searchParams;
+  const editId = search.get("edit");
+  const imported = Number(search.get("imported"));
   return {
+    // Import needs a Google-linked member; the import page checks the rest.
+    canImport: googleConfig() !== null && viewer.googleEmail !== null,
+    importedCount: Number.isInteger(imported) && imported > 0 ? imported : null,
     groupName: group.name,
     timeZone: group.timeZone,
     today,
@@ -106,7 +112,17 @@ function timeRange(start: number, end: number): string {
 }
 
 export default function Availability({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupName, timeZone, today, until, slots, occurrences, editing } = loaderData;
+  const {
+    groupName,
+    timeZone,
+    today,
+    until,
+    slots,
+    occurrences,
+    editing,
+    canImport,
+    importedCount,
+  } = loaderData;
   const busy = useNavigation().state !== "idle";
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
@@ -119,6 +135,18 @@ export default function Availability({ loaderData, actionData }: Route.Component
       </p>
       <h1>My availability</h1>
       <p className="hint">All times are in {timeZone}.</p>
+      {importedCount ? (
+        <p className="notice" role="status">
+          Added {importedCount} {importedCount === 1 ? "time" : "times"} from Google Calendar.
+        </p>
+      ) : null}
+      {canImport ? (
+        <p>
+          <Link to="import" relative="path" className="button-link secondary">
+            Import from Google Calendar
+          </Link>
+        </p>
+      ) : null}
 
       {/* The slot count in the key gives the add form fresh, empty fields after each save. */}
       <SlotForm

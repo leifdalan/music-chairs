@@ -28,6 +28,8 @@ export type Member = {
    * name-only member. Pages show it only to the member and the group's organizers.
    */
   googleEmail: string | null;
+  /** Whether this member's confirmed rehearsals are written to their Google Calendar. */
+  calendarSync: boolean;
 };
 
 /**
@@ -49,6 +51,15 @@ export type GoogleProfile = { sub: string; email: string; name: string };
  * `other-account`: the member is linked to a different account.
  */
 export type LinkResult = "linked" | "account-taken" | "other-account" | "unknown";
+
+/** A member's Google Calendar permission: the refresh token and the scopes granted so far. */
+export type GoogleGrant = { accountId: string; refreshToken: string; scopes: string[] };
+
+/** A member whose rehearsals are written to Google, with the account whose grant is used. */
+export type SyncingMember = { memberId: string; groupId: string; accountId: string };
+
+/** One event the app wrote to a member's Google Calendar. */
+export type CalendarEvent = { rehearsalId: string; date: string; eventId: string };
 
 /** A session expires this many days after it was last used. */
 export const SESSION_DAYS = 90;
@@ -141,6 +152,28 @@ export type Store = {
   linkMember(groupId: string, memberId: string, accountId: string): LinkResult;
   /** Every group the account is a member of, with that member, by group name. */
   listAccountMemberships(accountId: string): { group: Group; member: Member }[];
+  findAccountBySub(sub: string): Account | null;
+  /**
+   * Records a Google Calendar grant: scopes are added to those already granted,
+   * and a missing refresh token keeps the stored one. Null when there is no
+   * refresh token to keep.
+   */
+  saveGrant(accountId: string, refreshToken: string | null, scopes: string[]): GoogleGrant | null;
+  findGrant(accountId: string): GoogleGrant | null;
+  /** Deletes the grant; with `refreshToken`, only if it still holds that token. */
+  deleteGrant(accountId: string, refreshToken?: string): void;
+  setCalendarSync(groupId: string, memberId: string, on: boolean): boolean;
+  /**
+   * Members with Google writing on, or with events the app wrote that may still
+   * need removing (in one group, or everywhere), with their linked account.
+   */
+  listSyncingMembers(groupId?: string): SyncingMember[];
+  /** The member's private calendar feed token, created on first use. */
+  feedTokenFor(memberId: string): string;
+  findMemberByFeed(token: string): Member | null;
+  listCalendarEvents(memberId: string): CalendarEvent[];
+  recordCalendarEvent(memberId: string, event: CalendarEvent): void;
+  forgetCalendarEvent(memberId: string, rehearsalId: string, date: string): void;
   close(): void;
 };
 
@@ -247,6 +280,28 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX sessions_by_account ON sessions (account_id);
   `,
+  // Version 3 (Phase 7): Google Calendar grants, the per-group calendar switch,
+  // private feed tokens, and the events written to members' calendars. The
+  // event map has no foreign key to rehearsals so a deleted rehearsal's events
+  // can still be found and removed.
+  `
+  CREATE TABLE google_tokens (
+    account_id TEXT PRIMARY KEY REFERENCES accounts(id),
+    refresh_token TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  ALTER TABLE members ADD COLUMN calendar_sync INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE members ADD COLUMN feed_token TEXT;
+  CREATE UNIQUE INDEX members_by_feed ON members (feed_token) WHERE feed_token IS NOT NULL;
+  CREATE TABLE calendar_events (
+    member_id TEXT NOT NULL REFERENCES members(id),
+    rehearsal_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    PRIMARY KEY (member_id, rehearsal_id, date)
+  );
+  `,
 ];
 
 /**
@@ -320,6 +375,7 @@ type MemberRow = {
   role: Role;
   optional: number;
   google_email: string | null;
+  calendar_sync: number;
 };
 type SlotRow = {
   id: string;
@@ -348,6 +404,7 @@ function toMember(row: MemberRow): Member {
     role: row.role,
     optional: row.optional === 1,
     googleEmail: row.google_email,
+    calendarSync: row.calendar_sync === 1,
   };
 }
 
@@ -357,6 +414,8 @@ function sessionHash(token: string): string {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+type GrantRow = { account_id: string; refresh_token: string; scopes: string };
 
 /**
  * Opens (creating if needed) the SQLite database at `filename`; `:memory:` is
@@ -428,7 +487,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const changeShowNames = db.prepare("UPDATE groups SET show_names = ? WHERE id = ?");
   // Member reads never select the device token.
   const memberSelect = `SELECT members.id, members.group_id, members.display_name, members.role,
-      members.optional, accounts.email AS google_email
+      members.optional, members.calendar_sync, accounts.email AS google_email
     FROM members LEFT JOIN accounts ON accounts.id = members.account_id`;
   const selectMember = db.prepare(`${memberSelect} WHERE members.group_id = ? AND members.id = ?`);
   const selectMemberByDevice = db.prepare(
@@ -449,7 +508,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectAccountMemberships = db.prepare(
     `SELECT groups.id AS g_id, groups.invite_token, groups.name, groups.time_zone,
        groups.show_names, members.id, members.group_id, members.display_name, members.role,
-       members.optional, accounts.email AS google_email
+       members.optional, members.calendar_sync, accounts.email AS google_email
      FROM members
      JOIN groups ON groups.id = members.group_id
      JOIN accounts ON accounts.id = members.account_id
@@ -474,6 +533,45 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     "UPDATE sessions SET expires_at = ?, renewed_at = ? WHERE token_hash = ?",
   );
   const removeSession = db.prepare("DELETE FROM sessions WHERE token_hash = ?");
+  const selectAccountBySub = db.prepare(
+    "SELECT id, email, name FROM accounts WHERE google_sub = ?",
+  );
+  const selectGrant = db.prepare(
+    "SELECT account_id, refresh_token, scopes FROM google_tokens WHERE account_id = ?",
+  );
+  const upsertGrant = db.prepare(
+    `INSERT INTO google_tokens (account_id, refresh_token, scopes, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT (account_id) DO UPDATE SET refresh_token = excluded.refresh_token,
+       scopes = excluded.scopes, updated_at = excluded.updated_at`,
+  );
+  const removeGrant = db.prepare(
+    "DELETE FROM google_tokens WHERE account_id = ? AND (? IS NULL OR refresh_token = ?)",
+  );
+  const changeCalendarSync = db.prepare(
+    "UPDATE members SET calendar_sync = ? WHERE group_id = ? AND id = ?",
+  );
+  const selectSyncing = db.prepare(
+    `SELECT id AS member_id, group_id, account_id FROM members
+     WHERE account_id IS NOT NULL AND (? IS NULL OR group_id = ?)
+       AND (calendar_sync = 1 OR EXISTS (SELECT 1 FROM calendar_events WHERE member_id = members.id))
+     ORDER BY group_id, joined_at`,
+  );
+  const selectFeedToken = db.prepare("SELECT feed_token FROM members WHERE id = ?");
+  const changeFeedToken = db.prepare(
+    "UPDATE members SET feed_token = ? WHERE id = ? AND feed_token IS NULL",
+  );
+  const selectMemberByFeed = db.prepare(`${memberSelect} WHERE members.feed_token = ?`);
+  const selectCalendarEvents = db.prepare(
+    `SELECT rehearsal_id, date, event_id FROM calendar_events WHERE member_id = ?
+     ORDER BY date, rehearsal_id`,
+  );
+  const upsertCalendarEvent = db.prepare(
+    `INSERT INTO calendar_events (member_id, rehearsal_id, date, event_id) VALUES (?, ?, ?, ?)
+     ON CONFLICT (member_id, rehearsal_id, date) DO UPDATE SET event_id = excluded.event_id`,
+  );
+  const removeCalendarEvent = db.prepare(
+    "DELETE FROM calendar_events WHERE member_id = ? AND rehearsal_id = ? AND date = ?",
+  );
   const changeOptional = db.prepare(
     "UPDATE members SET optional = ? WHERE group_id = ? AND id = ?",
   );
@@ -648,6 +746,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       role,
       optional: false,
       googleEmail: null,
+      calendarSync: false,
       deviceToken: newToken(),
     };
     insertMember.run(
@@ -917,6 +1016,76 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         group: toGroup({ ...row, id: row.g_id }),
         member: toMember(row),
       }));
+    },
+    findAccountBySub(sub) {
+      return (selectAccountBySub.get(sub) as Account | undefined) ?? null;
+    },
+    saveGrant(accountId, refreshToken, scopes) {
+      return transaction(() => {
+        const row = selectGrant.get(accountId) as GrantRow | undefined;
+        const token = refreshToken ?? row?.refresh_token;
+        if (!token) return null;
+        const merged = [...new Set([...(row ? row.scopes.split(" ") : []), ...scopes])]
+          .filter(Boolean)
+          .sort();
+        upsertGrant.run(accountId, token, merged.join(" "), new Date().toISOString());
+        return { accountId, refreshToken: token, scopes: merged };
+      });
+    },
+    findGrant(accountId) {
+      const row = selectGrant.get(accountId) as GrantRow | undefined;
+      return row
+        ? { accountId, refreshToken: row.refresh_token, scopes: row.scopes.split(" ") }
+        : null;
+    },
+    deleteGrant(accountId, refreshToken) {
+      const token = refreshToken ?? null;
+      removeGrant.run(accountId, token, token);
+    },
+    setCalendarSync(groupId, memberId, on) {
+      if (!isToken(memberId)) return false;
+      return Number(changeCalendarSync.run(on ? 1 : 0, groupId, memberId).changes) > 0;
+    },
+    listSyncingMembers(groupId) {
+      const scope = groupId ?? null;
+      return (
+        selectSyncing.all(scope, scope) as {
+          member_id: string;
+          group_id: string;
+          account_id: string;
+        }[]
+      ).map((row) => ({
+        memberId: row.member_id,
+        groupId: row.group_id,
+        accountId: row.account_id,
+      }));
+    },
+    feedTokenFor(memberId) {
+      const existing = (selectFeedToken.get(memberId) as { feed_token: string | null } | undefined)
+        ?.feed_token;
+      if (existing) return existing;
+      changeFeedToken.run(newToken(), memberId);
+      return (selectFeedToken.get(memberId) as { feed_token: string }).feed_token;
+    },
+    findMemberByFeed(token) {
+      if (!isToken(token)) return null;
+      const row = selectMemberByFeed.get(token) as MemberRow | undefined;
+      return row ? toMember(row) : null;
+    },
+    listCalendarEvents(memberId) {
+      return (
+        selectCalendarEvents.all(memberId) as {
+          rehearsal_id: string;
+          date: string;
+          event_id: string;
+        }[]
+      ).map((row) => ({ rehearsalId: row.rehearsal_id, date: row.date, eventId: row.event_id }));
+    },
+    recordCalendarEvent(memberId, event) {
+      upsertCalendarEvent.run(memberId, event.rehearsalId, event.date, event.eventId);
+    },
+    forgetCalendarEvent(memberId, rehearsalId, date) {
+      removeCalendarEvent.run(memberId, rehearsalId, date);
     },
     close() {
       db.close();

@@ -68,13 +68,15 @@ describe("Google sign-in protocol", () => {
   it("exchanges the code with the verifier and returns the identity keyed by sub", async () => {
     const fake = tokenEndpoint({ id_token: idToken(goodClaims) });
 
-    const identity = await exchangeCode(config, params, now);
+    const { profile, tokens } = await exchangeCode(config, params, now);
 
-    expect(identity).toEqual({
+    expect(profile).toEqual({
       sub: "google-sub-1",
       email: "cellist@example.test",
       name: "Cel List",
     });
+    // A sign-in grants no Calendar access and keeps no refresh token.
+    expect(tokens).toEqual({ refreshToken: null, scopes: [] });
     const [url, init] = fake.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://oauth2.googleapis.com/token");
     expect(Object.fromEntries(new URLSearchParams(String(init.body)))).toEqual({
@@ -87,10 +89,53 @@ describe("Google sign-in protocol", () => {
     });
   });
 
+  it("returns the refresh token and every granted scope of a Calendar consent", async () => {
+    tokenEndpoint({
+      id_token: idToken(goodClaims),
+      refresh_token: "refresh-1",
+      scope: "openid https://www.googleapis.com/auth/calendar.freebusy",
+    });
+
+    const { tokens } = await exchangeCode(config, params, now);
+
+    expect(tokens).toEqual({
+      refreshToken: "refresh-1",
+      scopes: ["openid", "https://www.googleapis.com/auth/calendar.freebusy"],
+    });
+  });
+
+  it("builds Calendar consent with its scopes, offline access and earlier grants kept", () => {
+    const url = new URL(
+      authorizationUrl(config, {
+        state: "s",
+        nonce: "n",
+        challenge: "c",
+        redirectUri: params.redirectUri,
+        scopes: ["openid", "https://www.googleapis.com/auth/calendar.events.owned"],
+        extra: {
+          include_granted_scopes: "true",
+          access_type: "offline",
+          prompt: "consent",
+          login_hint: "cellist@example.test",
+        },
+      }),
+    );
+
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      scope: "openid https://www.googleapis.com/auth/calendar.events.owned",
+      include_granted_scopes: "true",
+      access_type: "offline",
+      prompt: "consent",
+      login_hint: "cellist@example.test",
+    });
+  });
+
   it("accepts the issuer without a scheme too", async () => {
     tokenEndpoint({ id_token: idToken({ ...goodClaims, iss: "accounts.google.com" }) });
 
-    await expect(exchangeCode(config, params, now)).resolves.toMatchObject({ sub: "google-sub-1" });
+    await expect(exchangeCode(config, params, now)).resolves.toMatchObject({
+      profile: { sub: "google-sub-1" },
+    });
   });
 
   it.each([
