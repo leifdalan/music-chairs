@@ -2,11 +2,12 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { readToast } from "../app/.server/flash";
 import { readMemberships } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { GROUP_NAME_MAX } from "../app/lib/names";
 import Home, { action, loader } from "../app/routes/home";
-import { cookieFrom, routeArgs, signedIn, tempDatabase } from "./routes";
+import { cookieFrom, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
 
 const count = tempDatabase();
 
@@ -106,6 +107,10 @@ describe("home route", () => {
     expect(Object.keys(memberships)).toEqual([groupId]);
     expect(getStore().findMemberByDevice(groupId, memberships[groupId])?.id).toBe(organizer.id);
     expect(memberships[groupId]).not.toBe(organizer.id);
+    const toast = await readToast(
+      new Request(ORIGIN, { headers: { Cookie: setCookies(created).mc_toast } }),
+    );
+    expect(toast.toast?.message).toBe("Group created");
   });
 
   it.each([

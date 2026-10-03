@@ -2,9 +2,10 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
+import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
 import GroupPage, { action, loader } from "../app/routes/group";
-import { deviceCookie, ORIGIN, routeArgs, signedIn, thrownBy } from "./routes";
+import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, thrownBy } from "./routes";
 
 type GroupData = Awaited<ReturnType<typeof loader>>;
 
@@ -27,7 +28,28 @@ function band() {
   return { group, organizer, cellist };
 }
 
+/** The toast message a redirect leaves, read the way the root loader reads it. */
+async function toastOf(response: unknown): Promise<string | undefined> {
+  const cookie = setCookies(response as Response).mc_toast;
+  if (!cookie) return undefined;
+  return (await readToast(new Request(ORIGIN, { headers: { Cookie: cookie } }))).toast?.message;
+}
+
 describe("group route", () => {
+  it("confirms the organizer's settings with a toast", async () => {
+    const { group, organizer, cellist } = band();
+    const cookie = await deviceCookie(group.id, organizer.deviceToken);
+    const post = (form: Record<string, string>) =>
+      action(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie, form }));
+
+    expect(await toastOf(await post({ intent: "set-privacy", value: "on" }))).toBe(
+      "Members now see who is free",
+    );
+    expect(
+      await toastOf(await post({ intent: "set-optional", memberId: cellist.id, value: "on" })),
+    ).toBe("Marked optional");
+  });
+
   it("shows a linked member's Google email only to organizers and to that member", async () => {
     const { group, organizer, cellist } = band();
     const pianist = getStore().addMember(group.id, "Pianist", "member");

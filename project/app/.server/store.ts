@@ -302,6 +302,55 @@ export const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (member_id, rehearsal_id, date)
   );
   `,
+  // Version 4 (Phase 8): times move to a 15-minute grid. SQLite cannot change a
+  // CHECK constraint, so both tables are rebuilt with explicit column lists;
+  // migrate() runs with foreign keys off, so their child rows are kept.
+  `
+  CREATE TABLE availability_v4 (
+    id TEXT PRIMARY KEY,
+    member_id TEXT NOT NULL REFERENCES members(id),
+    kind TEXT NOT NULL CHECK (kind IN ('once', 'weekly')),
+    start_date TEXT NOT NULL,
+    end_date TEXT,
+    start_minute INTEGER NOT NULL CHECK (start_minute % 15 = 0 AND start_minute >= 0),
+    end_minute INTEGER NOT NULL CHECK (
+      end_minute % 15 = 0 AND end_minute > start_minute AND end_minute <= 1440
+    ),
+    created_at TEXT NOT NULL,
+    CHECK (end_date IS NULL OR (kind = 'weekly' AND end_date >= start_date))
+  );
+  INSERT INTO availability_v4
+    (id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at)
+    SELECT id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at
+    FROM availability;
+  DROP TABLE availability;
+  ALTER TABLE availability_v4 RENAME TO availability;
+  CREATE INDEX availability_by_member ON availability (member_id);
+  CREATE TABLE rehearsals_v4 (
+    id TEXT PRIMARY KEY,
+    group_id TEXT NOT NULL REFERENCES groups(id),
+    kind TEXT NOT NULL CHECK (kind IN ('once', 'weekly')),
+    start_date TEXT NOT NULL,
+    end_date TEXT,
+    start_minute INTEGER NOT NULL CHECK (start_minute % 15 = 0 AND start_minute >= 0),
+    end_minute INTEGER NOT NULL CHECK (
+      end_minute % 15 = 0 AND end_minute > start_minute AND end_minute <= 1440
+    ),
+    location TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('proposed', 'confirmed')),
+    created_at TEXT NOT NULL,
+    CHECK (end_date IS NULL OR (kind = 'weekly' AND end_date >= start_date))
+  );
+  INSERT INTO rehearsals_v4
+    (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
+     created_at)
+    SELECT id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
+      created_at
+    FROM rehearsals;
+  DROP TABLE rehearsals;
+  ALTER TABLE rehearsals_v4 RENAME TO rehearsals;
+  CREATE INDEX rehearsals_by_group ON rehearsals (group_id);
+  `,
 ];
 
 /**

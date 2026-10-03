@@ -3,11 +3,20 @@ import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { whenSynced } from "../app/.server/calendar-sync";
+import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import Schedule, { action, loader } from "../app/routes/schedule";
 import { fakeGoogle } from "./google-fake";
-import { deviceCookie, routeArgs, signedIn, tempDatabase, thrownBy } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+  thrownBy,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -81,6 +90,41 @@ function render(data: ScheduleData): string {
     <Stub initialEntries={["/g/x/schedule"]} hydrationData={{ loaderData: { schedule: data } }} />,
   ).replaceAll("<!-- -->", "");
 }
+
+/** The toast message a redirect leaves, read the way the root loader reads it. */
+async function toastOf(response: unknown): Promise<string | undefined> {
+  const cookie = setCookies(response as Response).mc_toast;
+  if (!cookie) return undefined;
+  return (await readToast(new Request(ORIGIN, { headers: { Cookie: cookie } }))).toast?.message;
+}
+
+describe("schedule feedback and quarter hours", () => {
+  it("proposes on the quarter hour and confirms each step with a toast", async () => {
+    const { group, organizerCookie, cellistCookie } = await band();
+
+    const proposed = await post(group.id, organizerCookie, {
+      ...nextThursday,
+      startTime: "19:15",
+      endTime: "21:44",
+    });
+    const [rehearsal] = getStore().listRehearsals(group.id);
+    const confirmed = await post(group.id, organizerCookie, {
+      intent: "confirm",
+      rehearsalId: rehearsal.id,
+    });
+    const answered = await post(group.id, cellistCookie, {
+      intent: "rsvp",
+      rehearsalId: rehearsal.id,
+      date: "2026-10-08",
+      answer: "yes",
+    });
+
+    expect([rehearsal.startMinute, rehearsal.endMinute]).toEqual([19 * 60 + 15, 21 * 60 + 45]);
+    expect(await toastOf(proposed)).toBe("Rehearsal proposed");
+    expect(await toastOf(confirmed)).toBe("Rehearsal confirmed");
+    expect(await toastOf(answered)).toBe("Answer saved: Yes");
+  });
+});
 
 describe("schedule route", () => {
   it("sends visitors to the group page and 404s unknown groups", async () => {

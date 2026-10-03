@@ -57,8 +57,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ✅     |
 | [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ✅     |
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ✅     |
-| [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ⬅️     |
-| [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ⏳     |
+| [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ✅     |
+| [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ⬅️     |
 | [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ⏳     |
 | [Phase 11](phase-11.md) | Visual cleanup                                                    | ⏳     |
 

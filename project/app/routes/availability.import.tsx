@@ -1,12 +1,23 @@
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 
 import { calendarViewer } from "~/.server/calendar-sync";
 import { CALENDAR_SCOPES, GoogleAccessRevoked, GoogleApiError, queryBusy } from "~/.server/google";
+import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member } from "~/.server/store";
-import { addDays, formatDate, isDate, timeInputValue, todayInZone } from "~/lib/availability";
+import {
+  addDays,
+  formatDate,
+  isDate,
+  parseTimeText,
+  timeInputValue,
+  todayInZone,
+} from "~/lib/availability";
 import { IMPORT_DAYS, importRange, proposeFreeSlots } from "~/lib/free-busy";
 import { calendarNotice } from "~/lib/calendar-notices";
+import { ProblemAlert } from "~/components/problem-alert";
+import { SubmitButton } from "~/components/submit-button";
+import { QuarterHours, TimeField } from "~/components/time-field";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/availability.import";
@@ -19,13 +30,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
   );
 }
 
-/** "HH:MM" on the 30-minute grid as minutes; "00:00" means midnight at the end of the day when `end`. */
+/** A submitted time rounded to the 15-minute grid, or null when unreadable. */
 function parseTime(value: unknown, end = false): number | null {
-  const match = typeof value === "string" ? /^(\d{2}):(\d{2})$/.exec(value) : null;
-  if (!match) return null;
-  const minutes = Number(match[1]) * 60 + Number(match[2]);
-  if (minutes % 30 !== 0 || minutes >= 24 * 60) return null;
-  return end && minutes === 0 ? 24 * 60 : minutes;
+  const parsed = typeof value === "string" ? parseTimeText(value, { end }) : null;
+  return parsed?.ok ? parsed.minutes : null;
 }
 
 async function groupAndViewer(
@@ -123,12 +131,14 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   const store = getStore();
   for (const slot of slots) store.addSlot(viewer.id, slot);
-  return redirect(`/g/${group.id}/availability?imported=${slots.length}`);
+  return redirectWithToast(
+    `/g/${group.id}/availability`,
+    `Added ${slots.length} ${slots.length === 1 ? "time" : "times"} from Google Calendar`,
+  );
 }
 
 export default function ImportAvailability({ loaderData, actionData }: Route.ComponentProps) {
   const { groupName, timeZone, window, state, proposals, connectUrl, notice } = loaderData;
-  const busy = useNavigation().state !== "idle";
   const byDate = new Map<
     string,
     { label: string; rows: { index: number; start: string; end: string }[] }
@@ -173,20 +183,28 @@ export default function ImportAvailability({ loaderData, actionData }: Route.Com
       {state === "ready" ? (
         <>
           <Form method="get" className="import-window">
-            <label>
-              From <input type="time" name="from" step={1800} defaultValue={window.from} />
-            </label>
-            <label>
-              to <input type="time" name="to" step={1800} defaultValue={window.to} />
-            </label>
+            <QuarterHours id="import-times" />
+            <label htmlFor="window-from">From</label>
+            <TimeField
+              id="window-from"
+              name="from"
+              defaultValue={window.from}
+              listId="import-times"
+            />
+            <label htmlFor="window-to">to</label>
+            <TimeField
+              id="window-to"
+              name="to"
+              end
+              defaultValue={window.to}
+              listId="import-times"
+            />
             <button type="submit" className="secondary small">
               Show
             </button>
           </Form>
           {actionData?.problem ? (
-            <p className="field-error" role="alert">
-              {actionData.problem}
-            </p>
+            <ProblemAlert message={actionData.problem} response={actionData} />
           ) : null}
           {proposals.length === 0 ? (
             <p className="hint">No free time of an hour or more in that window.</p>
@@ -205,28 +223,27 @@ export default function ImportAvailability({ loaderData, actionData }: Route.Com
                         defaultChecked
                         aria-label={`Keep ${day.label} ${row.start}–${row.end}`}
                       />
-                      <input
-                        type="time"
+                      <TimeField
+                        id={`start-${row.index}`}
                         name={`start-${row.index}`}
-                        step={1800}
                         defaultValue={row.start}
-                        aria-label={`Start, ${day.label}`}
+                        label={`Start, ${day.label}`}
+                        listId="import-times"
                       />
                       <span aria-hidden="true">–</span>
-                      <input
-                        type="time"
+                      <TimeField
+                        id={`end-${row.index}`}
                         name={`end-${row.index}`}
-                        step={1800}
+                        end
                         defaultValue={row.end}
-                        aria-label={`End, ${day.label}`}
+                        label={`End, ${day.label}`}
+                        listId="import-times"
                       />
                     </div>
                   ))}
                 </fieldset>
               ))}
-              <button type="submit" disabled={busy}>
-                Save kept times
-              </button>
+              <SubmitButton feedbackKey="import-save">Save kept times</SubmitButton>
             </Form>
           )}
         </>

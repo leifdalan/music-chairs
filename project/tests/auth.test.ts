@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { loader as startSignIn } from "../app/routes/auth.google";
@@ -236,6 +237,10 @@ describe("sessions", () => {
 
     expect(response.headers.get("Location")).toBe("/");
     expect(setCookies(response).mc_session).toBe("mc_session=");
+    const toast = await readToast(
+      new Request(ORIGIN, { headers: { Cookie: setCookies(response).mc_toast } }),
+    );
+    expect(toast.toast?.message).toBe("Signed out");
     const after = await groupPage(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie }));
     expect(after.viewer).toBeNull();
   });

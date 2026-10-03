@@ -27,6 +27,10 @@ Settled when the operator listed UX changes after Phase 7:
 - **Rehearsal limit:** optional, default "any and all"; the expanded option is a frequency limit such as "no more than 2 rehearsals" in the request's span, conveyed to the organizer.
 - **Past choices:** persistent UI reflects past choices (a rehearsal time that worked), and the organizer can repeat a request for future dates only.
 
+## Inherited from Phase 8
+
+Pinned by [Phase 8](phase-8.md): every time is on a 15-minute grid (`STEP_MINUTES` in `project/app/lib/availability.ts`), and typed times go through `parseTimeText`, which rounds to the nearest quarter hour; enter times with `TimeField` (and a shared `QuarterHours` list when a page has many). Every changing form uses `SubmitButton` with a stable `feedbackKey`, and every successful action ends with `redirectWithToast` (`project/app/.server/flash.ts`) naming what happened; refusals use `ProblemAlert`. The schema is at version 4; new tables or columns are migration 5 onward.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers creating, editing and repeating requests, presets, the limit and what the organizer sees, with a migration test for the new tables.

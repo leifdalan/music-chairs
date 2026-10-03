@@ -2,9 +2,10 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
 import Availability, { action, loader } from "../app/routes/availability";
-import { deviceCookie, routeArgs, tempDatabase, thrownBy } from "./routes";
+import { deviceCookie, ORIGIN, routeArgs, setCookies, tempDatabase, thrownBy } from "./routes";
 
 const count = tempDatabase();
 
@@ -55,7 +56,46 @@ function statusOf(value: unknown): number | undefined {
   return (value as { init?: ResponseInit | null }).init?.status;
 }
 
+/** The toast message a redirect leaves, read the way the root loader reads it. */
+async function toastOf(response: unknown): Promise<string | undefined> {
+  const cookie = setCookies(response as Response).mc_toast;
+  if (!cookie) return undefined;
+  return (await readToast(new Request(ORIGIN, { headers: { Cookie: cookie } }))).toast?.message;
+}
+
 describe("availability route", () => {
+  it("rounds typed times to the quarter hour and confirms each change", async () => {
+    const { group, organizer, cookie } = await band();
+
+    const added = await post(group.id, cookie, {
+      intent: "create",
+      ...weekly,
+      startTime: "9:02",
+      endTime: "9:52pm",
+    });
+    const [slot] = getStore().listSlots(organizer.id);
+    const skipped = await post(group.id, cookie, {
+      intent: "skip",
+      slotId: slot.id,
+      date: "2026-10-08",
+    });
+    const removed = await post(group.id, cookie, { intent: "delete", slotId: slot.id });
+
+    expect([slot.startMinute, slot.endMinute]).toEqual([9 * 60, 21 * 60 + 45]);
+    expect(await toastOf(added)).toBe("Availability saved");
+    expect(await toastOf(skipped)).toBe("Marked as can't make it");
+    expect(await toastOf(removed)).toBe("Time removed");
+  });
+
+  it("leaves no toast when a change is refused", async () => {
+    const { group, cookie } = await band();
+
+    const refused = await post(group.id, cookie, { intent: "create", ...weekly, endTime: "18:00" });
+
+    expect(statusOf(refused)).toBe(400);
+    expect(refused instanceof Response ? setCookies(refused).mc_toast : undefined).toBeUndefined();
+  });
+
   it("sends visitors and unknown groups away", async () => {
     const { group } = await band();
 

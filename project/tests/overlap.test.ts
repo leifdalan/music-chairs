@@ -36,6 +36,22 @@ const piano = member("piano", [slot({ skips: ["2026-10-08"] })]);
 const band = [viola, cello, piano];
 
 describe("overlap", () => {
+  it("compares quarter-hour times exactly", () => {
+    const early = member("early", [slot({ startMinute: 19 * 60 + 15, endMinute: 20 * 60 + 45 })]);
+    const late = member("late", [slot({ startMinute: 19 * 60 + 45, endMinute: 21 * 60 + 15 })]);
+
+    const stretches = freeStretches(
+      buildCells([early, late], "2026-10-08", "2026-10-08"),
+      "2026-10-08",
+    );
+
+    expect(stretches).toEqual([
+      { startMinute: 19 * 60 + 15, endMinute: 19 * 60 + 45, free: ["early"] },
+      { startMinute: 19 * 60 + 45, endMinute: 20 * 60 + 45, free: ["early", "late"] },
+      { startMinute: 20 * 60 + 45, endMinute: 21 * 60 + 15, free: ["late"] },
+    ]);
+  });
+
   it("splits a date into stretches where the set of free members changes", () => {
     const cells = buildCells(band, "2026-10-08", "2026-10-08");
 

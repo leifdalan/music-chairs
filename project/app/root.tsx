@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  data,
   isRouteErrorResponse,
   Link,
   Links,
@@ -9,12 +10,24 @@ import {
   ScrollRestoration,
 } from "react-router";
 
+import { readToast } from "~/.server/flash";
+import { FeedbackProvider } from "~/components/submit-button";
+import { Toaster } from "~/components/toast";
 import { siteName } from "~/lib/site";
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: stylesheet }];
+
+/**
+ * The confirmation a change left for this page, if any. React Router reloads
+ * this loader after every action, so the toast arrives with the redirected page.
+ */
+export async function loader({ request }: Route.LoaderArgs) {
+  const { toast, clear } = await readToast(request);
+  return data({ toast }, clear ? { headers: { "Set-Cookie": clear } } : undefined);
+}
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -26,10 +39,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <Links />
       </head>
       <body>
-        <header className="site-header">
-          <Link to="/">{siteName}</Link>
-        </header>
-        {children}
+        <FeedbackProvider>
+          <header className="site-header">
+            <Link to="/">{siteName}</Link>
+          </header>
+          {children}
+          <Toaster />
+        </FeedbackProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

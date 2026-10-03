@@ -46,10 +46,10 @@ export function validateLocation(
 /** Occurrences are listed from today for this many weeks. */
 export const UPCOMING_WEEKS = 8;
 
-const STEP_MINUTES = 30;
+/** Every time is a multiple of this many minutes (plan/phase-8.md). */
+export const STEP_MINUTES = 15;
 const DAY_MINUTES = 24 * 60;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -122,18 +122,75 @@ export function canonicalTimeZone(value: unknown): string | null {
   }
 }
 
+export type TimeParse =
+  | { ok: true; minutes: number; meridiem: boolean }
+  | { ok: false; reason: "empty" | "unreadable" | "too-late" };
+
+const TYPED_TIME = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?$/;
+const TYPED_DIGITS = /^(\d{3,4})\s*(am|pm|a|p)?$/;
+
+/**
+ * A typed time ("9", "9:02", "930", "7pm", "12:45 am", "21:15") rounded to the
+ * nearest 15 minutes, half-way rounding up. With am/pm the hour is 1–12 (12am
+ * is 0:00, 12pm is noon); without, 0–24, and 24 only as 24:00. A start that
+ * rounds to the end of the day is too late; an end of 0:00 or 24:00 means
+ * midnight at the end of the day. `meridiem` says whether am/pm was typed, so
+ * the field can show the rounded time the way it was written.
+ */
+export function parseTimeText(text: string, options: { end: boolean }): TimeParse {
+  const value = text.trim().toLowerCase().replace(/\./g, "");
+  if (value === "") return { ok: false, reason: "empty" };
+  let hours: number;
+  let minutes: number;
+  let suffix: string | undefined;
+  const digits = TYPED_DIGITS.exec(value);
+  const typed = digits ? null : TYPED_TIME.exec(value);
+  if (digits) {
+    hours = Math.floor(Number(digits[1]) / 100);
+    minutes = Number(digits[1]) % 100;
+    suffix = digits[2];
+  } else if (typed) {
+    hours = Number(typed[1]);
+    minutes = typed[2] === undefined ? 0 : Number(typed[2]);
+    suffix = typed[3];
+  } else {
+    return { ok: false, reason: "unreadable" };
+  }
+  if (minutes > 59) return { ok: false, reason: "unreadable" };
+  if (suffix) {
+    if (hours < 1 || hours > 12) return { ok: false, reason: "unreadable" };
+    hours = (hours % 12) + (suffix.startsWith("p") ? 12 : 0);
+  } else if (hours > 24 || (hours === 24 && minutes > 0)) {
+    return { ok: false, reason: "unreadable" };
+  }
+  const exact = hours * 60 + minutes;
+  const rounded = Math.floor((exact + STEP_MINUTES / 2) / STEP_MINUTES) * STEP_MINUTES;
+  const meridiem = suffix !== undefined;
+  if (options.end) {
+    return {
+      ok: true,
+      minutes: rounded === 0 || rounded >= DAY_MINUTES ? DAY_MINUTES : rounded,
+      meridiem,
+    };
+  }
+  if (rounded >= DAY_MINUTES) return { ok: false, reason: "too-late" };
+  return { ok: true, minutes: rounded, meridiem };
+}
+
+/** A time of day as "9:45pm" (12-hour, as typed with am/pm); the end of the day is "12:00am". */
+export function formatMeridiem(minutes: number): string {
+  const inDay = minutes % DAY_MINUTES;
+  const hours = Math.floor(inDay / 60);
+  const twelve = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelve}:${String(inDay % 60).padStart(2, "0")}${hours < 12 ? "am" : "pm"}`;
+}
+
 function parseTime(value: string, label: string, end: boolean): number | string {
-  if (value === "") return `${label} is required.`;
-  const match = TIME_PATTERN.exec(value);
-  if (!match) return `${label} is not a valid time.`;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return `${label} is not a valid time.`;
-  if (minutes % STEP_MINUTES !== 0)
-    return `${label} must be on the hour or half hour (:00 or :30).`;
-  const total = hours * 60 + minutes;
-  // "00:00" as an end time means midnight at the end of the day.
-  return end && total === 0 ? DAY_MINUTES : total;
+  const parsed = parseTimeText(value, { end });
+  if (parsed.ok) return parsed.minutes;
+  if (parsed.reason === "empty") return `${label} is required.`;
+  if (parsed.reason === "too-late") return `${label} is too late; the latest start is 23:45.`;
+  return `${label} is not a valid time.`;
 }
 
 /** Validates the add/edit form; one-off slots ignore any end date. */

@@ -259,7 +259,7 @@ describe("availability store", () => {
     expect(store.findSlot(viola.id, slot.id)).toEqual(slot);
   });
 
-  it("refuses rows off the 30-minute grid or ending before they start", () => {
+  it("refuses rows off the 15-minute grid or ending before they start", () => {
     const store = memoryStore();
     const viola = member(store);
 
@@ -707,6 +707,66 @@ describe("schema migrations", () => {
       expect.objectContaining({ calendarSync: false, googleEmail: "a@example.test" }),
     ]);
     check.close();
+  });
+
+  it("upgrades a version-3 database to quarter-hour times, keeping rows, children and checks", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 3));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+      INSERT INTO availability VALUES ('a', 'm', 'weekly', '2026-10-01', NULL, 1140, 1260, '2026-10-01');
+      INSERT INTO availability_skips VALUES ('a', '2026-10-08');
+      INSERT INTO rehearsals VALUES ('r', 'g', 'weekly', '2026-10-01', NULL, 1140, 1260, 'Studio', 'confirmed', '2026-10-01');
+      INSERT INTO rehearsal_cancellations VALUES ('r', '2026-10-15');
+      INSERT INTO rsvps VALUES ('r', 'm', '2026-10-08', 'yes', '2026-10-01');
+    `);
+    expect(() =>
+      raw.exec(
+        "INSERT INTO availability VALUES ('q', 'm', 'once', '2026-10-02', NULL, 1155, 1260, 'x')",
+      ),
+    ).toThrow();
+    raw.close();
+
+    openStore(filename).close();
+    const db = new DatabaseSync(filename);
+    const count = (table: string) =>
+      (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+
+    expect(version(db)).toBe(MIGRATIONS.length);
+    for (const table of [
+      "availability",
+      "availability_skips",
+      "rehearsals",
+      "rehearsal_cancellations",
+      "rsvps",
+    ]) {
+      expect(count(table)).toBe(1);
+    }
+    db.exec(
+      "INSERT INTO availability VALUES ('q', 'm', 'once', '2026-10-02', NULL, 1155, 1290, 'x')",
+    );
+    expect(() =>
+      db.exec(
+        "INSERT INTO availability VALUES ('t', 'm', 'once', '2026-10-02', NULL, 1150, 1290, 'x')",
+      ),
+    ).toThrow();
+    expect(() =>
+      db.exec(
+        "INSERT INTO rehearsals VALUES ('u', 'g', 'once', '2026-10-02', NULL, 1200, 1200, 'S', 'proposed', 'x')",
+      ),
+    ).toThrow();
+    const indexes = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' ORDER BY name").all() as {
+        name: string;
+      }[]
+    ).map((row) => row.name);
+    expect(indexes).toEqual(
+      expect.arrayContaining(["availability_by_member", "rehearsals_by_group"]),
+    );
+    db.close();
   });
 
   it("refuses a database from a newer version, even in development", () => {

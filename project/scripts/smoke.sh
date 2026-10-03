@@ -69,7 +69,8 @@ headers="$(curl -s -D - -o /dev/null -X POST "$origin/?index" \
   --data-urlencode "timeZone=Europe/London" | tr -d '\r')"
 status="$(printf '%s\n' "$headers" | head -1)"
 location="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "location" { print $2 }')"
-cookie="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "set-cookie" { print $2 }' | cut -d';' -f1)"
+# Only the membership cookie: the redirect also sets a one-shot toast cookie.
+cookie="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "set-cookie" && $2 ~ /^mc_members=/ { print $2 }' | cut -d';' -f1)"
 case "$status" in *" 302"*) ;; *) fail "create did not redirect: $status" ;; esac
 [ -n "$cookie" ] || fail "create set no membership cookie"
 echo "  302 to $location"

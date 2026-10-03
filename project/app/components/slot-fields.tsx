@@ -1,5 +1,7 @@
 import type { SlotErrors, SlotFormValues } from "~/lib/availability";
 
+import { TimeField } from "./time-field";
+
 /**
  * How often, date, start/end times and an optional last date: the fields of
  * every slot-shaped form (member availability, organizer rehearsals). Values
@@ -47,32 +49,29 @@ export function SlotFields({ values, errors }: { values: SlotFormValues; errors:
       <div className="time-pair">
         <div className="field">
           <label htmlFor="startTime">From</label>
-          <input
+          <TimeField
             id="startTime"
             name="startTime"
-            type="time"
-            step={1800}
             required
             defaultValue={values.startTime}
-            aria-invalid={errors.startTime ? true : undefined}
-            aria-describedby={described("startTime")}
+            invalid={Boolean(errors.startTime)}
+            describedBy={described("startTime")}
           />
           {error("startTime")}
         </div>
         <div className="field">
           <label htmlFor="endTime">Until</label>
-          <input
+          <TimeField
             id="endTime"
             name="endTime"
-            type="time"
-            step={1800}
+            end
             required
             defaultValue={values.endTime}
-            aria-invalid={errors.endTime ? true : undefined}
-            aria-describedby={described("endTime", "endTime-hint")}
+            invalid={Boolean(errors.endTime)}
+            describedBy={described("endTime", "endTime-hint")}
           />
           <p className="hint" id="endTime-hint">
-            :00 or :30. Use 00:00 for midnight.
+            Any time; rounded to the nearest 15 minutes. Use 00:00 for midnight.
           </p>
           {error("endTime")}
         </div>

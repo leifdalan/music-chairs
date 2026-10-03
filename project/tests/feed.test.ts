@@ -54,6 +54,28 @@ describe("a member's calendar feed", () => {
     expect(text).toContain("LOCATION:Studio B");
   });
 
+  it("carries quarter-hour times", async () => {
+    const { store, cellist, first } = band();
+    const group = store.findGroup(cellist.groupId)!;
+    const later = store.addRehearsal(
+      group.id,
+      {
+        kind: "once",
+        startDate: addDays(first, 1),
+        endDate: null,
+        startMinute: 1155,
+        endMinute: 1305,
+      },
+      "Hall",
+    );
+    store.confirmRehearsal(group.id, later.id);
+
+    const text = await fetchFeed(`${store.feedTokenFor(cellist.id)}.ics`).text();
+
+    expect(text).toContain(`DTSTART:${stamp(addDays(first, 1), "191500")}`);
+    expect(text).toContain(`DTEND:${stamp(addDays(first, 1), "214500")}`);
+  });
+
   it("keeps the same link for a member", () => {
     const { store, cellist } = band();
 

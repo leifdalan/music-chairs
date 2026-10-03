@@ -2,9 +2,18 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
 import Join, { action, loader } from "../app/routes/join";
-import { cookieFrom, routeArgs, signedIn, thrownBy, tempDatabase } from "./routes";
+import {
+  cookieFrom,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  thrownBy,
+  tempDatabase,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -27,7 +36,23 @@ function statusOf(value: unknown): number | undefined {
   return (value as { init?: ResponseInit | null }).init?.status;
 }
 
+/** The toast message a redirect leaves, read the way the root loader reads it. */
+async function toastOf(response: unknown): Promise<string | undefined> {
+  const cookie = setCookies(response as Response).mc_toast;
+  if (!cookie) return undefined;
+  return (await readToast(new Request(ORIGIN, { headers: { Cookie: cookie } }))).toast?.message;
+}
+
 describe("join route", () => {
+  it("welcomes the new member by the group's name", async () => {
+    const group = newGroup();
+
+    const response = await joinAs(group.inviteToken, "Cellist");
+
+    expect(await toastOf(response)).toBe("You joined Thursday Quartet");
+    expect(cookieFrom(response as Response)).toMatch(/^mc_members=/);
+  });
+
   it("links a member who joins while signed in, and prefills their Google name", async () => {
     const group = newGroup();
     const { account, cookie } = await signedIn({

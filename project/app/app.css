@@ -10,6 +10,7 @@
   --accent: #2f5bd3;
   --accent-text: #ffffff;
   --error: #b3261e;
+  --success: #1f7a3f;
   font-family:
     system-ui,
     -apple-system,
@@ -31,6 +32,7 @@
     --accent: #7c9dff;
     --accent-text: #0d0d12;
     --error: #ff8a80;
+    --success: #6fcf8f;
   }
 }
 
@@ -541,8 +543,9 @@ button.small,
   padding: 0.25rem 0;
 }
 
-.import-row input[type="time"] {
-  width: auto;
+.import-row input:not([type="checkbox"]),
+.import-window input {
+  width: 7rem;
 }
 
 .calendar-panel {
@@ -558,4 +561,94 @@ button.small,
 .calendar-panel h3,
 .calendar-panel p {
   margin: 0;
+}
+
+/* Feedback: the pressed button's saving and saved states, and the toast. */
+button.is-saving,
+button.is-saved {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+button.is-saving {
+  cursor: progress;
+  opacity: 0.85;
+}
+
+button.is-saved {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--accent-text);
+}
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(28rem, calc(100% - 2rem));
+  z-index: 10;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--text);
+  color: var(--surface);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.2);
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast-dismiss {
+  width: auto;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .toast {
+    animation: none;
+  }
+}
+
+.problem-alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
 }

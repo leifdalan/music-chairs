@@ -1,7 +1,9 @@
-import { data, Form, redirect, useNavigation } from "react-router";
+import { data, Form, redirect } from "react-router";
 
 import { findViewer, readAccount, rememberMembership } from "~/.server/membership";
+import { redirectWithToast } from "~/.server/flash";
 import { getStore, type Group } from "~/.server/store";
+import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
@@ -58,15 +60,15 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
     throw error;
   }
-  return redirect(`/g/${group.id}`, {
+  return redirectWithToast(`/g/${group.id}`, `You joined ${group.name}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
 }
 
 export default function Join({ loaderData, actionData }: Route.ComponentProps) {
   // A second tap while the POST is in flight carries no membership cookie yet,
-  // so it would add a second member; stay disabled until the next page loads.
-  const busy = useNavigation().state !== "idle";
+  // so it would add a second member; SubmitButton keeps the pressed button inert
+  // until the next page loads.
   return (
     <main>
       <p className="eyebrow">You're invited to join</p>
@@ -83,9 +85,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
             ? `You'll join with your Google account (${loaderData.account.email}); the group will see you by this name.`
             : "No account needed: the group will see you by this name."}
         </p>
-        <button type="submit" disabled={busy}>
-          Join group
-        </button>
+        <SubmitButton feedbackKey="join">Join group</SubmitButton>
       </Form>
     </main>
   );

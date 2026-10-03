@@ -1,9 +1,12 @@
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 
+import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member } from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
+import { ProblemAlert } from "~/components/problem-alert";
+import { SubmitButton } from "~/components/submit-button";
 import {
   addDays,
   describeSlot,
@@ -47,11 +50,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const until = addDays(today, UPCOMING_WEEKS * 7 - 1);
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
-  const imported = Number(search.get("imported"));
   return {
     // Import needs a Google-linked member; the import page checks the rest.
     canImport: googleConfig() !== null && viewer.googleEmail !== null,
-    importedCount: Number.isInteger(imported) && imported > 0 ? imported : null,
+
     groupName: group.name,
     timeZone: group.timeZone,
     today,
@@ -80,7 +82,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
   const slotId = String(form.get("slotId") ?? "");
-  const back = redirect(`/g/${group.id}/availability`);
+  const back = (message: string) => redirectWithToast(`/g/${group.id}/availability`, message);
 
   if (intent === "create" || intent === "update") {
     const parsed = parseSlotInput(form);
@@ -90,11 +92,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     } else if (!store.updateSlot(viewer.id, slotId, parsed.value)) {
       throw data(null, { status: 404 });
     }
-    return back;
+    return back(intent === "create" ? "Availability saved" : "Changes saved");
   }
   if (intent === "delete") {
     if (!store.deleteSlot(viewer.id, slotId)) throw data(null, { status: 404 });
-    return back;
+    return back("Time removed");
   }
   if (intent === "skip" || intent === "unskip") {
     if (!store.findSlot(viewer.id, slotId)) throw data(null, { status: 404 });
@@ -102,7 +104,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!isDate(date) || !store.setSkip(viewer.id, slotId, date, intent === "skip")) {
       return problem("That date isn't one of this time's weeks. Reload the page and try again.");
     }
-    return back;
+    return back(intent === "skip" ? "Marked as can't make it" : "Marked as available again");
   }
   return problem("Something went wrong with that request. Please try again.");
 }
@@ -112,18 +114,7 @@ function timeRange(start: number, end: number): string {
 }
 
 export default function Availability({ loaderData, actionData }: Route.ComponentProps) {
-  const {
-    groupName,
-    timeZone,
-    today,
-    until,
-    slots,
-    occurrences,
-    editing,
-    canImport,
-    importedCount,
-  } = loaderData;
-  const busy = useNavigation().state !== "idle";
+  const { groupName, timeZone, today, until, slots, occurrences, editing, canImport } = loaderData;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
   return (
@@ -135,11 +126,6 @@ export default function Availability({ loaderData, actionData }: Route.Component
       </p>
       <h1>My availability</h1>
       <p className="hint">All times are in {timeZone}.</p>
-      {importedCount ? (
-        <p className="notice" role="status">
-          Added {importedCount} {importedCount === 1 ? "time" : "times"} from Google Calendar.
-        </p>
-      ) : null}
       {canImport ? (
         <p>
           <Link to="import" relative="path" className="button-link secondary">
@@ -153,23 +139,20 @@ export default function Availability({ loaderData, actionData }: Route.Component
         key={editing?.id ?? `new-${slots.length}`}
         editing={editing}
         actionData={formResult}
-        busy={busy}
         today={today}
       />
 
       <section aria-labelledby="slots-heading">
         <h2 id="slots-heading">My times</h2>
-        {pageProblem ? (
-          <p className="field-error" role="alert">
-            {pageProblem}
-          </p>
+        {pageProblem && actionData ? (
+          <ProblemAlert message={pageProblem} response={actionData} />
         ) : null}
         {slots.length === 0 ? (
           <p className="hint">Nothing yet. Add the times you can rehearse above.</p>
         ) : (
           <ul className="slots">
             {slots.map((slot) => (
-              <SlotItem key={slot.id} slot={slot} today={today} until={until} busy={busy} />
+              <SlotItem key={slot.id} slot={slot} today={today} until={until} />
             ))}
           </ul>
         )}
@@ -199,12 +182,10 @@ type ActionData = { errors: SlotErrors; values: SlotFormValues } | undefined;
 function SlotForm({
   editing,
   actionData,
-  busy,
   today,
 }: {
   editing: Slot | null;
   actionData: ActionData;
-  busy: boolean;
   today: string;
 }) {
   // Rejected values win over the slot being edited, so a correction keeps
@@ -223,9 +204,9 @@ function SlotForm({
         <input type="hidden" name="intent" value={editing ? "update" : "create"} />
         {editing ? <input type="hidden" name="slotId" value={editing.id} /> : null}
         <SlotFields values={values} errors={actionData?.errors ?? {}} />
-        <button type="submit" disabled={busy}>
+        <SubmitButton feedbackKey="availability-save">
           {editing ? "Save changes" : "Add time"}
-        </button>
+        </SubmitButton>
         {editing ? (
           <Link to="." relative="path" className="cancel">
             Cancel
@@ -236,17 +217,7 @@ function SlotForm({
   );
 }
 
-function SlotItem({
-  slot,
-  today,
-  until,
-  busy,
-}: {
-  slot: Slot;
-  today: string;
-  until: string;
-  busy: boolean;
-}) {
+function SlotItem({ slot, today, until }: { slot: Slot; today: string; until: string }) {
   // Dates in the horizon this pattern meets, skipped or not, so each can be toggled.
   const weeks =
     slot.kind === "weekly"
@@ -263,9 +234,9 @@ function SlotItem({
         <Form method="post" replace>
           <input type="hidden" name="intent" value="delete" />
           <input type="hidden" name="slotId" value={slot.id} />
-          <button type="submit" className="secondary" disabled={busy}>
+          <SubmitButton feedbackKey={`delete-${slot.id}`} className="secondary">
             Delete
-          </button>
+          </SubmitButton>
         </Form>
       </div>
       {weeks.length > 0 ? (
@@ -286,9 +257,9 @@ function SlotItem({
                   />
                   <input type="hidden" name="slotId" value={slot.id} />
                   <input type="hidden" name="date" value={date} />
-                  <button type="submit" className="secondary small" disabled={busy}>
+                  <SubmitButton feedbackKey={`skip-${slot.id}-${date}`} className="secondary small">
                     {skipped.has(date) ? "I can make it" : "Can't make it"}
-                  </button>
+                  </SubmitButton>
                 </Form>
               </li>
             ))}

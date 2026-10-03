@@ -1,9 +1,11 @@
 import { useState, useSyncExternalStore } from "react";
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link } from "react-router";
 
 import { googleConfig } from "~/.server/google";
+import { redirectWithToast } from "~/.server/flash";
 import { readAccount, rememberMembership } from "~/.server/membership";
 import { getStore } from "~/.server/store";
+import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone } from "~/lib/availability";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
@@ -82,15 +84,14 @@ export async function action({ request }: Route.ActionArgs) {
     timeZone,
     account?.id ?? null,
   );
-  return redirect(`/g/${group.id}`, {
+  return redirectWithToast(`/g/${group.id}`, "Group created", {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, organizer.deviceToken) },
   });
 }
 
 export default function Home({ loaderData, actionData }: Route.ComponentProps) {
-  // A second tap before the group page has loaded would create a second group,
-  // so the button stays disabled through the redirect's loading phase too.
-  const busy = useNavigation().state !== "idle";
+  // A second tap before the group page has loaded would create a second group;
+  // SubmitButton keeps the pressed button inert until the next page has loaded.
   const browserZone = useBrowserTimeZone();
   const [chosenZone, setChosenZone] = useState<string | null>(null);
   const timeZone = chosenZone ?? (actionData?.values.timeZone || browserZone || "");
@@ -156,9 +157,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
               </p>
             )}
           </div>
-          <button type="submit" disabled={busy}>
-            Create group
-          </button>
+          <SubmitButton feedbackKey="create-group">Create group</SubmitButton>
         </Form>
       </section>
     </main>
@@ -206,9 +205,9 @@ function AccountPanel({
         </p>
       )}
       <Form method="post" action="/auth/sign-out">
-        <button type="submit" className="secondary small">
+        <SubmitButton feedbackKey="sign-out" className="secondary small">
           Sign out
-        </button>
+        </SubmitButton>
       </Form>
     </section>
   );

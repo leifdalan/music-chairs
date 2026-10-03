@@ -1,6 +1,7 @@
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 
 import { calendarViewer, scheduleSync } from "~/.server/calendar-sync";
+import { redirectWithToast } from "~/.server/flash";
 import { CALENDAR_SCOPES, googleConfig } from "~/.server/google";
 import { findViewer, publicOrigin } from "~/.server/membership";
 import {
@@ -11,6 +12,8 @@ import {
   type RsvpAnswer,
 } from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
+import { ProblemAlert } from "~/components/problem-alert";
+import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import {
   addDays,
@@ -279,7 +282,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
-  const back = redirect(`/g/${group.id}/schedule`);
+  const back = (message: string) => redirectWithToast(`/g/${group.id}/schedule`, message);
   const syncViewer = () =>
     scheduleSync(store.listSyncingMembers(group.id).filter((m) => m.memberId === viewer.id));
 
@@ -293,7 +296,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.setCalendarSync(group.id, viewer.id, on);
     // Turning it off removes the upcoming events the app wrote.
     scheduleSync([{ memberId: viewer.id, groupId: group.id, accountId: capable.account.id }]);
-    return back;
+    return back(
+      on
+        ? "Rehearsals will be added to your Google Calendar"
+        : "Stopped adding rehearsals to your Google Calendar",
+    );
   }
 
   if (intent === "rsvp" || intent === "rsvp-all") {
@@ -312,7 +319,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         return problem("There are no dates to answer for this rehearsal.");
       }
       syncViewer();
-      return back;
+      return back(answer ? `Answered ${ANSWER_LABELS[answer]} for every date` : "Answers cleared");
     }
     const date = form.get("date");
     if (
@@ -323,7 +330,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       return problem("That date can't be answered. Reload the page and try again.");
     }
     syncViewer();
-    return back;
+    return back(answer ? `Answer saved: ${ANSWER_LABELS[answer]}` : "Answer cleared");
   }
 
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
@@ -349,19 +356,19 @@ export async function action({ request, params }: Route.ActionArgs) {
       return invalidForm(errors, { ...values, location: String(form.get("location") ?? "") });
     }
     store.addRehearsal(group.id, parsed.value, location.value);
-    return back;
+    return back("Rehearsal proposed");
   }
 
   if (!store.findRehearsal(group.id, rehearsalId)) throw data(null, { status: 404 });
   if (intent === "confirm") {
     store.confirmRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
-    return back;
+    return back("Rehearsal confirmed");
   }
   if (intent === "delete") {
     store.deleteRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
-    return back;
+    return back("Rehearsal deleted");
   }
   if (intent === "end") {
     const endDate = form.get("endDate");
@@ -372,7 +379,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       return problem("The last date can't be before the rehearsal's first date.");
     }
     syncGroup(group.id);
-    return back;
+    return back("Last date set");
   }
   if (intent === "cancel-date" || intent === "restore-date") {
     const date = form.get("date");
@@ -385,7 +392,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
     syncGroup(group.id);
-    return back;
+    return back(intent === "cancel-date" ? "Date cancelled" : "Date restored");
   }
   return problem("Something went wrong with that request. Please try again.");
 }
@@ -402,7 +409,6 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     prefill,
     calendar,
   } = loaderData;
-  const busy = useNavigation().state !== "idle";
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
   const proposed = rehearsals.filter((item) => item.status === "proposed");
@@ -416,27 +422,19 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       </p>
       <h1>Schedule</h1>
       <p className="hint">All times are in {timeZone}.</p>
-      {pageProblem ? (
-        <p className="field-error" role="alert">
-          {pageProblem}
-        </p>
+      {pageProblem && actionData ? (
+        <ProblemAlert message={pageProblem} response={actionData} />
       ) : null}
 
-      <RehearsalList
-        title="Confirmed"
-        items={confirmed}
-        busy={busy}
-        empty="Nothing confirmed yet."
-      />
-      <RehearsalList title="Proposed" items={proposed} busy={busy} empty="No proposed times." />
-      <CalendarPanel calendar={calendar} busy={busy} />
+      <RehearsalList title="Confirmed" items={confirmed} empty="Nothing confirmed yet." />
+      <RehearsalList title="Proposed" items={proposed} empty="No proposed times." />
+      <CalendarPanel calendar={calendar} />
 
       {prefill ? (
         <ProposeForm
           key={`${prefill.startDate}-${prefill.startTime}-${rehearsals.length}`}
           prefill={prefill}
           result={formResult}
-          busy={busy}
         />
       ) : null}
 
@@ -511,12 +509,10 @@ type RehearsalItem = Route.ComponentProps["loaderData"]["rehearsals"][number];
 function RehearsalList({
   title,
   items,
-  busy,
   empty,
 }: {
   title: string;
   items: RehearsalItem[];
-  busy: boolean;
   empty: string;
 }) {
   const headingId = `${title.toLowerCase()}-heading`;
@@ -528,7 +524,7 @@ function RehearsalList({
       ) : (
         <ul className="rehearsals">
           {items.map((item) => (
-            <RehearsalCard key={item.id} item={item} busy={busy} />
+            <RehearsalCard key={item.id} item={item} />
           ))}
         </ul>
       )}
@@ -536,7 +532,7 @@ function RehearsalList({
   );
 }
 
-function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
+function RehearsalCard({ item }: { item: RehearsalItem }) {
   const organizer = item.organizer;
   const shown = item.dates.slice(0, 4);
   const more = item.dates.slice(4);
@@ -549,13 +545,7 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
       ) : (
         <ul className="rsvp-dates">
           {shown.map((date) => (
-            <RsvpRow
-              key={date.date}
-              rehearsalId={item.id}
-              summary={item.summary}
-              date={date}
-              busy={busy}
-            />
+            <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
           ))}
         </ul>
       )}
@@ -564,13 +554,7 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           <summary>More dates ({more.length})</summary>
           <ul className="rsvp-dates">
             {more.map((date) => (
-              <RsvpRow
-                key={date.date}
-                rehearsalId={item.id}
-                summary={item.summary}
-                date={date}
-                busy={busy}
-              />
+              <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
             ))}
           </ul>
         </details>
@@ -580,7 +564,11 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
           <input type="hidden" name="intent" value="rsvp-all" />
           <input type="hidden" name="rehearsalId" value={item.id} />
           <span>Answer every date until {formatDate(item.dates[item.dates.length - 1].date)}:</span>
-          <AnswerButtons label={`every date of ${item.summary}`} current={undefined} busy={busy} />
+          <AnswerButtons
+            label={`every date of ${item.summary}`}
+            current={undefined}
+            feedbackPrefix={`rsvp-all-${item.id}`}
+          />
         </Form>
       ) : null}
       {organizer && organizer.warnings.length > 0 ? (
@@ -604,22 +592,21 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
             <Form method="post" replace>
               <input type="hidden" name="intent" value="confirm" />
               <input type="hidden" name="rehearsalId" value={item.id} />
-              <button type="submit" disabled={busy} aria-label={`Confirm ${item.summary}`}>
+              <SubmitButton feedbackKey={`confirm-${item.id}`} label={`Confirm ${item.summary}`}>
                 Confirm
-              </button>
+              </SubmitButton>
             </Form>
           ) : null}
           <Form method="post" replace>
             <input type="hidden" name="intent" value="delete" />
             <input type="hidden" name="rehearsalId" value={item.id} />
-            <button
-              type="submit"
+            <SubmitButton
+              feedbackKey={`delete-${item.id}`}
               className="secondary"
-              disabled={busy}
-              aria-label={`Delete ${item.summary}`}
+              label={`Delete ${item.summary}`}
             >
               Delete
-            </button>
+            </SubmitButton>
           </Form>
         </div>
       ) : null}
@@ -643,14 +630,13 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
                     />
                     <input type="hidden" name="rehearsalId" value={item.id} />
                     <input type="hidden" name="date" value={date} />
-                    <button
-                      type="submit"
+                    <SubmitButton
+                      feedbackKey={`date-${item.id}-${date}`}
                       className="secondary small"
-                      disabled={busy}
-                      aria-label={`${cancelled ? "Restore" : "Cancel"} ${formatDate(date)}`}
+                      label={`${cancelled ? "Restore" : "Cancel"} ${formatDate(date)}`}
                     >
                       {cancelled ? "Restore" : "Cancel this date"}
-                    </button>
+                    </SubmitButton>
                   </Form>
                 </li>
               );
@@ -667,9 +653,9 @@ function RehearsalCard({ item, busy }: { item: RehearsalItem; busy: boolean }) {
               required
               defaultValue={organizer.endDate ?? ""}
             />
-            <button type="submit" className="secondary" disabled={busy}>
+            <SubmitButton feedbackKey={`end-${item.id}`} className="secondary">
               Set last date
-            </button>
+            </SubmitButton>
           </Form>
         </details>
       ) : null}
@@ -685,28 +671,27 @@ const ANSWER_LABELS: Record<RsvpAnswer, string> = { yes: "Yes", no: "No", maybe:
 function AnswerButtons({
   label,
   current,
-  busy,
+  feedbackPrefix,
 }: {
   label: string;
   current: RsvpAnswer | null | undefined;
-  busy: boolean;
+  feedbackPrefix: string;
 }) {
   return (
     <span className="answers">
       {ANSWERS.map((answer) => (
-        <button
+        <SubmitButton
           key={answer}
-          type="submit"
+          feedbackKey={`${feedbackPrefix}-${answer}`}
           name="answer"
           value={answer}
           className={current === answer ? "answer chosen" : "answer secondary"}
           // Per-date buttons toggle a current answer; answer-all buttons are plain actions.
-          aria-pressed={current === undefined ? undefined : current === answer}
-          aria-label={`${ANSWER_LABELS[answer]} for ${label}`}
-          disabled={busy}
+          pressed={current === undefined ? undefined : current === answer}
+          label={`${ANSWER_LABELS[answer]} for ${label}`}
         >
           {ANSWER_LABELS[answer]}
-        </button>
+        </SubmitButton>
       ))}
     </span>
   );
@@ -716,12 +701,10 @@ function RsvpRow({
   rehearsalId,
   summary,
   date,
-  busy,
 }: {
   rehearsalId: string;
   summary: string;
   date: DateItem;
-  busy: boolean;
 }) {
   const { counts, names } = date;
   // Names the rehearsal too, so two rehearsals on one date stay distinguishable.
@@ -743,18 +726,21 @@ function RsvpRow({
         <input type="hidden" name="intent" value="rsvp" />
         <input type="hidden" name="rehearsalId" value={rehearsalId} />
         <input type="hidden" name="date" value={date.date} />
-        <AnswerButtons label={subject} current={date.mine} busy={busy} />
+        <AnswerButtons
+          label={subject}
+          current={date.mine}
+          feedbackPrefix={`rsvp-${rehearsalId}-${date.date}`}
+        />
         {date.mine ? (
-          <button
-            type="submit"
+          <SubmitButton
+            feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
             name="answer"
             value="clear"
             className="secondary small"
-            aria-label={`Clear my answer for ${subject}`}
-            disabled={busy}
+            label={`Clear my answer for ${subject}`}
           >
             Clear
-          </button>
+          </SubmitButton>
         ) : null}
       </Form>
       {lines.map((line) => (
@@ -769,11 +755,9 @@ function RsvpRow({
 function ProposeForm({
   prefill,
   result,
-  busy,
 }: {
   prefill: { startDate: string; startTime: string; endTime: string };
   result: { errors: ProposeErrors; values: ProposeValues } | undefined;
-  busy: boolean;
 }) {
   const values: ProposeValues = result?.values ?? {
     kind: prefill.startDate ? "once" : "weekly",
@@ -797,9 +781,7 @@ function ProposeForm({
           error={errors.location}
           optional
         />
-        <button type="submit" disabled={busy}>
-          Propose
-        </button>
+        <SubmitButton feedbackKey="propose">Propose</SubmitButton>
       </Form>
     </section>
   );
@@ -807,7 +789,6 @@ function ProposeForm({
 
 function CalendarPanel({
   calendar,
-  busy,
 }: {
   calendar: {
     feedUrl: string;
@@ -816,7 +797,6 @@ function CalendarPanel({
     connectUrl: string;
     notice: string | null;
   };
-  busy: boolean;
 }) {
   const google = calendar.google;
   return (
@@ -836,15 +816,14 @@ function CalendarPanel({
               ? "Confirmed rehearsals are added to your Google Calendar, except dates you said No to."
               : "Add confirmed rehearsals to your primary Google Calendar and keep them up to date."}
           </p>
-          <button
-            type="submit"
+          <SubmitButton
+            feedbackKey="set-calendar"
             className={google.state === "on" ? "secondary" : undefined}
-            disabled={busy}
           >
             {google.state === "on"
               ? "Stop adding rehearsals to my Google Calendar"
               : "Add rehearsals to my Google Calendar"}
-          </button>
+          </SubmitButton>
         </Form>
       ) : null}
       {google?.state === "connect" ? (

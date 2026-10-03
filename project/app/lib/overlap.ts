@@ -1,4 +1,4 @@
-// Group overlap: which members are free in each 30-minute cell of each date.
+// Group overlap: which members are free in each 15-minute cell of each date.
 // Dates and minutes are wall-clock values in the group's zone (Phase 2), so a
 // group's availability can be compared without any zone conversion.
 
@@ -11,13 +11,13 @@ export type OverlapMember = {
   slots: Slot[];
 };
 
-const CELL_MINUTES = 30;
+const CELL_MINUTES = 15;
 const CELLS_PER_DAY = (24 * 60) / CELL_MINUTES;
 
-/** For each date in the range, 48 sets of the member ids free in that half hour. */
+/** For each date in the range, 96 sets of the member ids free in that quarter hour. */
 export type Cells = Map<string, Set<string>[]>;
 
-/** A maximal run of half hours on one date with the same, non-empty set of free members. */
+/** A maximal run of quarter hours on one date with the same, non-empty set of free members. */
 export type Stretch = { startMinute: number; endMinute: number; free: string[] };
 
 function emptyDay(): Set<string>[] {

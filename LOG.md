@@ -1146,3 +1146,125 @@ Execution trace: 07c852e3a6c44e998b4fe08dd07c93ee
 - Lessons: glistening-bear (zsh word splitting) and lucky-cockle (heredoc backslash loss) filed as methodology candidates; camouflaged-dragon gained its third occurrence and is now graduation-ready (DECIDE for the operator: proposed surface test policy). ./bin/lessons validate: LESSONS OK.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 10:11 — START
+
+Phase 8 — Feedback on every action, and 15-minute times with a friendlier time picker
+
+Execution trace: b37526712ada42e19bd427ae69303ce3
+
+Operator decisions recorded in plan/phase-8.md before this run: from the UX review after Phase 7, every change needs visible feedback, times use 15-minute steps everywhere and are rounded rather than refused, and a visual time picker is needed on desktop; at phase start, feedback is button states (Saving…, then Saved ✓) plus a short toast, with errors staying until dismissed, and time entry is a field that accepts typed times, rounds them to the nearest 15 minutes and offers a 15-minute list, with phones keeping their native picker. The User Demo was tightened before capture.
+
+Planned work:
+- Pending and completed states on every submitting control, and a visible confirmation after each change (saved availability, answers, proposals, confirmations, settings), app-wide.
+- 15-minute steps everywhere a time is entered or stored: availability, rehearsal times, and the presets of Phase 9. Existing half-hour data stays valid; the schema's half-hour checks are relaxed by migration.
+- One time-entry control used across the app: a visual picker on desktop (phones keep their native picker), rounding a typed time to the nearest 15 minutes (9:02 becomes 9:00) instead of rejecting it.
+- Overlap, free/busy import and calendar writing follow the 15-minute grid.
+
+## 2026-10-03 12:26 — END
+Phase 8 — Feedback on every action, and 15-minute times with a friendlier time picker
+
+Phase 8 is accepted on its gates and live at https://rehearse.dalan.dev. Every change now answers back: the button you press shows "Saving…" and then "Saved ✓", and a short message at the bottom names what happened ("Availability saved", "Answer saved: Yes"). It fades after a few seconds unless you hover it; refusals stay until dismissed. Times use 15-minute steps everywhere, and the live data was upgraded in place. Typed times like "9:02" or "9:52pm" are rounded to the nearest quarter hour instead of refused, both in the field and on the server. Desktop gets a type-or-pick time field and phones keep their native picker. How the feedback and the time field feel on your laptop and phone is yours to judge through the User Demo below.
+
+Execution trace: b37526712ada42e19bd427ae69303ce3
+
+Files changed:
+- plan/phase-8.md — operator decisions (button states plus toast; type-or-pick time field) and the tightened User Demo, recorded before the run
+- project/app/lib/availability.ts — 15-minute step; parseTimeText (typed times rounded to the nearest quarter hour, am/pm, end-of-day rules) and formatMeridiem; parseSlotInput rounds instead of refusing
+- project/app/.server/store.ts — migration 4 rebuilding availability and rehearsals with quarter-hour checks (children and indexes kept)
+- project/app/lib/overlap.ts, project/app/lib/free-busy.ts — 15-minute cells and free/busy blocks
+- project/app/.server/flash.ts, project/app/root.tsx, project/app/components/toast.tsx — one-shot toast cookie, delivered and cleared by the root loader, shown in an always-mounted live region
+- project/app/components/submit-button.tsx — SubmitButton and FeedbackProvider: Saving… and Saved ✓ for the pressed button, success meaning a new toast
+- project/app/components/time-field.tsx, project/app/components/slot-fields.tsx, project/app/components/problem-alert.tsx — the time field with a quarter-hour list, the slot form using it, dismissible refusals
+- project/app/routes/home.tsx, group.tsx, join.tsx, availability.tsx, availability.import.tsx, schedule.tsx, auth.sign-out.ts — a toast for every successful change and SubmitButton on every changing form; the import page uses the time field and parser
+- project/app/app.css — button states, spinner, toast, success colour, compact import fields
+- project/scripts/smoke.sh — picks the membership cookie by name
+- project/tests/ — parser, migration 4, overlap, free-busy, flash, submit-button, time-field, toast messages per action, quarter-hour calendar writes and feed (Vitest 299)
+- plan/INDEX.md — Phase 8 ✅, Phase 9 ⬅️ (pending, applied after this block)
+- plan/phase-9.md, plan/phase-10.md — inherited Phase 8 notes (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release healthy; live database migrated to schema version 4 with its data and the quarter-hour check (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 299/299, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.288 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 296.498 s; success
+- Coder: inline (no role span)
+- Critic (code review): 358.416 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 8048.077 s; intelligence 654.914 s; gates 149.974 s; orchestration 8047.458 s; wait 653.797 s; failed 0 s; retry 0 s; unattributed 0.619 s (category totals are interval unions and may overlap).
+- Awaiting user input:
+  - 2026-10-03T17:37:19Z → 2026-10-03T19:22:37Z: 6318.089 s (environment-action: AWS sign-in expired before the deploy gate; exact monotonic)
+  - Total: 6318.089 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=95053e3819e2e37f53ec895789b59feb2008498972b20cadbe49c459b3066e7b critiqued=772c52e25d5091b79ea347ac84b7ef3a3ba6938eb2ed3488976b65747063953e approved=16db222994ded470e28894349586310ee75af0d65ec4314947c7d4b71e436418 final=16db222994ded470e28894349586310ee75af0d65ec4314947c7d4b71e436418
+- Revision packets: 0
+- Advisory reports: 2 — plan review 11 findings (all adopted), code critique 8 findings (all adopted)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers the 15-minute grid end to end (storage through migration 4, overlap, free/busy import, calendar writes and the feed), rounding of typed times with every edge rule, existing half-hour data still loading after the upgrade, each action's toast, and the feedback state machine; `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (how the saving states, toasts and time field feel on a laptop and a phone, including the iPhone picker)
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-9.md and plan/phase-10.md — add "Inherited from Phase 8": 15-minute grid and parseTimeText rounding, TimeField and QuarterHours for every time entry, SubmitButton with a feedbackKey and redirectWithToast for every changing action, schema at version 4 — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed pending: a methodology candidate — a bulk regex edit across files (removing a now-unused `busy` prop) also removed an unrelated `busy` argument; edits spanning many files should assert the expected match count per file, as the other scripted edits did
+- graduation DECIDE: camouflaged-dragon (3 occurrences) → test policy, still awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev` on a laptop, in a group where you are the organizer, and on your phone as a member of the same group.
+- **Suggested inputs.** On the laptop, open **My availability** and add a weekly slot: type `9:02` as the start and `9:52pm` as the end, and save. Open **Schedule**, propose a one-off rehearsal next week from 19:15 to 21:45 picked from the time list, and confirm it. On the phone, answer **Yes** for that date.
+- **What to look for.** Typed times round when you leave the field (9:02 becomes 9:00, 9:52pm becomes 9:45pm) and the time list moves in 15-minute steps. Each button shows "Saving…" and then "Saved ✓", and a short message names what happened (availability saved, rehearsal proposed, rehearsal confirmed, answer saved). The schedule's overlap and the confirmed rehearsal show quarter-hour times such as 19:15.
+- **Variations to explore.** Pick a time with the phone's native picker. Throttle the laptop's network in the browser's developer tools to see the saving state last longer. Is the feedback noticeable without being in the way?
+- Notes: browsers only list times matching what is already in a filled-in field, so clear it to see the whole list. Confirm moves the rehearsal to the Confirmed list, so its feedback is the toast rather than the button.
+
+Remaining:
+- None for this phase. Phases 9–11 follow.
+
+## 2026-10-03 12:26 — Close bookkeeping outcomes
+
+Phase 8 — Feedback on every action, and 15-minute times with a friendlier time picker
+
+Execution trace: b37526712ada42e19bd427ae69303ce3
+
+- Status: applied and verified — Phase 8 ✅, Phase 9 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-9.md and plan/phase-10.md gained an "Inherited from Phase 8" section.
+- Ripple DECIDE: none.
+- Lessons: winged-tuna filed as a methodology candidate; ./bin/lessons validate: LESSONS OK. camouflaged-dragon remains graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

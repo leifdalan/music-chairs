@@ -1,14 +1,14 @@
 // Turning Google Calendar busy periods into proposed one-off availability
-// (plan/phase-7.md, Decisions): a half-hour counts as free only when no busy
-// period touches any part of it.
+// (plan/phase-7.md, Decisions, on Phase 8's 15-minute grid): a quarter hour
+// counts as free only when no busy period touches any part of it.
 
-import { addDays, expandOccurrences, type Slot } from "./availability";
+import { addDays, expandOccurrences, STEP_MINUTES, type Slot } from "./availability";
 import { zonedInstant } from "./zoned-time";
 
 /** How many days ahead an import looks, starting today. */
 export const IMPORT_DAYS = 28;
 
-const STEP = 30;
+const STEP = STEP_MINUTES;
 /** Shorter free stretches are not worth proposing as rehearsal time. */
 const MIN_PROPOSAL = 60;
 
@@ -26,7 +26,7 @@ export function importRange(firstDate: string, days: number, zone: string) {
 
 /**
  * Free stretches of at least an hour inside the daily window, for `days` days
- * from `firstDate` in `zone`. Half-hours already over at `now`, half-hours a
+ * from `firstDate` in `zone`. Quarter hours already over at `now`, quarter hours a
  * daylight-saving change skips, and stretches the member's existing
  * availability already covers that day are left out.
  */

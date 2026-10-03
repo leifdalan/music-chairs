@@ -7,7 +7,9 @@ import {
   formatDate,
   formatMinutes,
   isOccurrence,
+  formatMeridiem,
   parseSlotInput,
+  parseTimeText,
   timeInputValue,
   todayInZone,
   type Slot,
@@ -133,6 +135,12 @@ describe("parseSlotInput", () => {
     expect(formatMinutes(1440)).toBe("24:00");
   });
 
+  it("rounds typed times to the nearest quarter hour instead of refusing them", () => {
+    const parsed = parseSlotInput(form({ ...valid, startTime: "9:02", endTime: "9:52pm" }));
+
+    expect(parsed.ok && [parsed.value.startMinute, parsed.value.endMinute]).toEqual([540, 1305]);
+  });
+
   it("drops an end date from a one-off slot", () => {
     const parsed = parseSlotInput(form({ ...valid, kind: "once", endDate: "2026-12-31" }));
 
@@ -140,11 +148,7 @@ describe("parseSlotInput", () => {
   });
 
   it.each([
-    [
-      { startTime: "19:15" },
-      "startTime",
-      "Start time must be on the hour or half hour (:00 or :30).",
-    ],
+    [{ startTime: "23:53" }, "startTime", "Start time is too late; the latest start is 23:45."],
     [{ endTime: "18:30" }, "endTime", "End time must be after the start time."],
     [{ endTime: "19:00" }, "endTime", "End time must be after the start time."],
     [{ startDate: "2026-02-30" }, "startDate", "Enter a valid date."],
@@ -152,7 +156,7 @@ describe("parseSlotInput", () => {
     [{ endDate: "2026-09-30" }, "endDate", "The end date can't be before the first date."],
     [{ kind: "daily" }, "kind", "Choose one-off or every week."],
     [{ startTime: "" }, "startTime", "Start time is required."],
-    [{ startTime: "7pm" }, "startTime", "Start time is not a valid time."],
+    [{ startTime: "7 o'clock" }, "startTime", "Start time is not a valid time."],
   ])("rejects %j with a readable error", (change, field, message) => {
     const parsed = parseSlotInput(form({ ...valid, ...change }));
 
@@ -206,5 +210,69 @@ describe("group time zone", () => {
     expect(results[0]).toBe(
       "2026-10-15,2026-10-22,2026-10-29,2026-11-05,2026-11-12|Thu 8 Oct|Every Thursday from 1 Oct until 24 Dec, 19:00–22:00",
     );
+  });
+});
+
+describe("typed times", () => {
+  const start = (text: string) => parseTimeText(text, { end: false });
+  const end = (text: string) => parseTimeText(text, { end: true });
+  const minutes = (parsed: ReturnType<typeof parseTimeText>) =>
+    parsed.ok ? parsed.minutes : parsed.reason;
+
+  it.each([
+    ["9", 540],
+    ["9:02", 540],
+    ["9:07", 540],
+    ["9:08", 555],
+    ["09:15", 555],
+    ["930", 570],
+    ["100", 60],
+    ["2115", 1275],
+    ["7pm", 1140],
+    ["7:52 PM", 1185],
+    ["7p", 1140],
+    ["7 a.m.", 420],
+    ["12am", 0],
+    ["12:10am", 15],
+    ["12pm", 720],
+    ["0:00", 0],
+  ])("reads %j as a start at minute %i", (text, expected) => {
+    expect(minutes(start(text))).toBe(expected);
+  });
+
+  it.each([
+    ["00:00", 1440],
+    ["00:05", 1440],
+    ["24:00", 1440],
+    ["11:53pm", 1440],
+    ["00:10", 15],
+    ["22:00", 1320],
+  ])("reads %j as an end at minute %i", (text, expected) => {
+    expect(minutes(end(text))).toBe(expected);
+  });
+
+  it.each(["", "  "])("calls %j empty", (text) => {
+    expect(minutes(start(text))).toBe("empty");
+  });
+
+  it.each(["13pm", "0am", "24:30", "25", "9:60", "9:5", "nine", "12345", "7 o'clock"])(
+    "cannot read %j",
+    (text) => {
+      expect(minutes(start(text))).toBe("unreadable");
+    },
+  );
+
+  it("refuses a start that rounds to the end of the day", () => {
+    expect(minutes(start("23:53"))).toBe("too-late");
+    expect(minutes(start("24:00"))).toBe("too-late");
+  });
+
+  it("says whether am/pm was typed, and formats that style back", () => {
+    expect(start("9:52pm")).toEqual({ ok: true, minutes: 1305, meridiem: true });
+    expect(start("21:52")).toEqual({ ok: true, minutes: 1305, meridiem: false });
+    expect(formatMeridiem(1305)).toBe("9:45pm");
+    expect(formatMeridiem(0)).toBe("12:00am");
+    expect(formatMeridiem(720)).toBe("12:00pm");
+    expect(formatMeridiem(1440)).toBe("12:00am");
   });
 });

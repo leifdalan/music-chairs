@@ -5,7 +5,7 @@ import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { action, loader } from "../app/routes/availability.import";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
-import { deviceCookie, routeArgs, signedIn } from "./routes";
+import { deviceCookie, routeArgs, setCookies, signedIn } from "./routes";
 
 let google: GoogleFake;
 let people = 0;
@@ -138,7 +138,8 @@ describe("importing free time from Google Calendar", () => {
       ),
     )) as Response;
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}/availability?imported=1`);
+    expect(response.headers.get("Location")).toBe(`/g/${group.id}/availability`);
+    expect(Object.keys(setCookies(response))).toEqual(["mc_toast"]);
     expect(store.listSlots(member.id)).toEqual([
       expect.objectContaining({
         kind: "once",
@@ -150,7 +151,7 @@ describe("importing free time from Google Calendar", () => {
   });
 
   it.each([
-    ["off the half-hour grid", { "start-0": "09:15" }],
+    ["that can't be read", { "start-0": "nine-ish" }],
     ["past the four weeks", { "date-0": "2099-01-01" }],
     ["ending before it starts", { "start-0": "11:00", "end-0": "10:00" }],
   ])("refuses a kept time %s", async (_label, change) => {

@@ -19,15 +19,15 @@ const base = {
 };
 
 describe("free/busy proposals", () => {
-  it("counts a half-hour free only when no busy period touches it", () => {
+  it("counts a quarter hour free only when no busy period touches it", () => {
     const proposals = proposeFreeSlots({
       ...base,
-      busy: [busyAt("2026-11-02T10:15:00Z", "2026-11-02T10:45:00Z")],
+      busy: [busyAt("2026-11-02T10:20:00Z", "2026-11-02T10:40:00Z")],
     });
 
     expect(proposals).toEqual([
-      { date: "2026-11-02", startMinute: 9 * 60, endMinute: 10 * 60 },
-      { date: "2026-11-02", startMinute: 11 * 60, endMinute: 12 * 60 },
+      { date: "2026-11-02", startMinute: 9 * 60, endMinute: 10 * 60 + 15 },
+      { date: "2026-11-02", startMinute: 10 * 60 + 45, endMinute: 12 * 60 },
     ]);
   });
 

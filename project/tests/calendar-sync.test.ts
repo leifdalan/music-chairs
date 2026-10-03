@@ -103,6 +103,33 @@ describe("which dates go on a member's calendar", () => {
 });
 
 describe("writing to Google Calendar", () => {
+  it("writes quarter-hour rehearsal times exactly", async () => {
+    const { store, group, target, firstDate } = syncingBand();
+    const later = store.addRehearsal(
+      group.id,
+      {
+        kind: "once",
+        startDate: addDays(firstDate, 1),
+        endDate: null,
+        startMinute: 19 * 60 + 15,
+        endMinute: 21 * 60 + 45,
+      },
+      "Hall",
+    );
+    store.confirmRehearsal(group.id, later.id);
+
+    await syncMember(target);
+
+    const body = inserts().find((call) => (call.body as { location: string }).location === "Hall")
+      ?.body as { start: { dateTime: string }; end: { dateTime: string } };
+    expect(body.start.dateTime).toBe(
+      zonedInstant(addDays(firstDate, 1), 19 * 60 + 15, ZONE)?.toISOString(),
+    );
+    expect(body.end.dateTime).toBe(
+      zonedInstant(addDays(firstDate, 1), 21 * 60 + 45, ZONE)?.toISOString(),
+    );
+  });
+
   it("adds one confirmed, non-attendee event per date with a stable id and the group's zone", async () => {
     const { store, cellist, rehearsal, firstDate, target } = syncingBand();
 

@@ -1,9 +1,12 @@
 import { useRef, useState } from "react";
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 
+import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer, publicOrigin, readAccount } from "~/.server/membership";
 import { getStore } from "~/.server/store";
+import { ProblemAlert } from "~/components/problem-alert";
+import { SubmitButton } from "~/components/submit-button";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/group";
@@ -76,14 +79,14 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
   const memberId = String(form.get("memberId") ?? "");
   const on = form.get("value") === "on";
-  const back = redirect(`/g/${group.id}`);
+  const back = (message: string) => redirectWithToast(`/g/${group.id}`, message);
   if (intent === "set-privacy") {
     store.setShowNames(group.id, on);
-    return back;
+    return back(on ? "Members now see who is free" : "Members now see counts only");
   }
   if (intent === "set-optional") {
     if (!store.setOptional(group.id, memberId, on)) throw data(null, { status: 404 });
-    return back;
+    return back(on ? "Marked optional" : "Marked required");
   }
   if (intent === "set-role") {
     const result = store.setRole(group.id, memberId, on ? "organizer" : "member");
@@ -94,7 +97,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         { status: 400 },
       );
     }
-    return back;
+    return back(on ? "Made an organizer" : "Organizer removed");
   }
   return data({ problem: "Something went wrong with that request." }, { status: 400 });
 }
@@ -102,7 +105,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 export default function GroupPage({ loaderData, actionData }: Route.ComponentProps) {
   const { groupName, timeZone, members, viewer, showNames, inviteUrl, signInAvailable, notice } =
     loaderData;
-  const busy = useNavigation().state !== "idle";
   return (
     <main>
       <h1>{groupName}</h1>
@@ -149,9 +151,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         </p>
       ) : null}
       {actionData?.problem ? (
-        <p className="field-error" role="alert">
-          {actionData.problem}
-        </p>
+        <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}
       {inviteUrl ? <InvitePanel inviteUrl={inviteUrl} /> : null}
       {showNames !== null ? (
@@ -162,7 +162,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
               ? "Members see who is free at each time."
               : "Members see only how many people are free at each time."}
           </p>
-          <Toggle intent="set-privacy" setTo={!showNames} busy={busy}>
+          <Toggle intent="set-privacy" setTo={!showNames}>
             {showNames ? "Show only counts" : "Show names to members"}
           </Toggle>
         </section>
@@ -196,7 +196,6 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                     memberId={member.manage.id}
                     setTo={!member.manage.optional}
                     label={`${member.manage.optional ? "Make required" : "Make optional"}: ${member.displayName}`}
-                    busy={busy}
                   >
                     {member.manage.optional ? "Make required" : "Make optional"}
                   </Toggle>
@@ -205,7 +204,6 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                     memberId={member.manage.id}
                     setTo={member.role !== "organizer"}
                     label={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
-                    busy={busy}
                   >
                     {member.role === "organizer" ? "Remove organizer" : "Make organizer"}
                   </Toggle>
@@ -225,7 +223,6 @@ function Toggle({
   memberId,
   setTo,
   label,
-  busy,
   children,
 }: {
   intent: string;
@@ -233,7 +230,6 @@ function Toggle({
   setTo: boolean;
   /** Accessible name when the visible text alone doesn't say who it affects. */
   label?: string;
-  busy: boolean;
   children: string;
 }) {
   return (
@@ -241,9 +237,13 @@ function Toggle({
       <input type="hidden" name="intent" value={intent} />
       {memberId ? <input type="hidden" name="memberId" value={memberId} /> : null}
       <input type="hidden" name="value" value={setTo ? "on" : "off"} />
-      <button type="submit" className="secondary small" disabled={busy} aria-label={label}>
+      <SubmitButton
+        feedbackKey={`${intent}-${memberId ?? "group"}`}
+        className="secondary small"
+        label={label}
+      >
         {children}
-      </button>
+      </SubmitButton>
     </Form>
   );
 }
