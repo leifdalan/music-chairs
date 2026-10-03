@@ -36,13 +36,17 @@ graph TD
     P8[Phase 8<br/>Feedback on every action, and 15-minute times]
     P9[Phase 9<br/>Scheduling requests]
     P10[Phase 10<br/>Availability in calendar and list views]
-    P11[Phase 11<br/>Visual cleanup]
+    P11[Phase 11<br/>Managing groups and members, with confirmations]
+    P12[Phase 12<br/>Profile menu, returning by name, one Google sign-in]
+    P13[Phase 13<br/>Adding members from Google contacts or by name]
+    P14[Phase 14<br/>Proposing several free times; pending requests at home]
+    P15[Phase 15<br/>Visual cleanup]
     P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
     P3 --> P7
-    P7 --> P8 --> P9 --> P10 --> P11
+    P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P13 --> P14 --> P15
 ```
 
-Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 2–11 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
+Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last as Phase 15. Phases 10–15 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
 
 ## Phase Table
 
@@ -60,7 +64,11 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ✅     |
 | [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ✅     |
 | [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ⬅️     |
-| [Phase 11](phase-11.md) | Visual cleanup                                                    | ⏳     |
+| [Phase 11](phase-11.md) | Managing groups and members, with a confirmation before anything destructive | ⏳     |
+| [Phase 12](phase-12.md) | Your profile menu, returning by name, and one Google sign-in for everything | ⏳     |
+| [Phase 13](phase-13.md) | Adding members from Google contacts or by name                     | ⏳     |
+| [Phase 14](phase-14.md) | Proposing several free times at once, and pending requests on the home screen | ⏳     |
+| [Phase 15](phase-15.md) | Visual cleanup                                                    | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
@@ -71,6 +79,8 @@ row is `🚧`; a complete project has zero; more than one is always invalid.
 **Deferred-work note (operator decision, 2026-10-02).** Role rules ("at least one of our two keyboardists", brief "Choosing rehearsal times") are deferred out of Phase 3, which ships optional-member tags instead (everyone else counts as required). Not operative during Phase 3; superseded when a later phase is planned to add them or the operator drops them from v1.
 
 **Deferred-work note (operator decision, 2026-10-02).** Phase 7 reads free/busy from, and writes rehearsal events to, each member's primary Google calendar only. Two follow-ups are deferred to a later feature: members choosing which of their calendars count as busy for import, and granular member-chosen control over which calendar rehearsal events are written to. Not operative during Phase 7; superseded when a later phase is planned to add them or the operator drops them.
+
+**Insertion and renumbering record (operator decision, 2026-10-03).** After Phase 9 the operator listed twelve further changes and placed them after Phase 10. They became Phases 11–14, and the visual cleanup sketched as Phase 11 was renumbered Phase 15 so that it stays last; its content is unchanged. In notes, log entries and reports dated before this record, "Phase 11" means the visual cleanup, now Phase 15. One item from the list ("the imported dates for availability should only fall within the proposed time") was added to Phase 10's decisions instead, because Phase 10 replaces the Google Calendar import. Dependencies are otherwise unchanged: Phases 1–10 keep their edges.
 
 ## Methodology work is not phase work
 

@@ -1,7 +1,8 @@
 ---
 slug: valiant-rottweiler
 title: Create the Google Cloud project and OAuth client for Google sign-in
-status: pending
+status: done
+closed: 2026-10-03
 category: credentials
 urgency: high
 blocks:
@@ -31,3 +32,7 @@ Google sign-in needs an OAuth client that only you can create, in the Google Clo
    ```
 
 Progress (2026-10-02): the operator created the client and gave the agent its client id (recorded in `plan/phase-6.md` and `project/deploy/config.json`); at the operator's request the agent stored the secret from the clipboard as `/music-chairs/google-client-secret` (version 1) without displaying it. Close this item once a real Google sign-in on https://rehearse.dalan.dev works (the Phase 6 User Demo), which confirms the console steps (publishing, redirect URIs).
+
+## Disposition
+
+The operator created the OAuth client (client id in `project/deploy/config.json`, secret in Parameter Store) and real Google sign-in works on https://rehearse.dalan.dev, confirming publishing and the redirect URIs. Closed on the operator's word on 2026-10-03. No recurring learning.
