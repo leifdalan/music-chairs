@@ -916,3 +916,73 @@ button.time-cell.anchor {
 .request-banner a {
   font-weight: 600;
 }
+
+/* Confirmations and group settings (Phase 11) */
+
+button.danger,
+.button-link.danger {
+  background: var(--error);
+  color: var(--accent-text);
+}
+
+.confirm-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.confirm-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.confirm-dialog h2,
+.confirm-panel h2 {
+  margin-top: 0;
+  font-size: 1.125rem;
+}
+
+.confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.confirm-panel {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 2px solid var(--error);
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.confirm-form {
+  display: contents;
+}
+
+.end-form.confirm-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rename-form {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.rename-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rename-form button {
+  width: auto;
+}
+
+.group-settings {
+  display: grid;
+  gap: 1rem;
+}

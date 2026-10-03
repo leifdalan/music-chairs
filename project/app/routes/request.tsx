@@ -1,8 +1,10 @@
 import { data, Form, Link, redirect } from "react-router";
 
+import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
+import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import {
@@ -166,6 +168,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   if (intent === "close" || intent === "reopen") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
+    if (intent === "close") {
+      const prompt = confirmationNeeded(form, closePrompt(scheduleRequest.name));
+      if (prompt) return prompt;
+    }
     if (!store.setRequestOpen(group.id, scheduleRequest.id, intent === "reopen")) {
       throw data(null, { status: 404 });
     }
@@ -212,6 +218,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       {actionData && "problem" in actionData ? (
         <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}
+      {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
       {isOrganizer ? (
         <div className="request-actions">
@@ -223,12 +230,21 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               Edit
             </Link>
           ) : null}
-          <Form method="post" replace>
-            <input type="hidden" name="intent" value={open ? "close" : "reopen"} />
-            <SubmitButton feedbackKey={`request-open-${requestId}`} className="secondary">
-              {open ? "Close request" : "Reopen request"}
-            </SubmitButton>
-          </Form>
+          {open ? (
+            <ConfirmForm
+              fields={{ intent: "close" }}
+              trigger="Close request"
+              {...closePrompt(name)}
+              feedbackKey={`request-open-${requestId}`}
+            />
+          ) : (
+            <Form method="post" replace>
+              <input type="hidden" name="intent" value="reopen" />
+              <SubmitButton feedbackKey={`request-open-${requestId}`} className="secondary">
+                Reopen request
+              </SubmitButton>
+            </Form>
+          )}
           <Link
             to={`/g/${groupId}/requests/new?repeat=${requestId}`}
             className="button-link secondary"
@@ -383,4 +399,13 @@ function AnswerForm({ limit, answered }: { limit: number | null; answered: boole
       </SubmitButton>
     </Form>
   );
+}
+
+/** The "are you sure" text for closing a request; the dialog and the confirm page share it. */
+function closePrompt(name: string) {
+  return {
+    title: `Close ${name}?`,
+    body: "Members can no longer answer it. You can reopen it later.",
+    label: "Close request",
+  };
 }

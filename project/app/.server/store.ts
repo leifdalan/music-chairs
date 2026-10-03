@@ -62,6 +62,11 @@ export type SyncingMember = { memberId: string; groupId: string; accountId: stri
 /** One event the app wrote to a member's Google Calendar. */
 export type CalendarEvent = { rehearsalId: string; date: string; eventId: string };
 
+/** An app-written Google Calendar event whose member or group is gone. */
+export type EventRemoval = { accountId: string; eventId: string };
+
+export type MemberRemoval = "removed" | "unknown" | "last-organizer";
+
 /** What an organizer asks for: a named date span and the times of day it covers. */
 export type RequestInput = {
   name: string;
@@ -107,6 +112,14 @@ export type Store = {
   findGroup(id: string): Group | null;
   findGroupByInviteToken(token: string): Group | null;
   setShowNames(groupId: string, showNames: boolean): void;
+  /** Renames the group and sets its time zone; false for an unknown group. */
+  updateGroup(groupId: string, changes: { name: string; timeZone: string }): boolean;
+  /**
+   * Deletes the group and everything in it, queueing every Google Calendar
+   * event the app wrote for its members for removal. Accounts, sessions and
+   * Google grants stay. False for an unknown group.
+   */
+  deleteGroup(groupId: string): boolean;
   addMember(groupId: string, displayName: string, role: Role, accountId?: string | null): NewMember;
   findMember(groupId: string, memberId: string): Member | null;
   findMemberByDevice(groupId: string, deviceToken: string): Member | null;
@@ -114,6 +127,13 @@ export type Store = {
   setOptional(groupId: string, memberId: string, optional: boolean): boolean;
   /** Refuses a change that would leave the group without an organizer. */
   setRole(groupId: string, memberId: string, role: Role): RoleChange;
+  renameMember(groupId: string, memberId: string, displayName: string): boolean;
+  /**
+   * Deletes a member and their availability, answers and RSVPs, queueing the
+   * Google Calendar events the app wrote for them for removal. The group's
+   * last organizer cannot be removed.
+   */
+  removeMember(groupId: string, memberId: string): MemberRemoval;
   // Availability is always read and written through its owner: a slot id of
   // another member behaves exactly like an unknown one.
   listSlots(memberId: string): Slot[];
@@ -197,6 +217,11 @@ export type Store = {
   listCalendarEvents(memberId: string): CalendarEvent[];
   recordCalendarEvent(memberId: string, event: CalendarEvent): void;
   forgetCalendarEvent(memberId: string, rehearsalId: string, date: string): void;
+  addEventRemoval(removal: EventRemoval): void;
+  listEventRemovals(): EventRemoval[];
+  forgetEventRemoval(removal: EventRemoval): void;
+  /** Drops every pending removal for an account whose Google access was revoked. */
+  forgetEventRemovalsFor(accountId: string): void;
   createRequest(groupId: string, input: RequestInput): ScheduleRequest;
   /** Replaces name, span and windows; false for an unknown or closed request. */
   updateRequest(groupId: string, requestId: string, input: RequestInput): boolean;
@@ -423,6 +448,15 @@ export const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (request_id, member_id)
   );
   `,
+  // Version 6 (Phase 11): Google Calendar events still to be removed after the
+  // member or group that owned them was deleted; retried until Google confirms.
+  `
+  CREATE TABLE calendar_event_removals (
+    account_id TEXT NOT NULL REFERENCES accounts(id),
+    event_id TEXT NOT NULL,
+    PRIMARY KEY (account_id, event_id)
+  );
+  `,
 ];
 
 /**
@@ -606,6 +640,52 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     `SELECT ${groupColumns} FROM groups WHERE invite_token = ?`,
   );
   const changeShowNames = db.prepare("UPDATE groups SET show_names = ? WHERE id = ?");
+  const changeGroup = db.prepare("UPDATE groups SET name = ?, time_zone = ? WHERE id = ?");
+  const changeDisplayName = db.prepare(
+    "UPDATE members SET display_name = ? WHERE group_id = ? AND id = ?",
+  );
+  // Deleting a member or a group: every row that refers to them, children first.
+  // Skips, windows, answers, cancellations and RSVPs of deleted parents cascade.
+  const queueMemberRemovals = db.prepare(
+    `INSERT OR IGNORE INTO calendar_event_removals (account_id, event_id)
+     SELECT members.account_id, calendar_events.event_id
+     FROM calendar_events JOIN members ON members.id = calendar_events.member_id
+     WHERE members.id = ? AND members.account_id IS NOT NULL`,
+  );
+  const queueGroupRemovals = db.prepare(
+    `INSERT OR IGNORE INTO calendar_event_removals (account_id, event_id)
+     SELECT members.account_id, calendar_events.event_id
+     FROM calendar_events JOIN members ON members.id = calendar_events.member_id
+     WHERE members.group_id = ? AND members.account_id IS NOT NULL`,
+  );
+  const deleteMemberRows = [
+    "DELETE FROM calendar_events WHERE member_id = ?",
+    "DELETE FROM rsvps WHERE member_id = ?",
+    "DELETE FROM request_answers WHERE member_id = ?",
+    "DELETE FROM availability WHERE member_id = ?",
+    "DELETE FROM members WHERE id = ?",
+  ].map((sql) => db.prepare(sql));
+  const inGroup = "SELECT id FROM members WHERE group_id = ?";
+  const deleteGroupRows = [
+    `DELETE FROM calendar_events WHERE member_id IN (${inGroup})`,
+    "DELETE FROM requests WHERE group_id = ?",
+    "DELETE FROM rehearsals WHERE group_id = ?",
+    `DELETE FROM availability WHERE member_id IN (${inGroup})`,
+    "DELETE FROM members WHERE group_id = ?",
+    "DELETE FROM groups WHERE id = ?",
+  ].map((sql) => db.prepare(sql));
+  const insertRemoval = db.prepare(
+    "INSERT OR IGNORE INTO calendar_event_removals (account_id, event_id) VALUES (?, ?)",
+  );
+  const selectRemovals = db.prepare(
+    "SELECT account_id, event_id FROM calendar_event_removals ORDER BY account_id, event_id",
+  );
+  const removeRemoval = db.prepare(
+    "DELETE FROM calendar_event_removals WHERE account_id = ? AND event_id = ?",
+  );
+  const removeAccountRemovals = db.prepare(
+    "DELETE FROM calendar_event_removals WHERE account_id = ?",
+  );
   // Member reads never select the device token.
   const memberSelect = `SELECT members.id, members.group_id, members.display_name, members.role,
       members.optional, members.calendar_sync, accounts.email AS google_email
@@ -1005,6 +1085,18 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     setShowNames(groupId, showNames) {
       changeShowNames.run(showNames ? 1 : 0, groupId);
     },
+    updateGroup(groupId, changes) {
+      if (!isToken(groupId)) return false;
+      return Number(changeGroup.run(changes.name, changes.timeZone, groupId).changes) > 0;
+    },
+    deleteGroup(groupId) {
+      if (!isToken(groupId) || !selectGroup.get(groupId)) return false;
+      transaction(() => {
+        queueGroupRemovals.run(groupId);
+        for (const statement of deleteGroupRows) statement.run(groupId);
+      });
+      return true;
+    },
     addMember,
     findMember(groupId, memberId) {
       if (!isToken(memberId)) return null;
@@ -1022,6 +1114,22 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     setOptional(groupId, memberId, optional) {
       if (!isToken(memberId)) return false;
       return Number(changeOptional.run(optional ? 1 : 0, groupId, memberId).changes) > 0;
+    },
+    renameMember(groupId, memberId, displayName) {
+      if (!isToken(memberId)) return false;
+      return Number(changeDisplayName.run(displayName, groupId, memberId).changes) > 0;
+    },
+    removeMember(groupId, memberId) {
+      if (!isToken(memberId)) return "unknown";
+      return transaction(() => {
+        const row = selectMember.get(groupId, memberId) as MemberRow | undefined;
+        if (!row) return "unknown";
+        const organizers = (countOrganizers.get(groupId) as { count: number }).count;
+        if (row.role === "organizer" && organizers <= 1) return "last-organizer";
+        queueMemberRemovals.run(memberId);
+        for (const statement of deleteMemberRows) statement.run(memberId);
+        return "removed";
+      });
     },
     setRole(groupId, memberId, role) {
       if (!isToken(memberId)) return "unknown";
@@ -1288,6 +1396,21 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     },
     forgetCalendarEvent(memberId, rehearsalId, date) {
       removeCalendarEvent.run(memberId, rehearsalId, date);
+    },
+    addEventRemoval(removal) {
+      insertRemoval.run(removal.accountId, removal.eventId);
+    },
+    listEventRemovals() {
+      return (selectRemovals.all() as { account_id: string; event_id: string }[]).map((row) => ({
+        accountId: row.account_id,
+        eventId: row.event_id,
+      }));
+    },
+    forgetEventRemoval(removal) {
+      removeRemoval.run(removal.accountId, removal.eventId);
+    },
+    forgetEventRemovalsFor(accountId) {
+      removeAccountRemovals.run(accountId);
     },
     createRequest(groupId, input) {
       const id = newToken();

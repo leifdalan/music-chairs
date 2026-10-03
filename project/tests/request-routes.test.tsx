@@ -313,9 +313,9 @@ describe("creating and editing requests", () => {
   it("refuses to edit a closed request until it is reopened", async () => {
     const { group, organizerCookie } = await band();
     const id = await created(group.id, organizerCookie, november);
-    expect(await toastOf(await post(group.id, id, organizerCookie, { intent: "close" }))).toBe(
-      "Request closed",
-    );
+    expect(
+      await toastOf(await post(group.id, id, organizerCookie, { intent: "close", confirmed: "1" })),
+    ).toBe("Request closed");
 
     const refused = await newForm(group.id, organizerCookie, {
       ...november,
@@ -364,9 +364,11 @@ describe("creating and editing requests", () => {
 
     expect(statusOf(await thrownBy(loadForm(group.id, cellistCookie)))).toBe(403);
     expect(statusOf(await thrownBy(newForm(group.id, cellistCookie, november)))).toBe(403);
-    expect(statusOf(await thrownBy(post(group.id, id, cellistCookie, { intent: "close" })))).toBe(
-      403,
-    );
+    expect(
+      statusOf(
+        await thrownBy(post(group.id, id, cellistCookie, { intent: "close", confirmed: "1" })),
+      ),
+    ).toBe(403);
     expect((await thrownBy(loadForm(group.id, undefined))) as Response).toHaveProperty(
       "status",
       302,
@@ -492,7 +494,7 @@ describe("answering a request", () => {
   it("refuses answers to a closed or ended request and hides its Add links", async () => {
     const { group, organizerCookie, cellistCookie } = await band();
     const closed = await created(group.id, organizerCookie, november);
-    await post(group.id, closed, organizerCookie, { intent: "close" });
+    await post(group.id, closed, organizerCookie, { intent: "close", confirmed: "1" });
     const ended = getStore().createRequest(group.id, {
       name: "September",
       startDate: "2026-09-01",
@@ -559,7 +561,7 @@ describe("requests on the group page", () => {
   it("lists past and closed requests for organizers, with Repeat", async () => {
     const { group, organizerCookie, cellistCookie } = await band();
     const closed = await created(group.id, organizerCookie, november);
-    await post(group.id, closed, organizerCookie, { intent: "close" });
+    await post(group.id, closed, organizerCookie, { intent: "close", confirmed: "1" });
 
     const asOrganizer = (await groupLoader(
       routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: organizerCookie }),
@@ -619,7 +621,7 @@ describe("adding availability from a request", () => {
     const other = await band();
     const foreign = await created(other.group.id, other.organizerCookie, november);
     const closed = await created(group.id, organizerCookie, november);
-    await post(group.id, closed, organizerCookie, { intent: "close" });
+    await post(group.id, closed, organizerCookie, { intent: "close", confirmed: "1" });
     const ended = getStore().createRequest(group.id, {
       name: "September",
       startDate: "2026-09-01",
@@ -667,6 +669,7 @@ describe("adding availability from a request", () => {
     })) as Response;
     const deleted = (await save(group.id, cellistCookie, {
       intent: "delete",
+      confirmed: "1",
       slotId: slot.id,
       request: id,
     })) as Response;

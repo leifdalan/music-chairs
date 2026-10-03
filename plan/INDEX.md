@@ -64,8 +64,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ✅     |
 | [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ✅     |
 | [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ✅     |
-| [Phase 11](phase-11.md) | Managing groups and members, with a confirmation before anything destructive | ⬅️     |
-| [Phase 12](phase-12.md) | Your profile menu, returning by name, and one Google sign-in for everything | ⏳     |
+| [Phase 11](phase-11.md) | Managing groups and members, with a confirmation before anything destructive | ✅     |
+| [Phase 12](phase-12.md) | Your profile menu, returning by name, and one Google sign-in for everything | ⬅️     |
 | [Phase 13](phase-13.md) | Adding members from Google contacts or by name                     | ⏳     |
 | [Phase 14](phase-14.md) | Proposing several free times at once, and pending requests on the home screen | ⏳     |
 | [Phase 15](phase-15.md) | Visual cleanup                                                    | ⏳     |

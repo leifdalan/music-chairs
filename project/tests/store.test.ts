@@ -736,6 +736,124 @@ describe("scheduling requests", () => {
   });
 });
 
+describe("removing members and deleting groups", () => {
+  function band(store: Store, name: string) {
+    const { group, organizer } = store.createGroup(name, "Viola", "Europe/London");
+    const account = store.upsertAccount({
+      sub: `sub-${name}`,
+      email: `${name}@example.test`,
+      name,
+    });
+    const cellist = store.addMember(group.id, "Cellist", "member", account.id);
+    store.saveGrant(account.id, "refresh", [
+      "https://www.googleapis.com/auth/calendar.events.owned",
+    ]);
+    const slot = store.addSlot(cellist.id, thursdays);
+    store.setSkip(cellist.id, slot.id, "2026-10-08", true);
+    const rehearsal = store.addRehearsal(group.id, thursdays, "Studio");
+    store.setCancelled(group.id, rehearsal.id, "2026-10-15", true);
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "2026-10-22", "yes");
+    const request = store.createRequest(group.id, {
+      name: "Concert",
+      startDate: "2026-11-02",
+      endDate: "2026-11-29",
+      windows: [{ startMinute: 1140, endMinute: 1320 }],
+    });
+    store.answerRequest(group.id, request.id, cellist.id, 2);
+    store.recordCalendarEvent(cellist.id, {
+      rehearsalId: rehearsal.id,
+      date: "2026-10-22",
+      eventId: `mc${name}new`,
+    });
+    store.recordCalendarEvent(cellist.id, {
+      rehearsalId: rehearsal.id,
+      date: "2020-01-02",
+      eventId: `mc${name}old`,
+    });
+    return { group, organizer, account, cellist, rehearsal, request };
+  }
+
+  it("removes a member's rows and queues every event the app wrote for them", () => {
+    const store = memoryStore();
+    const a = band(store, "a");
+    const b = band(store, "b");
+
+    expect(store.removeMember(a.group.id, a.cellist.id)).toBe("removed");
+
+    expect(store.findMember(a.group.id, a.cellist.id)).toBeNull();
+    expect(store.listSlots(a.cellist.id)).toEqual([]);
+    expect(store.listRsvps(a.group.id)).toEqual([]);
+    expect(store.listAnswers(a.group.id, a.request.id)).toEqual([]);
+    expect(store.listCalendarEvents(a.cellist.id)).toEqual([]);
+    expect(store.listEventRemovals()).toEqual(
+      [
+        { accountId: a.account.id, eventId: "mcanew" },
+        { accountId: a.account.id, eventId: "mcaold" },
+      ].sort((x, y) => x.eventId.localeCompare(y.eventId)),
+    );
+    // The rehearsal, the request, the other group and the account stay.
+    expect(store.findRehearsal(a.group.id, a.rehearsal.id)).not.toBeNull();
+    expect(store.findRequest(a.group.id, a.request.id)).not.toBeNull();
+    expect(store.listSlots(b.cellist.id)).toHaveLength(1);
+    expect(store.listRsvps(b.group.id)).toHaveLength(1);
+    expect(store.findGrant(a.account.id)).not.toBeNull();
+    expect(store.findAccountBySub("sub-a")).not.toBeNull();
+  });
+
+  it("never removes the last organizer, and treats another group's member as unknown", () => {
+    const store = memoryStore();
+    const a = band(store, "a");
+    const b = band(store, "b");
+
+    expect(store.removeMember(a.group.id, a.organizer.id)).toBe("last-organizer");
+    expect(store.removeMember(a.group.id, b.cellist.id)).toBe("unknown");
+    expect(store.listMembers(b.group.id)).toHaveLength(2);
+  });
+
+  it("deletes a group with everything in it, and only that group", () => {
+    const store = memoryStore();
+    const a = band(store, "a");
+    const b = band(store, "b");
+
+    expect(store.deleteGroup(a.group.id)).toBe(true);
+
+    expect(store.findGroup(a.group.id)).toBeNull();
+    expect(store.listMembers(a.group.id)).toEqual([]);
+    expect(store.listRehearsals(a.group.id)).toEqual([]);
+    expect(store.listRequests(a.group.id)).toEqual([]);
+    expect(store.listSlots(a.cellist.id)).toEqual([]);
+    expect(
+      store
+        .listEventRemovals()
+        .map((removal) => removal.eventId)
+        .sort(),
+    ).toEqual(["mcanew", "mcaold"]);
+    expect(store.findGroup(b.group.id)).not.toBeNull();
+    expect(store.listRehearsals(b.group.id)).toHaveLength(1);
+    expect(store.listRequests(b.group.id)).toHaveLength(1);
+    expect(store.findGrant(a.account.id)).not.toBeNull();
+    expect(store.deleteGroup(a.group.id)).toBe(false);
+  });
+
+  it("renames groups and members within their group only", () => {
+    const store = memoryStore();
+    const a = band(store, "a");
+    const b = band(store, "b");
+
+    expect(store.updateGroup(a.group.id, { name: "Quartet", timeZone: "America/New_York" })).toBe(
+      true,
+    );
+    expect(store.findGroup(a.group.id)).toMatchObject({
+      name: "Quartet",
+      timeZone: "America/New_York",
+    });
+    expect(store.renameMember(a.group.id, b.cellist.id, "X")).toBe(false);
+    expect(store.renameMember(a.group.id, a.cellist.id, "Tuba")).toBe(true);
+    expect(store.findMember(a.group.id, a.cellist.id)?.displayName).toBe("Tuba");
+    expect(store.findMember(b.group.id, b.cellist.id)?.displayName).toBe("Cellist");
+  });
+});
+
 describe("schema migrations", () => {
   function fileDatabase(): string {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -923,6 +1041,40 @@ describe("schema migrations", () => {
     db.exec("DELETE FROM requests WHERE id = 'q'");
     expect(db.prepare("SELECT COUNT(*) AS n FROM request_windows").get()).toEqual({ n: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM request_answers").get()).toEqual({ n: 1 });
+    db.close();
+  });
+
+  it("upgrades a version-5 database to pending event removals, keeping its data", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 5));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO accounts VALUES ('a', 'sub-a', 'a@example.test', 'A', '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at, account_id)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01', 'a');
+      INSERT INTO requests VALUES ('q', 'g', 'Concert', '2026-11-01', '2026-11-30', 1, 'x');
+    `);
+    expect(version(raw)).toBe(5);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+    const db = new DatabaseSync(filename);
+    db.exec("PRAGMA foreign_keys = ON;");
+
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(store.listMembers("g")).toHaveLength(1);
+    expect(store.listRequests("g")).toHaveLength(1);
+    expect(store.listEventRemovals()).toEqual([]);
+    db.exec("INSERT INTO calendar_event_removals VALUES ('a', 'mc1')");
+    for (const bad of [
+      "INSERT INTO calendar_event_removals VALUES ('a', 'mc1')",
+      "INSERT INTO calendar_event_removals VALUES ('no-account', 'mc2')",
+    ]) {
+      expect(() => db.exec(bad)).toThrow();
+    }
+    expect(store.listEventRemovals()).toEqual([{ accountId: "a", eventId: "mc1" }]);
     db.close();
   });
 

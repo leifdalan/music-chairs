@@ -2,6 +2,7 @@ import { useState } from "react";
 import { data, Form, Link, redirect, useLocation } from "react-router";
 
 import { calendarViewer } from "~/.server/calendar-sync";
+import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import {
   accessTokenFor,
@@ -12,6 +13,7 @@ import {
 } from "~/.server/google";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
+import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SlotFields } from "~/components/slot-fields";
 import { SubmitButton } from "~/components/submit-button";
@@ -287,7 +289,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     );
   }
   if (intent === "delete") {
-    if (!store.deleteSlot(viewer.id, slotId)) throw data(null, { status: 404 });
+    const slot = store.findSlot(viewer.id, slotId);
+    if (!slot) throw data(null, { status: 404 });
+    const prompt = confirmationNeeded(form, deleteTimePrompt(describeSlot(slot)));
+    if (prompt) return prompt;
+    store.deleteSlot(viewer.id, slotId);
     return back("Time removed");
   }
   if (intent === "skip" || intent === "unskip") {
@@ -364,6 +370,7 @@ export default function Availability({ loaderData, actionData }: Route.Component
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const dateResult = actionData && "dateErrors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
+  const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
   const link = useSwitch();
   return (
     <main>
@@ -374,6 +381,7 @@ export default function Availability({ loaderData, actionData }: Route.Component
       </p>
       <h1>My availability</h1>
       <p className="hint">All times are in {timeZone}.</p>
+      {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
       {notice ? (
         <p className="notice" role="status">
           {notice}
@@ -714,13 +722,12 @@ function SlotItem({ slot, today, until }: { slot: Slot; today: string; until: st
         <Link to={`?edit=${slot.id}`} className="button-link secondary">
           Edit
         </Link>
-        <Form method="post" replace>
-          <input type="hidden" name="intent" value="delete" />
-          <input type="hidden" name="slotId" value={slot.id} />
-          <SubmitButton feedbackKey={`delete-${slot.id}`} className="secondary">
-            Delete
-          </SubmitButton>
-        </Form>
+        <ConfirmForm
+          fields={{ intent: "delete", slotId: slot.id }}
+          trigger="Delete"
+          {...deleteTimePrompt(describeSlot(slot))}
+          feedbackKey={`delete-${slot.id}`}
+        />
       </div>
       {weeks.length > 0 ? (
         <details>
@@ -751,4 +758,13 @@ function SlotItem({ slot, today, until }: { slot: Slot; today: string; until: st
       ) : null}
     </li>
   );
+}
+
+/** The "are you sure" text for deleting a time; the dialog and the confirm page share it. */
+function deleteTimePrompt(slot: string) {
+  return {
+    title: "Delete this time?",
+    body: `${slot} will no longer count as a time you can rehearse.`,
+    label: "Delete time",
+  };
 }

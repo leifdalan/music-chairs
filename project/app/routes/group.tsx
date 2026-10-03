@@ -1,13 +1,18 @@
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect } from "react-router";
 
+import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
+import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer, publicOrigin, readAccount } from "~/.server/membership";
 import { getStore } from "~/.server/store";
+import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
-import { formatDate, todayInZone } from "~/lib/availability";
+import { TextField } from "~/components/text-field";
+import { canonicalTimeZone, formatDate, todayInZone } from "~/lib/availability";
+import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/group";
@@ -42,7 +47,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const account = await readAccount(request);
   const isOrganizer = viewer?.role === "organizer";
   const today = todayInZone(group.timeZone, new Date());
-  const memberCount = store.listMembers(group.id).length;
+  const allMembers = store.listMembers(group.id);
+  const memberCount = allMembers.length;
+  const organizerCount = allMembers.filter((member) => member.role === "organizer").length;
   const requests = viewer
     ? store
         .listRequests(group.id)
@@ -65,15 +72,22 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     groupId: group.id,
     groupName: group.name,
     timeZone: group.timeZone,
-    members: store.listMembers(group.id).map((member) => ({
+    members: allMembers.map((member) => ({
       displayName: member.displayName,
       role: member.role,
       isViewer: member.id === viewer?.id,
       google: member.googleEmail !== null,
       manage: isOrganizer
-        ? { id: member.id, optional: member.optional, email: member.googleEmail }
+        ? {
+            id: member.id,
+            optional: member.optional,
+            email: member.googleEmail,
+            // The group's only organizer can be neither removed nor demoted.
+            lastOrganizer: member.role === "organizer" && organizerCount <= 1,
+          }
         : null,
     })),
+    settings: isOrganizer ? { timeZones: zoneChoices(group.timeZone) } : null,
     viewer: viewer
       ? { displayName: viewer.displayName, role: viewer.role, email: viewer.googleEmail }
       : null,
@@ -110,18 +124,128 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!store.setOptional(group.id, memberId, on)) throw data(null, { status: 404 });
     return back(on ? "Marked optional" : "Marked required");
   }
+  // Destructive intents: authorize (above), validate, find the target, then
+  // ask for confirmation, then act (plan/phase-11.md).
   if (intent === "set-role") {
+    const member = store.findMember(group.id, memberId);
+    if (!member) throw data(null, { status: 404 });
+    if (!on && member.role === "organizer" && organizerCount(group.id) <= 1) {
+      return problem(LAST_ORGANIZER);
+    }
+    const prompt = confirmationNeeded(form, roleChangePrompt(member.displayName, on));
+    if (prompt) return prompt;
     const result = store.setRole(group.id, memberId, on ? "organizer" : "member");
     if (result === "unknown") throw data(null, { status: 404 });
-    if (result === "last-organizer") {
+    if (result === "last-organizer") return problem(LAST_ORGANIZER);
+    return back(on ? "Made an organizer" : "Organizer removed");
+  }
+  if (intent === "update-group") {
+    const name = validateName(form.get("name"), "Group name", GROUP_NAME_MAX);
+    const timeZone = canonicalTimeZone(form.get("timeZone"));
+    if (!name.ok || !timeZone) {
       return data(
-        { problem: "A group needs at least one organizer. Make someone else an organizer first." },
+        {
+          settingsErrors: {
+            name: name.ok ? undefined : name.error,
+            timeZone: timeZone ? undefined : "Choose the group's time zone.",
+          },
+          settingsValues: {
+            name: String(form.get("name") ?? ""),
+            timeZone: String(form.get("timeZone") ?? ""),
+          },
+        },
         { status: 400 },
       );
     }
-    return back(on ? "Made an organizer" : "Organizer removed");
+    store.updateGroup(group.id, { name: name.value, timeZone });
+    // Events already in members' Google Calendars carry the name and the instants.
+    if (name.value !== group.name || timeZone !== group.timeZone) rewriteGroupEvents(group.id);
+    return back("Group updated");
   }
-  return data({ problem: "Something went wrong with that request." }, { status: 400 });
+  if (intent === "rename-member") {
+    const member = store.findMember(group.id, memberId);
+    if (!member) throw data(null, { status: 404 });
+    const name = validateName(form.get("displayName"), "Name", DISPLAY_NAME_MAX);
+    if (!name.ok) return problem(name.error);
+    store.renameMember(group.id, memberId, name.value);
+    return back("Name changed");
+  }
+  if (intent === "remove-member") {
+    const member = store.findMember(group.id, memberId);
+    if (!member) throw data(null, { status: 404 });
+    if (member.role === "organizer" && organizerCount(group.id) <= 1) {
+      return problem(LAST_ORGANIZER);
+    }
+    const prompt = confirmationNeeded(form, removalPrompt(member.displayName));
+    if (prompt) return prompt;
+    const result = store.removeMember(group.id, memberId);
+    if (result === "unknown") throw data(null, { status: 404 });
+    if (result === "last-organizer") return problem(LAST_ORGANIZER);
+    scheduleRemovals();
+    return back(member.id === viewer.id ? "You left the group" : `${member.displayName} removed`);
+  }
+  if (intent === "delete-group") {
+    const prompt = confirmationNeeded(form, deletionPrompt(group.name));
+    if (prompt) return prompt;
+    store.deleteGroup(group.id);
+    scheduleRemovals();
+    return redirectWithToast("/", `Group ${group.name} deleted`);
+  }
+  return problem("Something went wrong with that request.");
+}
+
+/**
+ * The zones the settings offer, always including the group's own: a zone the
+ * runtime accepts but does not list (an alias the browser reported) would
+ * otherwise leave the menu on its first entry, and saving would move the group.
+ */
+function zoneChoices(current: string): string[] {
+  const zones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+  return zones.includes(current) ? zones : [current, ...zones];
+}
+
+const LAST_ORGANIZER =
+  "A group needs at least one organizer. Make someone else an organizer first.";
+
+function problem(message: string) {
+  return data({ problem: message }, { status: 400 });
+}
+
+function organizerCount(groupId: string): number {
+  return getStore()
+    .listMembers(groupId)
+    .filter((member) => member.role === "organizer").length;
+}
+
+// The "are you sure" texts, shared by the dialog and the server's confirm page.
+function roleChangePrompt(name: string, makeOrganizer: boolean) {
+  return makeOrganizer
+    ? {
+        title: `Make ${name} an organizer?`,
+        body: "Organizers can change the group, its members and its rehearsals, and can remove anyone, including you.",
+        label: "Make organizer",
+      }
+    : {
+        title: `Remove ${name} as an organizer?`,
+        body: "They will no longer be able to change the group, its members or its rehearsals.",
+        label: "Remove organizer",
+      };
+}
+
+function removalPrompt(name: string) {
+  return {
+    title: `Remove ${name}?`,
+    body: "Their availability, request answers and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
+    label: "Remove member",
+  };
+}
+
+function deletionPrompt(groupName: string) {
+  return {
+    title: `Delete ${groupName}?`,
+    body: "Everything in the group goes now: its members, availability, requests and rehearsals. Rehearsal events this app added to members' Google Calendars are removed and calendar feed links stop working. This can't be undone.",
+    label: "Delete group",
+  };
 }
 
 export default function GroupPage({ loaderData, actionData }: Route.ComponentProps) {
@@ -136,7 +260,10 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
     notice,
     requests,
     memberCount,
+    settings,
   } = loaderData;
+  const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
+  const settingsResult = actionData && "settingsErrors" in actionData ? actionData : null;
   return (
     <main>
       <h1>{groupName}</h1>
@@ -182,11 +309,12 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           {notice}
         </p>
       ) : null}
-      {actionData?.problem ? (
+      {actionData && "problem" in actionData ? (
         <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}
+      {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
       {requests ? <RequestsSection requests={requests} memberCount={memberCount} /> : null}
-      {inviteUrl ? <InvitePanel inviteUrl={inviteUrl} /> : null}
+      {inviteUrl ? <InvitePanel inviteUrl={inviteUrl} groupName={groupName} /> : null}
       {showNames !== null ? (
         <section className="invite" aria-labelledby="privacy-heading">
           <h2 id="privacy-heading">What members see</h2>
@@ -204,7 +332,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         <h2 id="members-heading">Members ({members.length})</h2>
         <ul className="members">
           {members.map((member, index) => (
-            <li key={index}>
+            // Organizers' rows hold forms; keying them by member keeps each with its member.
+            <li key={member.manage?.id ?? index}>
               <span className="member-name">
                 {member.displayName}
                 {member.isViewer ? " (you)" : ""}
@@ -232,21 +361,128 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                   >
                     {member.manage.optional ? "Make required" : "Make optional"}
                   </Toggle>
-                  <Toggle
-                    intent="set-role"
-                    memberId={member.manage.id}
-                    setTo={member.role !== "organizer"}
-                    label={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
-                  >
-                    {member.role === "organizer" ? "Remove organizer" : "Make organizer"}
-                  </Toggle>
+                  {member.manage.lastOrganizer ? (
+                    <p className="hint">The group needs at least one organizer.</p>
+                  ) : (
+                    <>
+                      <ConfirmForm
+                        fields={{
+                          intent: "set-role",
+                          memberId: member.manage.id,
+                          value: member.role === "organizer" ? "off" : "on",
+                        }}
+                        trigger={
+                          member.role === "organizer" ? "Remove organizer" : "Make organizer"
+                        }
+                        triggerLabel={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
+                        triggerClassName="secondary small"
+                        {...roleChangePrompt(member.displayName, member.role !== "organizer")}
+                        feedbackKey={`set-role-${member.manage.id}`}
+                      />
+                      <ConfirmForm
+                        fields={{ intent: "remove-member", memberId: member.manage.id }}
+                        trigger="Remove"
+                        triggerLabel={`Remove ${member.displayName}`}
+                        triggerClassName="secondary small"
+                        {...removalPrompt(member.displayName)}
+                        feedbackKey={`remove-${member.manage.id}`}
+                      />
+                    </>
+                  )}
+                  <Form method="post" replace className="rename-form">
+                    <input type="hidden" name="intent" value="rename-member" />
+                    <input type="hidden" name="memberId" value={member.manage.id} />
+                    <input
+                      type="text"
+                      name="displayName"
+                      required
+                      autoComplete="off"
+                      defaultValue={member.displayName}
+                      aria-label={`New name for ${member.displayName}`}
+                    />
+                    <SubmitButton
+                      feedbackKey={`rename-${member.manage.id}`}
+                      className="secondary small"
+                      label={`Rename ${member.displayName}`}
+                    >
+                      Rename
+                    </SubmitButton>
+                  </Form>
                 </div>
               ) : null}
             </li>
           ))}
         </ul>
       </section>
+      {settings ? (
+        <GroupSettings
+          groupName={groupName}
+          timeZone={timeZone}
+          timeZones={settings.timeZones}
+          result={settingsResult}
+        />
+      ) : null}
     </main>
+  );
+}
+
+/** Organizers: the group's name and time zone, and deleting the group. */
+function GroupSettings({
+  groupName,
+  timeZone,
+  timeZones,
+  result,
+}: {
+  groupName: string;
+  timeZone: string;
+  timeZones: string[];
+  result: {
+    settingsErrors: { name?: string; timeZone?: string };
+    settingsValues: { name: string; timeZone: string };
+  } | null;
+}) {
+  const values = result?.settingsValues ?? { name: groupName, timeZone };
+  const errors = result?.settingsErrors ?? {};
+  return (
+    <section className="invite group-settings" aria-labelledby="settings-heading">
+      <h2 id="settings-heading">Group settings</h2>
+      <Form method="post" replace className="stack">
+        <input type="hidden" name="intent" value="update-group" />
+        <TextField name="name" label="Group name" defaultValue={values.name} error={errors.name} />
+        <div className="field">
+          <label htmlFor="timeZone">Time zone</label>
+          <select
+            id="timeZone"
+            name="timeZone"
+            defaultValue={values.timeZone}
+            aria-invalid={errors.timeZone ? true : undefined}
+            aria-describedby={errors.timeZone ? "timeZone-error" : "timeZone-hint"}
+          >
+            {timeZones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+          <p className="hint" id="timeZone-hint">
+            Every date and time keeps its clock time in the new zone.
+          </p>
+          {errors.timeZone ? (
+            <p className="field-error" id="timeZone-error" role="alert">
+              {errors.timeZone}
+            </p>
+          ) : null}
+        </div>
+        <SubmitButton feedbackKey="update-group">Save group settings</SubmitButton>
+      </Form>
+      <ConfirmForm
+        fields={{ intent: "delete-group" }}
+        trigger="Delete group"
+        triggerClassName="danger"
+        {...deletionPrompt(groupName)}
+        feedbackKey="delete-group"
+      />
+    </section>
   );
 }
 
@@ -362,7 +598,18 @@ function Toggle({
   );
 }
 
-function InvitePanel({ inviteUrl }: { inviteUrl: string }) {
+/** A new email with the invite link (RFC 6068: every part percent-encoded, CRLF line breaks). */
+export function inviteMailto(groupName: string, inviteUrl: string): string {
+  const subject = `Join ${groupName} on music-chairs`;
+  const body = [
+    `You're invited to ${groupName} on music-chairs, where we find times to rehearse.`,
+    "",
+    `Join here: ${inviteUrl}`,
+  ].join("\r\n");
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function InvitePanel({ inviteUrl, groupName }: { inviteUrl: string; groupName: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   async function copy() {
@@ -393,6 +640,9 @@ function InvitePanel({ inviteUrl }: { inviteUrl: string }) {
       <button type="button" onClick={copy}>
         Copy link
       </button>
+      <a className="button-link secondary" href={inviteMailto(groupName, inviteUrl)}>
+        Send link by email
+      </a>
       <p className="hint" role="status">
         {status}
       </p>

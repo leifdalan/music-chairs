@@ -1555,3 +1555,122 @@ Execution trace: 3cc345e44519475da135f4b38f014859
 - Lessons: filed and recurred at the PARK; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (3) and lively-salamander (3) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 15:02 — START
+
+Phase 11 — Managing groups and members, with a confirmation before anything destructive
+
+Execution trace: 8dd521b4835f4b9bb6c1634812876dd8
+
+Operator decisions recorded in plan/phase-11.md before this run: from the list after Phase 9, an "are you sure" step for closing a request and every other destructive act including changing organizers; editing and removing groups; editing members (name and optionality) after creation; a "Send link by email" mailto button. At phase start: deleting a group removes all of its data at once (and the app's Google Calendar events and feed links); removing a member removes all of theirs; the confirmation is an in-page dialog with a confirm page when JavaScript is off; the destructive actions are listed. The User Demo was tightened before capture.
+
+Planned work:
+- A confirmation step before every destructive or hard-to-undo action: closing a request, deleting availability or a rehearsal, cancelling or ending rehearsal dates, removing or demoting an organizer, removing a member, and deleting a group.
+- Editing a group after creation (name, time zone and the existing privacy setting) and deleting a group.
+- Editing members after the group is created: an organizer can rename a member, change whether they are optional, and remove them.
+- The invite panel gains a "Send link by email" button: a `mailto:` link with a subject and a short body containing the invite link.
+
+## 2026-10-03 15:30 — END
+Phase 11 — Managing groups and members, with a confirmation before anything destructive
+
+Phase 11 is accepted on its gates and live at https://rehearse.dalan.dev. Organizers now have Group settings on the group page: rename the group, change its time zone (dates and times keep their clock time), the privacy switch, and Delete group. Each member row has Rename and Remove next to the optional and organizer switches. The only organizer's row says the group needs an organizer instead of offering those buttons. Every destructive action asks first in a dialog that names what will be lost, and the server refuses it without that confirmation; without JavaScript the same button opens a confirm page. The actions that ask are: deleting a time, closing a request, deleting, ending or cancelling rehearsal dates, stopping Google Calendar writing, making or removing an organizer, removing a member, and deleting the group. Removing a member or deleting a group deletes their data at once and removes every rehearsal event the app wrote to their Google Calendars, retrying hourly if Google fails. Renaming the group or changing its zone rewrites those events. The invite panel has "Send link by email". The live database was upgraded in place. How the dialogs read on a phone is yours to judge through the User Demo below.
+
+Execution trace: 8dd521b4835f4b9bb6c1634812876dd8
+
+Files changed:
+- plan/phase-11.md — operator decisions settled at phase start (delete everything at once with the Google events; remove all of a member's data; an in-page dialog with a confirm page without JavaScript; the list of destructive actions) and the tightened User Demo, recorded before the run
+- project/app/.server/store.ts — migration 6 (calendar_event_removals); updateGroup, deleteGroup, renameMember, removeMember and the pending removal functions
+- project/app/.server/calendar-sync.ts — pending removals (retried by the hourly sweep, kept until writing access returns, dropped only when the grant is gone), rewriting events in place after a rename or zone change, and an event written while its member was removed queued for removal
+- project/app/.server/confirm.ts, project/app/components/confirm-form.tsx — new: the server's confirmation rule; the dialog and the confirm page
+- project/app/routes/group.tsx — group settings, member rename and removal, group deletion, confirmed organizer changes, the email link
+- project/app/routes/availability.tsx, project/app/routes/request.tsx, project/app/routes/schedule.tsx — confirmations on their destructive actions, each with one shared text
+- project/app/app.css — dialog, confirm page, red buttons, rename row, settings
+- project/tests/ — confirm (every destructive action), group-admin (settings, members, deletion, Google clean-up and its edge cases, the email link; the plan listed calendar-sync.test.ts for removals, but they live here), store (migration 6 upgrade, cascades), and existing tests now confirming their destructive posts (Vitest 391)
+- plan/INDEX.md — Phase 11 ✅, Phase 12 ⬅️ (pending, applied after this block)
+- plan/phase-12.md, plan/phase-13.md — inherited Phase 11 notes (pending AUTO ripple)
+- lessons/gentle-pug.md — Phase 11 occurrence (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release 048144d-dirty-20261003T222716Z healthy; live database migrated to schema version 6 with its data kept (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 391/391, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.288, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 220.266 s; first event 0.826 s; longest idle 50.750 s; success
+- Coder: inline (no role span)
+- Critic (code review): 283.176 s; first event 0.777 s; longest idle 37.049 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1630.628 s; intelligence 503.442 s; gates 147.800 s; orchestration 1630.044 s; wait 502.394 s; failed 0 s; retry 0 s; unattributed 0.583 s (category totals are interval unions and may overlap).
+- Awaiting user input: none (phase-summary reports no parks)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=8d7b0478a4e27ba382a3d34dddd8113a5c6255a121062e1886f4006e6f63d720 critiqued=4799d206ad7eab096e641204a9aa95ae5aba308dbb15bded07ad55b63f467ba0 approved=99e2146782e12bfa970ef3bb82e11ca3b8bc9d714cc6cf1981345e2ed7a0746e final=99e2146782e12bfa970ef3bb82e11ca3b8bc9d714cc6cf1981345e2ed7a0746e
+- Revision packets: 0
+- Advisory reports: 2 — plan review 13 findings (all adopted); code critique 7 findings (6 adopted; CODE-F006, a demo wording in the captured phase file, carried here)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers each confirmation (nothing changes without it; members refused before any prompt; input and target checked first), editing and deleting a group, editing, making optional and removing a member, organizer-only access to each, and the mailto link's contents, plus the Google clean-up and the migration-6 upgrade; `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (whether each dialog is clear about what will be lost, on a laptop and a phone, and the email link)
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-12.md — add "Inherited from Phase 11": organizers can already rename members (`renameMember`, `validateName` with `DISPLAY_NAME_MAX`) and names are not unique within a group; destructive actions use `ConfirmForm` and `confirmationNeeded`; schema at version 6 — pending, applied after this block
+- AUTO: plan/phase-13.md — add "Inherited from Phase 11": members can be renamed and removed (a removed person can rejoin with the unchanged invite link); destructive actions use `ConfirmForm` — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrences pending: gentle-pug (4 after this phase) — a plan-review change (hiding Remove for the only organizer, PLAN-F009) made the captured demo variation "try removing yourself as the only organizer (refused)" unreachable as written
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (4) → policy; lively-salamander (3) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev` on a laptop as the organizer of a test group (create a new one for this, since the last step deletes it), and on your phone as a second member of it. Add a third member by opening the invite link in a private window and joining as `Spare`.
+- **Suggested inputs.** On the group page, rename the group, rename `Spare` to `Spare tuba` and make them optional. Start a request, then press **Close request** and choose **Cancel** in the dialog, then press it again and confirm. Press **Remove** on `Spare tuba`, cancel once, then confirm. On the phone, as the second member, open the group page and check what you can and cannot change. On the laptop, press **Send link by email**. Finally, delete the group from its settings, cancelling once before confirming.
+- **What to look for.** Every destructive button opens a dialog that names what will be lost; Cancel changes nothing; confirming does the change and shows a message saying what happened. The renamed group and member and the optional mark show everywhere (group page, schedule, request answers). Your email app opens a new message with the invite link in its body. After deleting the group, its pages answer "not found" on both devices, and a home screen signed in with Google no longer lists it.
+- **Variations to explore.** Try removing yourself as the only organizer (refused). Turn off adding rehearsals to Google Calendar on the Schedule page and confirm. Is each dialog clear about what will be lost, on a phone?
+- Notes: "Try removing yourself as the only organizer" now shows no Remove or Remove-organizer button on your row, only the note that the group needs at least one organizer; make someone else an organizer first and the buttons appear. Rename and Group settings are at the bottom of the group page. A removed member can rejoin with the same invite link.
+
+Remaining:
+- None for this phase. Phases 12–15 follow.
+
+## 2026-10-03 15:30 — Close bookkeeping outcomes
+
+Phase 11 — Managing groups and members, with a confirmation before anything destructive
+
+Execution trace: 8dd521b4835f4b9bb6c1634812876dd8
+
+- Status: applied and verified — Phase 11 ✅, Phase 12 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-12.md and plan/phase-13.md gained an "Inherited from Phase 11" section.
+- Ripple DECIDE: none.
+- Lessons: gentle-pug gained its Phase 11 occurrence (4 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (4) and lively-salamander (3) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

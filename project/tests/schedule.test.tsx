@@ -265,16 +265,19 @@ describe("schedule route", () => {
     const open = await load(group.id, organizerCookie);
     await post(group.id, organizerCookie, {
       intent: "cancel-date",
+      confirmed: "1",
       rehearsalId: rehearsal.id,
       date: "2026-10-15",
     });
     const wrongDay = await post(group.id, organizerCookie, {
       intent: "cancel-date",
+      confirmed: "1",
       rehearsalId: rehearsal.id,
       date: "2026-10-16",
     });
     const ended = await post(group.id, organizerCookie, {
       intent: "end",
+      confirmed: "1",
       rehearsalId: rehearsal.id,
       endDate: "2026-10-29",
     });
@@ -297,12 +300,17 @@ describe("schedule route", () => {
     const [rehearsal] = getStore().listRehearsals(group.id);
     await post(group.id, organizerCookie, {
       intent: "cancel-date",
+      confirmed: "1",
       rehearsalId: rehearsal.id,
       date: "2026-10-15",
     });
     const rows = [count("rehearsals"), count("rehearsal_cancellations")];
 
-    await post(group.id, organizerCookie, { intent: "delete", rehearsalId: rehearsal.id });
+    await post(group.id, organizerCookie, {
+      intent: "delete",
+      confirmed: "1",
+      rehearsalId: rehearsal.id,
+    });
 
     expect([count("rehearsals"), count("rehearsal_cancellations")]).toEqual([
       rows[0] - 1,
@@ -331,6 +339,7 @@ describe("schedule route", () => {
     const [rehearsal] = getStore().listRehearsals(group.id);
     await post(group.id, organizerCookie, {
       intent: "cancel-date",
+      confirmed: "1",
       rehearsalId: rehearsal.id,
       date: "2026-10-15",
     });
@@ -339,10 +348,10 @@ describe("schedule route", () => {
     const forms: Record<string, string>[] = [
       nextThursday,
       { intent: "confirm", rehearsalId: rehearsal.id },
-      { intent: "delete", rehearsalId: rehearsal.id },
-      { intent: "cancel-date", rehearsalId: rehearsal.id, date: "2026-10-22" },
+      { intent: "delete", confirmed: "1", rehearsalId: rehearsal.id },
+      { intent: "cancel-date", confirmed: "1", rehearsalId: rehearsal.id, date: "2026-10-22" },
       { intent: "restore-date", rehearsalId: rehearsal.id, date: "2026-10-15" },
-      { intent: "end", rehearsalId: rehearsal.id, endDate: "2026-10-29" },
+      { intent: "end", confirmed: "1", rehearsalId: rehearsal.id, endDate: "2026-10-29" },
     ];
     for (const form of forms) {
       expect(statusOf(await thrownBy(post(group.id, cellistCookie, form)))).toBe(403);
@@ -625,6 +634,7 @@ describe("schedule route", () => {
       const { group, rehearsal, organizerCookie, cellistCookie } = await weeklyRehearsal();
       await post(group.id, organizerCookie, {
         intent: "cancel-date",
+        confirmed: "1",
         rehearsalId: rehearsal.id,
         date: "2026-10-22",
       });
@@ -792,31 +802,29 @@ describe("rehearsals in members' calendars", () => {
         "2026-10-22",
         "2026-10-29",
       ]);
-      expect(await step(organizerCookie, { intent: "cancel-date", date: "2026-10-15" })).toEqual([
-        "2026-10-08",
-        "2026-10-22",
-        "2026-10-29",
-      ]);
+      expect(
+        await step(organizerCookie, { intent: "cancel-date", confirmed: "1", date: "2026-10-15" }),
+      ).toEqual(["2026-10-08", "2026-10-22", "2026-10-29"]);
       expect(await step(organizerCookie, { intent: "restore-date", date: "2026-10-15" })).toEqual([
         "2026-10-08",
         "2026-10-15",
         "2026-10-22",
         "2026-10-29",
       ]);
-      expect(await step(organizerCookie, { intent: "end", endDate: "2026-10-22" })).toEqual([
-        "2026-10-08",
-        "2026-10-15",
-        "2026-10-22",
-      ]);
+      expect(
+        await step(organizerCookie, { intent: "end", confirmed: "1", endDate: "2026-10-22" }),
+      ).toEqual(["2026-10-08", "2026-10-15", "2026-10-22"]);
       expect(
         await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "no" }),
       ).toEqual(["2026-10-15", "2026-10-22"]);
       expect(
         await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "yes" }),
       ).toEqual(["2026-10-08", "2026-10-15", "2026-10-22"]);
-      expect(await step(cellistSignedIn, { intent: "set-calendar", value: "off" })).toEqual([]);
+      expect(
+        await step(cellistSignedIn, { intent: "set-calendar", value: "off", confirmed: "1" }),
+      ).toEqual([]);
       expect(await step(cellistSignedIn, { intent: "set-calendar", value: "on" })).toHaveLength(3);
-      expect(await step(organizerCookie, { intent: "delete" })).toEqual([]);
+      expect(await step(organizerCookie, { intent: "delete", confirmed: "1" })).toEqual([]);
       expect(google.calendarCalls().filter((call) => call.method === "DELETE")).toHaveLength(9);
     } finally {
       cleanUp();

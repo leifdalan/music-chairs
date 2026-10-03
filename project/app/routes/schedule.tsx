@@ -1,6 +1,7 @@
 import { data, Form, Link, redirect } from "react-router";
 
 import { calendarViewer, scheduleSync } from "~/.server/calendar-sync";
+import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { CALENDAR_SCOPES, googleConfig } from "~/.server/google";
 import { findViewer, publicOrigin } from "~/.server/membership";
@@ -12,6 +13,7 @@ import {
   type RsvpAnswer,
 } from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
+import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
@@ -22,6 +24,7 @@ import {
   formatDate,
   formatMinutes,
   isDate,
+  isOccurrence,
   offeredDates,
   parseSlotInput,
   timeInputValue,
@@ -333,6 +336,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       return problem("Connect Google Calendar first.");
     }
     const on = form.get("value") === "on";
+    if (!on) {
+      const prompt = confirmationNeeded(form, stopCalendarPrompt());
+      if (prompt) return prompt;
+    }
     store.setCalendarSync(group.id, viewer.id, on);
     // Turning it off removes the upcoming events the app wrote.
     scheduleSync([{ memberId: viewer.id, groupId: group.id, accountId: capable.account.id }]);
@@ -399,13 +406,17 @@ export async function action({ request, params }: Route.ActionArgs) {
     return back("Rehearsal proposed");
   }
 
-  if (!store.findRehearsal(group.id, rehearsalId)) throw data(null, { status: 404 });
+  const rehearsal = store.findRehearsal(group.id, rehearsalId);
+  if (!rehearsal) throw data(null, { status: 404 });
+  const what = describeSlot(rehearsal);
   if (intent === "confirm") {
     store.confirmRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
     return back("Rehearsal confirmed");
   }
   if (intent === "delete") {
+    const prompt = confirmationNeeded(form, deleteRehearsalPrompt(what));
+    if (prompt) return prompt;
     store.deleteRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
     return back("Rehearsal deleted");
@@ -415,6 +426,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!isDate(endDate) || endDate < today) {
       return problem("Choose a last date from today onwards.");
     }
+    if (endDate < rehearsal.startDate) {
+      return problem("The last date can't be before the rehearsal's first date.");
+    }
+    const prompt = confirmationNeeded(form, endPrompt(what));
+    if (prompt) return prompt;
     if (!store.endRehearsal(group.id, rehearsalId, endDate)) {
       return problem("The last date can't be before the rehearsal's first date.");
     }
@@ -423,6 +439,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   if (intent === "cancel-date" || intent === "restore-date") {
     const date = form.get("date");
+    if (intent === "cancel-date" && isDate(date) && isOccurrence(rehearsal, date)) {
+      const prompt = confirmationNeeded(form, cancelDatePrompt(what, date));
+      if (prompt) return prompt;
+    }
     if (
       !isDate(date) ||
       !store.setCancelled(group.id, rehearsalId, date, intent === "cancel-date")
@@ -466,6 +486,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       {pageProblem && actionData ? (
         <ProblemAlert message={pageProblem} response={actionData} />
       ) : null}
+      {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
       <RehearsalList title="Confirmed" items={confirmed} empty="Nothing confirmed yet." />
       <RehearsalList title="Proposed" items={proposed} empty="No proposed times." />
@@ -670,17 +691,13 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               </SubmitButton>
             </Form>
           ) : null}
-          <Form method="post" replace>
-            <input type="hidden" name="intent" value="delete" />
-            <input type="hidden" name="rehearsalId" value={item.id} />
-            <SubmitButton
-              feedbackKey={`delete-${item.id}`}
-              className="secondary"
-              label={`Delete ${item.summary}`}
-            >
-              Delete
-            </SubmitButton>
-          </Form>
+          <ConfirmForm
+            fields={{ intent: "delete", rehearsalId: item.id }}
+            trigger="Delete"
+            triggerLabel={`Delete ${item.summary}`}
+            {...deleteRehearsalPrompt(item.summary)}
+            feedbackKey={`delete-${item.id}`}
+          />
         </div>
       ) : null}
       {organizer && item.kind === "weekly" ? (
@@ -695,29 +712,40 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
                     {formatDate(date)}
                     {cancelled ? " — cancelled" : ""}
                   </span>
-                  <Form method="post" replace>
-                    <input
-                      type="hidden"
-                      name="intent"
-                      value={cancelled ? "restore-date" : "cancel-date"}
-                    />
-                    <input type="hidden" name="rehearsalId" value={item.id} />
-                    <input type="hidden" name="date" value={date} />
-                    <SubmitButton
+                  {cancelled ? (
+                    <Form method="post" replace>
+                      <input type="hidden" name="intent" value="restore-date" />
+                      <input type="hidden" name="rehearsalId" value={item.id} />
+                      <input type="hidden" name="date" value={date} />
+                      <SubmitButton
+                        feedbackKey={`date-${item.id}-${date}`}
+                        className="secondary small"
+                        label={`Restore ${formatDate(date)}`}
+                      >
+                        Restore
+                      </SubmitButton>
+                    </Form>
+                  ) : (
+                    <ConfirmForm
+                      fields={{ intent: "cancel-date", rehearsalId: item.id, date }}
+                      trigger="Cancel this date"
+                      triggerLabel={`Cancel ${formatDate(date)}`}
+                      triggerClassName="secondary small"
+                      {...cancelDatePrompt(item.summary, date)}
                       feedbackKey={`date-${item.id}-${date}`}
-                      className="secondary small"
-                      label={`${cancelled ? "Restore" : "Cancel"} ${formatDate(date)}`}
-                    >
-                      {cancelled ? "Restore" : "Cancel this date"}
-                    </SubmitButton>
-                  </Form>
+                    />
+                  )}
                 </li>
               );
             })}
           </ul>
-          <Form method="post" replace className="end-form">
-            <input type="hidden" name="intent" value="end" />
-            <input type="hidden" name="rehearsalId" value={item.id} />
+          <ConfirmForm
+            className="end-form"
+            fields={{ intent: "end", rehearsalId: item.id }}
+            trigger="Set last date"
+            {...endPrompt(item.summary)}
+            feedbackKey={`end-${item.id}`}
+          >
             <label htmlFor={`end-${item.id}`}>Last date</label>
             <input
               id={`end-${item.id}`}
@@ -726,10 +754,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               required
               defaultValue={organizer.endDate ?? ""}
             />
-            <SubmitButton feedbackKey={`end-${item.id}`} className="secondary">
-              Set last date
-            </SubmitButton>
-          </Form>
+          </ConfirmForm>
         </details>
       ) : null}
     </li>
@@ -880,22 +905,28 @@ function CalendarPanel({
           {calendar.notice}
         </p>
       ) : null}
-      {google?.state === "on" || google?.state === "off" ? (
+      {google?.state === "on" ? (
+        <>
+          <p className="hint">
+            Confirmed rehearsals are added to your Google Calendar, except dates you said No to.
+          </p>
+          <ConfirmForm
+            fields={{ intent: "set-calendar", value: "off" }}
+            trigger="Stop adding rehearsals to my Google Calendar"
+            {...stopCalendarPrompt()}
+            feedbackKey="set-calendar"
+          />
+        </>
+      ) : null}
+      {google?.state === "off" ? (
         <Form method="post" replace>
           <input type="hidden" name="intent" value="set-calendar" />
-          <input type="hidden" name="value" value={google.state === "on" ? "off" : "on"} />
+          <input type="hidden" name="value" value="on" />
           <p className="hint">
-            {google.state === "on"
-              ? "Confirmed rehearsals are added to your Google Calendar, except dates you said No to."
-              : "Add confirmed rehearsals to your primary Google Calendar and keep them up to date."}
+            Add confirmed rehearsals to your primary Google Calendar and keep them up to date.
           </p>
-          <SubmitButton
-            feedbackKey="set-calendar"
-            className={google.state === "on" ? "secondary" : undefined}
-          >
-            {google.state === "on"
-              ? "Stop adding rehearsals to my Google Calendar"
-              : "Add rehearsals to my Google Calendar"}
+          <SubmitButton feedbackKey="set-calendar">
+            Add rehearsals to my Google Calendar
           </SubmitButton>
         </Form>
       ) : null}
@@ -935,4 +966,37 @@ function CalendarPanel({
       </p>
     </section>
   );
+}
+
+// The "are you sure" texts; the dialogs and the server's confirm page share them.
+function deleteRehearsalPrompt(summary: string) {
+  return {
+    title: "Delete this rehearsal?",
+    body: `${summary} and everyone's answers to it will be deleted, and it comes off members' calendars.`,
+    label: "Delete rehearsal",
+  };
+}
+
+function endPrompt(summary: string) {
+  return {
+    title: "End this rehearsal?",
+    body: `${summary} won't happen after the last date you chose; later dates and their answers go, and they come off members' calendars.`,
+    label: "Set last date",
+  };
+}
+
+function cancelDatePrompt(summary: string, date: string) {
+  return {
+    title: `Cancel ${formatDate(date)}?`,
+    body: `${summary} won't happen on ${formatDate(date)}, and that date comes off members' calendars. You can restore it later.`,
+    label: "Cancel this date",
+  };
+}
+
+function stopCalendarPrompt() {
+  return {
+    title: "Stop adding rehearsals to your Google Calendar?",
+    body: "The upcoming rehearsal events this app added to your Google Calendar will be removed.",
+    label: "Stop adding rehearsals",
+  };
 }

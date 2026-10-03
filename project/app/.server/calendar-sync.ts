@@ -72,7 +72,11 @@ export function eventId(memberId: string, rehearsalId: string, date: string): st
  * removes upcoming dates the app wrote that no longer belong (all of them when
  * the member turned writing off). Past events are left alone.
  */
-export async function syncMember(target: SyncingMember, now: Date = new Date()): Promise<void> {
+export async function syncMember(
+  target: SyncingMember,
+  now: Date = new Date(),
+  options: { rewrite?: boolean } = {},
+): Promise<void> {
   const store = getStore();
   const group = store.findGroup(target.groupId);
   const member = group ? store.findMember(group.id, target.memberId) : null;
@@ -101,7 +105,9 @@ export async function syncMember(target: SyncingMember, now: Date = new Date()):
     }
   }
   for (const { rehearsal, date } of wanted) {
-    if (writtenKeys.has(`${rehearsal.id} ${date}`)) continue;
+    // A rewrite (after a rename or zone change) puts written dates again in
+    // place, under the same event id, keeping their records throughout.
+    if (writtenKeys.has(`${rehearsal.id} ${date}`) && !options.rewrite) continue;
     const id = eventId(member.id, rehearsal.id, date);
     try {
       await putEvent(target.accountId, id, {
@@ -116,6 +122,12 @@ export async function syncMember(target: SyncingMember, now: Date = new Date()):
         }) as Date,
         timeZone: group.timeZone,
       });
+      // The member (or the whole group) may have been removed while Google
+      // answered; the event is then queued for removal instead of recorded.
+      if (!store.findMember(group.id, member.id)) {
+        store.addEventRemoval({ accountId: target.accountId, eventId: id });
+        return;
+      }
       store.recordCalendarEvent(member.id, { rehearsalId: rehearsal.id, date, eventId: id });
     } catch (error) {
       if (error instanceof GoogleAccessRevoked) throw error;
@@ -131,11 +143,11 @@ export async function syncMember(target: SyncingMember, now: Date = new Date()):
 const chains = new Map<string, Promise<void>>();
 
 /** Queues syncs and returns at once; failures are logged and retried by the next sweep. */
-export function scheduleSync(targets: SyncingMember[]): void {
+export function scheduleSync(targets: SyncingMember[], options: { rewrite?: boolean } = {}): void {
   for (const target of targets) {
     const previous = chains.get(target.memberId) ?? Promise.resolve();
     const next = previous
-      .then(() => syncMember(target))
+      .then(() => syncMember(target, new Date(), options))
       .catch((error: unknown) => {
         const reason = error instanceof GoogleAccessRevoked ? "access revoked" : String(error);
         console.warn(`music-chairs: calendar sync for a member failed: ${reason}`);
@@ -144,16 +156,77 @@ export function scheduleSync(targets: SyncingMember[]): void {
   }
 }
 
-/** Resolves when every queued sync has finished. */
+/**
+ * Re-writes the upcoming events of the group's writing members after its name
+ * or time zone changed: each still-wanted date is put again in place (same
+ * event id, new title and instants). Records are never forgotten, so removals
+ * and later syncs still find every event the app wrote.
+ */
+export function rewriteGroupEvents(groupId: string): void {
+  const store = getStore();
+  const group = store.findGroup(groupId);
+  if (!group) return;
+  scheduleSync(
+    store
+      .listSyncingMembers(group.id)
+      .filter((target) => store.findMember(group.id, target.memberId)?.calendarSync),
+    { rewrite: true },
+  );
+}
+
+/**
+ * Removes app-written events whose member or group was deleted. A removal is
+ * tried only while the account can still write to its calendar; with its
+ * grant gone (revoked, or the person disconnected) nothing can be removed and
+ * the account's removals are dropped. Failures stay for the next sweep.
+ */
+export async function removePendingEvents(): Promise<void> {
+  const store = getStore();
+  let failures = 0;
+  for (const removal of store.listEventRemovals()) {
+    const grant = store.findGrant(removal.accountId);
+    if (!grant) {
+      store.forgetEventRemovalsFor(removal.accountId);
+      continue;
+    }
+    if (!grant.scopes.includes(CALENDAR_SCOPES.write)) continue;
+    try {
+      await removeEvent(removal.accountId, removal.eventId);
+      store.forgetEventRemoval(removal);
+    } catch (error) {
+      // Only a grant that is really gone ends the removals; a refused access
+      // token with the grant still saved is retried like any failure.
+      if (error instanceof GoogleAccessRevoked && !store.findGrant(removal.accountId)) {
+        store.forgetEventRemovalsFor(removal.accountId);
+      } else failures += 1;
+    }
+  }
+  if (failures > 0)
+    console.warn(`music-chairs: ${failures} calendar removal(s) failed; will retry`);
+}
+
+// One chain for removals, so runs never overlap.
+let removals: Promise<void> = Promise.resolve();
+
+/** Queues a removal run and returns at once. */
+export function scheduleRemovals(): void {
+  removals = removals.then(removePendingEvents).catch((error: unknown) => {
+    console.warn(`music-chairs: calendar removals failed: ${String(error)}`);
+  });
+}
+
+/** Resolves when every queued sync and removal run has finished. */
 export async function whenSynced(): Promise<void> {
-  await Promise.all([...chains.values()]);
+  await Promise.all([...chains.values(), removals]);
 }
 
 /**
  * Syncs every member who writes to Google, or who has app-written events left
- * after turning it off: retries failures and rolls the 8-week window.
+ * after turning it off, and retries pending removals: retries failures and
+ * rolls the 8-week window.
  */
 export async function sweepOnce(): Promise<void> {
+  scheduleRemovals();
   scheduleSync(getStore().listSyncingMembers());
   await whenSynced();
 }

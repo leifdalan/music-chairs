@@ -32,6 +32,10 @@ To settle at phase start: whether every Google sign-in (not only from the invite
 
 Pinned by [Phase 10](phase-10.md): the Phase 7 import page is gone. Calendar access is two permissions in `CALENDAR_SCOPES` (`project/app/.server/google.ts`): `busy` (free/busy, asked through `/auth/google/calendar?scope=busy`, which greys clashes on My availability's calendar view each time it opens) and `write` (rehearsal events). The single consent covers those two. Every time is entered with `TimeRange` (`project/app/components/time-range.tsx`), a tap grid over typed fields.
 
+## Inherited from Phase 11
+
+Pinned by [Phase 11](phase-11.md): organizers can already rename members (`renameMember` in `project/app/.server/store.ts`, `validateName` with `DISPLAY_NAME_MAX`), and display names are not unique within a group. Destructive actions confirm through `ConfirmForm` (`project/app/components/confirm-form.tsx`) and `confirmationNeeded` (`project/app/.server/confirm.ts`). The schema is at version 6; new tables or columns are migration 7 onward.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers the profile menu's data (Gravatar address from the email, initials fallback, no other member's email exposed), editing name and instrumentation, the Google name pre-fill, returning by name (case-insensitive match; never a Google-linked member; never across groups), and the single consent's scopes with clashes and calendar writing working without a second consent (fake Google).

@@ -93,14 +93,14 @@ describe("group route", () => {
           role: "organizer",
           isViewer: true,
           google: false,
-          manage: { id: organizer.id, optional: false, email: null },
+          manage: { id: organizer.id, optional: false, email: null, lastOrganizer: true },
         },
         {
           displayName: "Cellist",
           role: "member",
           isViewer: false,
           google: false,
-          manage: { id: cellist.id, optional: false, email: null },
+          manage: { id: cellist.id, optional: false, email: null, lastOrganizer: false },
         },
       ],
       viewer: { displayName: "Viola", role: "organizer", email: null },
@@ -110,6 +110,7 @@ describe("group route", () => {
       inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
       requests: [],
       memberCount: 2,
+      settings: { timeZones: expect.arrayContaining(["UTC", "Europe/London"]) },
     });
   });
 
@@ -193,6 +194,7 @@ describe("group route", () => {
     const privacy = await post(group.id, cookie, { intent: "set-privacy", value: "on" });
     const promoted = await post(group.id, cookie, {
       intent: "set-role",
+      confirmed: "1",
       memberId: cellist.id,
       value: "on",
     });
@@ -213,6 +215,7 @@ describe("group route", () => {
 
     const result = await post(group.id, cookie, {
       intent: "set-role",
+      confirmed: "1",
       memberId: organizer.id,
       value: "off",
     });
@@ -229,7 +232,12 @@ describe("group route", () => {
     const memberCookie = await deviceCookie(group.id, cellist.deviceToken);
 
     const asMember = await thrownBy(
-      post(group.id, memberCookie, { intent: "set-role", memberId: cellist.id, value: "on" }),
+      post(group.id, memberCookie, {
+        intent: "set-role",
+        confirmed: "1",
+        memberId: cellist.id,
+        value: "on",
+      }),
     );
     const asVisitor = await thrownBy(
       post(group.id, undefined, { intent: "set-privacy", value: "on" }),

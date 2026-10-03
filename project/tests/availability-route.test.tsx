@@ -79,7 +79,11 @@ describe("availability route", () => {
       slotId: slot.id,
       date: "2026-10-08",
     });
-    const removed = await post(group.id, cookie, { intent: "delete", slotId: slot.id });
+    const removed = await post(group.id, cookie, {
+      intent: "delete",
+      confirmed: "1",
+      slotId: slot.id,
+    });
 
     expect([slot.startMinute, slot.endMinute]).toEqual([9 * 60, 21 * 60 + 45]);
     expect(await toastOf(added)).toBe("Availability saved");
@@ -196,7 +200,11 @@ describe("availability route", () => {
     const [slot] = getStore().listSlots(organizer.id);
     const before = count("availability");
 
-    const deleted = await post(group.id, cookie, { intent: "delete", slotId: slot.id });
+    const deleted = await post(group.id, cookie, {
+      intent: "delete",
+      confirmed: "1",
+      slotId: slot.id,
+    });
 
     expect(statusOf(deleted)).toBe(302);
     expect(count("availability")).toBe(before - 1);
@@ -211,7 +219,7 @@ describe("availability route", () => {
     await post(group.id, cookie, { intent: "skip", slotId: slot.id, date: "2026-10-15" });
     const skips = count("availability_skips");
 
-    await post(group.id, cookie, { intent: "delete", slotId: slot.id });
+    await post(group.id, cookie, { intent: "delete", confirmed: "1", slotId: slot.id });
 
     expect(count("availability_skips")).toBe(skips - 2);
   });
@@ -242,7 +250,7 @@ describe("availability route", () => {
 
     const visitor = await thrownBy(post(group.id, undefined, { intent: "create", ...weekly }));
     const crossGroup = await thrownBy(
-      post(group.id, forged, { intent: "delete", slotId: slot.id }),
+      post(group.id, forged, { intent: "delete", confirmed: "1", slotId: slot.id }),
     );
 
     expect((visitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
@@ -257,7 +265,7 @@ describe("availability route", () => {
 
     const forms: Record<string, string>[] = [
       { intent: "update", slotId: slot.id, ...weekly, startTime: "08:00" },
-      { intent: "delete", slotId: slot.id },
+      { intent: "delete", confirmed: "1", slotId: slot.id },
       { intent: "skip", slotId: slot.id, date: "2026-10-08" },
     ];
     for (const form of forms) {

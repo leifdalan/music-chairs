@@ -27,6 +27,10 @@ To settle at phase start: whether contacts include Google's "other contacts" (pe
 
 - The People API enabled and the contacts scopes added to the Google OAuth app (user action `traditional-quetzal`, done by the operator on 2026-10-03). Tests fake Google and do not wait for it; the real autocomplete and the User Demo do.
 
+## Inherited from Phase 11
+
+Pinned by [Phase 11](phase-11.md): organizers can rename and remove members; removing a member deletes their data and app-written Google events, and the removed person can rejoin with the unchanged invite link. Destructive actions confirm through `ConfirmForm` and `confirmationNeeded`.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers adding by typed name, contact autocomplete from a faked People API answer, the contacts consent requested only on first use, organizer-only access, claiming an added place by name and by Google account, and that no contact data is stored beyond the members actually added.
