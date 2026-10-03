@@ -7,6 +7,8 @@ export default [
   route("g/:groupId/availability", "routes/availability.tsx"),
   route("g/:groupId/availability/import", "routes/availability.import.tsx"),
   route("g/:groupId/schedule", "routes/schedule.tsx"),
+  route("g/:groupId/requests/new", "routes/requests.new.tsx"),
+  route("g/:groupId/requests/:requestId", "routes/request.tsx"),
   route("join/:inviteToken", "routes/join.tsx"),
   route("auth/google", "routes/auth.google.ts"),
   route("auth/google/callback", "routes/auth.google.callback.ts"),

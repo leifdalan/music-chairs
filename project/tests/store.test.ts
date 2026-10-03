@@ -627,6 +627,93 @@ describe("Google Calendar state", () => {
   });
 });
 
+describe("scheduling requests", () => {
+  const november = {
+    name: "November concert",
+    startDate: "2026-11-02",
+    endDate: "2026-11-29",
+    windows: [
+      { startMinute: 600, endMinute: 780 },
+      { startMinute: 1140, endMinute: 1320 },
+    ],
+  };
+
+  it("creates requests with their windows, newest first, and keeps groups apart", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Trio", "Oboe", "Europe/London").group;
+    const first = store.createRequest(group.id, november);
+    const second = store.createRequest(group.id, {
+      ...november,
+      name: "Weekly rehearsals",
+      windows: [{ startMinute: 1080, endMinute: 1260 }],
+    });
+
+    expect(first).toMatchObject({ ...november, groupId: group.id, open: true, answerCount: 0 });
+    expect(store.listRequests(group.id).map((request) => request.name)).toEqual([
+      "Weekly rehearsals",
+      "November concert",
+    ]);
+    expect(store.findRequest(group.id, second.id)?.windows).toEqual([
+      { startMinute: 1080, endMinute: 1260 },
+    ]);
+    expect(store.findRequest(other.id, first.id)).toBeNull();
+    expect(store.findRequest(group.id, "not a token")).toBeNull();
+    expect(store.listRequests(other.id)).toEqual([]);
+  });
+
+  it("updates a request, replacing its windows, and refuses a closed one", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Trio", "Oboe", "Europe/London").group;
+    const request = store.createRequest(group.id, november);
+    const changed = {
+      ...november,
+      name: "Concert",
+      windows: [{ startMinute: 0, endMinute: 1440 }],
+    };
+
+    expect(store.updateRequest(other.id, request.id, changed)).toBe(false);
+    expect(store.updateRequest(group.id, request.id, changed)).toBe(true);
+    expect(store.findRequest(group.id, request.id)).toMatchObject(changed);
+
+    expect(store.setRequestOpen(other.id, request.id, false)).toBe(false);
+    expect(store.setRequestOpen(group.id, request.id, false)).toBe(true);
+    expect(store.updateRequest(group.id, request.id, november)).toBe(false);
+    expect(store.findRequest(group.id, request.id)).toMatchObject({ ...changed, open: false });
+    expect(store.setRequestOpen(group.id, request.id, true)).toBe(true);
+    expect(store.findRequest(group.id, request.id)?.open).toBe(true);
+  });
+
+  it("records one answer per member with a limit, updating it, only while open", () => {
+    const store = memoryStore();
+    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const cellist = store.addMember(group.id, "Cellist", "member");
+    const stranger = store.createGroup("Trio", "Oboe", "Europe/London").organizer;
+    const request = store.createRequest(group.id, november);
+
+    expect(
+      store.answerRequest(group.id, request.id, cellist.id, 2, new Date("2026-10-03T10:00:00Z")),
+    ).toBe(true);
+    expect(store.answerRequest(group.id, request.id, organizer.id, null)).toBe(true);
+    expect(
+      store.answerRequest(group.id, request.id, cellist.id, null, new Date("2026-10-04T10:00:00Z")),
+    ).toBe(true);
+    expect(store.answerRequest(group.id, request.id, stranger.id, 1)).toBe(false);
+
+    expect(store.listAnswers(group.id, request.id)).toEqual([
+      { memberId: organizer.id, answeredAt: expect.any(String), limit: null },
+      { memberId: cellist.id, answeredAt: "2026-10-04T10:00:00.000Z", limit: null },
+    ]);
+    expect(store.findRequest(group.id, request.id)?.answerCount).toBe(2);
+    expect(store.listAnswers(stranger.groupId, request.id)).toEqual([]);
+
+    store.setRequestOpen(group.id, request.id, false);
+    expect(store.answerRequest(group.id, request.id, cellist.id, 3)).toBe(false);
+    expect(store.listAnswers(group.id, request.id)[1].limit).toBeNull();
+  });
+});
+
 describe("schema migrations", () => {
   function fileDatabase(): string {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -766,6 +853,54 @@ describe("schema migrations", () => {
     expect(indexes).toEqual(
       expect.arrayContaining(["availability_by_member", "rehearsals_by_group"]),
     );
+    db.close();
+  });
+
+  it("upgrades a version-4 database to scheduling requests, keeping its data and checks", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 4));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+      INSERT INTO rehearsals VALUES ('r', 'g', 'once', '2026-10-08', NULL, 1140, 1260, 'Studio', 'confirmed', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(4);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+    const db = new DatabaseSync(filename);
+    db.exec("PRAGMA foreign_keys = ON;");
+
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(store.listMembers("g").map((member) => member.displayName)).toEqual(["Cellist"]);
+    expect(store.listRehearsals("g")).toHaveLength(1);
+    expect(store.listRequests("g")).toEqual([]);
+    db.exec(`
+      INSERT INTO requests VALUES ('q', 'g', 'Concert', '2026-11-01', '2026-11-30', 1, 'x');
+      INSERT INTO request_windows VALUES ('q', 1140, 1320);
+      INSERT INTO request_answers VALUES ('q', 'm', 'x', NULL);
+      INSERT INTO requests VALUES ('q2', 'g', 'Weekly', '2026-11-01', '2026-11-01', 1, 'x');
+    `);
+    for (const bad of [
+      "INSERT INTO requests VALUES ('b', 'g', 'B', '2026-11-30', '2026-11-01', 1, 'x')",
+      "INSERT INTO request_windows VALUES ('q', 1150, 1320)",
+      "INSERT INTO request_windows VALUES ('q', 1320, 1320)",
+      "INSERT INTO request_answers VALUES ('q2', 'm', 'x', 0)",
+      "INSERT INTO request_answers VALUES ('q2', 'm', 'x', 100)",
+      "INSERT INTO requests VALUES ('n', 'no-group', 'N', '2026-11-01', '2026-11-01', 1, 'x')",
+      "INSERT INTO request_answers VALUES ('q2', 'no-member', 'x', NULL)",
+      "INSERT INTO request_windows VALUES ('no-request', 1140, 1320)",
+    ]) {
+      expect(() => db.exec(bad)).toThrow();
+    }
+    db.exec("INSERT INTO request_answers VALUES ('q2', 'm', 'x', 99)");
+    // Windows and answers go with their request.
+    db.exec("DELETE FROM requests WHERE id = 'q'");
+    expect(db.prepare("SELECT COUNT(*) AS n FROM request_windows").get()).toEqual({ n: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM request_answers").get()).toEqual({ n: 1 });
     db.close();
   });
 

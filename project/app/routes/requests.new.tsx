@@ -1,0 +1,312 @@
+import { data, Form, Link, redirect } from "react-router";
+
+import { redirectWithToast } from "~/.server/flash";
+import { findViewer } from "~/.server/membership";
+import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
+import { SubmitButton } from "~/components/submit-button";
+import { QuarterHours, TimeField } from "~/components/time-field";
+import { addDays, timeInputValue, todayInZone } from "~/lib/availability";
+import {
+  MAX_WINDOWS,
+  parseRequestForm,
+  readRequestFormValues,
+  repeatSpan,
+  type RequestErrors,
+  type RequestFormValues,
+} from "~/lib/requests";
+import { pageMeta } from "~/lib/site";
+
+import type { Route } from "./+types/requests.new";
+
+export function meta({ loaderData }: Route.MetaArgs) {
+  if (!loaderData) return pageMeta("Not found");
+  return pageMeta(
+    `${loaderData.editing ? "Edit request" : "New request"} · ${loaderData.groupName}`,
+  );
+}
+
+/** The group, for its organizers only: visitors go to the group page, members get 403. */
+async function organizerGroup(request: Request, groupId: string): Promise<Group> {
+  const group = getStore().findGroup(groupId);
+  if (!group) throw data(null, { status: 404 });
+  const viewer = await findViewer(request, group);
+  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (viewer.role !== "organizer") throw data(null, { status: 403 });
+  return group;
+}
+
+/** The request named by `id` in this group, or 404. */
+function existing(group: Group, id: string): ScheduleRequest {
+  const found = getStore().findRequest(group.id, id);
+  if (!found) throw data(null, { status: 404 });
+  return found;
+}
+
+function formValues(request: ScheduleRequest, span: { startDate: string; endDate: string }) {
+  return {
+    name: request.name,
+    ...span,
+    windows: request.windows.map((window) => ({
+      start: timeInputValue(window.startMinute),
+      end: timeInputValue(window.endMinute),
+    })),
+  };
+}
+
+export async function loader({ request, params }: Route.LoaderArgs) {
+  const group = await organizerGroup(request, params.groupId);
+  const today = todayInZone(group.timeZone, new Date());
+  const search = new URL(request.url).searchParams;
+  const editId = search.get("edit");
+  const repeatId = search.get("repeat");
+  let values: RequestFormValues = {
+    name: "",
+    startDate: today,
+    endDate: addDays(today, 27),
+    windows: [],
+  };
+  let editing: { id: string; open: boolean } | null = null;
+  if (editId) {
+    const stored = existing(group, editId);
+    editing = { id: stored.id, open: stored.open };
+    values = formValues(stored, stored);
+  } else if (repeatId) {
+    const stored = existing(group, repeatId);
+    values = formValues(stored, repeatSpan(stored.startDate, stored.endDate, today));
+  }
+  return {
+    groupId: group.id,
+    groupName: group.name,
+    timeZone: group.timeZone,
+    today,
+    values,
+    editing,
+  };
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+  const group = await organizerGroup(request, params.groupId);
+  const store = getStore();
+  const form = await request.formData();
+  const requestId = form.get("requestId");
+  const stored = typeof requestId === "string" ? existing(group, requestId) : null;
+  if (stored && !stored.open) {
+    return data({ problem: "This request is closed. Reopen it to make changes." }, { status: 400 });
+  }
+  // "Add another window" keeps everything typed and shows one more row.
+  if (form.get("intent") === "add-window") {
+    return { values: readRequestFormValues(form), extraRow: true, errors: {} as RequestErrors };
+  }
+  // Anything else saves: Enter in a field submits the hidden default Save.
+  const parsed = parseRequestForm(form, {
+    today: todayInZone(group.timeZone, new Date()),
+    storedStart: stored?.startDate,
+  });
+  if (!parsed.ok) {
+    return data({ values: parsed.values, extraRow: false, errors: parsed.errors }, { status: 400 });
+  }
+  if (stored) {
+    if (!store.updateRequest(group.id, stored.id, parsed.value)) {
+      return data(
+        { problem: "This request is closed. Reopen it to make changes." },
+        { status: 400 },
+      );
+    }
+    return redirectWithToast(`/g/${group.id}/requests/${stored.id}`, "Request updated");
+  }
+  const created = store.createRequest(group.id, parsed.value);
+  return redirectWithToast(`/g/${group.id}/requests/${created.id}`, "Request created");
+}
+
+export default function RequestForm({ loaderData, actionData }: Route.ComponentProps) {
+  const { groupId, groupName, timeZone, editing } = loaderData;
+  const result = actionData && "values" in actionData ? actionData : undefined;
+  const problem = actionData && "problem" in actionData ? actionData.problem : null;
+  const values = result?.values ?? loaderData.values;
+  const errors: RequestErrors = result?.errors ?? {};
+  // A stored request shows its windows and one empty row; a form sent back
+  // shows every row it sent (blank ones too, so no typed row or its error is
+  // lost), plus one after "Add another time". At least two, up to the limit.
+  const sent = result ? values.windows.length + (result.extraRow ? 1 : 0) : null;
+  const rowCount = Math.min(MAX_WINDOWS, Math.max(2, sent ?? values.windows.length + 1));
+  const backTo = editing ? `/g/${groupId}/requests/${editing.id}` : `/g/${groupId}`;
+
+  return (
+    <main>
+      <p className="eyebrow">
+        <Link to={`/g/${groupId}`}>{groupName}</Link>
+      </p>
+      <h1>{editing ? "Edit request" : "New request"}</h1>
+      <p className="hint">
+        Ask the band when they can rehearse between two dates, at the times of day you choose. All
+        times are in {timeZone}.
+      </p>
+      {problem ? (
+        <p className="notice" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      {editing && !editing.open ? (
+        <p className="notice">
+          This request is closed. <Link to={backTo}>Reopen it</Link> to make changes.
+        </p>
+      ) : (
+        <RequestFields
+          values={values}
+          errors={errors}
+          rowCount={rowCount}
+          editingId={editing?.id ?? null}
+          backTo={backTo}
+        />
+      )}
+    </main>
+  );
+}
+
+function RequestFields({
+  values,
+  errors,
+  rowCount,
+  editingId,
+  backTo,
+}: {
+  values: RequestFormValues;
+  errors: RequestErrors;
+  rowCount: number;
+  editingId: string | null;
+  backTo: string;
+}) {
+  const rows = Array.from({ length: rowCount }, (_, index) => values.windows[index] ?? null);
+  const error = (name: "name" | "startDate" | "endDate") =>
+    errors[name] ? (
+      <p className="field-error" id={`${name}-error`} role="alert">
+        {errors[name]}
+      </p>
+    ) : null;
+  const described = (name: "name" | "startDate" | "endDate") =>
+    errors[name] ? `${name}-error` : undefined;
+  return (
+    <>
+      {/* Keyed by the row count so an added row starts empty and values come from the server. */}
+      <Form method="post" className="stack request-form" replace key={rowCount}>
+        {/* The first submit button is the form's default, so Enter saves. */}
+        <button
+          type="submit"
+          name="intent"
+          value="save"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+        >
+          Save
+        </button>
+        {editingId ? <input type="hidden" name="requestId" value={editingId} /> : null}
+        <div className="field">
+          <label htmlFor="name">Name</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            autoComplete="off"
+            placeholder="November concert"
+            defaultValue={values.name}
+            aria-invalid={errors.name ? true : undefined}
+            aria-describedby={described("name")}
+          />
+          {error("name")}
+        </div>
+        <div className="field-pair">
+          <div className="field">
+            <label htmlFor="startDate">First date</label>
+            <input
+              id="startDate"
+              name="startDate"
+              type="date"
+              required
+              defaultValue={values.startDate}
+              aria-invalid={errors.startDate ? true : undefined}
+              aria-describedby={described("startDate")}
+            />
+            {error("startDate")}
+          </div>
+          <div className="field">
+            <label htmlFor="endDate">Last date</label>
+            <input
+              id="endDate"
+              name="endDate"
+              type="date"
+              required
+              defaultValue={values.endDate}
+              aria-invalid={errors.endDate ? true : undefined}
+              aria-describedby={described("endDate")}
+            />
+            {error("endDate")}
+          </div>
+        </div>
+        <fieldset
+          className="windows"
+          aria-describedby={errors.windows ? "windows-error" : undefined}
+        >
+          <legend>Times of day</legend>
+          <p className="hint">Each time applies to every day between the dates.</p>
+          <QuarterHours id="window-times" />
+          {rows.map((row, index) => {
+            const rowError = errors.rows?.[index];
+            const errorId = `window-${index}-error`;
+            return (
+              <div className="window-row" key={index}>
+                <TimeField
+                  id={`windowStart-${index}`}
+                  name={`windowStart-${index}`}
+                  label={`Time ${index + 1} from`}
+                  defaultValue={row?.start ?? ""}
+                  invalid={rowError !== undefined}
+                  describedBy={rowError ? errorId : undefined}
+                  listId="window-times"
+                />
+                <span aria-hidden="true">–</span>
+                <TimeField
+                  id={`windowEnd-${index}`}
+                  name={`windowEnd-${index}`}
+                  label={`Time ${index + 1} until`}
+                  defaultValue={row?.end ?? ""}
+                  end
+                  invalid={rowError !== undefined}
+                  describedBy={rowError ? errorId : undefined}
+                  listId="window-times"
+                />
+                {rowError ? (
+                  <p className="field-error" id={errorId} role="alert">
+                    {rowError}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+          {errors.windows ? (
+            <p className="field-error" id="windows-error" role="alert">
+              {errors.windows}
+            </p>
+          ) : null}
+          {rowCount < MAX_WINDOWS ? (
+            <SubmitButton
+              feedbackKey="add-window"
+              name="intent"
+              value="add-window"
+              className="secondary small"
+            >
+              Add another time
+            </SubmitButton>
+          ) : null}
+        </fieldset>
+        <SubmitButton feedbackKey="request-save" name="intent" value="save">
+          {editingId ? "Save changes" : "Send request"}
+        </SubmitButton>
+        <Link to={backTo} className="cancel">
+          Cancel
+        </Link>
+      </Form>
+    </>
+  );
+}

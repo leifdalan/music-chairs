@@ -75,7 +75,7 @@ export function addDays(date: string, days: number): string {
   return isoDate(value);
 }
 
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   return Math.round((utcDate(to).getTime() - utcDate(from).getTime()) / 86_400_000);
 }
 

@@ -400,8 +400,104 @@ describe("schedule route", () => {
 
     const page = await load(group.id, organizerCookie, "?date=2026-10-08&start=19:00&end=22:00");
 
-    expect(page.prefill).toEqual({ startDate: "2026-10-08", startTime: "19:00", endTime: "22:00" });
+    expect(page.prefill).toEqual({
+      startDate: "2026-10-08",
+      startTime: "19:00",
+      endTime: "22:00",
+      location: "",
+    });
     expect(render(page)).toMatch(/name="startDate"[^>]*value="2026-10-08"/);
+  });
+
+  describe("times that worked", () => {
+    function past(
+      groupId: string,
+      startDate: string,
+      location: string,
+      options: { kind?: "once" | "weekly"; confirm?: boolean; start?: number } = {},
+    ) {
+      const store = getStore();
+      const rehearsal = store.addRehearsal(
+        groupId,
+        {
+          kind: options.kind ?? "once",
+          startDate,
+          endDate: null,
+          startMinute: options.start ?? 19 * 60 + 30,
+          endMinute: 21 * 60 + 30,
+        },
+        location,
+      );
+      if (options.confirm !== false) store.confirmRehearsal(groupId, rehearsal.id);
+      return rehearsal;
+    }
+
+    it("offers past confirmed rehearsals again on their next weekday, once per time and place", async () => {
+      const { group, organizerCookie } = await band();
+      past(group.id, "2026-09-24", "Studio B"); // a Thursday
+      past(group.id, "2026-09-17", "Studio B"); // the same Thursday time and place
+      past(group.id, "2026-09-28", "Hall"); // a Monday
+      past(group.id, "2026-09-29", "Hall", { confirm: false }); // only proposed
+      past(group.id, "2026-10-02", "Today"); // not yet past
+      past(group.id, "2026-09-03", "Weekly", { kind: "weekly", start: 18 * 60 }); // last met 1 Oct
+
+      const page = await load(group.id, organizerCookie);
+
+      expect(page.timesThatWorked).toEqual([
+        {
+          last: "2026-10-01",
+          next: "2026-10-08",
+          startMinute: 1080,
+          endMinute: 1290,
+          location: "Weekly",
+        },
+        {
+          last: "2026-09-28",
+          next: "2026-10-05",
+          startMinute: 1170,
+          endMinute: 1290,
+          location: "Hall",
+        },
+        {
+          last: "2026-09-24",
+          next: "2026-10-08",
+          startMinute: 1170,
+          endMinute: 1290,
+          location: "Studio B",
+        },
+      ]);
+      expect(render(page)).toContain(
+        "?date=2026-10-05&amp;start=19%3A30&amp;end=21%3A30&amp;location=Hall#propose-heading",
+      );
+    });
+
+    it("pre-fills the propose form with the time and place", async () => {
+      const { group, organizerCookie } = await band();
+
+      const page = await load(
+        group.id,
+        organizerCookie,
+        "?date=2026-10-08&start=19%3A30&end=21%3A30&location=Studio+B",
+      );
+
+      expect(page.prefill).toEqual({
+        startDate: "2026-10-08",
+        startTime: "19:30",
+        endTime: "21:30",
+        location: "Studio B",
+      });
+      expect(render(page)).toMatch(/name="location"[^>]*value="Studio B"/);
+    });
+
+    it("is for organizers only", async () => {
+      const { group, cellistCookie } = await band();
+      past(group.id, "2026-09-24", "Studio B");
+
+      const page = await load(group.id, cellistCookie);
+
+      expect(page.timesThatWorked).toBeNull();
+      expect(render(page)).not.toContain("Times that worked");
+    });
   });
 
   describe("RSVP", () => {

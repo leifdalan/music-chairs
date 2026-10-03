@@ -108,6 +108,8 @@ describe("group route", () => {
       notice: null,
       showNames: false,
       inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
+      requests: [],
+      memberCount: 2,
     });
   });
 

@@ -29,6 +29,10 @@ Settled when the operator listed UX changes after Phase 7:
 
 Pinned by [Phase 8](phase-8.md): every time is on a 15-minute grid (`STEP_MINUTES` in `project/app/lib/availability.ts`), and typed times go through `parseTimeText`, which rounds to the nearest quarter hour; enter times with `TimeField` (and a shared `QuarterHours` list when a page has many). Every changing form uses `SubmitButton` with a stable `feedbackKey`, and every successful action ends with `redirectWithToast` (`project/app/.server/flash.ts`) naming what happened; refusals use `ProblemAlert`. The schema is at version 4; new tables or columns are migration 5 onward.
 
+## Inherited from Phase 9
+
+Pinned by [Phase 9](phase-9.md): a group has named scheduling requests (`requests`, `request_windows`, `request_answers`; schema at version 5, so new tables or columns are migration 6 onward). A request has a date span and one or more time windows (`TimeWindow` in `project/app/lib/requests.ts`, minutes after midnight on the 15-minute grid), looked up only within its group by `findRequest`. Today a request's "Add" link opens `/g/<group>/availability?request=<id>&window=<i>`, pre-filling a weekly time over the rest of the span at that window, and saving returns to the request by its stored id; the calendar view replaces this entry while keeping requests scoped to the group. Members answer explicitly with an optional rehearsal limit; who answered, when, and each limit are shown to organizers only.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers multi-date entry, preset constraints, conflict marking from a faked free/busy answer and overriding it, and both views of "My times".

@@ -3,7 +3,7 @@ import { data, Form, Link, redirect } from "react-router";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer } from "~/.server/membership";
-import { getStore, type Group, type Member } from "~/.server/store";
+import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { SlotFields } from "~/components/slot-fields";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
@@ -31,6 +31,16 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `My availability · ${loaderData.groupName}` : "Not found");
 }
 
+/**
+ * The open, unfinished request a link or form names, looked up in this group
+ * only; anything else (unknown, closed, ended, another group's) is no request.
+ */
+function openRequest(group: Group, id: unknown, today: string): ScheduleRequest | null {
+  if (typeof id !== "string") return null;
+  const found = getStore().findRequest(group.id, id);
+  return found?.open && found.endDate >= today ? found : null;
+}
+
 /** The group and the member viewing it; visitors go back to the group page. */
 async function groupAndViewer(
   request: Request,
@@ -50,10 +60,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const until = addDays(today, UPCOMING_WEEKS * 7 - 1);
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
+  // "Add" on a request's page: a weekly time over the rest of its span, at one
+  // of its times of day; the member adjusts it before saving.
+  const scheduleRequest = editId ? null : openRequest(group, search.get("request"), today);
+  const window = scheduleRequest?.windows[Number(search.get("window"))];
   return {
     // Import needs a Google-linked member; the import page checks the rest.
     canImport: googleConfig() !== null && viewer.googleEmail !== null,
-
+    fromRequest:
+      scheduleRequest && window
+        ? {
+            id: scheduleRequest.id,
+            name: scheduleRequest.name,
+            values: {
+              kind: "weekly",
+              startDate: scheduleRequest.startDate > today ? scheduleRequest.startDate : today,
+              endDate: scheduleRequest.endDate,
+              startTime: timeInputValue(window.startMinute),
+              endTime: timeInputValue(window.endMinute),
+            },
+          }
+        : null,
     groupName: group.name,
     timeZone: group.timeZone,
     today,
@@ -92,7 +119,17 @@ export async function action({ request, params }: Route.ActionArgs) {
     } else if (!store.updateSlot(viewer.id, slotId, parsed.value)) {
       throw data(null, { status: 404 });
     }
-    return back(intent === "create" ? "Availability saved" : "Changes saved");
+    const message = intent === "create" ? "Availability saved" : "Changes saved";
+    // Back to the request the form came from, by its stored id, never a path from the form.
+    const scheduleRequest = openRequest(
+      group,
+      form.get("request"),
+      todayInZone(group.timeZone, new Date()),
+    );
+    if (scheduleRequest) {
+      return redirectWithToast(`/g/${group.id}/requests/${scheduleRequest.id}`, message);
+    }
+    return back(message);
   }
   if (intent === "delete") {
     if (!store.deleteSlot(viewer.id, slotId)) throw data(null, { status: 404 });
@@ -114,7 +151,8 @@ function timeRange(start: number, end: number): string {
 }
 
 export default function Availability({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupName, timeZone, today, until, slots, occurrences, editing, canImport } = loaderData;
+  const { groupName, timeZone, today, until, slots, occurrences, editing, canImport, fromRequest } =
+    loaderData;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
   return (
@@ -136,8 +174,9 @@ export default function Availability({ loaderData, actionData }: Route.Component
 
       {/* The slot count in the key gives the add form fresh, empty fields after each save. */}
       <SlotForm
-        key={editing?.id ?? `new-${slots.length}`}
+        key={editing?.id ?? `new-${fromRequest?.id ?? ""}-${slots.length}`}
         editing={editing}
+        fromRequest={fromRequest}
         actionData={formResult}
         today={today}
       />
@@ -181,27 +220,36 @@ type ActionData = { errors: SlotErrors; values: SlotFormValues } | undefined;
 
 function SlotForm({
   editing,
+  fromRequest,
   actionData,
   today,
 }: {
   editing: Slot | null;
+  fromRequest: { id: string; name: string; values: SlotFormValues } | null;
   actionData: ActionData;
   today: string;
 }) {
   // Rejected values win over the slot being edited, so a correction keeps
   // what the member typed.
-  const values: SlotFormValues = actionData?.values ?? {
-    kind: editing?.kind ?? "weekly",
-    startDate: editing?.startDate ?? today,
-    endDate: editing?.endDate ?? "",
-    startTime: editing ? timeInputValue(editing.startMinute) : "",
-    endTime: editing ? timeInputValue(editing.endMinute) : "",
-  };
+  const values: SlotFormValues = actionData?.values ??
+    fromRequest?.values ?? {
+      kind: editing?.kind ?? "weekly",
+      startDate: editing?.startDate ?? today,
+      endDate: editing?.endDate ?? "",
+      startTime: editing ? timeInputValue(editing.startMinute) : "",
+      endTime: editing ? timeInputValue(editing.endMinute) : "",
+    };
   return (
     <section aria-labelledby="slot-form-heading">
       <h2 id="slot-form-heading">{editing ? "Change a time" : "Add a time"}</h2>
+      {fromRequest ? (
+        <p className="hint">
+          For <strong>{fromRequest.name}</strong>: change the day, times or dates to suit you.
+        </p>
+      ) : null}
       <Form method="post" className="stack slot-form" replace>
         <input type="hidden" name="intent" value={editing ? "update" : "create"} />
+        {fromRequest ? <input type="hidden" name="request" value={fromRequest.id} /> : null}
         {editing ? <input type="hidden" name="slotId" value={editing.id} /> : null}
         <SlotFields values={values} errors={actionData?.errors ?? {}} />
         <SubmitButton feedbackKey="availability-save">

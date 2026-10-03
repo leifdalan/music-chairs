@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { isOccurrence, type Slot, type SlotInput } from "~/lib/availability";
+import type { TimeWindow } from "~/lib/requests";
 
 export type Role = "organizer" | "member";
 
@@ -60,6 +61,26 @@ export type SyncingMember = { memberId: string; groupId: string; accountId: stri
 
 /** One event the app wrote to a member's Google Calendar. */
 export type CalendarEvent = { rehearsalId: string; date: string; eventId: string };
+
+/** What an organizer asks for: a named date span and the times of day it covers. */
+export type RequestInput = {
+  name: string;
+  startDate: string;
+  endDate: string;
+  windows: TimeWindow[];
+};
+
+/** A scheduling request (plan/phase-9.md). Several can be open in a group at once. */
+export type ScheduleRequest = RequestInput & {
+  id: string;
+  groupId: string;
+  open: boolean;
+  answerCount: number;
+  createdAt: string;
+};
+
+/** A member's answer: when they sent it and their limit (null: any and all). */
+export type RequestAnswer = { memberId: string; answeredAt: string; limit: number | null };
 
 /** A session expires this many days after it was last used. */
 export const SESSION_DAYS = 90;
@@ -174,6 +195,26 @@ export type Store = {
   listCalendarEvents(memberId: string): CalendarEvent[];
   recordCalendarEvent(memberId: string, event: CalendarEvent): void;
   forgetCalendarEvent(memberId: string, rehearsalId: string, date: string): void;
+  createRequest(groupId: string, input: RequestInput): ScheduleRequest;
+  /** Replaces name, span and windows; false for an unknown or closed request. */
+  updateRequest(groupId: string, requestId: string, input: RequestInput): boolean;
+  setRequestOpen(groupId: string, requestId: string, open: boolean): boolean;
+  /** The group's requests, newest first. */
+  listRequests(groupId: string): ScheduleRequest[];
+  /** An id from another group behaves as unknown. */
+  findRequest(groupId: string, requestId: string): ScheduleRequest | null;
+  /**
+   * Records (or updates) a member's answer and limit. False for an unknown or
+   * closed request, or a member who is not in the group.
+   */
+  answerRequest(
+    groupId: string,
+    requestId: string,
+    memberId: string,
+    limit: number | null,
+    now?: Date,
+  ): boolean;
+  listAnswers(groupId: string, requestId: string): RequestAnswer[];
   close(): void;
 };
 
@@ -350,6 +391,35 @@ export const MIGRATIONS: readonly string[] = [
   DROP TABLE rehearsals;
   ALTER TABLE rehearsals_v4 RENAME TO rehearsals;
   CREATE INDEX rehearsals_by_group ON rehearsals (group_id);
+  `,
+  // Version 5 (Phase 9): scheduling requests, their time windows, and answers.
+  // Requests are closed, never deleted, so they can be repeated later.
+  `
+  CREATE TABLE requests (
+    id TEXT PRIMARY KEY,
+    group_id TEXT NOT NULL REFERENCES groups(id),
+    name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL CHECK (end_date >= start_date),
+    open INTEGER NOT NULL CHECK (open IN (0, 1)),
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX requests_by_group ON requests (group_id);
+  CREATE TABLE request_windows (
+    request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+    start_minute INTEGER NOT NULL CHECK (start_minute % 15 = 0 AND start_minute >= 0),
+    end_minute INTEGER NOT NULL CHECK (
+      end_minute % 15 = 0 AND end_minute > start_minute AND end_minute <= 1440
+    ),
+    PRIMARY KEY (request_id, start_minute, end_minute)
+  );
+  CREATE TABLE request_answers (
+    request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE,
+    member_id TEXT NOT NULL REFERENCES members(id),
+    answered_at TEXT NOT NULL,
+    limit_count INTEGER CHECK (limit_count IS NULL OR (limit_count BETWEEN 1 AND 99)),
+    PRIMARY KEY (request_id, member_id)
+  );
   `,
 ];
 
@@ -621,6 +691,82 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const removeCalendarEvent = db.prepare(
     "DELETE FROM calendar_events WHERE member_id = ? AND rehearsal_id = ? AND date = ?",
   );
+  const requestSelect = `SELECT requests.id, requests.group_id, requests.name, requests.start_date,
+      requests.end_date, requests.open, requests.created_at,
+      (SELECT COUNT(*) FROM request_answers WHERE request_id = requests.id) AS answer_count
+    FROM requests`;
+  const selectRequests = db.prepare(
+    `${requestSelect} WHERE requests.group_id = ? ORDER BY requests.created_at DESC, requests.rowid DESC`,
+  );
+  const selectRequest = db.prepare(
+    `${requestSelect} WHERE requests.group_id = ? AND requests.id = ?`,
+  );
+  const selectWindows = db.prepare(
+    `SELECT start_minute, end_minute FROM request_windows WHERE request_id = ?
+     ORDER BY start_minute, end_minute`,
+  );
+  const insertRequest = db.prepare(
+    `INSERT INTO requests (id, group_id, name, start_date, end_date, open, created_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?)`,
+  );
+  const changeRequest = db.prepare(
+    "UPDATE requests SET name = ?, start_date = ?, end_date = ? WHERE group_id = ? AND id = ?",
+  );
+  const changeRequestOpen = db.prepare(
+    "UPDATE requests SET open = ? WHERE group_id = ? AND id = ?",
+  );
+  const insertWindow = db.prepare(
+    "INSERT OR IGNORE INTO request_windows (request_id, start_minute, end_minute) VALUES (?, ?, ?)",
+  );
+  const removeWindows = db.prepare("DELETE FROM request_windows WHERE request_id = ?");
+  const upsertAnswer = db.prepare(
+    `INSERT INTO request_answers (request_id, member_id, answered_at, limit_count) VALUES (?, ?, ?, ?)
+     ON CONFLICT (request_id, member_id)
+     DO UPDATE SET answered_at = excluded.answered_at, limit_count = excluded.limit_count`,
+  );
+  const selectAnswers = db.prepare(
+    `SELECT request_answers.member_id, request_answers.answered_at, request_answers.limit_count
+     FROM request_answers JOIN members ON members.id = request_answers.member_id
+     WHERE request_answers.request_id = ? ORDER BY members.joined_at, members.rowid`,
+  );
+
+  type RequestRow = {
+    id: string;
+    group_id: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+    open: number;
+    created_at: string;
+    answer_count: number;
+  };
+
+  function toRequest(row: RequestRow): ScheduleRequest {
+    return {
+      id: row.id,
+      groupId: row.group_id,
+      name: row.name,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      open: row.open === 1,
+      createdAt: row.created_at,
+      answerCount: row.answer_count,
+      windows: (selectWindows.all(row.id) as { start_minute: number; end_minute: number }[]).map(
+        (window) => ({ startMinute: window.start_minute, endMinute: window.end_minute }),
+      ),
+    };
+  }
+
+  function findRequest(groupId: string, requestId: string): ScheduleRequest | null {
+    if (!isToken(requestId)) return null;
+    const row = selectRequest.get(groupId, requestId) as RequestRow | undefined;
+    return row ? toRequest(row) : null;
+  }
+
+  function writeWindows(requestId: string, windows: TimeWindow[]): void {
+    removeWindows.run(requestId);
+    for (const window of windows) insertWindow.run(requestId, window.startMinute, window.endMinute);
+  }
   const changeOptional = db.prepare(
     "UPDATE members SET optional = ? WHERE group_id = ? AND id = ?",
   );
@@ -1135,6 +1281,59 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     },
     forgetCalendarEvent(memberId, rehearsalId, date) {
       removeCalendarEvent.run(memberId, rehearsalId, date);
+    },
+    createRequest(groupId, input) {
+      const id = newToken();
+      transaction(() => {
+        insertRequest.run(
+          id,
+          groupId,
+          input.name,
+          input.startDate,
+          input.endDate,
+          new Date().toISOString(),
+        );
+        writeWindows(id, input.windows);
+      });
+      return findRequest(groupId, id) as ScheduleRequest;
+    },
+    updateRequest(groupId, requestId, input) {
+      if (!findRequest(groupId, requestId)?.open) return false;
+      transaction(() => {
+        changeRequest.run(input.name, input.startDate, input.endDate, groupId, requestId);
+        writeWindows(requestId, input.windows);
+      });
+      return true;
+    },
+    setRequestOpen(groupId, requestId, open) {
+      if (!isToken(requestId)) return false;
+      return Number(changeRequestOpen.run(open ? 1 : 0, groupId, requestId).changes) > 0;
+    },
+    listRequests(groupId) {
+      return (selectRequests.all(groupId) as RequestRow[]).map(toRequest);
+    },
+    findRequest,
+    answerRequest(groupId, requestId, memberId, limit, now = new Date()) {
+      const request = findRequest(groupId, requestId);
+      if (!request?.open || !isToken(memberId) || !selectMember.get(groupId, memberId)) {
+        return false;
+      }
+      upsertAnswer.run(requestId, memberId, now.toISOString(), limit);
+      return true;
+    },
+    listAnswers(groupId, requestId) {
+      if (!findRequest(groupId, requestId)) return [];
+      return (
+        selectAnswers.all(requestId) as {
+          member_id: string;
+          answered_at: string;
+          limit_count: number | null;
+        }[]
+      ).map((row) => ({
+        memberId: row.member_id,
+        answeredAt: row.answered_at,
+        limit: row.limit_count,
+      }));
     },
     close() {
       db.close();

@@ -27,6 +27,7 @@ import {
   timeInputValue,
   todayInZone,
   validateLocation,
+  weekdayName,
   windowEnd,
   type SlotErrors,
   type SlotFormValues,
@@ -39,6 +40,7 @@ import {
   type OverlapMember,
 } from "~/lib/overlap";
 import { calendarNotice } from "~/lib/calendar-notices";
+import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/schedule";
@@ -120,6 +122,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const search = new URL(request.url).searchParams;
   return {
+    timesThatWorked: isOrganizer ? timesThatWorked(rehearsals, today) : null,
     calendar: await calendarPanel(request, group, viewer),
     groupName: group.name,
     timeZone: group.timeZone,
@@ -134,6 +137,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
           startDate: isDate(search.get("date")) ? String(search.get("date")) : "",
           startTime: search.get("start") ?? "",
           endTime: search.get("end") ?? "",
+          location: search.get("location") ?? "",
         }
       : null,
   };
@@ -210,6 +214,42 @@ type StretchView = {
   freeNames: string[] | null;
   missing: { name: string; optional: boolean }[] | null;
 };
+
+/** How many past rehearsal times "Times that worked" offers again. */
+const TIMES_THAT_WORKED = 6;
+
+/**
+ * Confirmed rehearsals that have already met, one per weekday, time and place,
+ * most recent first, each with the next date on its weekday from today.
+ */
+function timesThatWorked(rehearsals: Rehearsal[], today: string) {
+  const yesterday = addDays(today, -1);
+  const met = rehearsals
+    .filter((rehearsal) => rehearsal.status === "confirmed" && rehearsal.startDate <= yesterday)
+    .map((rehearsal) => ({
+      rehearsal,
+      last: expandOccurrences([rehearsal], rehearsal.startDate, yesterday).at(-1)?.date,
+    }))
+    .filter((item): item is { rehearsal: Rehearsal; last: string } => item.last !== undefined)
+    .sort((a, b) => b.last.localeCompare(a.last));
+  const seen = new Set<string>();
+  const times = [];
+  for (const { rehearsal, last } of met) {
+    const next = nextWeekday(today, last);
+    const key = [next, rehearsal.startMinute, rehearsal.endMinute, rehearsal.location].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    times.push({
+      last,
+      next,
+      startMinute: rehearsal.startMinute,
+      endMinute: rehearsal.endMinute,
+      location: rehearsal.location,
+    });
+    if (times.length === TIMES_THAT_WORKED) break;
+  }
+  return times;
+}
 
 function mergeEqualCounts(stretches: StretchView[]): StretchView[] {
   const merged: StretchView[] = [];
@@ -408,6 +448,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     rehearsals,
     prefill,
     calendar,
+    timesThatWorked,
   } = loaderData;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
@@ -430,9 +471,41 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       <RehearsalList title="Proposed" items={proposed} empty="No proposed times." />
       <CalendarPanel calendar={calendar} />
 
+      {timesThatWorked && timesThatWorked.length > 0 ? (
+        <section aria-labelledby="worked-heading">
+          <h2 id="worked-heading">Times that worked</h2>
+          <ul className="times-worked">
+            {timesThatWorked.map((time) => {
+              const when = `${weekdayName(time.last)} ${timeRange(time.startMinute, time.endMinute)}`;
+              return (
+                <li key={`${time.next}-${time.startMinute}-${time.endMinute}-${time.location}`}>
+                  <span>
+                    {when}
+                    {time.location ? `, ${time.location}` : ""}
+                    <span className="hint"> · last {formatDate(time.last)}</span>
+                  </span>
+                  <Link
+                    className="button-link secondary small"
+                    to={`?${new URLSearchParams({
+                      date: time.next,
+                      start: timeInputValue(time.startMinute),
+                      end: timeInputValue(time.endMinute),
+                      location: time.location,
+                    })}#propose-heading`}
+                    aria-label={`Propose again: ${when} on ${formatDate(time.next)}`}
+                  >
+                    Propose again
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       {prefill ? (
         <ProposeForm
-          key={`${prefill.startDate}-${prefill.startTime}-${rehearsals.length}`}
+          key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}-${rehearsals.length}`}
           prefill={prefill}
           result={formResult}
         />
@@ -756,7 +829,7 @@ function ProposeForm({
   prefill,
   result,
 }: {
-  prefill: { startDate: string; startTime: string; endTime: string };
+  prefill: { startDate: string; startTime: string; endTime: string; location: string };
   result: { errors: ProposeErrors; values: ProposeValues } | undefined;
 }) {
   const values: ProposeValues = result?.values ?? {
@@ -765,7 +838,7 @@ function ProposeForm({
     endDate: "",
     startTime: prefill.startTime,
     endTime: prefill.endTime,
-    location: "",
+    location: prefill.location,
   };
   const errors = result?.errors ?? {};
   return (

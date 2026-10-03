@@ -7,6 +7,7 @@ import { findViewer, publicOrigin, readAccount } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
+import { formatDate, todayInZone } from "~/lib/availability";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/group";
@@ -31,7 +32,8 @@ async function signInNotice(request: Request, groupId: string, viewerName: strin
 // and never leave the server. Organizers also get member ids, optional tags and
 // linked Google emails for their controls; members and visitors get names,
 // roles and whether each member signs in with Google. A member sees their own
-// email only.
+// email only. Requests go to members only: each with whether the viewer has
+// answered, and for organizers how many have.
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
   const group = store.findGroup(params.groupId);
@@ -39,7 +41,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const viewer = await findViewer(request, group);
   const account = await readAccount(request);
   const isOrganizer = viewer?.role === "organizer";
+  const today = todayInZone(group.timeZone, new Date());
+  const memberCount = store.listMembers(group.id).length;
+  const requests = viewer
+    ? store
+        .listRequests(group.id)
+        .filter((item) => isOrganizer || (item.open && item.endDate >= today))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          startDate: item.startDate,
+          endDate: item.endDate,
+          current: item.open && item.endDate >= today,
+          answered: store
+            .listAnswers(group.id, item.id)
+            .some((answer) => answer.memberId === viewer.id),
+          answerCount: isOrganizer ? item.answerCount : null,
+        }))
+    : null;
   return {
+    requests,
+    memberCount: isOrganizer ? memberCount : null,
     groupId: group.id,
     groupName: group.name,
     timeZone: group.timeZone,
@@ -103,8 +125,18 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function GroupPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupName, timeZone, members, viewer, showNames, inviteUrl, signInAvailable, notice } =
-    loaderData;
+  const {
+    groupName,
+    timeZone,
+    members,
+    viewer,
+    showNames,
+    inviteUrl,
+    signInAvailable,
+    notice,
+    requests,
+    memberCount,
+  } = loaderData;
   return (
     <main>
       <h1>{groupName}</h1>
@@ -153,6 +185,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
       {actionData?.problem ? (
         <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}
+      {requests ? <RequestsSection requests={requests} memberCount={memberCount} /> : null}
       {inviteUrl ? <InvitePanel inviteUrl={inviteUrl} /> : null}
       {showNames !== null ? (
         <section className="invite" aria-labelledby="privacy-heading">
@@ -214,6 +247,87 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         </ul>
       </section>
     </main>
+  );
+}
+
+type RequestItem = NonNullable<Route.ComponentProps["loaderData"]["requests"]>[number];
+
+/** Open requests for everyone in the group; organizers also start, count and repeat them. */
+function RequestsSection({
+  requests,
+  memberCount,
+}: {
+  requests: RequestItem[];
+  /** Organizers only. */
+  memberCount: number | null;
+}) {
+  const organizer = memberCount !== null;
+  const current = requests.filter((item) => item.current);
+  const past = requests.filter((item) => !item.current);
+  const span = (item: RequestItem) =>
+    `${formatDate(item.startDate)} to ${formatDate(item.endDate)}`;
+  return (
+    <section aria-labelledby="requests-heading">
+      <h2 id="requests-heading">Requests</h2>
+      {current.length === 0 ? (
+        <p className="hint">
+          {organizer
+            ? "Ask the band when they can rehearse between two dates."
+            : "No open requests from your organizers."}
+        </p>
+      ) : (
+        <ul className="requests">
+          {current.map((item) => (
+            <li key={item.id}>
+              <Link to={`requests/${item.id}`} relative="path" className="request-name">
+                {item.name}
+              </Link>
+              <span className="hint"> {span(item)}</span>
+              <span className={item.answered ? "request-answered" : "request-unanswered"}>
+                {item.answered ? "Answered" : "Not answered yet"}
+              </span>
+              {item.answerCount !== null ? (
+                <span className="hint">
+                  {item.answerCount} of {memberCount} answered
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {organizer ? (
+        <>
+          <p>
+            <Link to="requests/new" relative="path" className="button-link secondary">
+              New request
+            </Link>
+          </p>
+          {past.length > 0 ? (
+            <details>
+              <summary>Past and closed requests ({past.length})</summary>
+              <ul className="requests">
+                {past.map((item) => (
+                  <li key={item.id}>
+                    <Link to={`requests/${item.id}`} relative="path" className="request-name">
+                      {item.name}
+                    </Link>
+                    <span className="hint"> {span(item)}</span>
+                    <Link
+                      to={`requests/new?repeat=${item.id}`}
+                      relative="path"
+                      className="button-link secondary small"
+                      aria-label={`Repeat request: ${item.name}`}
+                    >
+                      Repeat
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }
 

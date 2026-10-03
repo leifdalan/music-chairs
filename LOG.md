@@ -1268,3 +1268,125 @@ Execution trace: b37526712ada42e19bd427ae69303ce3
 - Lessons: winged-tuna filed as a methodology candidate; ./bin/lessons validate: LESSONS OK. camouflaged-dragon remains graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 12:36 — START
+
+Phase 9 — Scheduling requests: date span, preset times of day and rehearsal limits
+
+Execution trace: 8d8fc8376031462490f72e8ee5c0bca0
+
+Operator decisions recorded in plan/phase-9.md before this run: requests pre-fill open-ended availability, which members can change freely; the band is reused for every request; any number of preset times of day; an optional per-request rehearsal limit (default any and all) shown to the organizer; repeating requests and past rehearsal times for future dates. At phase start: several requests can be open at once, each named; a preset is a time window applying to every day in the span; members answer explicitly with "Send my answer"; "Repeat request" starts the next span with the same settings and each past confirmed rehearsal offers "Propose again". The User Demo was tightened before capture.
+
+Planned work:
+- A scheduling request on a group: a date span and one or more preset times of day (for example weeknights 19:00–22:00 and Saturdays 10:00–13:00), created and edited by an organizer.
+- Members see the open request; it pre-fills and shapes their availability entry, which stays open-ended and freely editable.
+- A per-member, per-request limit: "any and all" by default, or "no more than N rehearsals" in the span, shown to the organizer with the responses.
+- The organizer sees who has responded and each member's limit alongside the overlap, when choosing times.
+- Repeating: a past request, or a rehearsal time that worked, can be started again for future dates with its settings, from persistent UI that shows those past choices.
+
+## 2026-10-03 13:03 — END
+Phase 9 — Scheduling requests: date span, preset times of day and rehearsal limits
+
+Phase 9 is accepted on its gates and live at https://rehearse.dalan.dev. An organizer can now ask the band for availability: a named request with a date span and one or more times of day (for example 19:00–22:00 and 10:00–13:00). Several requests can be open at once, and each can be edited, closed, reopened or repeated for the next span. Members see open requests on the group page, marked answered or not. On a request's page, "Add" opens their availability form already filled with a weekly time over the span at that time of day. They choose "any and all" or "no more than N" rehearsals and press **Send my answer**, and can update it later. Only organizers see who answered, when, each person's limit, and when people are free within the request's times, each with a link to propose that time. The schedule gains "Times that worked": past confirmed rehearsals, each with **Propose again** filling in the next date on that weekday, the times and the place. The live database was upgraded in place. Whether the flow reads clearly on a phone is yours to judge through the User Demo below.
+
+Execution trace: 8d8fc8376031462490f72e8ee5c0bca0
+
+Files changed:
+- plan/phase-9.md — operator decisions settled at phase start (several named requests; time-window presets; explicit answers; both repeats) and the tightened User Demo, recorded before the run
+- project/app/.server/store.ts — migration 5 (requests, request_windows, request_answers) and the request, window and answer functions
+- project/app/lib/requests.ts — new: request form parsing (rounding, merged windows, 26-week span, past-start rule), clipping overlap to windows, repeat span, next weekday
+- project/app/lib/availability.ts — daysBetween exported
+- project/app/routes/requests.new.tsx — new: create, edit and repeat form (organizers), hidden default Save, "Add another time"
+- project/app/routes/request.tsx — new: request page (own times, Add links, answer with limit; organizers also answers, overlap, edit, close/reopen, repeat)
+- project/app/routes/group.tsx — Requests section (members: current requests and their answered state; organizers: counts, New request, past and closed with Repeat)
+- project/app/routes/availability.tsx — pre-fill from ?request=&window= and return to the request after saving (stored id only)
+- project/app/routes/schedule.tsx — Times that worked and Propose again; the propose form pre-fills the location
+- project/app/routes.ts, project/app/app.css — two routes; request styles
+- project/tests/ — requests lib, request routes (including privacy, cross-group ids, pre-fill and return; these live in request-routes.test.tsx rather than availability-route.test.tsx), store (migration 5 upgrade with foreign keys and cascade), group and schedule tests (Vitest 338)
+- plan/INDEX.md — Phase 9 ✅, Phase 10 ⬅️ (pending, applied after this block)
+- plan/phase-10.md — inherited Phase 9 notes (pending AUTO ripple)
+- lessons/camouflaged-dragon.md — Phase 9 occurrence (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release healthy; live database at schema version 5 with its data kept (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 338/338, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.288, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 141.710 s; first event 0.832 s; longest idle 36.738 s; success
+- Coder: inline (no role span)
+- Critic (code review): 176.455 s; first event 0.802 s; longest idle 28.371 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1513.536 s; intelligence 318.166 s; gates 146.463 s; orchestration 1512.961 s; wait 317.098 s; failed 0 s; retry 0 s; unattributed 0.575 s (category totals are interval unions and may overlap).
+- Awaiting user input: none (phase-summary reports no parks)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=e977c1a9a93acd00f343ab374769962801026afd2f269a9febd499fdb6473119 critiqued=76e62d66bb9caf1c34f68850a82551a197ebf806e76d73e52c3d8cae72356c51 approved=f589a18dec92232480e59503370d7632fe986b6f3ade76749bf1cb58a33345e4 final=f589a18dec92232480e59503370d7632fe986b6f3ade76749bf1cb58a33345e4
+- Revision packets: 0
+- Advisory reports: 2 — plan review 8 findings (all adopted), code critique 6 findings (all adopted; one medium: the form could drop a time row typed after blank rows when sent back with errors)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers creating, editing (including the past-start and closed rules) and repeating requests, time-window presets (rounding, merging, row redisplay), the limit and what the organizer sees (answers, limits, overlap clipped to windows) versus what a member and a visitor receive, and the migration-5 upgrade from version 4; `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (whether the request flow is clear on a phone, both repeats, and the organizer's view)
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-10.md — add "Inherited from Phase 9": request ids and windows (`findRequest` scoped to the group, `TimeWindow` in project/app/lib/requests.ts), the availability ?request=&window= pre-fill and return contract that the calendar view replaces, members' answers and limits visible to organizers only, schema at version 5 — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrences pending: camouflaged-dragon (4 total after this phase) — a migration test's "bad" insert first failed for a reason other than the CHECK it was meant to prove, and the raw upgrade-test connection did not enforce foreign keys, so they were never exercised
+- graduation DECIDE: camouflaged-dragon (4 occurrences) → test policy, still awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev` on a laptop as the organizer of a group, and on your phone as a member of the same group.
+- **Suggested inputs.** As organizer, start a request named `November concert` covering the next four weeks with two time windows, 19:00–22:00 and 10:00–13:00, and a second request named `Weekly rehearsals` covering the next eight weeks with 18:00–21:00. On the phone, open `November concert`, add an evening of availability from the pre-filled times, choose "no more than 2 rehearsals", and press **Send my answer**.
+- **What to look for.** Both requests are listed for the member, who picks one to answer. The availability form opens with the request's dates and times filled in. The organizer sees, for `November concert`, that you answered (with the time) and your limit of 2, beside the overlap within its span; the other request shows no answer from you yet. On the organizer's laptop, **Repeat request** on `November concert` opens a new request starting the day after it ends, with the same windows and length, to adjust and send.
+- **Variations to explore.** Change your answer and limit on the phone and see the organizer's view update. Once a confirmed rehearsal is in the past, use **Propose again** on it and check the propose form is filled with its weekday, time and place for a future date. Is it clear on a phone which request you are answering?
+- Notes: "Propose again" appears only for a confirmed rehearsal on a date before today, under **Times that worked** on the Schedule page. The availability form opens as a weekly time from the first remaining day of the span; change the date to the weekday you want, or switch to one-off.
+
+Remaining:
+- None for this phase. Phases 10–11 follow.
+
+## 2026-10-03 13:03 — Close bookkeeping outcomes
+
+Phase 9 — Scheduling requests: date span, preset times of day and rehearsal limits
+
+Execution trace: 8d8fc8376031462490f72e8ee5c0bca0
+
+- Status: applied and verified — Phase 9 ✅, Phase 10 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-10.md gained an "Inherited from Phase 9" section.
+- Ripple DECIDE: none.
+- Lessons: camouflaged-dragon gained its Phase 9 occurrence (4 total); ./bin/lessons validate: LESSONS OK. It remains graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
