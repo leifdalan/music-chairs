@@ -25,7 +25,7 @@ To settle at phase start: whether contacts include Google's "other contacts" (pe
 
 ## Prerequisites
 
-- The People API enabled and the contacts scopes added to the Google OAuth app (user action `traditional-quetzal`). Tests fake Google and do not wait for it; the real autocomplete and the User Demo do.
+- The People API enabled and the contacts scopes added to the Google OAuth app (user action `traditional-quetzal`, done by the operator on 2026-10-03). Tests fake Google and do not wait for it; the real autocomplete and the User Demo do.
 
 ## Acceptance
 

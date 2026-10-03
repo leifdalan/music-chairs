@@ -1,7 +1,8 @@
 ---
 slug: traditional-quetzal
 title: Enable the Google People API and add the contacts scopes to the OAuth app
-status: pending
+status: done
+closed: 2026-10-03
 category: credentials
 urgency: medium
 blocks:
@@ -23,3 +24,7 @@ Phase 13 lets an organizer add members by picking them from their Google contact
    Save. Google lists both as sensitive; the app stays unverified by your earlier decision, so the organizer sees the "unverified app" warning when first granting contacts access. Phase 13's start decides whether "other contacts" are used; adding both now avoids a second trip.
 
 Nothing changes in the repository or AWS for these steps.
+
+## Disposition
+
+The operator enabled the People API and added the contacts scopes on 2026-10-03, the day it was filed, ahead of Phase 13. Closed on the operator's word; the real contact autocomplete is first exercised by the Phase 13 User Demo. No recurring learning.
