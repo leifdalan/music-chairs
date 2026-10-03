@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { getStore } from "../app/.server/store";
 import GroupPage, { action, loader } from "../app/routes/group";
-import { deviceCookie, ORIGIN, routeArgs, thrownBy } from "./routes";
+import { deviceCookie, ORIGIN, routeArgs, signedIn, thrownBy } from "./routes";
 
 type GroupData = Awaited<ReturnType<typeof loader>>;
 
@@ -28,12 +28,41 @@ function band() {
 }
 
 describe("group route", () => {
+  it("shows a linked member's Google email only to organizers and to that member", async () => {
+    const { group, organizer, cellist } = band();
+    const pianist = getStore().addMember(group.id, "Pianist", "member");
+    const { account } = await signedIn({
+      sub: "sub-cellist",
+      email: "cellist@example.test",
+      name: "Cel",
+    });
+    getStore().linkMember(group.id, cellist.id, account.id);
+
+    const asOrganizer = await load(group.id, await deviceCookie(group.id, organizer.deviceToken));
+    const asCellist = await load(group.id, await deviceCookie(group.id, cellist.deviceToken));
+    const asPianist = await load(group.id, await deviceCookie(group.id, pianist.deviceToken));
+    const asVisitor = await load(group.id);
+
+    expect(asOrganizer.members[1]).toMatchObject({
+      displayName: "Cellist",
+      google: true,
+      manage: { email: "cellist@example.test" },
+    });
+    expect(render(asOrganizer)).toContain("cellist@example.test");
+    expect(asCellist.viewer?.email).toBe("cellist@example.test");
+    for (const page of [asPianist, asVisitor]) {
+      expect(JSON.stringify(page)).not.toContain("cellist@example.test");
+      expect(page.members.map((member) => member.google)).toEqual([false, true, false]);
+    }
+  });
+
   it("gives the organizer the member list with roles and the invite link", async () => {
     const { group, organizer, cellist } = band();
 
     const loaded = await load(group.id, await deviceCookie(group.id, organizer.deviceToken));
 
     expect(loaded).toEqual({
+      groupId: group.id,
       groupName: "Thursday Quartet",
       timeZone: "Europe/London",
       members: [
@@ -41,16 +70,20 @@ describe("group route", () => {
           displayName: "Viola",
           role: "organizer",
           isViewer: true,
-          manage: { id: organizer.id, optional: false },
+          google: false,
+          manage: { id: organizer.id, optional: false, email: null },
         },
         {
           displayName: "Cellist",
           role: "member",
           isViewer: false,
-          manage: { id: cellist.id, optional: false },
+          google: false,
+          manage: { id: cellist.id, optional: false, email: null },
         },
       ],
-      viewer: { displayName: "Viola", role: "organizer" },
+      viewer: { displayName: "Viola", role: "organizer", email: null },
+      signInAvailable: false,
+      notice: null,
       showNames: false,
       inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
     });
@@ -71,7 +104,7 @@ describe("group route", () => {
     const asMember = await load(group.id, await deviceCookie(group.id, cellist.deviceToken));
     const asVisitor = await load(group.id);
 
-    expect(asMember.viewer).toEqual({ displayName: "Cellist", role: "member" });
+    expect(asMember.viewer).toEqual({ displayName: "Cellist", role: "member", email: null });
     expect(asMember.inviteUrl).toBeNull();
     expect(asVisitor.viewer).toBeNull();
     expect(asVisitor.inviteUrl).toBeNull();

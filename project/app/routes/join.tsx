@@ -1,6 +1,6 @@
 import { data, Form, redirect, useNavigation } from "react-router";
 
-import { findViewer, rememberMembership } from "~/.server/membership";
+import { findViewer, readAccount, rememberMembership } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
 import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
@@ -27,7 +27,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
 export async function loader({ request, params }: Route.LoaderArgs) {
   const group = invitedGroup(params.inviteToken);
   if (await alreadyJoined(request, group)) throw redirect(`/g/${group.id}`);
-  return { groupName: group.name };
+  const account = await readAccount(request);
+  return {
+    groupName: group.name,
+    account: account ? { name: account.name, email: account.email } : null,
+  };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -41,7 +45,19 @@ export async function action({ request, params }: Route.ActionArgs) {
       { status: 400 },
     );
   }
-  const member = getStore().addMember(group.id, displayName.value, "member");
+  // Joining while signed in links the new member to the Google account.
+  const account = await readAccount(request);
+  let member;
+  try {
+    member = getStore().addMember(group.id, displayName.value, "member", account?.id ?? null);
+  } catch (error) {
+    // A second submission from the same signed-in browser lost the race to the
+    // one-member-per-group rule: that account is already in the group.
+    if (account && getStore().findMemberByAccount(group.id, account.id)) {
+      return redirect(`/g/${group.id}`);
+    }
+    throw error;
+  }
   return redirect(`/g/${group.id}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
@@ -59,10 +75,14 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
         <TextField
           name="displayName"
           label="Your name"
-          defaultValue={actionData?.value}
+          defaultValue={actionData?.value ?? loaderData.account?.name}
           error={actionData?.error}
         />
-        <p className="hint">No account needed: the group will see you by this name.</p>
+        <p className="hint">
+          {loaderData.account
+            ? `You'll join with your Google account (${loaderData.account.email}); the group will see you by this name.`
+            : "No account needed: the group will see you by this name."}
+        </p>
         <button type="submit" disabled={busy}>
           Join group
         </button>

@@ -6,7 +6,7 @@ import { readMemberships } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { GROUP_NAME_MAX } from "../app/lib/names";
 import Home, { action, loader } from "../app/routes/home";
-import { cookieFrom, routeArgs, tempDatabase } from "./routes";
+import { cookieFrom, routeArgs, signedIn, tempDatabase } from "./routes";
 
 const count = tempDatabase();
 
@@ -23,9 +23,44 @@ function render(hydrationData: object): string {
   return renderToString(<Stub initialEntries={["/"]} hydrationData={hydrationData} />);
 }
 
-const zones = loader();
+const zones = await loader(routeArgs("/", {}));
 
 describe("home route", () => {
+  it("links the organizer of a group created while signed in, so other devices list it", async () => {
+    const { account, cookie } = await signedIn({
+      sub: "sub-organizer",
+      email: "organizer@example.test",
+      name: "Olga",
+    });
+
+    const response = (await action(
+      routeArgs(
+        "/?index",
+        {},
+        {
+          cookie,
+          form: { groupName: "Wind Trio", displayName: "Oboe", timeZone: "Europe/London" },
+        },
+      ),
+    )) as Response;
+    const elsewhere = await signedIn({
+      sub: "sub-organizer",
+      email: "organizer@example.test",
+      name: "Olga",
+    });
+    const home = await loader(routeArgs("/", {}, { cookie: elsewhere.cookie }));
+
+    const groupId = response.headers.get("Location")!.replace("/g/", "");
+    expect(getStore().findMemberByAccount(groupId, account.id)?.role).toBe("organizer");
+    expect(home.account).toEqual({ name: "Olga", email: "organizer@example.test" });
+    expect(home.groups).toEqual([{ id: groupId, name: "Wind Trio", displayName: "Oboe" }]);
+  });
+
+  it("offers Google sign-in only when it is configured", async () => {
+    expect((await loader(routeArgs("/", {}))).signInAvailable).toBe(false);
+    expect(render({ loaderData: { home: zones } })).not.toContain("Sign in with Google");
+  });
+
   it("renders the product name, tagline and create-group form without a browser", () => {
     const html = render({ loaderData: { home: zones } });
 

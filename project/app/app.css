@@ -151,7 +151,8 @@ button.secondary,
   border: 1px solid var(--border);
 }
 
-button.small {
+button.small,
+.button-link.small {
   min-height: 2.25rem;
   width: auto;
   padding: 0 0.75rem;
@@ -479,4 +480,41 @@ button.small {
 .rsvp-names {
   margin: 0.25rem 0 0;
   font-size: 0.875rem;
+}
+
+/* Google sign-in: the start page's account panel and marks in the member list. */
+.account {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.account h2,
+.account p {
+  margin: 0;
+}
+
+.account .button-link {
+  justify-self: start;
+}
+
+.your-groups {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.google-mark,
+.member-email {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: normal;
+}
+
+.member-email {
+  overflow-wrap: anywhere;
 }

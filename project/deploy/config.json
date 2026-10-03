@@ -13,5 +13,7 @@
   "availabilityZone": "us-west-2a",
   "keyPairName": "music-chairs",
   "sshUser": "admin",
-  "monthlyBudgetUsd": 10
+  "monthlyBudgetUsd": 10,
+  "googleClientId": "719218972879-dcaitqp687p9id29nielonukiqrgfgm9.apps.googleusercontent.com",
+  "googleSecretParameter": "/music-chairs/google-client-secret"
 }

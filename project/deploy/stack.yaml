@@ -1,5 +1,6 @@
 # music-chairs in us-west-2: one Lightsail instance with a static IPv4 address,
-# the DNS record for the site, and the private bucket the nightly backup writes.
+# the DNS record for the site, the private bucket the nightly backup writes, and
+# the key that lets the server read the Google client secret.
 # Long-form intrinsics only, so the template parses as plain YAML in tests.
 #
 # The instance holds the live database: it, its static IP and the backup bucket
@@ -23,6 +24,9 @@ Parameters:
     Type: String
   HostedZoneId:
     Type: String
+  GoogleSecretParameter:
+    Type: String
+    Description: Parameter Store name of the Google OAuth client secret (starts with /)
 
 Resources:
   Instance:
@@ -131,6 +135,39 @@ Resources:
                           - Arn
                       - /backups/*
 
+  # Reads one parameter, the Google client secret, and nothing else. Its key is
+  # root-only on the server (bin/deploy, fetch-secret.sh).
+  AppUser:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: read-google-secret
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws:ssm:"
+                      - Ref: AWS::Region
+                      - ":"
+                      - Ref: AWS::AccountId
+                      - ":parameter"
+                      - Ref: GoogleSecretParameter
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    kms:ViaService:
+                      Fn::Join:
+                        - ""
+                        - - ssm.
+                          - Ref: AWS::Region
+                          - .amazonaws.com
+
 Outputs:
   StaticIpAddress:
     Value:
@@ -143,3 +180,6 @@ Outputs:
   BackupUserName:
     Value:
       Ref: BackupUser
+  AppUserName:
+    Value:
+      Ref: AppUser

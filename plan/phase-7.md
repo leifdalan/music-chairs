@@ -32,6 +32,10 @@ Pinned by [Phase 4](phase-4.md): no calendar feed shipped; the operator deferred
 
 Pinned by [Phase 5](phase-5.md): the app runs on one Lightsail instance with a public address, so it reaches Google's APIs directly, with no VPC or NAT cost. Schema changes append a step to `MIGRATIONS` in `project/app/.server/store.ts` (forward-only), and the live data at `https://rehearse.dalan.dev` is kept across releases.
 
+## Inherited from Phase 6
+
+Pinned by [Phase 6](phase-6.md): Google accounts live in `accounts`, keyed by Google's `sub`, and a member is linked to an account through `members.account_id` (at most one member per group per account). `readAccount` in `project/app/.server/membership.ts` returns the signed-in account; sessions last 90 days after last use. Only `openid`, `email` and `profile` are granted today, so Calendar access needs a further consent from each member, and no Google access or refresh tokens are stored yet: where and how to keep them is this phase's decision. The OAuth client secret comes from Parameter Store at service start (`project/deploy/fetch-secret.sh`). Google's verification of the sensitive Calendar scopes is prepared in `user-actions/cherubic-fox.md`.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers import mapping, event creation, update and cancellation.

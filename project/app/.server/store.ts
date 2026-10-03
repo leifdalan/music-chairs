@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -23,6 +23,11 @@ export type Member = {
   role: Role;
   /** Optional members don't trigger "missing" warnings; everyone else counts as required. */
   optional: boolean;
+  /**
+   * The email of the Google account linked to this member, or null for a
+   * name-only member. Pages show it only to the member and the group's organizers.
+   */
+  googleEmail: string | null;
 };
 
 /**
@@ -31,6 +36,22 @@ export type Member = {
  * other store function and must never reach page data.
  */
 export type NewMember = Member & { deviceToken: string };
+
+/** A Google account, identified by Google's stable `sub` (never by email). */
+export type Account = { id: string; email: string; name: string };
+
+/** The identity Google reports for a signed-in user. */
+export type GoogleProfile = { sub: string; email: string; name: string };
+
+/**
+ * `linked`: the member now belongs to the account (or already did).
+ * `account-taken`: the account is already another member of that group.
+ * `other-account`: the member is linked to a different account.
+ */
+export type LinkResult = "linked" | "account-taken" | "other-account" | "unknown";
+
+/** A session expires this many days after it was last used. */
+export const SESSION_DAYS = 90;
 
 export type RehearsalStatus = "proposed" | "confirmed";
 
@@ -44,15 +65,17 @@ export type RsvpAnswer = "yes" | "no" | "maybe";
 export type Rsvp = { rehearsalId: string; memberId: string; date: string; answer: RsvpAnswer };
 
 export type Store = {
+  /** With `accountId`, the organizer is linked to that Google account. */
   createGroup(
     name: string,
     organizerName: string,
     timeZone: string,
+    accountId?: string | null,
   ): { group: Group; organizer: NewMember };
   findGroup(id: string): Group | null;
   findGroupByInviteToken(token: string): Group | null;
   setShowNames(groupId: string, showNames: boolean): void;
-  addMember(groupId: string, displayName: string, role: Role): NewMember;
+  addMember(groupId: string, displayName: string, role: Role, accountId?: string | null): NewMember;
   findMember(groupId: string, memberId: string): Member | null;
   findMemberByDevice(groupId: string, deviceToken: string): Member | null;
   listMembers(groupId: string): Member[];
@@ -102,6 +125,22 @@ export type Store = {
   ): boolean;
   /** Every answer on the group's rehearsals. */
   listRsvps(groupId: string): Rsvp[];
+  /** Creates the account for a Google identity, or refreshes its email and name. */
+  upsertAccount(profile: GoogleProfile): Account;
+  /** A new session for the account; returns the bearer token (only its hash is stored). */
+  createSession(accountId: string, now?: Date): string;
+  /**
+   * The account a session token belongs to, or null when unknown or expired
+   * (an expired session is deleted). A use more than a day after the last
+   * renewal extends the session to `SESSION_DAYS` from now.
+   */
+  findSession(token: string, now?: Date): Account | null;
+  deleteSession(token: string): void;
+  findMemberByAccount(groupId: string, accountId: string): Member | null;
+  /** Links a member to an account; a Google account is at most one member per group. */
+  linkMember(groupId: string, memberId: string, accountId: string): LinkResult;
+  /** Every group the account is a member of, with that member, by group name. */
+  listAccountMemberships(accountId: string): { group: Group; member: Member }[];
   close(): void;
 };
 
@@ -185,7 +224,30 @@ const BASELINE_SCHEMA = `
  * § Amendments in force), so every later schema change is appended here with a
  * test that upgrades a database built at the previous version.
  */
-export const MIGRATIONS: readonly string[] = [BASELINE_SCHEMA];
+export const MIGRATIONS: readonly string[] = [
+  BASELINE_SCHEMA,
+  // Version 2 (Phase 6): Google accounts, sessions, and members linked to accounts.
+  `
+  CREATE TABLE accounts (
+    id TEXT PRIMARY KEY,
+    google_sub TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  ALTER TABLE members ADD COLUMN account_id TEXT REFERENCES accounts(id);
+  CREATE UNIQUE INDEX members_by_account ON members (group_id, account_id)
+    WHERE account_id IS NOT NULL;
+  CREATE TABLE sessions (
+    token_hash TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES accounts(id),
+    expires_at TEXT NOT NULL,
+    renewed_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX sessions_by_account ON sessions (account_id);
+  `,
+];
 
 /**
  * Brings `db` up to the latest version in one transaction. Foreign keys are off
@@ -257,6 +319,7 @@ type MemberRow = {
   display_name: string;
   role: Role;
   optional: number;
+  google_email: string | null;
 };
 type SlotRow = {
   id: string;
@@ -284,8 +347,16 @@ function toMember(row: MemberRow): Member {
     displayName: row.display_name,
     role: row.role,
     optional: row.optional === 1,
+    googleEmail: row.google_email,
   };
 }
+
+/** Sessions are stored by hash, so a copy of the database cannot be replayed as a login. */
+function sessionHash(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Opens (creating if needed) the SQLite database at `filename`; `:memory:` is
@@ -345,8 +416,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
      VALUES (?, ?, ?, ?, 0, ?)`,
   );
   const insertMember = db.prepare(
-    `INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
-     VALUES (?, ?, ?, ?, 0, ?, ?)`,
+    `INSERT INTO members
+     (id, group_id, display_name, role, optional, device_token, joined_at, account_id)
+     VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
   );
   const groupColumns = "id, invite_token, name, time_zone, show_names";
   const selectGroup = db.prepare(`SELECT ${groupColumns} FROM groups WHERE id = ?`);
@@ -355,16 +427,53 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   );
   const changeShowNames = db.prepare("UPDATE groups SET show_names = ? WHERE id = ?");
   // Member reads never select the device token.
-  const memberColumns = "id, group_id, display_name, role, optional";
-  const selectMember = db.prepare(
-    `SELECT ${memberColumns} FROM members WHERE group_id = ? AND id = ?`,
-  );
+  const memberSelect = `SELECT members.id, members.group_id, members.display_name, members.role,
+      members.optional, accounts.email AS google_email
+    FROM members LEFT JOIN accounts ON accounts.id = members.account_id`;
+  const selectMember = db.prepare(`${memberSelect} WHERE members.group_id = ? AND members.id = ?`);
   const selectMemberByDevice = db.prepare(
-    `SELECT ${memberColumns} FROM members WHERE group_id = ? AND device_token = ?`,
+    `${memberSelect} WHERE members.group_id = ? AND members.device_token = ?`,
+  );
+  const selectMemberByAccount = db.prepare(
+    `${memberSelect} WHERE members.group_id = ? AND members.account_id = ?`,
   );
   const selectMembers = db.prepare(
-    `SELECT ${memberColumns} FROM members WHERE group_id = ? ORDER BY joined_at, rowid`,
+    `${memberSelect} WHERE members.group_id = ? ORDER BY members.joined_at, members.rowid`,
   );
+  const selectMemberAccount = db.prepare(
+    "SELECT account_id FROM members WHERE group_id = ? AND id = ?",
+  );
+  const changeMemberAccount = db.prepare(
+    "UPDATE members SET account_id = ? WHERE group_id = ? AND id = ?",
+  );
+  const selectAccountMemberships = db.prepare(
+    `SELECT groups.id AS g_id, groups.invite_token, groups.name, groups.time_zone,
+       groups.show_names, members.id, members.group_id, members.display_name, members.role,
+       members.optional, accounts.email AS google_email
+     FROM members
+     JOIN groups ON groups.id = members.group_id
+     JOIN accounts ON accounts.id = members.account_id
+     WHERE members.account_id = ?
+     ORDER BY groups.name, groups.created_at`,
+  );
+  const upsertAccountRow = db.prepare(
+    `INSERT INTO accounts (id, google_sub, email, name, created_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, name = excluded.name
+     RETURNING id, email, name`,
+  );
+  const insertSession = db.prepare(
+    `INSERT INTO sessions (token_hash, account_id, expires_at, renewed_at, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+  const selectSession = db.prepare(
+    `SELECT sessions.expires_at, sessions.renewed_at, accounts.id, accounts.email, accounts.name
+     FROM sessions JOIN accounts ON accounts.id = sessions.account_id
+     WHERE sessions.token_hash = ?`,
+  );
+  const renewSession = db.prepare(
+    "UPDATE sessions SET expires_at = ?, renewed_at = ? WHERE token_hash = ?",
+  );
+  const removeSession = db.prepare("DELETE FROM sessions WHERE token_hash = ?");
   const changeOptional = db.prepare(
     "UPDATE members SET optional = ? WHERE group_id = ? AND id = ?",
   );
@@ -526,13 +635,19 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     else upsertRsvp.run(rehearsalId, memberId, date, answer, new Date().toISOString());
   }
 
-  function addMember(groupId: string, displayName: string, role: Role): NewMember {
+  function addMember(
+    groupId: string,
+    displayName: string,
+    role: Role,
+    accountId: string | null = null,
+  ): NewMember {
     const member: NewMember = {
       id: newToken(),
       groupId,
       displayName,
       role,
       optional: false,
+      googleEmail: null,
       deviceToken: newToken(),
     };
     insertMember.run(
@@ -542,12 +657,17 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       role,
       member.deviceToken,
       new Date().toISOString(),
+      accountId,
     );
+    if (accountId) {
+      const row = selectMember.get(groupId, member.id) as MemberRow;
+      member.googleEmail = row.google_email;
+    }
     return member;
   }
 
   return {
-    createGroup(name, organizerName, timeZone) {
+    createGroup(name, organizerName, timeZone, accountId = null) {
       const group: Group = {
         id: newToken(),
         inviteToken: newToken(),
@@ -557,7 +677,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       };
       return transaction(() => {
         insertGroup.run(group.id, group.inviteToken, name, timeZone, new Date().toISOString());
-        const organizer = addMember(group.id, organizerName, "organizer");
+        const organizer = addMember(group.id, organizerName, "organizer", accountId);
         return { group, organizer };
       });
     },
@@ -736,6 +856,66 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         memberId: row.member_id,
         date: row.date,
         answer: row.answer,
+      }));
+    },
+    upsertAccount(profile) {
+      return upsertAccountRow.get(
+        newToken(),
+        profile.sub,
+        profile.email,
+        profile.name,
+        new Date().toISOString(),
+      ) as Account;
+    },
+    createSession(accountId, now = new Date()) {
+      const token = newToken();
+      const at = now.toISOString();
+      const expires = new Date(now.getTime() + SESSION_DAYS * DAY_MS).toISOString();
+      insertSession.run(sessionHash(token), accountId, expires, at, at);
+      return token;
+    },
+    findSession(token, now = new Date()) {
+      if (!isToken(token)) return null;
+      const hash = sessionHash(token);
+      const row = selectSession.get(hash) as
+        (Account & { expires_at: string; renewed_at: string }) | undefined;
+      if (!row) return null;
+      if (Date.parse(row.expires_at) <= now.getTime()) {
+        removeSession.run(hash);
+        return null;
+      }
+      if (now.getTime() - Date.parse(row.renewed_at) > DAY_MS) {
+        const expires = new Date(now.getTime() + SESSION_DAYS * DAY_MS).toISOString();
+        renewSession.run(expires, now.toISOString(), hash);
+      }
+      return { id: row.id, email: row.email, name: row.name };
+    },
+    deleteSession(token) {
+      if (isToken(token)) removeSession.run(sessionHash(token));
+    },
+    findMemberByAccount(groupId, accountId) {
+      if (!isToken(accountId)) return null;
+      const row = selectMemberByAccount.get(groupId, accountId) as MemberRow | undefined;
+      return row ? toMember(row) : null;
+    },
+    linkMember(groupId, memberId, accountId) {
+      if (!isToken(memberId) || !isToken(accountId)) return "unknown";
+      return transaction(() => {
+        const row = selectMemberAccount.get(groupId, memberId) as
+          { account_id: string | null } | undefined;
+        if (!row) return "unknown";
+        if (row.account_id === accountId) return "linked";
+        if (row.account_id) return "other-account";
+        if (selectMemberByAccount.get(groupId, accountId)) return "account-taken";
+        changeMemberAccount.run(accountId, groupId, memberId);
+        return "linked";
+      });
+    },
+    listAccountMemberships(accountId) {
+      type Row = MemberRow & Omit<GroupRow, "id"> & { g_id: string };
+      return (selectAccountMemberships.all(accountId) as Row[]).map((row) => ({
+        group: toGroup({ ...row, id: row.g_id }),
+        member: toMember(row),
       }));
     },
     close() {

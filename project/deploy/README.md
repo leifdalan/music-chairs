@@ -29,8 +29,29 @@ MUSIC_CHAIRS_ALERT_EMAIL=you@example.com ./bin/deploy infra
 - **SSH key:** `bin/deploy` creates the Lightsail key pair `music-chairs` on first use and saves its private key to `~/.ssh/music-chairs-lightsail` (it cannot be downloaded again). The instance's host key is pinned in `~/.ssh/music-chairs-known-hosts` from Lightsail's own record.
 - **Backup key:** created for the backup user and written straight to `/etc/music-chairs/backup.env` on the server; earlier keys of that user are deleted first.
 - **Alert email:** only in AWS (a NoEcho stack parameter).
+- **Google client secret:** in AWS Parameter Store as the SecureString `/music-chairs/google-client-secret` (us-west-2). The server reads it with the `AppUser` key, which `bin/deploy` installs root-only at `/etc/music-chairs/app.env`; see Google sign-in below.
 
 SSH (port 22) is open to all addresses on purpose: logins are key-only and the operator's own address changes.
+
+## Google sign-in
+
+The OAuth client (Google Cloud project `music-chairs`) asks only for `openid`, `email` and `profile`. Its client id is in `config.json`; the secret is in Parameter Store. Each time the app starts, `fetch-secret.sh` runs as root (`ExecStartPre=+` in `music-chairs.service`), reads the secret with the `AppUser` key, and writes it to `/run/music-chairs/google.env`, a root-only file systemd passes to the app as `MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET`. The key never reaches the app. If the parameter or key is missing, or AWS cannot be reached after three tries, the app starts with sign-in unavailable and the journal says why; `./bin/deploy smoke` prints `Google sign-in: available` or `unavailable`.
+
+To change the secret, put the new value from your own terminal (the first command prompts without echoing), then deploy a release so the app restarts:
+
+```sh
+read -rs SECRET
+```
+
+```sh
+aws ssm put-parameter --profile music-chairs --region us-west-2 --name /music-chairs/google-client-secret --type SecureString --overwrite --value "$SECRET" && unset SECRET
+```
+
+```sh
+./bin/deploy release
+```
+
+**Calendar scopes (Phase 7).** Google treats calendar access as a sensitive scope. Before many people can grant it, the app needs Google's verification: a public home page and a privacy policy on `dalan.dev`, `dalan.dev` verified in Google Search Console, a demo video of the consent flow and a justification for each scope. Until then users see an "unverified app" screen and at most 100 Google accounts can grant access.
 
 ## Backups and restoring
 

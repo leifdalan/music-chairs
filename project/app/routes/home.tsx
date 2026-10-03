@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from "react";
-import { data, Form, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation } from "react-router";
 
-import { rememberMembership } from "~/.server/membership";
+import { googleConfig } from "~/.server/google";
+import { readAccount, rememberMembership } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone } from "~/lib/availability";
@@ -25,9 +26,31 @@ export function meta() {
   return pageMeta();
 }
 
-// Built on the server so the server render and hydration list the same options.
-export function loader() {
-  return { timeZones: ["UTC", ...Intl.supportedValuesOf("timeZone")] };
+const NOTICES: Record<string, string> = {
+  "signin-cancelled": "Google sign-in was cancelled.",
+  "signin-failed": "Google sign-in didn't work. Please try again.",
+};
+
+// Time zones are built on the server so the server render and hydration list
+// the same options. A signed-in visitor also gets their groups back.
+export async function loader({ request }: Route.LoaderArgs) {
+  const account = await readAccount(request);
+  const notice = new URL(request.url).searchParams.get("notice");
+  return {
+    timeZones: ["UTC", ...Intl.supportedValuesOf("timeZone")],
+    signInAvailable: googleConfig() !== null,
+    account: account ? { name: account.name, email: account.email } : null,
+    groups: account
+      ? getStore()
+          .listAccountMemberships(account.id)
+          .map(({ group, member }) => ({
+            id: group.id,
+            name: group.name,
+            displayName: member.displayName,
+          }))
+      : [],
+    notice: notice ? (NOTICES[notice] ?? null) : null,
+  };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -52,7 +75,13 @@ export async function action({ request }: Route.ActionArgs) {
       { status: 400 },
     );
   }
-  const { group, organizer } = getStore().createGroup(groupName.value, displayName.value, timeZone);
+  const account = await readAccount(request);
+  const { group, organizer } = getStore().createGroup(
+    groupName.value,
+    displayName.value,
+    timeZone,
+    account?.id ?? null,
+  );
   return redirect(`/g/${group.id}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, organizer.deviceToken) },
   });
@@ -74,6 +103,16 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
     <main>
       <h1>{siteName}</h1>
       <p>{siteTagline}</p>
+      {loaderData.notice ? (
+        <p className="notice" role="status">
+          {loaderData.notice}
+        </p>
+      ) : null}
+      <AccountPanel
+        account={loaderData.account}
+        groups={loaderData.groups}
+        signInAvailable={loaderData.signInAvailable}
+      />
       <section aria-labelledby="create-heading">
         <h2 id="create-heading">Start a group</h2>
         <Form method="post" className="stack">
@@ -123,5 +162,54 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         </Form>
       </section>
     </main>
+  );
+}
+
+function AccountPanel({
+  account,
+  groups,
+  signInAvailable,
+}: {
+  account: { name: string; email: string } | null;
+  groups: { id: string; name: string; displayName: string }[];
+  signInAvailable: boolean;
+}) {
+  if (!account) {
+    return signInAvailable ? (
+      <section className="account" aria-labelledby="account-heading">
+        <h2 id="account-heading">Already in a group?</h2>
+        <p className="hint">Sign in to open the groups you linked to your Google account.</p>
+        <a className="button-link secondary" href="/auth/google">
+          Sign in with Google
+        </a>
+      </section>
+    ) : null;
+  }
+  return (
+    <section className="account" aria-labelledby="account-heading">
+      <h2 id="account-heading">Your groups</h2>
+      <p className="hint">
+        Signed in with Google as <strong>{account.email}</strong>.
+      </p>
+      {groups.length > 0 ? (
+        <ul className="your-groups">
+          {groups.map((group) => (
+            <li key={group.id}>
+              <Link to={`/g/${group.id}`}>{group.name}</Link>{" "}
+              <span className="hint">as {group.displayName}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="hint">
+          No groups linked yet. Open a group you joined and sign in from there to link it.
+        </p>
+      )}
+      <Form method="post" action="/auth/sign-out">
+        <button type="submit" className="secondary small">
+          Sign out
+        </button>
+      </Form>
+    </section>
   );
 }

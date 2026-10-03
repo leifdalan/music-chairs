@@ -262,6 +262,7 @@ class Deployment:
             "KeyPairName": config["keyPairName"],
             "DomainName": config["domain"],
             "HostedZoneId": config["hostedZoneId"],
+            "GoogleSecretParameter": config["googleSecretParameter"],
         }
         self.deploy_stack(
             config["stack"],
@@ -386,6 +387,8 @@ class Deployment:
                 "NODE_VERSION": node_version,
                 "BUCKET": outputs["BackupBucketName"],
                 "REGION": config["region"],
+                "GOOGLE_CLIENT_ID": config["googleClientId"],
+                "GOOGLE_SECRET_PARAMETER": config["googleSecretParameter"],
             }
             assignments = " ".join(f"{k}={v}" for k, v in env.items())
             print(
@@ -393,8 +396,15 @@ class Deployment:
                     address, f"sudo env {assignments} bash {REMOTE_DEPLOY_DIR}/provision.sh"
                 ).strip()
             )
-        if self.step("install the backup key on the server if it has none"):
-            self.ensure_backup_key(address, outputs["BackupUserName"])
+        if self.step("install the backup and app keys on the server if it lacks them"):
+            # The backup runs as music-chairs; the app key is read only by root
+            # (fetch-secret.sh), so the app itself cannot read it.
+            self.ensure_server_key(
+                address, outputs["BackupUserName"], "/etc/music-chairs/backup.env", "music-chairs"
+            )
+            self.ensure_server_key(
+                address, outputs["AppUserName"], "/etc/music-chairs/app.env", "root"
+            )
         if self.step(
             "build the app and install it as a release (rolls back on a failed health check)"
         ):
@@ -413,23 +423,26 @@ class Deployment:
                     f"{REMOTE_ARCHIVE} {name}",
                 ).strip()
             )
-        if self.step("check the running service carries the public URL"):
+        if self.step("check the running service carries the public URL and Google client id"):
             shown = self.ssh(address, "systemctl show -p Environment music-chairs")
-            expected = f"MUSIC_CHAIRS_PUBLIC_URL=https://{config['domain']}"
-            if expected not in shown:
-                raise DeployError(f"the running service lacks {expected}: {shown.strip()}")
+            for expected in (
+                f"MUSIC_CHAIRS_PUBLIC_URL=https://{config['domain']}",
+                f"MUSIC_CHAIRS_GOOGLE_CLIENT_ID={config['googleClientId']}",
+            ):
+                if expected not in shown:
+                    raise DeployError(f"the running service lacks {expected}: {shown.strip()}")
 
-    def ensure_backup_key(self, address: str, user: str) -> None:
+    def ensure_server_key(self, address: str, user: str, path: str, owner: str) -> None:
+        """Gives the server an access key for `user` at `path` (mode 600) unless it has one."""
         # Any SSH failure raises here, so an unreachable server never rotates the key.
         state = self.ssh(
             address,
-            "if sudo test -f /etc/music-chairs/backup.env; "
-            "then echo present; else echo missing; fi",
+            f"if sudo test -f {path}; then echo present; else echo missing; fi",
         ).strip()
         if state == "present":
             return
         if state != "missing":
-            raise DeployError(f"could not tell whether the server has a backup key: {state!r}")
+            raise DeployError(f"could not tell whether the server has {path}: {state!r}")
         # IAM allows two keys per user; old ones are useless once the server lost them.
         for key in self.aws("iam", "list-access-keys", "--user-name", user)["AccessKeyMetadata"]:
             self.aws(
@@ -447,8 +460,7 @@ class Deployment:
         )
         self.ssh(
             address,
-            "sudo install -o music-chairs -g music-chairs -m 600 /dev/stdin "
-            "/etc/music-chairs/backup.env",
+            f"sudo install -o {owner} -g {owner} -m 600 /dev/stdin {path}",
             stdin=content.encode(),
         )
 
@@ -495,7 +507,30 @@ class Deployment:
             print(f"  {label} -> {status}")
         if failures:
             raise DeployError("smoke failed: " + "; ".join(failures))
+        print(f"  Google sign-in: {google_sign_in(origin)}")
         print(f"smoke passed against {origin}")
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
+        return None
+
+
+def google_sign_in(origin: str) -> str:
+    """`available` when /auth/google sends the browser to Google, `unavailable` on its 503."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(origin + "/auth/google", timeout=20) as response:
+            status, location = response.status, ""
+    except urllib.error.HTTPError as error:
+        status, location = error.code, error.headers.get("Location", "")
+    except OSError as error:
+        raise DeployError(f"smoke failed: GET /auth/google: {error}") from error
+    if status == 302 and location.startswith("https://accounts.google.com/"):
+        return "available"
+    if status == 503:
+        return "unavailable"
+    raise DeployError(f"smoke failed: GET /auth/google: HTTP {status} {location}".strip())
 
 
 def main() -> int:

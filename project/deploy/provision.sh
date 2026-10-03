@@ -3,11 +3,13 @@
 # `bin/deploy release` before every release. Safe to run repeatedly: it installs
 # what is missing and rewrites the configuration it owns.
 #
-# Inputs (environment): DOMAIN, PUBLIC_URL, NODE_VERSION, BUCKET, REGION.
+# Inputs (environment): DOMAIN, PUBLIC_URL, NODE_VERSION, BUCKET, REGION,
+# GOOGLE_CLIENT_ID, GOOGLE_SECRET_PARAMETER.
 # Files: the rest of project/deploy, unpacked next to this script.
 set -euo pipefail
 
 : "${DOMAIN:?}" "${PUBLIC_URL:?}" "${NODE_VERSION:?}" "${BUCKET:?}" "${REGION:?}"
+: "${GOOGLE_CLIENT_ID:?}" "${GOOGLE_SECRET_PARAMETER:?}"
 here="$(cd "$(dirname "$0")" && pwd)"
 export DEBIAN_FRONTEND=noninteractive
 
@@ -30,7 +32,7 @@ if ! command -v caddy >/dev/null 2>&1; then
   apt-get install -y -q caddy
 fi
 
-# AWS CLI v2, used only by the nightly backup.
+# AWS CLI v2, used by the nightly backup and to read the Google client secret.
 if ! command -v aws >/dev/null 2>&1; then
   workdir="$(mktemp -d)"
   curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o "$workdir/awscli.zip"
@@ -68,6 +70,9 @@ Environment=HOST=127.0.0.1
 Environment=PORT=3000
 Environment=MUSIC_CHAIRS_DB=/var/lib/music-chairs/music-chairs.sqlite
 Environment=MUSIC_CHAIRS_PUBLIC_URL=$PUBLIC_URL
+Environment=MUSIC_CHAIRS_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+Environment=MUSIC_CHAIRS_GOOGLE_SECRET_PARAMETER=$GOOGLE_SECRET_PARAMETER
+Environment=MUSIC_CHAIRS_AWS_REGION=$REGION
 EOF
 
 # Where the nightly backup goes (not secret; the write-only key is in backup.env).
@@ -81,6 +86,7 @@ install -m 644 "$here/music-chairs-backup.service" /etc/systemd/system/music-cha
 install -m 644 "$here/music-chairs-backup.timer" /etc/systemd/system/music-chairs-backup.timer
 install -m 755 "$here/backup.sh" /usr/local/lib/music-chairs/backup.sh
 install -m 755 "$here/install-release.sh" /usr/local/lib/music-chairs/install-release.sh
+install -m 755 "$here/fetch-secret.sh" /usr/local/lib/music-chairs/fetch-secret.sh
 sed "s/__DOMAIN__/$DOMAIN/g" "$here/Caddyfile" >/etc/caddy/Caddyfile
 
 systemctl daemon-reload

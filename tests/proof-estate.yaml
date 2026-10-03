@@ -65,6 +65,8 @@ families:
   - project/deploy/install-release.sh
   - project/deploy/provision.sh
   - project/deploy/backup.sh
+  - project/deploy/fetch-secret.sh
+  - project/deploy/music-chairs.service
   - tests/test_deploy.py
   covers:
   - bin/deploy
@@ -74,10 +76,13 @@ families:
   - project/deploy/install-release.sh
   - project/deploy/provision.sh
   - project/deploy/backup.sh
+  - project/deploy/fetch-secret.sh
+  - project/deploy/music-chairs.service
   - tests/test_deploy.py
   contract: The deploy command acts only on the configured AWS account, never replaces the instance
-    holding the live database, never prompts or leaks the alert email, and a failed release restores
-    the database copy and the previous release.
+    holding the live database, never prompts or leaks the alert email, keeps the server's Google-secret key
+    root-only and scoped to one parameter, and a failed release restores the database copy and
+    the previous release.
   risk_class: deploy
   oracle: Recorded calls of fake aws and ssh executables, exit statuses and messages from the real
     entry point, parsed CloudFormation templates, and the file system left by install-release.sh with

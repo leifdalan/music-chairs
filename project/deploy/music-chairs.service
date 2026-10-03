@@ -5,9 +5,17 @@ Wants=network-online.target
 
 [Service]
 # Environment comes from the drop-in provision.sh writes
-# (/etc/systemd/system/music-chairs.service.d/environment.conf).
+# (/etc/systemd/system/music-chairs.service.d/environment.conf), plus the Google
+# client secret, which fetch-secret.sh (run as root by the `+`) writes to a
+# root-only file in the runtime directory; systemd reads it after that step.
 User=music-chairs
 Group=music-chairs
+RuntimeDirectory=music-chairs
+RuntimeDirectoryMode=0700
+ExecStartPre=+/usr/local/lib/music-chairs/fetch-secret.sh
+EnvironmentFile=-/run/music-chairs/google.env
+# fetch-secret.sh can take up to about 85 s when AWS is unreachable.
+TimeoutStartSec=150
 WorkingDirectory=/opt/music-chairs/current
 ExecStart=/opt/music-chairs/node/bin/node /opt/music-chairs/current/node_modules/@react-router/serve/bin.cjs ./build/server/index.js
 Restart=on-failure

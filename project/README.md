@@ -51,6 +51,10 @@ scripts/smoke.sh
 
 To try the app from a phone on the same network, start the development server with `corepack pnpm run dev --host` and open the network URL it prints.
 
+## Google sign-in
+
+Members can sign in with Google besides joining by name. Sign-in is offered only when both `MUSIC_CHAIRS_GOOGLE_CLIENT_ID` and `MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET` are set; otherwise the buttons are hidden and `/auth/google` answers 503. To try it locally, set both in your shell before `corepack pnpm run dev` and open `http://localhost:5173` (the OAuth client lists `http://localhost:5173/auth/google/callback` as a redirect URI). Never commit the secret. The tests fake Google and need neither.
+
 ## Production
 
 The app runs at https://rehearse.dalan.dev. Deploying, backups and restoring are described in [`deploy/README.md`](deploy/README.md).

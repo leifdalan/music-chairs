@@ -64,8 +64,8 @@ order. Every subcommand first confirms that the AWS profile (default
 configured account and refuses otherwise, before any other AWS or SSH call.
 It refuses an infrastructure change set that would replace or remove the
 instance holding the live database, and is non-interactive: the first alerts
-deploy needs `MUSIC_CHAIRS_ALERT_EMAIL`. `--dry-run` confirms the account and
-lists the steps. Exit status 1 on any refusal or failure. Tests replace the AWS
+deploy needs `MUSIC_CHAIRS_ALERT_EMAIL`. `smoke` also reports whether Google
+sign-in is available. `--dry-run` confirms the account and lists the steps. Exit status 1 on any refusal or failure. Tests replace the AWS
 CLI and ssh with `MUSIC_CHAIRS_AWS` and `MUSIC_CHAIRS_SSH`, which must be
 absolute paths. Details: `project/deploy/README.md`.
 

@@ -1,7 +1,8 @@
 ---
 slug: heretic-sheep
 title: Create an admin IAM user for music-chairs and stop deploying as root
-status: pending
+status: done
+closed: 2026-10-02
 category: credentials
 urgency: medium
 blocks:
@@ -30,3 +31,7 @@ The `music-chairs` CLI profile is signed in as the root user of AWS account 7774
 5. Check it: `aws sts get-caller-identity --profile music-chairs` should show account `777460179484` and an `arn:aws:iam::777460179484:user/…` ARN rather than `…:root`.
 
 `bin/deploy` checks the account, not the user, so nothing in the repository changes.
+
+## Disposition
+
+On 2026-10-02 the agent, signed in as root at the operator's request, created IAM user `leif` with AdministratorAccess and SignInLocalDevelopmentAccess and a console password that had to be reset at first sign-in. The operator signed in to the console as `leif` and reported turning on MFA (not observable by the agent). The agent then switched the `music-chairs` CLI profile to `leif` through `aws login` and verified `aws sts get-caller-identity` returns `arn:aws:iam::777460179484:user/leif`; `./bin/deploy smoke --dry-run` confirms the account. Recurring learning: none beyond this note; signing in as an IAM user needs the account-ID form, not the email-first page, which offers only root and AWS Builder ID.

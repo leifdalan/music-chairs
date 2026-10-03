@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { getStore } from "../app/.server/store";
 import Join, { action, loader } from "../app/routes/join";
-import { cookieFrom, routeArgs, thrownBy, tempDatabase } from "./routes";
+import { cookieFrom, routeArgs, signedIn, thrownBy, tempDatabase } from "./routes";
 
 const count = tempDatabase();
 
@@ -28,6 +28,31 @@ function statusOf(value: unknown): number | undefined {
 }
 
 describe("join route", () => {
+  it("links a member who joins while signed in, and prefills their Google name", async () => {
+    const group = newGroup();
+    const { account, cookie } = await signedIn({
+      sub: "sub-joiner",
+      email: "joiner@example.test",
+      name: "Joan",
+    });
+
+    const page = await loader(
+      routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
+    );
+    const response = await joinAs(group.inviteToken, "Joan", cookie);
+
+    expect(page.account).toEqual({ name: "Joan", email: "joiner@example.test" });
+    expect(statusOf(response)).toBe(302);
+    expect(getStore().findMemberByAccount(group.id, account.id)?.displayName).toBe("Joan");
+    // Back on the invite link later, the signed-in account goes straight to the group.
+    const again = await thrownBy(
+      loader(
+        routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
+      ),
+    );
+    expect((again as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+  });
+
   it("shows the invited group's name", async () => {
     const group = newGroup();
 
@@ -35,7 +60,7 @@ describe("join route", () => {
       routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }),
     );
 
-    expect(loaded).toEqual({ groupName: "Thursday Quartet" });
+    expect(loaded).toEqual({ groupName: "Thursday Quartet", account: null });
   });
 
   it("adds exactly one member and remembers them on this device", async () => {

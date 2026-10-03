@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
-import { findViewer, publicOrigin } from "~/.server/membership";
+import { googleConfig } from "~/.server/google";
+import { findViewer, publicOrigin, readAccount } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { pageMeta } from "~/lib/site";
 
@@ -11,25 +12,52 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? loaderData.groupName : "Not found");
 }
 
+/** The sentence for a `notice` left by Google sign-in, if any. */
+async function signInNotice(request: Request, groupId: string, viewerName: string | undefined) {
+  const notice = new URL(request.url).searchParams.get("notice");
+  if (notice === "linked") return "Linked to your Google account.";
+  if (notice !== "account-taken") return null;
+  const account = await readAccount(request);
+  const taken = account ? getStore().findMemberByAccount(groupId, account.id) : null;
+  return taken
+    ? `This Google account is already ${taken.displayName} in this group, so ${viewerName ?? "this device's member"} stays name-only.`
+    : null;
+}
+
 // Device tokens identify a device's membership (see `.server/membership.ts`)
-// and never leave the server. Organizers also get member ids and optional tags
-// for their controls; members and visitors get names and roles only.
+// and never leave the server. Organizers also get member ids, optional tags and
+// linked Google emails for their controls; members and visitors get names,
+// roles and whether each member signs in with Google. A member sees their own
+// email only.
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
   const group = store.findGroup(params.groupId);
   if (!group) throw data(null, { status: 404 });
   const viewer = await findViewer(request, group);
+  const account = await readAccount(request);
   const isOrganizer = viewer?.role === "organizer";
   return {
+    groupId: group.id,
     groupName: group.name,
     timeZone: group.timeZone,
     members: store.listMembers(group.id).map((member) => ({
       displayName: member.displayName,
       role: member.role,
       isViewer: member.id === viewer?.id,
-      manage: isOrganizer ? { id: member.id, optional: member.optional } : null,
+      google: member.googleEmail !== null,
+      manage: isOrganizer
+        ? { id: member.id, optional: member.optional, email: member.googleEmail }
+        : null,
     })),
-    viewer: viewer ? { displayName: viewer.displayName, role: viewer.role } : null,
+    viewer: viewer
+      ? { displayName: viewer.displayName, role: viewer.role, email: viewer.googleEmail }
+      : null,
+    // Offer sign-in to a name-only member unless this browser's account is
+    // already someone else here (signing in again could only be refused).
+    signInAvailable:
+      googleConfig() !== null &&
+      !(viewer && account && store.findMemberByAccount(group.id, account.id)),
+    notice: await signInNotice(request, group.id, viewer?.displayName),
     showNames: isOrganizer ? group.showNames : null,
     inviteUrl: isOrganizer
       ? new URL(`/join/${group.inviteToken}`, publicOrigin() ?? request.url).href
@@ -72,7 +100,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function GroupPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupName, timeZone, members, viewer, showNames, inviteUrl } = loaderData;
+  const { groupName, timeZone, members, viewer, showNames, inviteUrl, signInAvailable, notice } =
+    loaderData;
   const busy = useNavigation().state !== "idle";
   return (
     <main>
@@ -82,7 +111,24 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         <>
           <p className="hint">
             You are <strong>{viewer.displayName}</strong> ({viewer.role}).
+            {viewer.email ? (
+              <>
+                {" "}
+                Linked to Google as <strong>{viewer.email}</strong>.
+              </>
+            ) : null}
           </p>
+          {!viewer.email && signInAvailable ? (
+            <p className="hint">
+              <a
+                className="button-link secondary small"
+                href={`/auth/google?returnTo=${encodeURIComponent(`/g/${loaderData.groupId}`)}`}
+              >
+                Sign in with Google
+              </a>{" "}
+              to open this group on your other devices.
+            </p>
+          ) : null}
           <p className="group-links">
             <Link to="schedule" relative="path" className="button-link">
               Schedule
@@ -97,6 +143,11 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           You haven't joined this group on this device. Ask an organizer for the invite link.
         </p>
       )}
+      {notice ? (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       {actionData?.problem ? (
         <p className="field-error" role="alert">
           {actionData.problem}
@@ -124,6 +175,15 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
               <span className="member-name">
                 {member.displayName}
                 {member.isViewer ? " (you)" : ""}
+                {member.google ? (
+                  <span className="google-mark" title="Signs in with Google">
+                    {" "}
+                    · Google
+                  </span>
+                ) : null}
+                {member.manage?.email ? (
+                  <span className="member-email"> {member.manage.email}</span>
+                ) : null}
               </span>
               <span className={`role role-${member.role}`}>
                 {member.role}

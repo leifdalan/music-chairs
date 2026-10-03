@@ -9,6 +9,7 @@ import {
   migrate,
   MIGRATIONS,
   openStore,
+  SESSION_DAYS,
   type Member,
   type NewMember,
   type Store,
@@ -23,6 +24,7 @@ function withoutToken(member: NewMember): Member {
     displayName: member.displayName,
     role: member.role,
     optional: member.optional,
+    googleEmail: member.googleEmail,
   };
 }
 
@@ -441,6 +443,111 @@ describe("rsvp store", () => {
   });
 });
 
+describe("Google accounts and sessions", () => {
+  const cellistProfile = { sub: "google-sub-1", email: "cellist@example.test", name: "Cel List" };
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("keeps one account per Google sub, refreshing its email and name", () => {
+    const store = memoryStore();
+
+    const first = store.upsertAccount(cellistProfile);
+    const again = store.upsertAccount({ ...cellistProfile, email: "new@example.test" });
+
+    expect(again).toEqual({ id: first.id, email: "new@example.test", name: "Cel List" });
+    expect(isToken(first.id)).toBe(true);
+  });
+
+  it("finds a session by its token, renews it after a day of use, and expires it after 90 idle days", () => {
+    const store = memoryStore();
+    const account = store.upsertAccount(cellistProfile);
+    const start = new Date("2026-10-01T12:00:00Z");
+    const token = store.createSession(account.id, start);
+
+    expect(store.findSession(token, new Date(start.getTime() + (SESSION_DAYS - 1) * DAY))).toEqual(
+      account,
+    );
+    // That use renewed it, so it outlives the original 90 days...
+    const renewedUse = new Date(start.getTime() + (SESSION_DAYS + 30) * DAY);
+    expect(store.findSession(token, renewedUse)?.id).toBe(account.id);
+    // ...until 90 days pass without any use.
+    expect(store.findSession(token, new Date(renewedUse.getTime() + SESSION_DAYS * DAY))).toBe(
+      null,
+    );
+    expect(store.findSession(token, renewedUse)).toBe(null);
+  });
+
+  it("does not extend a session used again within a day", () => {
+    const store = memoryStore();
+    const account = store.upsertAccount(cellistProfile);
+    const start = new Date("2026-10-01T12:00:00Z");
+    const token = store.createSession(account.id, start);
+
+    store.findSession(token, new Date(start.getTime() + DAY / 2));
+
+    expect(store.findSession(token, new Date(start.getTime() + SESSION_DAYS * DAY + 1))).toBe(null);
+  });
+
+  it("stores only a hash of the session token and forgets deleted sessions", () => {
+    const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
+    tempDirs.push(dir);
+    const filename = join(dir, "sessions.sqlite");
+    const store = openStore(filename);
+    opened.push(store);
+    const token = store.createSession(store.upsertAccount(cellistProfile).id);
+    const raw = new DatabaseSync(filename);
+
+    const stored = raw.prepare("SELECT token_hash FROM sessions").all() as { token_hash: string }[];
+    expect(stored).toHaveLength(1);
+    expect(stored[0].token_hash).not.toContain(token);
+    store.deleteSession(token);
+    expect(store.findSession(token)).toBe(null);
+    expect(raw.prepare("SELECT COUNT(*) AS n FROM sessions").get()).toEqual({ n: 0 });
+    raw.close();
+  });
+
+  it("links a name-only member once, and an account to at most one member per group", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const cellist = store.addMember(group.id, "Cellist", "member");
+    const pianist = store.addMember(group.id, "Pianist", "member");
+    const account = store.upsertAccount(cellistProfile);
+    const other = store.upsertAccount({ sub: "google-sub-2", email: "p@example.test", name: "P" });
+
+    expect(store.linkMember(group.id, cellist.id, account.id)).toBe("linked");
+    expect(store.linkMember(group.id, cellist.id, account.id)).toBe("linked");
+    expect(store.linkMember(group.id, pianist.id, account.id)).toBe("account-taken");
+    expect(store.linkMember(group.id, cellist.id, other.id)).toBe("other-account");
+    expect(store.linkMember(group.id, "unknown-member-id-xxxx", account.id)).toBe("unknown");
+
+    expect(store.findMemberByAccount(group.id, account.id)?.id).toBe(cellist.id);
+    expect(store.findMember(group.id, cellist.id)?.googleEmail).toBe("cellist@example.test");
+    expect(store.findMember(group.id, pianist.id)?.googleEmail).toBe(null);
+  });
+
+  it("lists the account's groups, including ones created and joined while signed in", () => {
+    const store = memoryStore();
+    const account = store.upsertAccount(cellistProfile);
+    const { group: created, organizer } = store.createGroup(
+      "Wind Trio",
+      "Oboe",
+      "Europe/London",
+      account.id,
+    );
+    const { group: joinedGroup } = store.createGroup("Brass Band", "Tuba", "Europe/London");
+    store.addMember(joinedGroup.id, "Horn", "member", account.id);
+    store.createGroup("Someone Else's Choir", "Alto", "Europe/London");
+
+    const memberships = store.listAccountMemberships(account.id);
+
+    expect(memberships.map(({ group, member }) => [group.name, member.displayName])).toEqual([
+      ["Brass Band", "Horn"],
+      ["Wind Trio", "Oboe"],
+    ]);
+    expect(memberships[1].group).toEqual(created);
+    expect(organizer.googleEmail).toBe("cellist@example.test");
+  });
+});
+
 describe("schema migrations", () => {
   function fileDatabase(): string {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -465,6 +572,36 @@ describe("schema migrations", () => {
     expect(version(raw)).toBe(MIGRATIONS.length);
     expect(second.findGroup(group.id)?.name).toBe("Quartet");
     raw.close();
+  });
+
+  it("upgrades a version-1 database to accounts and sessions, keeping its data", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 1));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+      INSERT INTO availability VALUES ('a', 'm', 'weekly', '2026-10-01', NULL, 1140, 1260, '2026-10-01');
+      INSERT INTO rehearsals VALUES ('r', 'g', 'once', '2026-10-08', NULL, 1140, 1260, 'Studio', 'confirmed', '2026-10-01');
+      INSERT INTO rsvps VALUES ('r', 'm', '2026-10-08', 'yes', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(1);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+    const check = new DatabaseSync(filename);
+
+    expect(version(check)).toBe(MIGRATIONS.length);
+    expect(check.prepare("SELECT account_id FROM members").all()).toEqual([{ account_id: null }]);
+    expect(check.prepare("SELECT COUNT(*) AS n FROM availability").get()).toEqual({ n: 1 });
+    expect(store.listRsvps("g")).toEqual([
+      { rehearsalId: "r", memberId: "m", date: "2026-10-08", answer: "yes" },
+    ]);
+    expect(store.listMembers("g").map((m) => [m.displayName, m.googleEmail])).toEqual([
+      ["Cellist", null],
+    ]);
+    check.close();
   });
 
   it("refuses a database from a newer version, even in development", () => {

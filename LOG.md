@@ -851,3 +851,129 @@ Execution trace: ce8f9cbf25074b65aecbd0bf0a68608d
 - Dashboard handoff regenerated with bare host names (no URLs); reports/execution/2026-10-02/phase-5/ re-rendered.
 - bin/check-log: LOG-PREFIX OK, LOG-CHRONOLOGY OK.
 - Next: rerun the bare ./bin/check all handoff gate; completion stays contingent on its receipt.
+
+## 2026-10-02 21:43 — START
+
+Phase 6 — Google sign-in and linking a name-only member
+
+Execution trace: 19cef7f8bb704abe852d84ccf3221b65
+
+Operator decisions recorded in plan/phase-6.md before this run: the Google client secret lives in AWS Parameter Store (/music-chairs/google-client-secret, stored 2026-10-02) and the server reads it with a narrow key bin/deploy installs; the OAuth client ID is recorded there; sessions last 90 days, renewed on use; one Google sign-in restores every linked group (at most one member per group per Google account); organizers and the member see the linked Google email; scopes openid, email, profile only. The User Demo was tightened before capture. The resolved AWS action items (admin IAM user done; old hosted zone left by the operator) were archived, and the Google Cloud setup was filed as user-actions/valiant-rottweiler.md.
+
+Planned work:
+- Google OAuth sign-in on React Router's server, with sessions.
+- Joining a group as a signed-in member, alongside the existing name-only path.
+- Linking an existing name-only membership to a Google account without losing availability or RSVPs.
+- A record of the OAuth scopes requested now, and of what Google app verification the later Calendar scopes will need (brief, Open question 6), with human-only console steps filed in user-actions/.
+- Tests for session handling and linking, with Google's endpoints faked so tests stay hermetic.
+
+## 2026-10-02 22:22 — END
+Phase 6 — Google sign-in and linking a name-only member
+
+Phase 6 is accepted on its gates. Members can now sign in with Google at https://rehearse.dalan.dev, and the live site reports sign-in as available. A name-only member who signs in from their group's page keeps their availability and answers and becomes linked to their Google account. Signing in on another phone or laptop brings back every linked group, listed on the start page. Joining or starting a group while signed in links it at once. Organizers see linked members' Google emails; other members see only a "Google" mark. A sign-in lasts 90 days after last use. Whether the Google sign-in feels right on a phone, and the first real consent screen, are yours to check through the User Demo below.
+
+Execution trace: 19cef7f8bb704abe852d84ccf3221b65
+
+Files changed:
+- plan/phase-6.md — operator decisions (secret in Parameter Store, 90-day sessions, one sign-in restores linked groups, organizer-visible emails, basic scopes, client id) and the tightened Acceptance and User Demo, recorded before the run
+- project/app/.server/store.ts — migration 2 (accounts, sessions stored by hash, members.account_id with one member per group per account); account, session and linking functions; members carry googleEmail
+- project/app/.server/google.ts — Google OpenID Connect: authorization URL with state, nonce and PKCE S256; code exchange with issuer, audience, expiry, nonce and subject checks
+- project/app/.server/membership.ts — session and OAuth cookies (__Host- over HTTPS), signed-in viewer resolution that renews the session, same-site return paths
+- project/app/routes/auth.google.ts, project/app/routes/auth.google.callback.ts, project/app/routes/auth.sign-out.ts, project/app/routes.ts — sign-in, callback (links only the group sign-in started from) and sign-out
+- project/app/routes/home.tsx, project/app/routes/group.tsx, project/app/routes/join.tsx, project/app/app.css — Your groups, sign-in and sign-out, Google marks and emails, signed-in join and group creation
+- project/tests/ — store, google, auth, public-url (HTTPS cookies), home, group and join tests (Vitest 181)
+- project/deploy/stack.yaml, project/deploy/config.json, project/deploy/fetch-secret.sh, project/deploy/music-chairs.service, project/deploy/provision.sh, project/deploy/README.md — read-only AppUser for the one parameter; root-run, time-bounded secret fetch into a root-only environment file; docs for Google sign-in and Calendar verification
+- bin/deploy, bin/README.md — app key installed root-only through the SSH-safe path; client id check; smoke reports Google sign-in
+- tests/test_deploy.py, tests/proof-estate.yaml, reports/test-governance/music-chairs-reset.jsonl — 14 new deploy proofs with mutation witnesses; deploy family covers the secret path
+- project/README.md — local Google sign-in setup
+- user-actions/valiant-rottweiler.md (Google Cloud client; stays open until a real sign-in works), user-actions/cherubic-fox.md (Phase 7 verification, deferred); user-actions-archived/heretic-sheep.md and user-actions-archived/singing-iguana.md (archived before the run)
+- plan/INDEX.md — Phase 6 ✅, Phase 7 ⬅️ (pending, applied after this block)
+- plan/phase-7.md — inherited Phase 6 notes (pending AUTO ripple)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — stack updated with AppUser, secret loaded on the server, release healthy, Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK — Google sign-in: available
+- ./bin/test --changed-from '@{upstream}' (Vitest 181/181, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- For each role: harness_version=2.1.288 (Claude Code, observed by `claude --version`), observed_model=unreported, observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 169.307 s (intelligence union 413.756 s minus the critic's 244.449 s); success
+- Coder: inline (no role span)
+- Critic (code review): 244.449 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 2305.120 s; intelligence 413.756 s; gates 242.510 s; orchestration 2304.546 s; wait 412.635 s; failed 0 s; retry 0 s; unattributed 0.574 s (category totals are interval unions and may overlap).
+- Awaiting user input: none inside the trace (the operator's decisions and the Google Cloud setup came before it started)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=40391b96f06d097af740bd0424d1eb1587e1976f19a8aeaed85e1fea6879181c critiqued=75e98cd78f2f6eb181099c3d87d4881c51cfbba5749aa3d944fcc86686b5642c approved=eca8a6816d0f5c945dd8221e3c7e3a7873e38e6c193ba685bdfec0e398ac703c final=eca8a6816d0f5c945dd8221e3c7e3a7873e38e6c193ba685bdfec0e398ac703c
+- Revision packets: 0
+- Advisory reports: 2 — plan review 10 findings (all adopted), code critique 8 findings (all adopted)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers the sign-in callback (including refused state, cancelled sign-in and tampered return paths), session expiry and renewal, sign-out, linking a name-only member, restoring linked groups on a new device, refusing a second member in one group, and who sees the email; `./bin/deploy all` and `./bin/deploy smoke` passed against https://rehearse.dalan.dev with sign-in available. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (a real Google consent and sign-in on phones and laptops), which also confirms the Google Cloud console steps in user-actions/valiant-rottweiler.md
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-7.md — add "Inherited from Phase 6": accounts keyed by Google sub with sessions; readAccount gives the signed-in account; only openid/email/profile are granted today, so Calendar scopes need a further consent and refresh tokens are not yet stored; verification preparation is user-actions/cherubic-fox.md — pending, applied after this block
+- AUTO: plan/INDEX.md Critical-Files Map — add an "Identity and Google sign-in" row — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrence pending: camouflaged-dragon — two new tests passed under their mutations for the wrong reason (a nonce check masked a state check; a loader renewed the session on its own) and were fixed (local)
+- occurrence pending: watchful-cockle — zsh noclobber refused a redirect onto a file mktemp had just created (methodology); it reaches three occurrences
+- occurrence pending: icy-echidna — product questions and the User Demo were settled at phase entry, before capture (methodology)
+- graduation DECIDE: icy-echidna → .claude/skills/kickoff/preflight.md (Step 1a), still awaiting the operator; watchful-cockle → policy on shell commands (call core utilities by absolute path, force redirects onto existing files), ready once its third occurrence lands
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** Open `https://rehearse.dalan.dev` on your phone.
+- **Suggested inputs.** Create a group as organizer. In a private window on a laptop, open the invite link and join as `Cellist` with just the name, and add a weekly availability slot. Still in that window, choose **Sign in with Google** and pick your Google account. Then open a second private window, go to `https://rehearse.dalan.dev` and sign in with the same Google account, without using the invite link.
+- **What to look for.** After signing in, `Cellist` keeps the same availability and shows as signed in with Google. The second window lists the group and opens it as `Cellist` with that availability. On your phone, as organizer, you see Cellist's Google email; Cellist's own page shows it too.
+- **Variations to explore.** Sign out in the second window and check it no longer opens the group as Cellist. In a third private window, join the same group as `Pianist` from the invite link and sign in with the same Google account: linking is refused with a clear message, because that account is already `Cellist` in this group. Does the sign-in flow feel quick on a phone?
+- Wording note: the page says "Linked to Google as <email>" for a linked member (it describes the membership, so it stays after signing out on that device).
+
+Remaining:
+- No way yet to unlink a Google account from a member; nothing in the phase asked for it.
+- The release on the server is named c8799e1-dirty-… because it was deployed before this phase's commit; the next deploy gets a clean name.
+
+## 2026-10-02 22:23 — Close bookkeeping outcomes
+
+Phase 6 — Google sign-in and linking a name-only member
+
+Execution trace: 19cef7f8bb704abe852d84ccf3221b65
+
+- Status: applied and verified — Phase 6 ✅, Phase 7 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-7.md gained an "Inherited from Phase 6" section; the plan/INDEX.md Critical-Files Map gained an "Identity and Google sign-in" row.
+- Ripple DECIDE: none.
+- Lessons: camouflaged-dragon (local), watchful-cockle and icy-echidna (methodology) gained Phase 6 occurrences; ./bin/lessons validate: LESSONS OK. Graduation-ready for the operator: icy-echidna (4 occurrences) and watchful-cockle (3).
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

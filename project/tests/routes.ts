@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll } from "vitest";
 
-import { rememberMembership } from "../app/.server/membership";
-import { getStore } from "../app/.server/store";
+import { rememberMembership, startSession } from "../app/.server/membership";
+import { getStore, type Account, type GoogleProfile } from "../app/.server/store";
 
 export const ORIGIN = "http://music-chairs.test";
 
@@ -39,6 +39,28 @@ export function cookieFrom(response: Response): string {
   return setCookie.split(";")[0];
 }
 
+/**
+ * Every cookie a response sets, by name, each as a `name=value` pair (an
+ * expired cookie has an empty value). Unlike `cookieFrom`, this reads each
+ * `Set-Cookie` header separately.
+ */
+export function setCookies(response: Response): Record<string, string> {
+  return Object.fromEntries(
+    response.headers.getSetCookie().map((header) => {
+      const pair = header.split(";")[0];
+      return [pair.slice(0, pair.indexOf("=")), pair];
+    }),
+  );
+}
+
+/** Signs a Google identity in: the account and a `Cookie` pair for its new session. */
+export async function signedIn(
+  profile: GoogleProfile,
+): Promise<{ account: Account; cookie: string }> {
+  const account = getStore().upsertAccount(profile);
+  return { account, cookie: (await startSession(account.id)).split(";")[0] };
+}
+
 /** The value a promise rejects with; fails if it resolves. */
 export async function thrownBy(promise: Promise<unknown>): Promise<unknown> {
   try {
@@ -62,7 +84,9 @@ type Table =
   | "availability_skips"
   | "rehearsals"
   | "rehearsal_cancellations"
-  | "rsvps";
+  | "rsvps"
+  | "accounts"
+  | "sessions";
 
 export function tempDatabase(): (table: Table) => number {
   const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
