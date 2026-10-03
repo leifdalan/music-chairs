@@ -182,6 +182,8 @@ Read both lesson directories before filing/recurring; one row per observation. R
 
 Never hard-wrap Markdown prose: one physical line per paragraph, including list-item prose. Preserve syntax-required breaks. Give one executable command per copyable shell fence. Use bare skill names in neutral prose and both harness invocation forms when showing commands. Follow `plain` for operator messages; peers retain full technical fidelity. Use User/operator/owner and they/them in durable role language; authorship credit is separate.
 
+Agent shells may source the operator's interactive profile, whose aliases and options change core commands. In scripted commands call core utilities by absolute path (`/bin/rm -f`, `/bin/cp`, `/bin/mv`, `/usr/bin/tail`), force a redirect onto an existing file with `>|`, and chain a write to whatever depends on it so a refused write stops the command. Repository scripts run in non-interactive bash and are unaffected.
+
 Agent decisions use kickoff’s input-park/`blocked-owner` route; unattended decisions park in artifacts. Only the operator invokes `ask`. Record rulings at their authority and human work in `user-actions/`.
 
 ## Glossary

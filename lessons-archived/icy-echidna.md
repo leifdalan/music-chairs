@@ -1,11 +1,13 @@
 ---
 slug: icy-echidna
 title: Ask a sketched phase's open brief questions at phase entry, before authority capture
-status: candidate
+status: codified
 scope: methodology
 proposed_surface: skill
 filed: 2026-10-02
 source: kickoff
+closed: 2026-10-02
+graduated_to: .claude/skills/kickoff/preflight.md
 occurrences:
   - date: 2026-10-02
     ref: "Phase 2 END"

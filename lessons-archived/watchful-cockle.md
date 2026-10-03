@@ -1,11 +1,13 @@
 ---
 slug: watchful-cockle
 title: Agent shell commands inherit the operator's interactive aliases; call core utilities by absolute path
-status: candidate
+status: codified
 scope: methodology
 proposed_surface: policy
 filed: 2026-10-02
 source: kickoff
+closed: 2026-10-02
+graduated_to: CLAUDE.md
 occurrences:
   - date: 2026-10-02
     ref: "Phase 1 PARK"
