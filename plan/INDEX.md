@@ -33,11 +33,16 @@ graph TD
     P5[Phase 5<br/>Deploy to AWS]
     P6[Phase 6<br/>Google sign-in and linking a name-only member]
     P7[Phase 7<br/>Google Calendar: free/busy import and writing confirmed rehearsals]
+    P8[Phase 8<br/>Feedback on every action, and 15-minute times]
+    P9[Phase 9<br/>Scheduling requests]
+    P10[Phase 10<br/>Availability in calendar and list views]
+    P11[Phase 11<br/>Visual cleanup]
     P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
     P3 --> P7
+    P7 --> P8 --> P9 --> P10 --> P11
 ```
 
-Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 2–7 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
+Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 2–11 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
 
 ## Phase Table
 
@@ -52,6 +57,10 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 5](phase-5.md)  | Deploy to AWS                                                      | ✅     |
 | [Phase 6](phase-6.md)  | Google sign-in and linking a name-only member                      | ✅     |
 | [Phase 7](phase-7.md)  | Google Calendar: free/busy import and writing confirmed rehearsals | ✅     |
+| [Phase 8](phase-8.md)  | Feedback on every action, and 15-minute times with a friendlier time picker | ⬅️     |
+| [Phase 9](phase-9.md)  | Scheduling requests: date span, preset times of day and rehearsal limits | ⏳     |
+| [Phase 10](phase-10.md) | Availability in calendar and list views, with live Google Calendar conflicts | ⏳     |
+| [Phase 11](phase-11.md) | Visual cleanup                                                    | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
