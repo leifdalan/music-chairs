@@ -977,3 +977,50 @@ Execution trace: 19cef7f8bb704abe852d84ccf3221b65
 - Lessons: camouflaged-dragon (local), watchful-cockle and icy-echidna (methodology) gained Phase 6 occurrences; ./bin/lessons validate: LESSONS OK. Graduation-ready for the operator: icy-echidna (4 occurrences) and watchful-cockle (3).
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-02 22:40 — END (correction)
+Phase 6 — Google sign-in and linking a name-only member
+
+Creating a group, joining and every other form on the live site work again. Since the first deploy in Phase 5, each browser form submission on https://rehearse.dalan.dev had been refused with "Bad Request" by React Router's cross-site check, not a database error: Caddy serves HTTPS and passes requests to the app over plain HTTP, so the app saw `http://rehearse.dalan.dev` while browsers said they came from `https://rehearse.dalan.dev`. The site's own domain is now an allowed origin, and the deploy smoke posts the way a browser does, so this would have failed the gate. Phase 6 stays ✅.
+
+Execution trace: f1ba66bef80444debbcbb928a6923df4
+
+Files changed:
+- project/react-router.config.ts — `allowedActionOrigins` lists the public domain, read from project/deploy/config.json
+- project/tests/config.test.ts — pins that setting to the configured domain
+- bin/deploy — the smoke's posts carry a browser `Origin` header
+- lessons/amorphous-cassowary.md (new, local), lessons/watchful-cockle.md (occurrence)
+
+Build status:
+- Updated ./bin/deploy smoke against the unfixed live site: failed as expected ("POST /?index with a blank name: HTTP 400"), reproducing the browser failure
+- project/scripts/smoke.sh: OK
+- ./bin/deploy all --profile music-chairs: OK (stacks unchanged; release healthy; blank-name post with Origin reaches the app's own validation)
+- ./bin/deploy smoke --profile music-chairs: OK (Google sign-in: available)
+- ./bin/test --changed-from '@{upstream}' (Vitest 182/182, pytest 157): OK
+- Handoff gate: runs after this tracked block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Follow-up route (per `policies/review-lanes.md`):
+- direct fix — one configuration entry for the site's own host, one smoke header and one test; low risk, small
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 345.975 s; gates 152.378 s; orchestration 345.369 s; intelligence 0 s; unattributed 0.606 s
+- Awaiting user input: none inside the trace
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: final=8e6db94e33102b9c32b1ee1581031be61698cfc5e067fc2de552467a684b618e
+- Gates: implementation-final=4, all recorded against that candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective: the live smoke's browser-style form post succeeds after the fix and failed before it; config test pins the allowed origin.
+- Parked for the user: creating a group, joining and the rest of the Phase 6 User Demo in a real browser
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Lessons:
+- filed: amorphous-cassowary — a deploy smoke must send what a browser sends (Origin) and go through the same proxy (local)
+- occurrence: watchful-cockle (4 occurrences) — noclobber left a file unwritten during this fix (methodology); graduation DECIDE still awaiting the operator, with icy-echidna
+
+Remaining:
+- None for this correction.

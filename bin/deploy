@@ -473,7 +473,10 @@ class Deployment:
 
         def fetch(path: str, data: dict | None = None) -> tuple[int, str]:
             body = urllib.parse.urlencode(data).encode() if data is not None else None
-            request = urllib.request.Request(origin + path, data=body)
+            # Posts carry the Origin header a browser sends, so React Router's
+            # cross-site check sees what real form submissions look like.
+            headers = {"Origin": origin} if body is not None else {}
+            request = urllib.request.Request(origin + path, data=body, headers=headers)
             try:
                 with urllib.request.urlopen(request, timeout=20) as response:
                     return response.status, response.read().decode()
