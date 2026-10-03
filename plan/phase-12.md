@@ -26,7 +26,12 @@ From the operator's list after Phase 9:
 - "Non-google auth'd users should be able to log in as themselves if they type the name the same, case insensitive." Settled: the name is enough. Anyone with the invite link who types an existing name-only member's name becomes that member on their device; the operator accepted this trust in the invite link.
 - "Should have an option to sign into google from the invite link as a member. This should auth you for both the import and the calendar sync, so those buttons should just be to conduct the api call later instead of auth + api call."
 
-To settle at phase start: whether every Google sign-in (not only from the invite link) asks for Calendar access up front, given that the app is unverified, so Google shows its "unverified app" warning at that sign-in; and what a member sees when they decline the Calendar part of the consent.
+Settled at phase start (2026-10-03):
+
+- **Every Google sign-in asks for Calendar access in the same step** (the clashes and the rehearsal-writing permissions), not only sign-in from the invite link, so nobody is sent back to Google later. Google shows its "unverified app" warning on that screen; the operator accepted that.
+- **Declining the Calendar part still signs the person in** (and joins them from an invite); clashes and calendar writing stay off, each with a link to allow it later.
+- **Two name-only members with the same name:** typing that name on the invite page shows the matching members (with their instrumentation) to pick from.
+- **Name and instrumentation are per group:** someone can be "cello" in one band and "piano" in another; name-only members have them too.
 
 ## Inherited from Phase 10
 
@@ -41,7 +46,13 @@ Pinned by [Phase 11](phase-11.md): organizers can already rename members (`renam
 - `./bin/test project/tests` covers the profile menu's data (Gravatar address from the email, initials fallback, no other member's email exposed), editing name and instrumentation, the Google name pre-fill, returning by name (case-insensitive match; never a Google-linked member; never across groups), and the single consent's scopes with clashes and calendar writing working without a second consent (fake Google).
 - `./bin/deploy all` and `./bin/deploy smoke` pass.
 - `./bin/check all` passes.
-- User Demo: on a phone, open an invite link, sign in with Google and see your name filled in; open the profile menu, add your instrumentation, and see your Gravatar; see your Google Calendar clashes greyed on My availability without a second Google screen; on another browser, type a name-only member's name in a different case and land as them. To be tightened at phase start.
+
+User Demo:
+
+- **Entry point.** On your phone, open a private browser tab (so you are signed out) and open the invite link of a test group, copied from that group's page on your laptop. The test group should have a name-only member called `Spare`.
+- **Suggested inputs.** Tap **Sign in with Google** on the invite page, choose your Google account, and on Google's screen allow the Calendar access it asks for (after its "unverified app" warning). Back on the invite page, join with the name filled in. Tap your picture or initials in the top-right corner, add the instrumentation `cello`, and save. Then open **My availability** and **Schedule**. On the laptop, in a private window, open the same invite link and type `spare` to get back in as `Spare`. Finally, as organizer, rename another member to `Spare` and type `SPARE` on the invite link again.
+- **What to look for.** The name field is already filled from your Google account. The top-right menu shows your Gravatar (or your initials if your email has none), your name, a link to change the picture on gravatar.com, and sign out. `cello` appears beside your name in the group's member list. My availability greys your Google Calendar clashes and the Schedule's "Add rehearsals to my Google Calendar" turns on without another Google screen. Typing `spare` lands you as `Spare`; with two members called Spare, you get a short list to choose from.
+- **Variations to explore.** Sign in again and untick the Calendar part on Google's screen: you are still signed in, and the clashes and calendar-writing places offer a link to allow it. Is the menu easy to reach on a phone?
 
 ## Brief refs
 

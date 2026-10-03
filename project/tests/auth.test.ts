@@ -7,8 +7,10 @@ import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as callback } from "../app/routes/auth.google.callback";
 import { action as signOut } from "../app/routes/auth.sign-out";
 import { loader as availabilityPage } from "../app/routes/availability";
+import { loader as schedulePage } from "../app/routes/schedule";
 import { loader as groupPage } from "../app/routes/group";
 import { loader as homePage } from "../app/routes/home";
+import { fakeGoogle as calendarFake } from "./google-fake";
 import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
 
 const count = tempDatabase();
@@ -38,7 +40,11 @@ function band() {
 }
 
 /** Google's token endpoint, answering for `profile` with whatever nonce the flow sent. */
-function fakeGoogle(profile: { sub: string; email: string; name: string }, nonce: () => string) {
+function fakeGoogle(
+  profile: { sub: string; email: string; name: string },
+  nonce: () => string,
+  tokens: { scope?: string; refresh_token?: string } = {},
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => {
@@ -50,7 +56,7 @@ function fakeGoogle(profile: { sub: string; email: string; name: string }, nonce
         nonce: nonce(),
         ...profile,
       };
-      return Response.json({ id_token: `${part({})}.${part(claims)}.sig` });
+      return Response.json({ id_token: `${part({})}.${part(claims)}.sig`, ...tokens });
     }),
   );
 }
@@ -58,14 +64,18 @@ function fakeGoogle(profile: { sub: string; email: string; name: string }, nonce
 /** Runs the whole sign-in from `returnTo` on a device carrying `cookie`; returns the final response. */
 async function signInThroughGoogle(
   profile: { sub: string; email: string; name: string },
-  options: { returnTo?: string; cookie?: string } = {},
+  options: {
+    returnTo?: string;
+    cookie?: string;
+    tokens?: { scope?: string; refresh_token?: string };
+  } = {},
 ): Promise<Response> {
   const query = options.returnTo ? `?returnTo=${encodeURIComponent(options.returnTo)}` : "";
   const started = (await startSignIn(
     routeArgs(`/auth/google${query}`, {}, { cookie: options.cookie }),
   )) as Response;
   const google = new URL(started.headers.get("Location")!);
-  fakeGoogle(profile, () => google.searchParams.get("nonce")!);
+  fakeGoogle(profile, () => google.searchParams.get("nonce")!, options.tokens);
   const oauth = Object.values(setCookies(started))[0];
   const cookie = [oauth, options.cookie].filter(Boolean).join("; ");
   const state = google.searchParams.get("state")!;
@@ -218,6 +228,124 @@ describe("Google's callback", () => {
 
     expect(response.headers.get("Location")).toBe("/?notice=signin-cancelled");
     expect(fake).not.toHaveBeenCalled();
+  });
+});
+
+describe("Calendar access with every sign-in", () => {
+  const BUSY = "https://www.googleapis.com/auth/calendar.freebusy";
+  const WRITE = "https://www.googleapis.com/auth/calendar.events.owned";
+  let people = 0;
+  const person = () => {
+    people += 1;
+    return { sub: `cal-sub-${people}`, email: `cal${people}@example.test`, name: "Cal" };
+  };
+
+  it("asks Google for both Calendar permissions, offline, keeping earlier grants", async () => {
+    const response = (await startSignIn(routeArgs("/auth/google", {}))) as Response;
+
+    const google = new URL(response.headers.get("Location")!);
+    expect(google.searchParams.get("scope")?.split(" ")).toEqual([
+      "openid",
+      "email",
+      "profile",
+      BUSY,
+      WRITE,
+    ]);
+    expect(google.searchParams.get("access_type")).toBe("offline");
+    expect(google.searchParams.get("include_granted_scopes")).toBe("true");
+    expect(google.searchParams.get("prompt")).toBe("select_account");
+  });
+
+  it("keeps the Calendar access granted with sign-in", async () => {
+    const profile = person();
+
+    await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "refresh-new" },
+    });
+
+    const account = getStore().findAccountBySub(profile.sub)!;
+    expect(getStore().findGrant(account.id)).toMatchObject({
+      refreshToken: "refresh-new",
+      scopes: expect.arrayContaining([BUSY, WRITE]),
+    });
+  });
+
+  it("signs in without a grant when the Calendar part is unticked", async () => {
+    const profile = person();
+
+    const response = await signInThroughGoogle(profile, {
+      tokens: { scope: "openid email profile", refresh_token: "refresh-x" },
+    });
+
+    expect(setCookies(response).mc_session).toBeTruthy();
+    const account = getStore().findAccountBySub(profile.sub)!;
+    expect(getStore().findGrant(account.id)).toBeNull();
+  });
+
+  it("saves nothing when Google sends no refresh token and none is stored", async () => {
+    const profile = person();
+
+    const response = await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}` },
+    });
+
+    expect(setCookies(response).mc_session).toBeTruthy();
+    const account = getStore().findAccountBySub(profile.sub)!;
+    expect(getStore().findGrant(account.id)).toBeNull();
+  });
+
+  it("makes clashes and calendar writing work with no second Google screen", async () => {
+    const profile = person();
+    const signIn = await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "refresh-both" },
+    });
+    const session = setCookies(signIn).mc_session;
+    const account = getStore().findAccountBySub(profile.sub)!;
+    const { group } = getStore().createGroup("Quartet", "Viola", "Europe/London");
+    const member = getStore().addMember(group.id, "Cal", "member", account.id);
+    const cookie = `${await deviceCookie(group.id, member.deviceToken)}; ${session}`;
+    calendarFake();
+
+    const availability = (await availabilityPage(
+      routeArgs(`/g/${group.id}/availability`, { groupId: group.id }, { cookie }),
+    )) as { clashes: { state: string } };
+    const schedule = (await schedulePage(
+      routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie }),
+    )) as { calendar: { google: { state: string } | null } };
+
+    expect(availability.clashes.state).toBe("ready");
+    expect(schedule.calendar.google?.state).toBe("off");
+  });
+
+  it("offers to connect Calendar after a sign-in that brought no refresh token", async () => {
+    const profile = person();
+    const signIn = await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}` },
+    });
+    const session = setCookies(signIn).mc_session;
+    const account = getStore().findAccountBySub(profile.sub)!;
+    const { group } = getStore().createGroup("Quartet", "Viola", "Europe/London");
+    const member = getStore().addMember(group.id, "Cal", "member", account.id);
+    const cookie = `${await deviceCookie(group.id, member.deviceToken)}; ${session}`;
+
+    const availability = (await availabilityPage(
+      routeArgs(`/g/${group.id}/availability`, { groupId: group.id }, { cookie }),
+    )) as { clashes: { state: string } };
+
+    expect(availability.clashes.state).toBe("connect");
+  });
+
+  it("merges new Calendar scopes into a stored grant, keeping its refresh token", async () => {
+    const profile = person();
+    const account = getStore().upsertAccount(profile);
+    getStore().saveGrant(account.id, "refresh-old", [BUSY]);
+
+    await signInThroughGoogle(profile, { tokens: { scope: `openid ${BUSY} ${WRITE}` } });
+
+    expect(getStore().findGrant(account.id)).toMatchObject({
+      refreshToken: "refresh-old",
+      scopes: expect.arrayContaining([BUSY, WRITE]),
+    });
   });
 });
 

@@ -85,7 +85,8 @@ describe("join route", () => {
       routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }),
     );
 
-    expect(loaded).toEqual({ groupName: "Thursday Quartet", account: null });
+    // Google is not configured in this test, so no sign-in link.
+    expect(loaded).toEqual({ groupName: "Thursday Quartet", account: null, signInUrl: null });
   });
 
   it("adds exactly one member and remembers them on this device", async () => {

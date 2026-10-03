@@ -11,6 +11,8 @@ import {
 } from "react-router";
 
 import { readToast } from "~/.server/flash";
+import { headerProfile } from "~/.server/profile";
+import { ProfileMenu } from "~/components/profile-menu";
 import { FeedbackProvider } from "~/components/submit-button";
 import { Toaster } from "~/components/toast";
 import { siteName } from "~/lib/site";
@@ -21,12 +23,21 @@ import stylesheet from "./app.css?url";
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: stylesheet }];
 
 /**
- * The confirmation a change left for this page, if any. React Router reloads
- * this loader after every action, so the toast arrives with the redirected page.
+ * The confirmation a change left for this page, if any, and the header's
+ * profile menu. React Router reloads this loader after every action, so the
+ * toast arrives with the redirected page.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   const { toast, clear } = await readToast(request);
-  return data({ toast }, clear ? { headers: { "Set-Cookie": clear } } : undefined);
+  return data(
+    { toast, profile: await headerProfile(request) },
+    clear ? { headers: { "Set-Cookie": clear } } : undefined,
+  );
+}
+
+/** The profile menu depends on the group in the URL, so every navigation reloads it. */
+export function shouldRevalidate() {
+  return true;
 }
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -42,6 +53,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <FeedbackProvider>
           <header className="site-header">
             <Link to="/">{siteName}</Link>
+            <ProfileMenu />
           </header>
           {children}
           <Toaster />

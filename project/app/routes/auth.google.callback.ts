@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 
 import {
+  CALENDAR_SCOPES,
   callbackUrl,
   exchangeCode,
   forgetAccessToken,
@@ -63,6 +64,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   const store = getStore();
   const account = store.upsertAccount(identity);
   headers.append("Set-Cookie", await startSession(account.id));
+  // Calendar access granted with sign-in is kept (merged with earlier grants).
+  // Google sends a refresh token only on a first authorization; without one
+  // and none stored nothing is saved, and the "connect" links remain.
+  if (
+    tokens.scopes.includes(CALENDAR_SCOPES.busy) ||
+    tokens.scopes.includes(CALENDAR_SCOPES.write)
+  ) {
+    if (store.saveGrant(account.id, tokens.refreshToken, tokens.scopes))
+      forgetAccessToken(account.id);
+  }
   const returnTo = await linkReturnGroup(request, saved.returnTo, account.id);
   return redirect(returnTo, { headers });
 }

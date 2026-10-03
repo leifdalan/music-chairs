@@ -22,6 +22,17 @@ export const CALENDAR_SCOPES = {
   write: "https://www.googleapis.com/auth/calendar.events.owned",
 } as const;
 
+/**
+ * What every sign-in asks for (plan/phase-12.md, Decisions): the identity and
+ * both Calendar permissions in one consent. People can untick the Calendar
+ * part and are still signed in.
+ */
+export const SIGN_IN_WITH_CALENDAR_SCOPES = [
+  ...SIGN_IN_SCOPES,
+  CALENDAR_SCOPES.busy,
+  CALENDAR_SCOPES.write,
+];
+
 /** What a token exchange grants besides the identity. */
 export type GoogleTokens = { refreshToken: string | null; scopes: string[] };
 

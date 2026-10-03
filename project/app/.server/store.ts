@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { isOccurrence, type Slot, type SlotInput } from "~/lib/availability";
+import { sameName } from "~/lib/profile";
 import type { TimeWindow } from "~/lib/requests";
 
 export type Role = "organizer" | "member";
@@ -31,12 +32,15 @@ export type Member = {
   googleEmail: string | null;
   /** Whether this member's confirmed rehearsals are written to their Google Calendar. */
   calendarSync: boolean;
+  /** What they play in this group, for example "cello, piano"; may be empty. */
+  instrument: string;
 };
 
 /**
  * A member as first created, with the device token that identifies their
- * device. The token is the only bearer secret: it is never read back by any
- * other store function and must never reach page data.
+ * device. The token is the only bearer secret: apart from `deviceTokenFor`,
+ * which lets a member returning by name be remembered on a new device, no
+ * store function reads it back, and it must never reach page data.
  */
 export type NewMember = Member & { deviceToken: string };
 
@@ -128,6 +132,20 @@ export type Store = {
   /** Refuses a change that would leave the group without an organizer. */
   setRole(groupId: string, memberId: string, role: Role): RoleChange;
   renameMember(groupId: string, memberId: string, displayName: string): boolean;
+  /** A member's own name and instrumentation; false for an unknown member. */
+  setProfile(
+    groupId: string,
+    memberId: string,
+    profile: { displayName: string; instrument: string },
+  ): boolean;
+  /**
+   * Members who may return by typing their name: not linked to a Google
+   * account, role member (organizers get back in with Google or a known
+   * device), name equal under `sameName`, in join order.
+   */
+  nameOnlyMatches(groupId: string, name: string): Member[];
+  /** A member's device token, for the server to remember them on a new device. */
+  deviceTokenFor(groupId: string, memberId: string): string | null;
   /**
    * Deletes a member and their availability, answers and RSVPs, queueing the
    * Google Calendar events the app wrote for them for removal. The group's
@@ -457,6 +475,10 @@ export const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (account_id, event_id)
   );
   `,
+  // Version 7 (Phase 12): each member's instrumentation in their group.
+  `
+  ALTER TABLE members ADD COLUMN instrument TEXT NOT NULL DEFAULT '';
+  `,
 ];
 
 /**
@@ -531,6 +553,7 @@ type MemberRow = {
   optional: number;
   google_email: string | null;
   calendar_sync: number;
+  instrument: string;
 };
 type SlotRow = {
   id: string;
@@ -560,6 +583,7 @@ function toMember(row: MemberRow): Member {
     optional: row.optional === 1,
     googleEmail: row.google_email,
     calendarSync: row.calendar_sync === 1,
+    instrument: row.instrument,
   };
 }
 
@@ -641,6 +665,12 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   );
   const changeShowNames = db.prepare("UPDATE groups SET show_names = ? WHERE id = ?");
   const changeGroup = db.prepare("UPDATE groups SET name = ?, time_zone = ? WHERE id = ?");
+  const changeProfile = db.prepare(
+    "UPDATE members SET display_name = ?, instrument = ? WHERE group_id = ? AND id = ?",
+  );
+  const selectDeviceToken = db.prepare(
+    "SELECT device_token FROM members WHERE group_id = ? AND id = ?",
+  );
   const changeDisplayName = db.prepare(
     "UPDATE members SET display_name = ? WHERE group_id = ? AND id = ?",
   );
@@ -688,7 +718,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   );
   // Member reads never select the device token.
   const memberSelect = `SELECT members.id, members.group_id, members.display_name, members.role,
-      members.optional, members.calendar_sync, accounts.email AS google_email
+      members.optional, members.calendar_sync, members.instrument, accounts.email AS google_email
     FROM members LEFT JOIN accounts ON accounts.id = members.account_id`;
   const selectMember = db.prepare(`${memberSelect} WHERE members.group_id = ? AND members.id = ?`);
   const selectMemberByDevice = db.prepare(
@@ -709,7 +739,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectAccountMemberships = db.prepare(
     `SELECT groups.id AS g_id, groups.invite_token, groups.name, groups.time_zone,
        groups.show_names, members.id, members.group_id, members.display_name, members.role,
-       members.optional, members.calendar_sync, accounts.email AS google_email
+       members.optional, members.calendar_sync, members.instrument, accounts.email AS google_email
      FROM members
      JOIN groups ON groups.id = members.group_id
      JOIN accounts ON accounts.id = members.account_id
@@ -1039,6 +1069,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       optional: false,
       googleEmail: null,
       calendarSync: false,
+      instrument: "",
       deviceToken: newToken(),
     };
     insertMember.run(
@@ -1118,6 +1149,29 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     renameMember(groupId, memberId, displayName) {
       if (!isToken(memberId)) return false;
       return Number(changeDisplayName.run(displayName, groupId, memberId).changes) > 0;
+    },
+    setProfile(groupId, memberId, profile) {
+      if (!isToken(memberId)) return false;
+      return (
+        Number(
+          changeProfile.run(profile.displayName, profile.instrument, groupId, memberId).changes,
+        ) > 0
+      );
+    },
+    nameOnlyMatches(groupId, name) {
+      return (selectMembers.all(groupId) as MemberRow[])
+        .map(toMember)
+        .filter(
+          (member) =>
+            member.googleEmail === null &&
+            member.role === "member" &&
+            sameName(member.displayName, name),
+        );
+    },
+    deviceTokenFor(groupId, memberId) {
+      if (!isToken(memberId)) return null;
+      const row = selectDeviceToken.get(groupId, memberId) as { device_token: string } | undefined;
+      return row?.device_token ?? null;
     },
     removeMember(groupId, memberId) {
       if (!isToken(memberId)) return "unknown";

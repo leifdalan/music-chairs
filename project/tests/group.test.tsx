@@ -90,6 +90,7 @@ describe("group route", () => {
       members: [
         {
           displayName: "Viola",
+          instrument: "",
           role: "organizer",
           isViewer: true,
           google: false,
@@ -97,6 +98,7 @@ describe("group route", () => {
         },
         {
           displayName: "Cellist",
+          instrument: "",
           role: "member",
           isViewer: false,
           google: false,

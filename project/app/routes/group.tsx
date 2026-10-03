@@ -74,6 +74,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     timeZone: group.timeZone,
     members: allMembers.map((member) => ({
       displayName: member.displayName,
+      instrument: member.instrument,
       role: member.role,
       isViewer: member.id === viewer?.id,
       google: member.googleEmail !== null,
@@ -336,6 +337,9 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
             <li key={member.manage?.id ?? index}>
               <span className="member-name">
                 {member.displayName}
+                {member.instrument ? (
+                  <span className="member-instrument"> · {member.instrument}</span>
+                ) : null}
                 {member.isViewer ? " (you)" : ""}
                 {member.google ? (
                   <span className="google-mark" title="Signs in with Google">

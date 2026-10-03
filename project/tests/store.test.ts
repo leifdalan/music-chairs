@@ -26,6 +26,7 @@ function withoutToken(member: NewMember): Member {
     optional: member.optional,
     googleEmail: member.googleEmail,
     calendarSync: member.calendarSync,
+    instrument: member.instrument,
   };
 }
 
@@ -854,6 +855,53 @@ describe("removing members and deleting groups", () => {
   });
 });
 
+describe("profiles and returning by name", () => {
+  it("saves a member's name and instrumentation within their group only", () => {
+    const store = memoryStore();
+    const a = store.createGroup("A", "Viola", "Europe/London");
+    const b = store.createGroup("B", "Oboe", "Europe/London");
+    const cellist = store.addMember(a.group.id, "Cellist", "member");
+
+    expect(store.setProfile(b.group.id, cellist.id, { displayName: "X", instrument: "y" })).toBe(
+      false,
+    );
+    expect(
+      store.setProfile(a.group.id, cellist.id, { displayName: "Cel", instrument: "cello" }),
+    ).toBe(true);
+    expect(store.findMember(a.group.id, cellist.id)).toMatchObject({
+      displayName: "Cel",
+      instrument: "cello",
+    });
+    expect(cellist.instrument).toBe("");
+  });
+
+  it("matches only name-only members of that group, never organizers or linked members", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("A", "Spare", "Europe/London");
+    const spare = store.addMember(group.id, "Spare", "member");
+    const account = store.upsertAccount({ sub: "s", email: "s@example.test", name: "S" });
+    store.addMember(group.id, "spare", "member", account.id);
+    const other = store.createGroup("B", "Oboe", "Europe/London").group;
+    store.addMember(other.id, "Spare", "member");
+
+    expect(store.nameOnlyMatches(group.id, " SPARE ").map((member) => member.id)).toEqual([
+      spare.id,
+    ]);
+    expect(store.nameOnlyMatches(group.id, "Nobody")).toEqual([]);
+  });
+
+  it("reads a device token back only within the member's own group", () => {
+    const store = memoryStore();
+    const a = store.createGroup("A", "Viola", "Europe/London");
+    const b = store.createGroup("B", "Oboe", "Europe/London");
+    const cellist = store.addMember(a.group.id, "Cellist", "member");
+
+    expect(store.deviceTokenFor(a.group.id, cellist.id)).toBe(cellist.deviceToken);
+    expect(store.deviceTokenFor(b.group.id, cellist.id)).toBeNull();
+    expect(store.deviceTokenFor(a.group.id, "not a token")).toBeNull();
+  });
+});
+
 describe("schema migrations", () => {
   function fileDatabase(): string {
     const dir = mkdtempSync(join(tmpdir(), "music-chairs-"));
@@ -1075,6 +1123,29 @@ describe("schema migrations", () => {
       expect(() => db.exec(bad)).toThrow();
     }
     expect(store.listEventRemovals()).toEqual([{ accountId: "a", eventId: "mc1" }]);
+    db.close();
+  });
+
+  it("upgrades a version-6 database to instrumentation, keeping members", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 6));
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(6);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+
+    expect(store.listMembers("g")).toEqual([
+      expect.objectContaining({ displayName: "Cellist", instrument: "" }),
+    ]);
+    const db = new DatabaseSync(filename);
+    expect(version(db)).toBe(MIGRATIONS.length);
     db.close();
   });
 

@@ -31,6 +31,10 @@ To settle at phase start: whether contacts include Google's "other contacts" (pe
 
 Pinned by [Phase 11](phase-11.md): organizers can rename and remove members; removing a member deletes their data and app-written Google events, and the removed person can rejoin with the unchanged invite link. Destructive actions confirm through `ConfirmForm` and `confirmationNeeded`.
 
+## Inherited from Phase 12
+
+Pinned by [Phase 12](phase-12.md): name-only members with role member can get back in by typing their name on the invite page (`nameOnlyMatches` and `sameName`; several matches are offered as a list); organizers and Google-linked members are never matched, and typing a name never links a Google account. Someone signed in with Google whose name matches a name-only member chooses between "That's me" and joining as new. Every Google sign-in asks for the Calendar permissions too. Members have per-group instrumentation (`setProfile`). The schema is at version 7; new tables or columns are migration 8 onward.
+
 ## Acceptance
 
 - `./bin/test project/tests` covers adding by typed name, contact autocomplete from a faked People API answer, the contacts consent requested only on first use, organizer-only access, claiming an added place by name and by Google account, and that no contact data is stored beyond the members actually added.

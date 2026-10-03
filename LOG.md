@@ -1674,3 +1674,125 @@ Execution trace: 8dd521b4835f4b9bb6c1634812876dd8
 - Lessons: gentle-pug gained its Phase 11 occurrence (4 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (4) and lively-salamander (3) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-03 15:40 — START
+
+Phase 12 — Your profile menu, returning by name, and one Google sign-in for everything
+
+Execution trace: 0f277af20c9a469fb75e223eff354906
+
+Operator decisions recorded in plan/phase-12.md before this run: from the list after Phase 9, a Gravatar profile menu in the top-right with an instrumentation field (the picture changed on gravatar.com, initials as the fallback); the name pre-filled from Google; name-only members get back in by typing their name, case-insensitive, trusting the invite link; and Google sign-in from the invite link that also grants Calendar access. At phase start: every Google sign-in asks for Calendar access in the same step; declining the Calendar part still signs the person in; two name-only members with the same name are offered as a list to pick from; name and instrumentation are per group. The User Demo was tightened before capture.
+
+Planned work:
+- A profile menu in the top-right corner of every page, showing the member's Gravatar (initials when there is no email or no Gravatar). It lets the member edit their name and a new "instrumentation" field (for example "cello, piano"), links to gravatar.com to change the picture, and holds sign-in and sign-out.
+- Instrumentation shown with each member's name in the group's member list.
+- When joining through an invite link while signed in with Google, the name field is pre-filled from the Google account.
+- A name-only member returns on a new device by typing their name on the invite page: a case-insensitive match with an existing name-only member in that group signs this device in as them. A Google-linked member still signs in with Google.
+- "Sign in with Google" on the invite page, for joining as a member. It asks for sign-in and the Calendar access that clashes and calendar writing need, in one consent, so My availability greys Google Calendar clashes and the calendar-writing switch just work afterwards instead of first sending the member to Google.
+
+## 2026-10-03 16:05 — END
+Phase 12 — Your profile menu, returning by name, and one Google sign-in for everything
+
+Phase 12 is accepted on its gates and live at https://rehearse.dalan.dev. Every page now has a round picture in its top-right corner: the viewer's Gravatar, or their initials when there is none. It opens a menu with their name and instrumentation in this group, a link to change the picture on gravatar.com, and sign in or out. The group's member list shows each member's instrumentation. Every Google sign-in, including a new "Sign in with Google" on the invite page, asks for the Calendar clashes and writing permissions in the same step and keeps them when granted, so clashes and calendar writing work straight away; unticking them still signs the person in. On the invite page, typing a name-only member's name, in any case, gets this device back in as them; when several share the name, a list shows them with their instrumentation. Organizers' and Google-linked members' names are refused with a pointer to Google sign-in. Someone signed in with Google whose name matches a name-only member is asked "Which one are you?", with a "No, I'm new" choice. The live database was upgraded in place. How the menu and the invite page feel on a phone is yours to judge through the User Demo below.
+
+Execution trace: 0f277af20c9a469fb75e223eff354906
+
+Files changed:
+- plan/phase-12.md — operator decisions settled at phase start (every Google sign-in asks for Calendar; declining still signs in; duplicate names offered as a list; per-group name and instrumentation) and the tightened User Demo, recorded before the run
+- project/app/.server/store.ts — migration 7 (members.instrument); setProfile, nameOnlyMatches (members only, not linked), deviceTokenFor (the one server-only reader of a device token)
+- project/app/lib/profile.ts, project/app/.server/gravatar.ts, project/app/.server/profile.ts — initials, name matching (NFC, spaces, case), instrumentation rule; the Gravatar address on the server; the header's profile data
+- project/app/components/profile-menu.tsx, project/app/root.tsx — the menu in the header; the root loader reloads on every navigation
+- project/app/routes/profile.ts — new: saving your name and instrumentation, back to the page with a message
+- project/app/routes/join.tsx — Sign in with Google; returning by name; picking from several; signed-in joiners choose or join as new
+- project/app/.server/google.ts, project/app/routes/auth.google.ts, project/app/routes/auth.google.callback.ts — Calendar permissions in every sign-in, saved when granted
+- project/app/routes/group.tsx, project/app/routes.ts, project/app/app.css — instrumentation in the member list; the route; menu styles
+- project/tests/ — profile (rules, header data, saving, menu), join-by-name, auth (Calendar at sign-in, clashes and writing working straight after it; these live in auth.test.ts, and the header tests in profile.test.tsx, rather than google.test.ts and root.test.tsx), store (migration 7, matching), join and group updates (Vitest 425)
+- plan/INDEX.md — Phase 12 ✅, Phase 13 ⬅️ (pending, applied after this block)
+- plan/phase-13.md — inherited Phase 12 notes (pending AUTO ripple)
+- lessons/gentle-pug.md — Phase 12 occurrence (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release fb129e7-dirty-20261003T230142Z healthy; live database migrated to schema version 7 with row counts identical to the pre-release copy (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 425/425, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.288, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 195.462 s; first event 0.800 s; longest idle 42.037 s; success
+- Coder: inline (no role span)
+- Critic (code review): 266.565 s; first event 0.860 s; longest idle 35.534 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1465.274 s; intelligence 462.027 s; gates 160.651 s; orchestration 1464.688 s; wait 460.864 s; failed 0 s; retry 0 s; unattributed 0.587 s (category totals are interval unions and may overlap).
+- Awaiting user input: none recorded as a park. The operator's ruling on organizers was asked and answered in conversation during planning; that wait is inside orchestration time.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=ad2d6e11ba620f2c0a69db294d62a2084b85c72ab79b79e227e506628d31b371 critiqued=6799a09a0f985b51bd95a513b17cd6070541c2fee92bc61507b957843b7d1bbe approved=7841d93b9fef80936fd9c03dc69cd8367fbd088337fd7d2c98904de83af0d516 final=7841d93b9fef80936fd9c03dc69cd8367fbd088337fd7d2c98904de83af0d516
+- Revision packets: 0
+- Advisory reports: 2 — plan review 10 findings (8 adopted, 2 demo corrections deferred to this block); code critique 8 findings (6 adopted, 1 demo note deferred here, 1 declined as within the operator's accepted trust)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers the profile menu's data (Gravatar address from the email, initials fallback, no other member's data), editing name and instrumentation, the Google name pre-fill, returning by name (case- and space-insensitive; never a Google-linked member or an organizer; never across groups; never linking), and the single consent's scopes with clashes and calendar writing working without a second consent (fake Google); `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below (the menu and invite page on a phone, the real Google consent screen, a real Gravatar)
+
+Operator ruling during planning (2026-10-03, recorded here because plan/phase-12.md is captured): returning by name is for members only; typing a name-only organizer's name is refused ("Organizers get back in with Google, or from a device they used before.").
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-13.md — add "Inherited from Phase 12": name-only members (role member) can return by typing their name (`nameOnlyMatches`, `sameName`), signed-in joiners choose between a matching member and joining as new, organizers and Google-linked members are never matched; typing a name never links an account; every Google sign-in asks for Calendar; members have instrumentation (`setProfile`); schema at version 7 — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- occurrences pending: gentle-pug (5 after this phase) — the captured demo's two-Spares step reuses a window that already holds Spare, and its decline variation needs access removed at Google first; the corrections go in the notes below
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (5) → policy; lively-salamander (3) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, open a private browser tab (so you are signed out) and open the invite link of a test group, copied from that group's page on your laptop. The test group should have a name-only member called `Spare`.
+- **Suggested inputs.** Tap **Sign in with Google** on the invite page, choose your Google account, and on Google's screen allow the Calendar access it asks for (after its "unverified app" warning). Back on the invite page, join with the name filled in. Tap your picture or initials in the top-right corner, add the instrumentation `cello`, and save. Then open **My availability** and **Schedule**. On the laptop, in a private window, open the same invite link and type `spare` to get back in as `Spare`. Finally, as organizer, rename another member to `Spare` and type `SPARE` on the invite link again.
+- **What to look for.** The name field is already filled from your Google account. The top-right menu shows your Gravatar (or your initials if your email has none), your name, a link to change the picture on gravatar.com, and sign out. `cello` appears beside your name in the group's member list. My availability greys your Google Calendar clashes and the Schedule's "Add rehearsals to my Google Calendar" turns on without another Google screen. Typing `spare` lands you as `Spare`; with two members called Spare, you get a short list to choose from.
+- **Variations to explore.** Sign in again and untick the Calendar part on Google's screen: you are still signed in, and the clashes and calendar-writing places offer a link to allow it. Is the menu easy to reach on a phone?
+- Notes: before starting, remove music-chairs' access at myaccount.google.com → Security → Third-party apps, so Google shows the full consent screen and an earlier grant doesn't decide the outcome. For the two-Spares step, rename a second name-only member (not an organizer, not Google-linked) to Spare, close the earlier private window and type SPARE in a fresh one, since that window already holds Spare. For the decline variation, remove the app's access again, sign out, then sign in and untick Calendar. If you're signed in with Google and type a name-only member's name, you're asked "Which one are you?" with "No, I'm new". Anyone with the invite link can find out by trying whether a name belongs to an organizer or a Google member; that is within the trust in the invite link you accepted. Google sends a long-lived Calendar permission only on a first authorization, so an account that signed in before may still see the "connect" link once.
+
+Remaining:
+- None for this phase. Phases 13–15 follow.
+
+## 2026-10-03 16:05 — Close bookkeeping outcomes
+
+Phase 12 — Your profile menu, returning by name, and one Google sign-in for everything
+
+Execution trace: 0f277af20c9a469fb75e223eff354906
+
+- Status: applied and verified — Phase 12 ✅, Phase 13 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-13.md gained an "Inherited from Phase 12" section.
+- Ripple DECIDE: none.
+- Lessons: gentle-pug gained its Phase 12 occurrence (5 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (5) and lively-salamander (3) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
