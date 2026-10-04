@@ -11,7 +11,7 @@ import {
   GoogleApiError,
   queryBusy,
 } from "~/.server/google";
-import { findViewer } from "~/.server/membership";
+import { findViewer, pagePath } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
@@ -103,7 +103,7 @@ async function googleClashes(
   const url = new URL(request.url);
   // Back here after consent, without the notice of an earlier attempt.
   url.searchParams.delete("notice");
-  const connectUrl = `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(url.pathname + url.search)}`;
+  const connectUrl = `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(pagePath(url))}`;
   if (!getStore().findGrant(capable.account.id)?.scopes.includes(CALENDAR_SCOPES.busy)) {
     return { state: "connect", connectUrl };
   }

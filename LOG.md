@@ -2303,3 +2303,37 @@ User demo (per `policies/user-demo-protocols.md`):
 
 Remaining:
 - None for this phase. Phase 17 (visual cleanup) waits for the operator's UI/UX pass and framework choice (user action satisfied-turkey).
+
+## 2026-10-04 10:17 — END (correction)
+Phase 10 — Availability in calendar and list views, with live Google Calendar conflicts
+
+A direct-fix correction, reported by the operator from the live site. After tapping **See clashes from your Google Calendar** on the availability page and allowing access, Google sent the browser to `…/availability.data?…`, React Router's internal data address, so the page showed raw data. The link had built its return address from the request URL, which during in-app navigation is that data request. A new `pagePath()` (project/app/.server/membership.ts) turns a data address back into its page by dropping `.data` and `_routes`. Both the link and `safeReturnTo` use it, and `safeReturnTo` covers every sign-in, consent, disconnect and profile return. Live at https://rehearse.dalan.dev.
+
+Execution trace: d5342323cbf144e2a6b33f162683acfe
+
+Files changed:
+- project/app/.server/membership.ts — pagePath(); safeReturnTo returns a page, never a data request
+- project/app/routes/availability.tsx — the connect link returns to the page
+- project/tests/availability-views.test.tsx, project/tests/calendar-consent.test.ts — the link built from a .data request; safeReturnTo's normalisation alongside its off-site refusals (Vitest 491)
+
+Build status:
+- project/scripts/smoke.sh: OK (attempt 2; attempt 1 ran after command zero had failed on an expired AWS session and was not relied on)
+- ./bin/deploy all --profile music-chairs: OK — Terraform plan no changes; release dd323d3-dirty-20261004T171447Z healthy; Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 491/491, pytest 164): OK
+- Handoff gate: the bare `./bin/check all` after this block
+
+Follow-up route (per `policies/review-lanes.md`):
+- direct-fix (small, localized, low risk; no independent review)
+
+Evidence lane: full. Evidence validation: EVIDENCE VALID. Mutation checks: 3/3 killed (the link, safeReturnTo, the _routes removal).
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective: the tests above; the deploy and smokes.
+- Parked for the user: tap **See clashes from your Google Calendar** while answering a request, allow access, and check that you land back on the availability page with the clashes shown.
+
+Lessons:
+- none new: the cause (tests that never loaded the page the way in-app navigation does) is close to the Phase 15 lesson on server-rendered tests missing client behaviour; no recurrence recorded because the mechanism differs
+
+Remaining:
+- None for this correction. Phase 10 stays ✅.

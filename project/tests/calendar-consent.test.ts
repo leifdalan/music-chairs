@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { accessTokenFor, CALENDAR_SCOPES, CONTACTS_SCOPES } from "../app/.server/google";
+import { safeReturnTo } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { loader as startConsent } from "../app/routes/auth.google.calendar";
 import { loader as callback } from "../app/routes/auth.google.callback";
@@ -113,6 +114,21 @@ describe("asking for Calendar access", () => {
       prompt: "consent",
       login_hint: profile.email,
     });
+  });
+});
+
+describe("where consent returns to", () => {
+  it("is always a page on this site, never a data request or another site", () => {
+    const request = new Request("https://music-chairs.test/auth/google/calendar");
+    const back = (value: string) => safeReturnTo(value, request);
+
+    expect(back("/g/abc/availability.data?request=r&window=0&_routes=routes%2Favailability")).toBe(
+      "/g/abc/availability?request=r&window=0",
+    );
+    expect(back("/_root.data?_routes=root")).toBe("/");
+    expect(back("/g/abc/schedule?x=1")).toBe("/g/abc/schedule?x=1");
+    expect(back("//evil.test/g/abc")).toBe("/");
+    expect(back("https://evil.test/")).toBe("/");
   });
 });
 

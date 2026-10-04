@@ -155,16 +155,29 @@ export async function clearOAuthState(): Promise<string> {
 }
 
 /**
- * `value` as a path on this site to return to after signing in, or `/`. It is
+ * The page a URL shows. In-app navigation fetches a page's data from
+ * `<page>.data?…&_routes=…` (React Router's single fetch); a link back to the
+ * page must not point there, or the browser shows the raw data.
+ */
+export function pagePath(url: URL): string {
+  const search = new URLSearchParams(url.search);
+  search.delete("_routes");
+  const query = search.toString();
+  const pathname = url.pathname.endsWith(".data") ? url.pathname.slice(0, -5) || "/" : url.pathname;
+  return (pathname === "/_root" ? "/" : pathname) + (query ? `?${query}` : "");
+}
+
+/**
+ * `value` as a page on this site to return to after signing in, or `/`. It is
  * resolved the way a browser would (which drops tabs and newlines), so nothing
- * that would leave the site survives.
+ * that would leave the site survives, and a data request becomes its page.
  */
 export function safeReturnTo(value: unknown, request: Request): string {
   if (typeof value !== "string" || !value.startsWith("/")) return "/";
   const origin = new URL(request.url).origin;
   try {
     const target = new URL(value, origin);
-    return target.origin === origin ? target.pathname + target.search : "/";
+    return target.origin === origin ? pagePath(target) : "/";
   } catch {
     return "/";
   }

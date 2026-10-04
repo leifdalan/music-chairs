@@ -384,6 +384,23 @@ describe("clashes with Google Calendar", () => {
     expect((await load(revoked.group.id, revoked.cellistCookie)).clashes.state).toBe("connect");
   });
 
+  it("sends the connect link back to the page, not to the data request that loaded it", async () => {
+    const { group, cellistCookie } = await band([]);
+
+    // In-app navigation loads the page's data from <page>.data with _routes.
+    const page = (await loader(
+      routeArgs(
+        `/g/${group.id}/availability.data?times=list&notice=calendar-declined&_routes=routes%2Favailability`,
+        { groupId: group.id },
+        { cookie: cellistCookie },
+      ),
+    )) as PageData;
+
+    expect(page.clashes).toMatchObject({
+      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`/g/${group.id}/availability?times=list`)}`,
+    });
+  });
+
   it("reads nothing for a member not signed in with Google, or in the list view", async () => {
     const { group, pianistCookie, cellistCookie } = await band();
 
