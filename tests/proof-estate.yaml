@@ -69,6 +69,9 @@ families:
   - project/deploy/backup.sh
   - project/deploy/fetch-secret.sh
   - project/deploy/music-chairs.service
+  - project/deploy/install-deploy-keys.sh
+  - project/deploy/deploy-keys.pub
+  - .github/workflows/ci.yml
   - tests/test_deploy.py
   covers:
   - bin/deploy
@@ -82,15 +85,24 @@ families:
   - project/deploy/backup.sh
   - project/deploy/fetch-secret.sh
   - project/deploy/music-chairs.service
+  - project/deploy/install-deploy-keys.sh
+  - project/deploy/deploy-keys.pub
+  - .github/workflows/ci.yml
   - tests/test_deploy.py
   contract: The deploy command acts only on the configured AWS account, never applies a Terraform plan
     that destroys, replaces or forgets the instance holding the live database or the other protected
     resources, never prompts or leaks the alert email, keeps the server's Google-secret key root-only and
     scoped to one parameter, and a failed release restores the database copy and the previous release.
+    GitHub's deploy role trusts only pushes to main of this repository and allows no IAM or resource
+    writes beyond Terraform's state; the CI deploy refuses infrastructure changes; the deploy keys are
+    kept as one authorized_keys block that never locks the operator out; the workflow pins its actions
+    and passes secrets only through env.
   risk_class: deploy
   oracle: Recorded calls of fake aws, terraform and ssh executables (argv and environment), exit statuses
     and messages from the real entry point, Terraform's JSON plan format, the .tf files parsed with
-    python-hcl2, and the file system left by install-release.sh with fake systemctl, curl and sqlite3.
+    python-hcl2, policy templates rendered as Terraform fills them, the file system left by
+    install-release.sh with fake systemctl, curl and sqlite3 and by install-deploy-keys.sh in a temporary
+    directory, and the workflow parsed with PyYAML.
   admission: 'Phase 5: the deploy critical risk became applicable when bin/deploy was added.'
   nearest_overlap: No other family proves deployment behaviour.
   historical_evidence: []
@@ -712,6 +724,8 @@ families:
   - bin/_node-toolchain
   - bin/_terraform-toolchain
   - bin/terraform
+  - bin/_gh-toolchain
+  - bin/gh
   - project/deploy/terraform-release.json
   - tooling/**
   - tests/test_toolchain_entrypoints.py
@@ -724,6 +738,8 @@ families:
   - bin/_node-toolchain
   - bin/_terraform-toolchain
   - bin/terraform
+  - bin/_gh-toolchain
+  - bin/gh
   - project/deploy/terraform-release.json
   - tooling/**
   - tests/test_toolchain_entrypoints.py

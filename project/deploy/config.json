@@ -24,5 +24,7 @@
   "googleSiteVerification": [
     "google-site-verification=z2fjXWiTXprhwHTJTC_ruSmEdgwP0VTaD_0Q9GwCUQw",
     "google-site-verification=w_C67CKXYwEY2fDn3-k9loy6zYqL3JA7Unjw3yDdnz4"
-  ]
+  ],
+  "deployRoleName": "music-chairs-github-deploy",
+  "githubOidcRepository": "leifdalan@571833/music-chairs@1402125894"
 }

@@ -1,0 +1,4 @@
+# Public keys GitHub's deploy job signs in to the server with (plan/phase-18.md),
+# one per line. provision.sh keeps them as a marked block in the SSH user's
+# authorized_keys; an empty list removes the block. See project/deploy/README.md.
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKZ7CEhWR114Sa66xXiLNtkPuJ92pTAEniF9FErF44zP music-chairs-github-deploy

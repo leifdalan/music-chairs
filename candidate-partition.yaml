@@ -13,6 +13,7 @@ active:
   - "/.agents/**"
   - "/.claude/**"
   - "/.codex/**"
+  - "/.github/**"
   - "/.githooks/**"
   - "/bin/**"
   - "/briefs/**"

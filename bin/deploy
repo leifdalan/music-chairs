@@ -78,10 +78,13 @@ def tool(variable: str, default: str) -> str:
 
 
 class Deployment:
-    def __init__(self, profile: str, dry_run: bool) -> None:
+    def __init__(self, profile: str, dry_run: bool, refuse_infra_changes: bool = False) -> None:
         self.config = json.loads((DEPLOY / "config.json").read_text())
         self.profile = profile
         self.dry_run = dry_run
+        # GitHub's deploy job (plan/phase-18.md): its role cannot change the
+        # infrastructure, so a plan with changes stops before anything happens.
+        self.refuse_infra_changes = refuse_infra_changes
         self.aws_cli = tool("MUSIC_CHAIRS_AWS", "aws")
         self.ssh_cli = tool("MUSIC_CHAIRS_SSH", "ssh")
         # Always the pinned wrapper; TOOLCHAIN_TERRAFORM (read by the wrapper) is
@@ -286,7 +289,13 @@ class Deployment:
             self.terraform("plan", "-input=false", "-out", plan_file)
             plan = json.loads(self.terraform("show", "-json", plan_file, capture=True))
             refuse_destructive(plan)
-            print(summarize(plan))
+            summary = summarize(plan)
+            print(summary)
+            if self.refuse_infra_changes and summary != "plan: no changes":
+                raise DeployError(
+                    "refusing: infrastructure changes are applied by hand before merging "
+                    "(./bin/deploy infra --profile music-chairs). Nothing was changed."
+                )
             if not self.step("apply the plan"):
                 return
             self.terraform("apply", "-input=false", plan_file)
@@ -386,6 +395,7 @@ class Deployment:
                 "REGION": config["region"],
                 "GOOGLE_CLIENT_ID": config["googleClientId"],
                 "GOOGLE_SECRET_PARAMETER": config["googleSecretParameter"],
+                "SSH_USER": config["sshUser"],
             }
             assignments = " ".join(f"{k}={v}" for k, v in env.items())
             print(
@@ -574,10 +584,17 @@ def main() -> int:
         action="store_true",
         help="confirm the account, then list the steps without running them",
     )
+    parser.add_argument(
+        "--refuse-infra-changes",
+        action="store_true",
+        help="stop before applying any infrastructure change (GitHub's deploy job)",
+    )
     args = parser.parse_args()
     try:
         config = json.loads((DEPLOY / "config.json").read_text())
-        deployment = Deployment(args.profile or config["profile"], args.dry_run)
+        deployment = Deployment(
+            args.profile or config["profile"], args.dry_run, args.refuse_infra_changes
+        )
         deployment.guard()
         if args.command in ("bootstrap", "all"):
             deployment.bootstrap()

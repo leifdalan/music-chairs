@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -22,6 +23,7 @@ from pathlib import Path
 
 import hcl2
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = ROOT / "bin" / "deploy"
@@ -73,6 +75,7 @@ OUTPUTS = {
     "app_user_name": {"value": "app-user"},
 }
 STATE_BUCKET_EXISTS = {"match": ["s3api", "head-bucket"], "stdout": {}}
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 
 
 def write_executable(path: Path, content: str) -> Path:
@@ -212,7 +215,12 @@ def plan_changing(address: str, actions: list[str]) -> dict:
     return {
         "format_version": "1.2",
         "resource_changes": [
-            {"address": address, "type": kind, "name": name, "change": {"actions": actions}}
+            {
+                "address": address,
+                "type": kind,
+                "name": name,
+                "change": {"actions": actions},
+            }
         ],
     }
 
@@ -235,7 +243,9 @@ def test_a_plan_that_would_destroy_replace_or_forget_a_protected_resource_is_ref
     for address, actions in cases:
         (tmp_path / "terraform.log").unlink(missing_ok=True)
         result = run(
-            "infra", rules=rules, terraform_rules={"plan": plan_changing(address, actions)}
+            "infra",
+            rules=rules,
+            terraform_rules={"plan": plan_changing(address, actions)},
         )
 
         assert result.returncode == 1, address
@@ -381,7 +391,11 @@ def test_the_alert_email_reaches_aws_only_through_a_private_file(fakes) -> None:
     rules = [
         STATE_BUCKET_EXISTS,
         {"match": ["s3api"], "stdout": {}},
-        {"match": ["ssm", "get-parameter"], "returncode": 254, "stderr": "ParameterNotFound"},
+        {
+            "match": ["ssm", "get-parameter"],
+            "returncode": 254,
+            "stderr": "ParameterNotFound",
+        },
         {"match": ["ssm", "put-parameter"], "stdout": {}},
     ]
 
@@ -437,7 +451,9 @@ def scripted_ssh(tmp_path: Path, cases: str) -> Path:
     )
 
 
-def test_the_release_reads_terraform_outputs_and_uploads_no_terraform_files(fakes) -> None:
+def test_the_release_reads_terraform_outputs_and_uploads_no_terraform_files(
+    fakes,
+) -> None:
     run, _, home, tmp_path = fakes
     (home / ".ssh" / "music-chairs-lightsail").write_text("key")
     bundle = tmp_path / "bundle.tgz"
@@ -453,9 +469,11 @@ def test_the_release_reads_terraform_outputs_and_uploads_no_terraform_files(fake
     assert "stopped here" in result.stderr
     remote = (tmp_path / "remote.log").read_text()
     assert "BUCKET=bucket" in remote
+    assert f"SSH_USER={CONFIG['sshUser']}" in remote
     with tarfile.open(bundle) as tar:
         names = tar.getnames()
     assert "provision.sh" in names and "config.json" in names
+    assert "install-deploy-keys.sh" in names and "deploy-keys.pub" in names
     assert not any(name.startswith("terraform") for name in names)
     outputs = [c for c in terraform_calls(tmp_path) if "output" in c["argv"]]
     assert outputs and outputs[0]["argv"][-2:] == ["output", "-json"]
@@ -591,7 +609,11 @@ def test_the_configuration_protects_live_data_and_keeps_backups_private_for_30_d
     assert ownership["object_ownership"] == "BucketOwnerEnforced"
     statement = policy("put-backups.json.tftpl", bucket_arn="arn:aws:s3:::b")["Statement"]
     assert statement == [
-        {"Effect": "Allow", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::b/backups/*"}
+        {
+            "Effect": "Allow",
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::b/backups/*",
+        }
     ]
     assert CONFIG["bundleId"] == "micro_3_0"
     # Lightsail names are unique across its resource types: an instance named like
@@ -608,7 +630,10 @@ def test_the_app_key_may_read_only_the_google_secret_parameter() -> None:
         region="r",
     )["Statement"]
 
-    assert [entry["Action"] for entry in statements] == ["ssm:GetParameter", "kms:Decrypt"]
+    assert [entry["Action"] for entry in statements] == [
+        "ssm:GetParameter",
+        "kms:Decrypt",
+    ]
     assert statements[0]["Resource"] == "arn:aws:ssm:r:1:parameter/p"
     assert statements[1]["Condition"] == {"StringEquals": {"kms:ViaService": "ssm.r.amazonaws.com"}}
     arn = blocks["aws_iam_user_policy.app"]["policy"]
@@ -621,15 +646,27 @@ def test_the_alerts_check_http_health_and_budgets_as_decided() -> None:
     blocks = terraform_blocks()
 
     check = blocks["aws_route53_health_check.app"]
-    assert (check["type"], check["port"], check["resource_path"]) == ("HTTP", 80, "/healthz")
+    assert (check["type"], check["port"], check["resource_path"]) == (
+        "HTTP",
+        80,
+        "/healthz",
+    )
     assert (check["request_interval"], check["failure_threshold"]) == (30, 3)
     alarm = blocks["aws_cloudwatch_metric_alarm.outage"]
-    assert (alarm["metric_name"], alarm["comparison_operator"], alarm["treat_missing_data"]) == (
+    assert (
+        alarm["metric_name"],
+        alarm["comparison_operator"],
+        alarm["treat_missing_data"],
+    ) == (
         "HealthCheckStatus",
         "LessThanThreshold",
         "breaching",
     )
-    assert (alarm["statistic"], alarm["period"], alarm["evaluation_periods"]) == ("Minimum", 60, 2)
+    assert (alarm["statistic"], alarm["period"], alarm["evaluation_periods"]) == (
+        "Minimum",
+        60,
+        2,
+    )
     assert alarm["threshold"] == 1
     assert alarm["dimensions"] == {"HealthCheckId": "${aws_route53_health_check.app.id}"}
     topic = "${aws_sns_topic.alerts.arn}"
@@ -648,7 +685,8 @@ def test_the_alerts_check_http_health_and_budgets_as_decided() -> None:
     assert all(n["subscriber_email_addresses"] == [email] for n in notifications)
     assert blocks["data.aws_ssm_parameter.alert_email"]["with_decryption"] is True
     for path in [DEPLOY_DIR / "config.json", *TERRAFORM_DIR.rglob("*.tf*")]:
-        assert "@" not in path.read_text().replace("@{", ""), path
+        # No email address; GitHub's subject (name@id) has no domain after the @.
+        assert not EMAIL.search(path.read_text()), path
 
 
 def test_terraform_owns_exactly_the_google_verification_values_and_locks_its_state() -> None:
@@ -724,7 +762,9 @@ def fetch_secret(tmp_path: Path, mode: str, with_key: bool = True):
     return result, secret_env, aws_calls, log
 
 
-def test_the_secret_fetch_writes_only_the_secret_to_a_private_file(tmp_path: Path) -> None:
+def test_the_secret_fetch_writes_only_the_secret_to_a_private_file(
+    tmp_path: Path,
+) -> None:
     result, secret_env, aws_calls, log = fetch_secret(tmp_path, "ok")
 
     assert result.returncode == 0, result.stderr
@@ -736,7 +776,9 @@ def test_the_secret_fetch_writes_only_the_secret_to_a_private_file(tmp_path: Pat
     assert "GOCSPX" not in result.stdout + result.stderr
 
 
-def test_each_secret_fetch_is_time_bounded_so_a_hang_cannot_fail_the_start(tmp_path: Path) -> None:
+def test_each_secret_fetch_is_time_bounded_so_a_hang_cannot_fail_the_start(
+    tmp_path: Path,
+) -> None:
     _, _, _, log = fetch_secret(tmp_path, "ok")
     unit = (DEPLOY_DIR / "music-chairs.service").read_text()
 
@@ -936,3 +978,353 @@ def test_reinstalling_an_existing_release_name_changes_nothing(tmp_path: Path) -
     assert "already exists" in result.stderr
     assert (serving / "server.js").read_text() == "serving"
     assert not (tmp_path / "systemctl.log").exists()
+
+
+# -- GitHub's CI/CD (plan/phase-18.md) ------------------------------------------
+
+WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+ALERT_ARN = "arn:aws:ssm:r:1:parameter/music-chairs/alert-email"
+GOOGLE_ARN = "arn:aws:ssm:r:1:parameter/music-chairs/google-client-secret"
+
+
+def deploy_role_policy() -> list[dict]:
+    return policy(
+        "github-deploy.json.tftpl",
+        state_bucket_arn="arn:aws:s3:::state",
+        backup_bucket_arn="arn:aws:s3:::backups",
+        parameter_prefix="arn:aws:ssm:r:1:parameter",
+        google_secret_arn=GOOGLE_ARN,
+        alert_email_arn=ALERT_ARN,
+        region="r",
+    )["Statement"]
+
+
+def test_the_deploy_role_trusts_only_pushes_to_main_of_this_repository() -> None:
+    blocks = terraform_blocks()
+    role = blocks["aws_iam_role.github_deploy"]
+    provider = blocks["aws_iam_openid_connect_provider.github"]
+    [statement] = policy(
+        "github-trust.json.tftpl",
+        provider_arn="arn:aws:iam::1:oidc-provider/x",
+        subject="S",
+    )["Statement"]
+
+    assert provider["url"] == "https://token.actions.githubusercontent.com"
+    assert provider["client_id_list"] == ["sts.amazonaws.com"]
+    assert statement["Action"] == "sts:AssumeRoleWithWebIdentity"
+    assert statement["Principal"] == {"Federated": "arn:aws:iam::1:oidc-provider/x"}
+    assert statement["Condition"] == {
+        "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": "S",
+        }
+    }
+    assert "github-trust.json.tftpl" in role["assume_role_policy"]
+    assert role["max_session_duration"] == 3600
+    # GitHub's immutable subject: owner and repository, each with its numeric id.
+    assert CONFIG["githubOidcRepository"] == "leifdalan@571833/music-chairs@1402125894"
+    assert (
+        '"repo:${local.config.githubOidcRepository}:ref:refs/heads/main"'
+        in (TERRAFORM_DIR / "github.tf").read_text()
+    )
+
+
+def test_the_deploy_role_reads_but_never_backups_or_secrets_and_writes_only_state(
+    fakes,
+) -> None:
+    run, log, _, _ = fakes
+    blocks = terraform_blocks()
+    statements = {entry["Sid"]: entry for entry in deploy_role_policy()}
+
+    attached = blocks["aws_iam_role_policy_attachment.github_deploy_read"]
+    assert attached["policy_arn"] == "arn:aws:iam::aws:policy/ReadOnlyAccess"
+    assert statements["NoBackups"] == {
+        "Sid": "NoBackups",
+        "Effect": "Deny",
+        "Action": "s3:GetObject*",
+        "Resource": "arn:aws:s3:::backups/*",
+    }
+    assert statements["NoGoogleSecret"]["Effect"] == "Deny"
+    assert statements["NoGoogleSecret"]["Resource"] == GOOGLE_ARN
+    assert statements["NoParameterPaths"]["Effect"] == "Deny"
+    assert statements["NoParameterPaths"]["Action"] == "ssm:GetParametersByPath"
+    assert statements["NoParameterPaths"]["Resource"] == [
+        "arn:aws:ssm:r:1:parameter/",
+        "arn:aws:ssm:r:1:parameter/music-chairs",
+    ]
+    assert statements["TerraformState"]["Resource"] == [
+        "arn:aws:s3:::state/music-chairs.tfstate",
+        "arn:aws:s3:::state/music-chairs.tfstate.tflock",
+    ]
+    assert statements["AlertEmail"]["Condition"] == {
+        "StringEquals": {
+            "kms:ViaService": "ssm.r.amazonaws.com",
+            "kms:EncryptionContext:PARAMETER_ARN": ALERT_ARN,
+        }
+    }
+    allowed = [entry for entry in statements.values() if entry["Effect"] == "Allow"]
+    # Exactly these allows: any widening of the role's writes fails here.
+    assert {entry["Sid"]: entry["Action"] for entry in allowed} == {
+        "TerraformState": ["s3:PutObject", "s3:DeleteObject"],
+        "StateBucketSettings": statements["StateBucketSettings"]["Action"],
+        "AlertEmail": "kms:Decrypt",
+        # Not in ReadOnlyAccess, which lists Lightsail's reads one by one; bin/deploy
+        # pins the server's host key with it.
+        "HostKeys": "lightsail:GetInstanceAccessDetails",
+    }
+    assert len(statements["StateBucketSettings"]["Action"]) == 4
+    actions = [
+        action
+        for entry in allowed
+        for action in (entry["Action"] if isinstance(entry["Action"], list) else [entry["Action"]])
+    ]
+    assert not any(action.startswith(("iam:", "sts:")) for action in actions)
+
+    # The bucket settings it may write are exactly those bootstrap re-applies.
+    present = run(
+        "bootstrap",
+        rules=[
+            STATE_BUCKET_EXISTS,
+            {"match": ["s3api"], "stdout": {}},
+            {"match": ["ssm", "get-parameter"], "stdout": {}},
+        ],
+    )
+    assert present.returncode == 0, present.stderr
+    iam_names = {
+        "put-public-access-block": "s3:PutBucketPublicAccessBlock",
+        "put-bucket-ownership-controls": "s3:PutBucketOwnershipControls",
+        "put-bucket-encryption": "s3:PutEncryptionConfiguration",
+        "put-bucket-versioning": "s3:PutBucketVersioning",
+    }
+    recorded = {call[1] for call in calls(log) if call[0] == "s3api" and call[1].startswith("put-")}
+    assert recorded <= set(iam_names), recorded
+    assert sorted(statements["StateBucketSettings"]["Action"]) == sorted(
+        iam_names[name] for name in recorded
+    )
+    assert statements["StateBucketSettings"]["Resource"] == "arn:aws:s3:::state"
+
+
+def test_with_refuse_infra_changes_any_plan_change_stops_before_apply(fakes) -> None:
+    run, _, home, tmp_path = fakes
+    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
+    rules = [{"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}}]
+
+    for actions in (["create"], ["update"], ["delete"], ["forget"]):
+        (tmp_path / "terraform.log").unlink(missing_ok=True)
+        result = run(
+            "infra",
+            "--refuse-infra-changes",
+            rules=rules,
+            terraform_rules={"plan": plan_changing("aws_route53_health_check.app", actions)},
+        )
+        assert result.returncode == 1, actions
+        assert "infrastructure changes are applied by hand before merging" in result.stderr
+        assert "apply" not in [c["argv"][1] for c in terraform_calls(tmp_path)], actions
+
+    (tmp_path / "terraform.log").unlink(missing_ok=True)
+    unchanged = run("infra", "--refuse-infra-changes", rules=rules)
+    assert unchanged.returncode == 0, unchanged.stderr
+    assert "plan: no changes" in unchanged.stdout
+    assert "apply" in [c["argv"][1] for c in terraform_calls(tmp_path)]
+
+
+def install_deploy_keys(
+    tmp_path: Path, authorized: str | None, keys: str
+) -> subprocess.CompletedProcess[str]:
+    target = tmp_path / "ssh" / "authorized_keys"
+    target.parent.mkdir(exist_ok=True)
+    if authorized is not None:
+        target.write_text(authorized)
+    (tmp_path / "keys.pub").write_text(keys)
+    return subprocess.run(
+        [
+            "bash",
+            str(DEPLOY_DIR / "install-deploy-keys.sh"),
+            str(tmp_path / "keys.pub"),
+            str(target),
+            "nobody",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_deploy_keys_are_one_managed_block_beside_the_operators_key(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "ssh" / "authorized_keys"
+    operator = "ssh-ed25519 AAAAoperator lightsail"
+    block = "# BEGIN music-chairs deploy keys\n{}\n# END music-chairs deploy keys\n"
+
+    # Added beside a last line that has no newline, with comments and blanks skipped.
+    added = install_deploy_keys(tmp_path, operator, "# note\n\nssh-ed25519 AAAAone ci\n")
+    assert added.returncode == 0, added.stderr
+    assert target.read_text() == operator + "\n" + block.format("ssh-ed25519 AAAAone ci")
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+    # Replaced, not appended to, and every other line is kept.
+    target.write_text(target.read_text() + "ssh-rsa AAAAlater other\n")
+    replaced = install_deploy_keys(tmp_path, None, "ssh-ed25519 AAAAtwo ci\n")
+    assert replaced.returncode == 0, replaced.stderr
+    assert target.read_text() == (
+        operator + "\nssh-rsa AAAAlater other\n" + block.format("ssh-ed25519 AAAAtwo ci")
+    )
+
+    # An empty list removes the block.
+    removed = install_deploy_keys(tmp_path, None, "# no keys\n")
+    assert removed.returncode == 0, removed.stderr
+    assert target.read_text() == operator + "\nssh-rsa AAAAlater other\n"
+    assert not list(target.parent.glob(".authorized_keys.*"))
+
+
+@pytest.mark.parametrize(
+    ("authorized", "reason"),
+    [
+        (None, "missing or empty"),
+        ("", "missing or empty"),
+        ("# BEGIN music-chairs deploy keys\nssh-ed25519 AAAAold ci\n", "unmatched"),
+        ("ssh-ed25519 AAAAop x\n# END music-chairs deploy keys\n", "unmatched"),
+        (
+            "# BEGIN music-chairs deploy keys\nssh-ed25519 AAAAold ci\n"
+            "# END music-chairs deploy keys\n",
+            "no key outside the deploy block",
+        ),
+    ],
+    ids=["missing", "empty", "unclosed-block", "stray-end", "only-deploy-keys"],
+)
+def test_deploy_keys_never_write_a_file_that_could_lock_the_operator_out(
+    tmp_path: Path, authorized: str | None, reason: str
+) -> None:
+    target = tmp_path / "ssh" / "authorized_keys"
+
+    result = install_deploy_keys(tmp_path, authorized, "ssh-ed25519 AAAAnew ci\n")
+
+    assert result.returncode == 1
+    assert reason in result.stderr
+    assert (target.read_text() if target.exists() else None) == authorized
+    assert not list(target.parent.glob(".authorized_keys.*"))
+
+
+def test_a_missing_keys_file_is_refused_not_read_as_an_empty_list(tmp_path: Path) -> None:
+    target = tmp_path / "ssh" / "authorized_keys"
+    target.parent.mkdir()
+    before = "ssh-ed25519 AAAAop x\n# BEGIN music-chairs deploy keys\nssh-ed25519 AAAAci ci\n"
+    before += "# END music-chairs deploy keys\n"
+    target.write_text(before)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(DEPLOY_DIR / "install-deploy-keys.sh"),
+            str(tmp_path / "absent.pub"),
+            str(target),
+            "nobody",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "missing or unreadable" in result.stderr
+    assert target.read_text() == before
+
+
+def test_provisioning_installs_the_committed_deploy_keys_for_the_ssh_user() -> None:
+    provision = (DEPLOY_DIR / "provision.sh").read_text().splitlines()
+    command = (
+        'bash "$here/install-deploy-keys.sh" "$here/deploy-keys.pub" '
+        '"/home/$SSH_USER/.ssh/authorized_keys" "$SSH_USER"'
+    )
+    # A live line, not a comment, after the inputs are checked.
+    assert [line for line in provision if line.strip() == command] == [command]
+    assert any(line.startswith(": ") and '"${SSH_USER:?}"' in line for line in provision)
+    keys = [
+        line
+        for line in (DEPLOY_DIR / "deploy-keys.pub").read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert all(line.startswith("ssh-ed25519 ") for line in keys)
+    assert not any("PRIVATE KEY" in line for line in keys)
+
+
+def workflow() -> dict:
+    loaded = yaml.safe_load(WORKFLOW.read_text())
+    # YAML 1.1 reads the bare key `on` as the boolean True.
+    loaded["on"] = loaded.pop(True)
+    return loaded
+
+
+def test_the_workflow_checks_every_pull_request_and_deploys_only_main() -> None:
+    flow = workflow()
+    check, deploy = flow["jobs"]["check"], flow["jobs"]["deploy"]
+
+    assert flow["name"] == "CI/CD"
+    assert flow["on"] == {"pull_request": None, "push": {"branches": ["main"]}}
+    assert flow["permissions"] == {"contents": "read"}
+    assert "permissions" not in check
+    assert deploy["permissions"] == {"contents": "read", "id-token": "write"}
+    assert deploy["needs"] == "check"
+    assert deploy["if"] == "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+    assert deploy["concurrency"] == {"group": "deploy", "cancel-in-progress": False}
+    assert [step["run"] for step in check["steps"] if "run" in step] == [
+        "./bin/setup",
+        "./bin/check all",
+        "project/scripts/smoke.sh",
+    ]
+    runs = [step.get("run", "") for step in deploy["steps"]]
+    assert "./bin/deploy all --profile music-chairs --refuse-infra-changes" in runs
+    cleanup = deploy["steps"][-1]
+    assert cleanup["if"] == "always()"
+    assert "~/.ssh/music-chairs-lightsail" in cleanup["run"]
+    assert "~/.aws/credentials" in cleanup["run"]
+
+
+def test_the_workflow_pins_its_actions_and_keeps_secrets_out_of_scripts() -> None:
+    flow = workflow()
+    steps = [step for job in flow["jobs"].values() for step in job["steps"]]
+
+    for step in steps:
+        if "uses" in step:
+            name, _, ref = step["uses"].partition("@")
+            assert len(ref) == 40 and all(c in "0123456789abcdef" for c in ref), step["uses"]
+        if name_is(step, "actions/checkout"):
+            assert step["with"]["persist-credentials"] is False
+        if name_is(step, "actions/setup-node"):
+            assert (
+                str(step["with"]["node-version"])
+                == json.loads((ROOT / "project" / "package.json").read_text())["devEngines"][
+                    "runtime"
+                ]["version"]
+            )
+        assert "secrets." not in step.get("run", "")
+    keyed = [step for step in steps if "DEPLOY_SSH_KEY" in step.get("env", {})]
+    assert len(keyed) == 1
+    assert keyed[0]["env"]["DEPLOY_SSH_KEY"] == "${{ secrets.DEPLOY_SSH_KEY }}"
+    assert keyed[0]["run"].lstrip().startswith("umask 077")
+    assert all("secrets." not in json.dumps(step.get("with", {})) for step in steps)
+
+
+def name_is(step: dict, action: str) -> bool:
+    return step.get("uses", "").split("@")[0] == action
+
+
+def test_a_tracked_workflow_is_classified_for_candidate_identity(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    (repo / "candidate-partition.yaml").write_text((ROOT / "candidate-partition.yaml").read_text())
+    (repo / ".github" / "workflows" / "ci.yml").write_text("name: x\n")
+    for command in (["init", "-q"], ["add", "candidate-partition.yaml", ".github"]):
+        subprocess.run(["git", *command], cwd=repo, check=True)
+
+    result = subprocess.run(
+        [str(ROOT / "bin" / "check-candidate-partition"), "--root", str(repo)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -1,0 +1,84 @@
+# Continuous integration and deployment (plan/phase-18.md). Every pull request
+# and every push to main runs the repository's own gates on a GitHub-hosted
+# runner; a push to main (a merged pull request) then deploys, one deploy at a
+# time. GitHub holds no AWS keys: the deploy job assumes an IAM role through
+# GitHub's OpenID Connect token (project/deploy/terraform/github.tf). Actions
+# are pinned by commit; the comment names the release.
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A newer push to a pull request replaces its older run; main's runs all finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: 0.12.22
+      - run: ./bin/setup
+      - run: ./bin/check all
+      - run: project/scripts/smoke.sh
+
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: 0.12.22
+      - run: ./bin/setup
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.DEPLOY_ROLE_ARN }}
+          aws-region: us-west-2
+      - name: Use the role's credentials as the music-chairs profile
+        # bin/deploy, the AWS CLI and Terraform's backend all name this profile.
+        run: |
+          umask 077
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile music-chairs
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile music-chairs
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile music-chairs
+          aws configure set region us-west-2 --profile music-chairs
+      - name: Install the deploy SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/music-chairs-lightsail
+      - run: ./bin/deploy all --profile music-chairs --refuse-infra-changes
+      - name: Remove the key and credentials
+        if: always()
+        run: rm -f ~/.ssh/music-chairs-lightsail ~/.aws/credentials

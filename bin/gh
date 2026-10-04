@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Run the repository-pinned GitHub CLI (plan/phase-18.md). Its sign-in lives in
+# gh's own configuration (~/.config/gh or the system keychain), never in the tree.
+
+set -euo pipefail
+
+entrypoint_path="${BASH_SOURCE[0]}"
+while [[ -L "$entrypoint_path" ]]; do
+  entrypoint_dir="$(cd "$(dirname "$entrypoint_path")" && pwd)"
+  entrypoint_path="$(readlink "$entrypoint_path")"
+  [[ "$entrypoint_path" == /* ]] || entrypoint_path="$entrypoint_dir/$entrypoint_path"
+done
+repo_root="$(cd "$(dirname "$entrypoint_path")/.." && pwd)"
+
+toolchain_helper="$repo_root/bin/_gh-toolchain"
+if [[ ! -r "$toolchain_helper" ]]; then
+  echo "GH ERROR missing required file: bin/_gh-toolchain" >&2
+  exit 1
+fi
+source "$toolchain_helper"
+gh_toolchain_init GH
+gh_toolchain_probe
+
+exec "$gh_toolchain_bin" "$@"

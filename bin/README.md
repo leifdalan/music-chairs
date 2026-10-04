@@ -28,7 +28,9 @@ probes each: pytest, PyYAML and `ruff --version` in `tooling/`; React Router,
 React's server renderer and every gate tool on the selected Node in
 `project/`. It works from any current directory and refuses a stale or missing
 lockfile. It also installs the pinned Terraform and mirrors its locked
-providers (see `terraform`), refusing a download whose checksum does not match.
+providers (see `terraform`), and the pinned GitHub CLI (see `gh`), refusing a
+download whose checksum does not match. GitHub's CI runs it on every pull
+request (`.github/workflows/ci.yml`).
 
 ```bash
 ./bin/setup
@@ -69,7 +71,9 @@ holding the live database, its address, the backups, the server's IAM users or
 the Google verification record, and is non-interactive: the first `bootstrap`
 needs `MUSIC_CHAIRS_ALERT_EMAIL`. Terraform runs only through `bin/terraform`.
 `smoke` also reports whether Google sign-in is available. `--dry-run` confirms
-the account, prints the plan's summary and lists the other steps. Exit status 1
+the account, prints the plan's summary and lists the other steps.
+`--refuse-infra-changes` stops before applying any infrastructure change; GitHub's
+deploy job uses it, because its role cannot change the infrastructure. Exit status 1
 on any refusal or failure. Tests replace the AWS CLI and ssh with
 `MUSIC_CHAIRS_AWS` and `MUSIC_CHAIRS_SSH`, which must be absolute paths, and
 Terraform with `TOOLCHAIN_TERRAFORM`. Details: `project/deploy/README.md`.
@@ -95,6 +99,28 @@ nonzero and asks for `./bin/setup`.
 ```bash
 ./bin/terraform -chdir=project/deploy/terraform fmt -check
 ```
+
+### `gh` — repository-pinned GitHub CLI
+
+Runs the GitHub CLI version `tooling/gh-release.json` pins, which `./bin/setup`
+downloads once into the user cache and verifies against the pinned SHA-256. Its
+sign-in lives in gh's own configuration, never the tree; the operator signs in
+once with `./bin/gh auth login`. The orchestrator uses it to open and merge pull
+requests and to set the deploy secret, variable and ruleset (see
+`project/deploy/README.md`). `TOOLCHAIN_GH` names an authoritative alternative
+binary (absolute path) and never falls back; a missing install exits nonzero and
+asks for `./bin/setup`.
+
+```bash
+./bin/gh pr checks
+```
+
+### `_gh-toolchain` — shared GitHub CLI selection, install and probe
+
+Sourced by `setup` and `gh`. Resolves the pinned version and platform, honours
+`TOOLCHAIN_GH`, downloads and verifies the archive only for `setup` (refusing a
+checksum mismatch and installing nothing), and probes that the selected binary
+is the pinned version. Written for bash 3.2.
 
 ### `_terraform-toolchain` — shared Terraform selection, install and probe
 
