@@ -9,6 +9,8 @@ source: kickoff
 occurrences:
   - date: 2026-10-04
     ref: "Phase 16 END"
+  - date: 2026-10-04
+    ref: "Phase 18 END"
 ---
 
 Phase 16's adoption script guarded two irreversible steps with rules written from documentation and review. Both parked on real outputs that were harmless.
@@ -19,3 +21,5 @@ Phase 16's adoption script guarded two irreversible steps with rules written fro
 Each park was safe and cost a rule edit, a re-probe and a gate rerun. The code critic had suggested this ahead of time: probe the real change set without executing it.
 
 Do differently: before an irreversible run, capture the real outputs the guards will judge with side-effect-free calls (create and describe a change set without executing it, run `terraform plan`), and write or test the guards against them. Keep the guards strict.
+
+Phase 18 recurrence: the plan's OIDC trust condition used the subject format GitHub's documentation showed as the default. Pinning the current documentation and reading the repository's real creation date (2026-10-02) showed GitHub's immutable subject format applies to it; the role would never have been assumable. Corrected before any deploy, and the setup gate now compares the live owner and repository ids with the trusted subject.

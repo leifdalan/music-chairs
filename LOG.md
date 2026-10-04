@@ -2488,3 +2488,130 @@ Planned work:
 - AWS access for the deploy that needs no long-lived keys in GitHub: a role the workflow assumes through GitHub's OpenID Connect identity, defined in Terraform and limited to what the deploy does.
 - The runner the jobs use, set up and documented (see Decisions), and a branch protection or ruleset on `main` matching the chosen flow.
 - `project/deploy/README.md` (or a new CI section beside it) and `bin/README.md` describe the pipeline, how to rerun it and how to deploy by hand when GitHub is unavailable.
+
+## 2026-10-04 13:43 — END
+Phase 18 — CI/CD: tests on every change, deploy on merge to main
+
+Phase 18 is accepted on its gates. GitHub now runs the repository's own checks on every pull request: the **CI/CD** workflow's `check` job runs `./bin/setup`, `./bin/check all` and the smoke on a GitHub-hosted Ubuntu machine (green on pull request #1 in about 3 minutes). A rule on `main` requires that check and a pull request, and blocks force-pushes and deletion. When a pull request merges, the `deploy` job signs in to AWS as a new role through GitHub's own identity token (GitHub holds no AWS keys), uses a deploy-only SSH key kept as a GitHub secret, and runs `./bin/deploy all`, refusing any infrastructure change (those are applied by hand before merging). The role and the server's deploy key are live; the server's `authorized_keys` kept your key and gained the deploy key in a marked block. Two problems were caught before any CI deploy: this repository uses GitHub's newer identity format (it was created after 2026-07-15), so the role trusts `repo:leifdalan@571833/music-chairs@1402125894:ref:refs/heads/main`; and AWS's ReadOnlyAccess does not include the Lightsail call the deploy uses to pin the server's host key, so the role allows it explicitly. Delivery is this phase's own pull request: merging it is the first automatic deploy, reported separately. The repository's methodology rules still describe direct pushes to `main`; they are amended right after this phase.
+
+Execution trace: 4e6f5511f4b8439295e8021a059c4258
+
+Files changed:
+- plan/phase-18.md — operator rulings at phase start (hosted runners, public repository, pull requests with a ruleset, orchestrator merge, no approval, deploy-only key, OIDC, pinned gh, methodology after) and the User Demo, recorded before the run
+- .github/workflows/ci.yml — new: workflow CI/CD (jobs check and deploy), actions pinned by commit, Node 24.21.0 and uv 0.12.22 pinned
+- project/deploy/terraform/github.tf, policies/github-trust.json.tftpl, policies/github-deploy.json.tftpl, outputs.tf — new OIDC provider, deploy role (ReadOnlyAccess plus an inline policy), deploy_role_arn output
+- project/deploy/config.json — githubOidcRepository, deployRoleName
+- project/deploy/install-deploy-keys.sh, project/deploy/deploy-keys.pub — new: the managed authorized_keys block and its one public key; project/deploy/provision.sh calls it with a new SSH_USER input
+- bin/deploy — --refuse-infra-changes; SSH_USER to provisioning
+- tooling/gh-release.json, bin/_gh-toolchain, bin/gh — new: the pinned GitHub CLI; bin/setup installs it; bin/README.md
+- candidate-partition.yaml — /.github/** classified
+- docs/github-actions-oidc-rulesets-2026-10-04.md, docs/README.md — GitHub's OIDC, AWS trust and ruleset wording pinned (CC BY 4.0)
+- project/deploy/README.md — the pipeline, its limits, key rotation without a failed deploy, recovery
+- tests/test_deploy.py, tests/test_toolchain_entrypoints.py, tests/proof-estate.yaml, reports/test-governance/music-chairs-reset.jsonl — new and repaired proofs with their records (pytest 180)
+- user-actions/vengeful-meerkat.md — the gh sign-in (done by the operator during the phase)
+
+Build status:
+- project/scripts/smoke.sh: OK (attempt 2)
+- ./bin/deploy all --profile music-chairs: OK (attempt 1 applied the provider, role, attachment and policy and the deploy-key block; attempt 2 applied the policy's HostKeys statement) — release 77e3299-20261004T203617Z healthy, Google sign-in available
+- iam.simulate: OK (attempt 2, 28/28 decisions as expected over the role's own policies); attempt 1 failed and is the reason for the HostKeys statement
+- ci.check: OK — run 37232694912, check success for 77e3299 on ubuntu-24.04, pytest 180 in 127.7 s, no size violations
+- github.setup: OK — subject and ids checked, DEPLOY_ROLE_ARN set, ruleset main 24468447 active (deletion, non_fast_forward, pull_request, required check "check", no bypass)
+- ./bin/deploy infra --dry-run: OK — plan: no changes
+- ./bin/deploy smoke: OK
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 501/501, pytest 180/180)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation); the HostKeys correction after the failed iam.simulate gate was a direct fix (one policy statement, localized, mutation-checked) with a fresh gate sequence
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 434.425 s; first event 0.613 s; longest idle 60.843 s; success
+- Coder: inline (no role span)
+- Critic (code review): 554.151 s; first event 0.612 s; longest idle 54.953 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 4439.574 s; intelligence 988.575 s; gates 269.995 s; orchestration 4438.815 s; wait 987.575 s; retry 219.460 s; failed 18.928 s; unattributed 0.758 s (category totals are interval unions and may overlap).
+- Awaiting user input:
+  - 2026-10-04T19:57:59Z → 2026-10-04T20:25:00Z: 1620.223 s (environment-action: the operator's gh sign-in; exact monotonic)
+  - Total: 1620.223 s (exact monotonic union)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: initial=e92a7333e6d11ef174fdea9e2f3cf4fca324d9aea220ee1e058ce97be60a6925 critiqued=d46782d074462c71760f834c3330be5b0777f8e4e410169c88cad223677a4ce6 final=106df5cfe78f47a494d867526711e3795354c2d280fd491b2ebba3f434b1837f
+- Advisory passes: plan review 1 (14 findings, all adopted); code critique 1 (11 findings: 10 adopted, CODE-F001 timing resolved at ci.check without change); revision packets 0
+- Gates: implementation-final=8 on the final candidate (attempt 2, manifest superseding attempt 1 after iam.simulate failed); product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level)
+- Mutation checks: 26 of 26 killed (one proof strengthened after its first mutant survived)
+
+Wall-clock observations:
+- The check job runs in about 3 minutes on GitHub's runner, faster than the local full gate.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): the workflow passing on GitHub for the candidate commit; the ruleset active as specified; the role's permissions by simulation; no AWS keys in GitHub (secrets hold only DEPLOY_SSH_KEY); the Terraform changes were additions plus one in-place policy update; local and public smokes.
+- Observed during delivery, after this block, and reported to the operator only: the merge's deploy job (the first automatic deploy) and the throwaway failing pull request being blocked.
+- Parked for the user: the User Demo below.
+
+Delivery:
+- operator ruling (2026-10-04, Phase 18 rulings): "Branches and pull requests" and "I merge when CI is green" — this phase is pushed as branch phase-18 to pull request #1 and merged by the orchestrator once its check is green, which deploys; local main is then fast-forwarded to the merge. No direct push to main.
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-19.md — an "Inherited from Phase 18" section: changes arrive through pull requests with the CI check required, a theme or framework must pass `./bin/check all` and the smoke on GitHub's Ubuntu runner, and merging deploys — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- pending: a new local lesson — AWS managed policies and the IAM policy simulator are not what their names suggest (ReadOnlyAccess omits some Get calls; simulate-principal-policy applies organization policies that do not bind a management account); check the managed policy's document and simulate the role's own policies
+- occurrences pending: amorphous-cow (the planned OIDC subject came from documentation; GitHub's pinned docs and the repository's real creation date showed the immutable format applies)
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** In a browser, open:
+
+https://github.com/leifdalan/music-chairs/pulls?q=is%3Apr
+
+- **Suggested inputs.**
+  1. Open the Phase 18 pull request and its **Checks** tab.
+  2. Open the **Actions** tab and the **Deploy** run that followed the merge.
+  3. Open **Settings → Secrets and variables → Actions**, and **Settings → Rules**.
+  4. On your phone, open https://rehearse.dalan.dev.
+- **What to look for.**
+  - The pull request's CI check is green, and the pull request says it was merged by the orchestrator after the check passed.
+  - The Deploy run shows the infrastructure plan with no changes, the release healthy, and the smoke passing.
+  - Secrets hold only the deploy SSH key; no AWS access key is stored anywhere in GitHub.
+  - The rule on `main` requires the CI check and blocks direct and force pushes.
+  - The site works as before.
+- **Variations to explore.** On GitHub, edit any file on a new branch and open a pull request: CI runs on it. Try pushing straight to `main` from your laptop: GitHub refuses.
+- Notes (corrections to the demo captured in plan/phase-18.md): there is one workflow, **CI/CD**; the deploy is its `deploy` job in the run for the merge commit, not a separate run. GitHub shows your account as the merger, since the orchestrator merges with your signed-in `gh`. To see the push refusal without leaving a stray commit on your laptop, edit a file on `main` in GitHub's web editor: it only offers to commit to a new branch.
+
+Remaining:
+- Amend the methodology for the pull-request flow (CLAUDE.md hard rule 1, policies/human-in-the-loop.md and commit-staging.md, kickoff's acceptance and close resources): next, as methodology work.
+- The merge's deploy job and the throwaway failing pull request are observed during delivery and reported.
+
+## 2026-10-04 13:43 — Close bookkeeping outcomes
+
+Phase 18 — CI/CD: tests on every change, deploy on merge to main
+
+Execution trace: 4e6f5511f4b8439295e8021a059c4258
+
+- Status: applied and verified — Phase 18 ✅, Phase 19 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-19.md gained an "Inherited from Phase 18" section.
+- Ripple DECIDE: none.
+- Lessons: filed camouflaged-mosquito (local: read a managed policy's document and simulate the role's own policies); amorphous-cow gained its Phase 18 occurrence; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate, then delivery through pull request #1.

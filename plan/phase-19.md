@@ -41,3 +41,7 @@ Pinned by [Phase 17](phase-17.md): new screens the visual system must cover: on 
 ## Inherited from Phase 16
 
 Pinned by [Phase 16](phase-16.md): every AWS resource is defined in Terraform (`project/deploy/terraform`, settings in `project/deploy/config.json`) and changed only through `./bin/deploy`; the visual cleanup changes no infrastructure. Anything a chosen theme or framework loads from a CDN or a new domain (fonts, scripts) is a privacy-policy question for this phase (see Phase 14), not an infrastructure one.
+
+## Inherited from Phase 18
+
+Pinned by [Phase 18](phase-18.md): changes reach `main` only through pull requests; the CI/CD workflow's `check` job (`./bin/setup`, `./bin/check all`, `project/scripts/smoke.sh` on GitHub's ubuntu-24.04 runner) must pass before merging, and merging deploys. A visual framework or theme must therefore install and build through `./bin/setup` and pass those checks on Linux; a package that needs a network fetch at build time, or fonts from a CDN, also affects the smoke and the privacy policy.

@@ -75,8 +75,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 15](phase-15.md) | Proposing several free times at once, and pending requests on the home screen | ✅     |
 | [Phase 16](phase-16.md) | Infrastructure defined in Terraform                                | ✅     |
 | [Phase 17](phase-17.md) | Rehearsals grouped by request, with completion status, on the schedule and home screen | ✅     |
-| [Phase 18](phase-18.md) | CI/CD: tests on every change, deploy on merge to main             | 🚧     |
-| [Phase 19](phase-19.md) | Visual cleanup                                                    | ⏳     |
+| [Phase 18](phase-18.md) | CI/CD: tests on every change, deploy on merge to main             | ✅     |
+| [Phase 19](phase-19.md) | Visual cleanup                                                    | ⬅️     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
