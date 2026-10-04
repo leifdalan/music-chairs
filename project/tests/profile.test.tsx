@@ -286,6 +286,8 @@ describe("the profile menu", () => {
     expect(html).toContain('name="returnTo" value="/g/abc"');
     expect(html).toContain("gravatar.com/profile");
     expect(html).toContain('action="/auth/sign-out"');
+    expect(html).toContain('action="/auth/google/disconnect?returnTo=%2Fg%2Fabc"');
+    expect(html).toContain("Disconnect Google");
   });
 
   it("offers sign-in to a visitor, and shows nothing without root data", () => {
@@ -294,6 +296,7 @@ describe("the profile menu", () => {
     });
     expect(visitor).toContain('href="/auth/google?returnTo=%2Fg%2Fabc"');
     expect(visitor).not.toContain("<img");
+    expect(visitor).not.toContain("Disconnect Google");
     expect(render(undefined)).not.toContain("profile-menu");
   });
 });

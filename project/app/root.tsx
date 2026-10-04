@@ -56,6 +56,9 @@ export function Layout({ children }: { children: ReactNode }) {
             <ProfileMenu />
           </header>
           {children}
+          <footer className="site-footer">
+            <Link to="/privacy">Privacy policy</Link>
+          </footer>
           <Toaster />
         </FeedbackProvider>
         <ScrollRestoration />

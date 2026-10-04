@@ -26,7 +26,12 @@ export type GoogleFake = {
   queue: Map<string, Answer[]>;
   refreshAnswer: Answer | null;
   codeAnswer: Answer | null;
+  /** Calls to the token revoke endpoint, answered by `revokeAnswer` (default 200). */
+  revokeCalls(): FakeCall[];
+  revokeAnswer: Answer | null;
 };
+
+const REVOKE = "https://oauth2.googleapis.com/revoke";
 
 /** Installs the fake; restore with `vi.unstubAllGlobals()`. */
 export function fakeGoogle(): GoogleFake {
@@ -49,6 +54,8 @@ export function fakeGoogle(): GoogleFake {
     queue: new Map(),
     refreshAnswer: null,
     codeAnswer: null,
+    revokeCalls: () => fake.calls.filter((call) => call.url === REVOKE),
+    revokeAnswer: null,
   };
   vi.stubGlobal(
     "fetch",
@@ -77,6 +84,7 @@ export function fakeGoogle(): GoogleFake {
         }
         return reply(fake.codeAnswer ?? { status: 400, body: { error: "no code answer set" } });
       }
+      if (url === REVOKE) return reply(fake.revokeAnswer ?? { status: 200, body: {} });
       if (url.startsWith("https://people.googleapis.com/")) {
         if (fake.peopleAnswer) return reply(fake.peopleAnswer);
         const parsed = new URL(url);

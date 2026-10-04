@@ -5,6 +5,7 @@ import { getStore, type GoogleProfile } from "./store";
 
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const PEOPLE_API = "https://people.googleapis.com/v1";
@@ -184,6 +185,27 @@ export function forgetAccessToken(accountId: string): void {
 }
 
 /**
+ * Asks Google to withdraw everything the app was granted with this refresh
+ * token. True when Google confirms it, or says the token is already invalid;
+ * false when Google could not be reached or refused for another reason.
+ */
+export async function revokeGrant(refreshToken: string): Promise<boolean> {
+  try {
+    const response = await fetch(REVOKE_ENDPOINT, {
+      signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }),
+    });
+    if (response.ok) return true;
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    return response.status === 400 && body?.error === "invalid_token";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * A current access token for the account's Calendar grant, refreshing it when
  * needed. A refresh Google refuses as `invalid_grant` means the member revoked
  * access: the grant is deleted and `GoogleAccessRevoked` thrown.
@@ -343,7 +365,12 @@ export async function listContacts(accountId: string, now: Date = new Date()): P
   const contacts = [...byEmail.values()].sort((a, b) =>
     (a.name || a.email).localeCompare(b.name || b.email, "en"),
   );
-  contactsCache.set(accountId, { contacts, expiresAt: now.getTime() + CONTACTS_TTL_MS });
+  const entry = { contacts, expiresAt: now.getTime() + CONTACTS_TTL_MS };
+  contactsCache.set(accountId, entry);
+  // The list leaves memory when it expires, even if nobody reads contacts again.
+  setTimeout(() => {
+    if (contactsCache.get(accountId) === entry) contactsCache.delete(accountId);
+  }, CONTACTS_TTL_MS).unref();
   return contacts;
 }
 

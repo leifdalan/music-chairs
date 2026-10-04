@@ -89,6 +89,15 @@ install -m 755 "$here/install-release.sh" /usr/local/lib/music-chairs/install-re
 install -m 755 "$here/fetch-secret.sh" /usr/local/lib/music-chairs/fetch-secret.sh
 sed "s/__DOMAIN__/$DOMAIN/g" "$here/Caddyfile" >/etc/caddy/Caddyfile
 
+# Server logs (the pages requested) are kept 30 days, as the privacy policy says.
+install -d -m 755 /etc/systemd/journald.conf.d
+journald_conf=/etc/systemd/journald.conf.d/music-chairs.conf
+journald_want="$(printf '[Journal]\nMaxRetentionSec=30day\n')"
+if [ "$(cat "$journald_conf" 2>/dev/null)" != "$journald_want" ]; then
+  printf '%s\n' "$journald_want" >"$journald_conf"
+  systemctl restart systemd-journald
+fi
+
 systemctl daemon-reload
 systemctl enable --now caddy
 systemctl reload caddy

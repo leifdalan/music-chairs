@@ -109,6 +109,20 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           {loaderData.notice}
         </p>
       ) : null}
+      <section className="about" aria-labelledby="about-heading">
+        <h2 id="about-heading">What {siteName} does</h2>
+        <ul>
+          <li>Members say when they are free, once or every week.</li>
+          <li>Organizers see the times that suit everyone and propose rehearsals.</li>
+          <li>Everyone confirms whether they are coming.</li>
+        </ul>
+        <p className="hint">
+          You can join with just a name. Signing in with Google is optional: it lets {siteName} grey
+          out times your Google Calendar is busy, add confirmed rehearsals to your calendar, and,
+          for organizers adding members, suggest people from your contacts. See the{" "}
+          <Link to="/privacy">privacy policy</Link> for what is kept and why.
+        </p>
+      </section>
       <AccountPanel
         account={loaderData.account}
         groups={loaderData.groups}

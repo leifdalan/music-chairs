@@ -256,6 +256,13 @@ export type Store = {
   forgetEventRemoval(removal: EventRemoval): void;
   /** Drops every pending removal for an account whose Google access was revoked. */
   forgetEventRemovalsFor(accountId: string): void;
+  /**
+   * Forgets the account's Google connection (plan/phase-14.md, Disconnect
+   * Google), all at once: its grant, the app's records of events it wrote for
+   * the account's members, its pending removals, and calendar writing on every
+   * membership. The account, its sessions and its memberships stay.
+   */
+  disconnectGoogle(accountId: string): void;
   createRequest(groupId: string, input: RequestInput): ScheduleRequest;
   /** Replaces name, span and windows; false for an unknown or closed request. */
   updateRequest(groupId: string, requestId: string, input: RequestInput): boolean;
@@ -821,6 +828,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   );
   const changeCalendarSync = db.prepare(
     "UPDATE members SET calendar_sync = ? WHERE group_id = ? AND id = ?",
+  );
+  const stopAccountSync = db.prepare("UPDATE members SET calendar_sync = 0 WHERE account_id = ?");
+  const removeAccountCalendarEvents = db.prepare(
+    "DELETE FROM calendar_events WHERE member_id IN (SELECT id FROM members WHERE account_id = ?)",
   );
   const selectSyncing = db.prepare(
     `SELECT id AS member_id, group_id, account_id FROM members
@@ -1534,6 +1545,14 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     },
     forgetEventRemovalsFor(accountId) {
       removeAccountRemovals.run(accountId);
+    },
+    disconnectGoogle(accountId) {
+      transaction(() => {
+        removeGrant.run(accountId, null, null);
+        removeAccountCalendarEvents.run(accountId);
+        removeAccountRemovals.run(accountId);
+        stopAccountSync.run(accountId);
+      });
     },
     createRequest(groupId, input) {
       const id = newToken();

@@ -38,3 +38,7 @@ To settle at phase start: whether the multi-select also applies to free times on
 ## Inherited from Phase 13
 
 Pinned by [Phase 13](phase-13.md): organizers add members on their own page, `/g/:groupId/members/add` (`project/app/routes/members.add.tsx`), by typed name or from their Google contacts (`listContacts`, read only there, cached in memory for ten minutes and never stored). A member added from contacts carries `invitedEmail` (shown only to organizers) until a Google account with that verified email opens the invite link and claims the place (`claimInvitation`); invited members are never matched by name. `googleFetch` in `project/app/.server/google.ts` is the shared Google API request helper (token, one retry after a 401). Contacts consent uses `/auth/google/calendar?scope=contacts` and the `contacts-*` notices. The schema is at version 8; new tables or columns are migration 9 onward.
+
+## Inherited from Phase 14
+
+Pinned by [Phase 14](phase-14.md): `/privacy` (`project/app/routes/privacy.tsx`, facts in `project/app/lib/privacy.ts`) is the published account of everything the app collects and every Google scope it requests. A feature that stores new data, shows data to new people, or requests a new Google scope updates the policy in the same phase; a test fails when the scopes the sign-in and consent routes send differ from the policy's list. Disconnect Google (`stopWritingFor`, `revokeGrant`, `disconnectGoogle`) must also undo anything new tied to the Google grant. The footer with the policy link is in the root layout.

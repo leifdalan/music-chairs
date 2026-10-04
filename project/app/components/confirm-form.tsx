@@ -31,6 +31,7 @@ export function ConfirmForm({
   triggerClassName = "secondary",
   triggerLabel,
   className,
+  action,
   children,
 }: {
   /** Hidden fields posted with the action. */
@@ -46,6 +47,8 @@ export function ConfirmForm({
   /** Visible fields the action also needs (for example a last date). */
   children?: ReactNode;
   className?: string;
+  /** Where the form posts, when not to the current page. */
+  action?: string;
 }) {
   const hydrated = useHydrated();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -62,6 +65,7 @@ export function ConfirmForm({
   return (
     <Form
       method="post"
+      action={action}
       replace
       className={className ? `confirm-form ${className}` : "confirm-form"}
       onSubmit={() => {

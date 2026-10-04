@@ -485,9 +485,12 @@ class Deployment:
             except OSError as error:  # DNS, connection, TLS certificate or timeout
                 return 0, str(error)
 
+        privacy = fetch("/privacy")
         checks = [
             ("GET /", fetch("/"), 200, 'name="groupName"'),
             ("GET /healthz", fetch("/healthz"), 200, "ok"),
+            ("GET /privacy", privacy, 200, "including the Limited Use requirements"),
+            ("GET /privacy (contact)", privacy, 200, "leifdalan+rtc@gmail.com"),
             (
                 "GET /join/<unknown>",
                 fetch(f"/join/{secrets.token_urlsafe(16)}"),

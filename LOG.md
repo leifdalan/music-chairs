@@ -1903,3 +1903,138 @@ User demo (per `policies/user-demo-protocols.md`):
 
 Remaining:
 - None for this phase. Phases 14–15 follow.
+
+## 2026-10-03 17:24 — START
+
+Phase 14 — A privacy policy and a home page that pass Google's app verification
+
+Execution trace: a6f1a5cdc6364d0e9a4c39aa50b990f9
+
+Operator decisions recorded in plan/phase-14.md before this run: Google refused to verify the app (no privacy policy content; home page domain not registered), and the operator placed this phase next. At phase start: the policy lists leifdalan+rtc@gmail.com, names Leif Dalan as the operator of a personal, non-commercial project, and the app gains a Disconnect Google control in the profile menu. The User Demo was tightened before capture.
+
+Planned work:
+- A public privacy policy page at `https://rehearse.dalan.dev/privacy`, readable without signing in, that states in plain language:
+  - who runs the app and how to contact them;
+  - every piece of data the app collects: names typed in, availability, rehearsals and answers, device cookies, and from Google the account's name, email and verified-email flag, Calendar free/busy (read, not stored beyond what the app already keeps), the rehearsal events the app writes, and contact names and emails (read only when an organizer adds members, never stored except the person added);
+  - why each is used, where it is stored (the app's server in AWS us-west-2), how long it is kept, and that nothing is sold, shared with third parties or used for advertising;
+  - how to remove data (an organizer removing a member or deleting a group; signing out) and how to revoke Google access at myaccount.google.com;
+  - the statement that the app's use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements;
+  - the date it last changed.
+- The home page, for a visitor who isn't signed in, says in a sentence or two what music-chairs does and why it asks for Google Calendar and contacts access, and links to the privacy policy.
+- A link to the privacy policy on every page (a small footer).
+- A **Disconnect Google** control in the profile menu for a signed-in Google account, behind a confirmation, as settled below.
+- The policy is checked against the code: each Google scope the app requests (`SIGN_IN_WITH_CALENDAR_SCOPES`, `CALENDAR_SCOPES`, `CONTACTS_SCOPES`) is named in it, so a scope added later without updating the policy fails a test.
+
+## 2026-10-03 17:54 — END
+Phase 14 — A privacy policy and a home page that pass Google's app verification
+
+Phase 14 is accepted on its gates and live at https://rehearse.dalan.dev. A public privacy policy is at https://rehearse.dalan.dev/privacy. It names Leif Dalan as running a personal, non-commercial project, with leifdalan+rtc@gmail.com as the contact. It covers:
+- Every kind of data the app keeps, each Google permission by its exact name with what it is used for, and who receives what, including AWS, Google and Gravatar.
+- Who in a group sees what, how it is protected, and how long each kind is kept.
+- How to remove data or disconnect, and Google's Limited Use statement.
+
+The home page now says what music-chairs does and why it may ask for Google Calendar and contacts access. Every page has a privacy link at the bottom. Signed-in people have a **Disconnect Google** button in the menu behind their picture. After a confirmation, it removes the upcoming rehearsals the app added to their calendar, withdraws the app's Google access, and forgets the stored token. They stay in their groups. The server now keeps its logs for 30 days, as the policy says. Whether Google accepts the policy is yours to find out by resubmitting, after the domain verification's 24 hours; the User Demo below covers the rest.
+
+Execution trace: a6f1a5cdc6364d0e9a4c39aa50b990f9
+
+Files changed:
+- plan/phase-14.md — operator decisions settled at phase start (contact leifdalan+rtc@gmail.com; Leif Dalan named; a Disconnect Google control) and the tightened User Demo, recorded before the run
+- project/app/routes/privacy.tsx, project/app/lib/privacy.ts — new: the policy page, and its facts (permissions with purposes, operator, contact, date, Limited Use statement, the Disconnect prompt)
+- project/app/routes/home.tsx, project/app/root.tsx, project/app/app.css — the "What music-chairs does" section; the footer link on every page; styles
+- project/app/routes/auth.google.disconnect.tsx, project/app/routes.ts — new: Disconnect Google (confirmation, no-JavaScript confirm page, Cancel back to the page); the routes
+- project/app/.server/google.ts — revokeGrant; contacts lists now leave memory on a timer when they expire
+- project/app/.server/store.ts — disconnectGoogle
+- project/app/.server/calendar-sync.ts — stopWritingFor (removals for every membership and queued removals, waited for before revoking, within 20 seconds); removePendingEvents takes an account
+- project/app/components/profile-menu.tsx, project/app/components/confirm-form.tsx — the button; a form action option
+- project/deploy/provision.sh — journald keeps logs 30 days
+- project/scripts/smoke.sh, bin/deploy — both smokes fetch /privacy
+- project/tests/ — privacy (the page, exactly the scopes the app sends to Google, log retention, home section, footer on pages and the error page), disconnect (removal before revoke across groups, outcomes, deadline, deletions, session kept, confirmation, signed out, no grant, Cancel, another account untouched), contacts (expiry timer), profile (the button), the fake's revoke endpoint (Vitest 475)
+- plan/INDEX.md — Phase 14 ✅, Phase 15 ⬅️ (pending, applied after this block)
+- plan/phase-15.md — inherited Phase 14 notes (pending AUTO ripple)
+- lessons/evasive-skua.md, lessons/fluffy-macaw.md — new (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK (includes /privacy)
+- ./bin/deploy all --profile music-chairs (real deploy): OK — provisioned with journald MaxRetentionSec=30day (effective; rsyslog not installed); release 60090db-dirty-20261004T005024Z healthy; database untouched at schema 8 with counts equal to the pre-release copy (verified read-only); access log lines hold method, path, status and time only; Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK (includes /privacy)
+- ./bin/test --changed-from '@{upstream}' (Vitest 475/475, pytest 157): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 220.077 s; first event 0.982 s; longest idle 49.973 s; success
+- Coder: inline (no role span)
+- Critic (code review): 350.421 s; first event 0.567 s; longest idle 31.287 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1750.655 s; intelligence 570.498 s; gates 150.325 s; orchestration 1750.016 s; wait 569.454 s; failed 0 s; retry 0 s; unattributed 0.639 s (category totals are interval unions and may overlap).
+- Awaiting user input: none recorded as a park. The operator's phase-start answers were collected before the trace opened.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=ab6205f1172d69fd5f69bf0143fe2d8524b4f34380a950e6f1745def19013293 critiqued=28c75c5a7e23e7699d7be675f4ffe9d8dd386e8b0d02e8e83efcd7e91d760b00 approved=8910804cae8c90d191736023cba54fd28daedba33ad48e020690ac2bef352252 final=8910804cae8c90d191736023cba54fd28daedba33ad48e020690ac2bef352252
+- Revision packets: 0
+- Advisory reports: 2 — plan review 12 findings (all adopted); code critique 7 findings (all adopted)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers:
+  - The privacy page for a visitor with no cookie (operator, contact, Gravatar, protection and retention sections, the Limited Use statement, the date).
+  - The policy naming exactly the Google scopes the sign-in and consent routes send.
+  - The 30-day log retention it states.
+  - The home page's description and policy link, and the footer on a page and on the error page.
+  - Disconnect Google: removals across groups and queued removals finishing before the revoke, revoke outcomes, the 20-second bound, every deletion, the session and memberships kept, confirmation, signed out, no grant, Cancel.
+
+  32 guards were mutation-checked, all killed. Both smokes reach /privacy, and `./bin/deploy all` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below, and Google's verification decision after resubmission (user action likable-hamster).
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-15.md — add "Inherited from Phase 14": /privacy is the published account of what the app collects and requests; a feature that stores new data or requests a new Google scope updates POLICY and the policy page in the same phase (the scope test fails otherwise); Disconnect Google (stopWritingFor, revokeGrant, disconnectGoogle) must also undo anything new tied to the Google grant; the footer is in the root layout — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed: evasive-skua — a new root pytest needs a proof-estate admission; checks about the deliverable belong in Vitest. fluffy-macaw — a fallback ScheduleWakeup outside /loop fired later as a stale "continue Phase 13" prompt
+- occurrences pending: none
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (6) → policy; lively-salamander (4) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, open a private browser tab (signed out) and go to https://rehearse.dalan.dev.
+- **Suggested inputs.** Read the home page, then tap **Privacy policy** at the bottom (or the link in "What music-chairs does") and read it to the end. Go back, open one of your groups' invite links and tap **Sign in with Google**, allowing what Google asks. On the group page, scroll to the bottom and tap **Privacy policy** again. Then open the menu behind your picture in the top-right corner, tap **Disconnect Google** and confirm. Finally, on your laptop, open myaccount.google.com → **Security** → **Your connections to third-party apps & services**.
+- **What to look for.**
+  - Signed out, the home page lists what music-chairs does and says why it may ask for Google Calendar and contacts access, with a policy link.
+  - The policy names you and leifdalan+rtc@gmail.com, and lists each kind of data, including each Google permission by its exact name.
+  - The policy also says how long data is kept and that nothing is sold, explains Disconnect Google and removing access at Google, and carries the Limited Use statement and a last-updated date.
+  - Every page has the policy link at the bottom.
+  - After disconnecting you are still in your group, with a "Disconnected from Google" message, and Google's list of connected apps no longer shows music-chairs.
+- **Variations to explore.** Sign in with Google again after disconnecting: Google asks for the Calendar permissions again. Is the policy readable on a phone without zooming?
+- Notes:
+  - If you were writing rehearsals to your calendar, Disconnect first removes the upcoming ones it added, so it may take a few seconds.
+  - Once the domain has been verified for 24 hours, follow step 3 of user action likable-hamster: set the privacy policy URL to https://rehearse.dalan.dev/privacy in Google Auth Platform → Branding, then resubmit.
+
+Remaining:
+- None for this phase. Phases 15–16 follow; Google's verification decision is the operator's.

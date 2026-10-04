@@ -63,6 +63,13 @@ echo "+ GET /"
 curl -s "$origin/" | grep -q 'name="groupName"' || fail "home page lacks the create-group form"
 echo "  server-rendered create-group form"
 
+echo "+ GET /privacy"
+privacy="$(curl -s "$origin/privacy")"
+printf '%s' "$privacy" | grep -q 'including the Limited Use requirements' \
+  || fail "privacy policy lacks the Limited Use statement"
+printf '%s' "$privacy" | grep -q 'leifdalan+rtc@gmail.com' || fail "privacy policy lacks the contact"
+echo "  privacy policy with the Limited Use statement and contact"
+
 echo "+ POST /?index"
 headers="$(curl -s -D - -o /dev/null -X POST "$origin/?index" \
   --data-urlencode "groupName=Thursday Quartet" --data-urlencode "displayName=Viola" \

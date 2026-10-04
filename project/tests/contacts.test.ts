@@ -128,6 +128,25 @@ describe("reading contacts", () => {
     expect(google.peopleCalls()).toHaveLength(6);
   });
 
+  it("drops a contacts list from memory when it expires, even if nobody reads again", async () => {
+    const account = organizer();
+    google.contacts = [{ name: "Amy", emails: ["amy@example.test"] }];
+    const now = new Date();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await listContacts(account.id, now);
+      vi.advanceTimersByTime(9 * 60_000);
+      await listContacts(account.id, now);
+      expect(google.peopleCalls()).toHaveLength(2);
+      vi.advanceTimersByTime(60_000);
+      // Read at the same moment: only the timer can have removed the list.
+      await listContacts(account.id, now);
+      expect(google.peopleCalls()).toHaveLength(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("drops anyone's expired contacts from memory on the next read", async () => {
     const first = organizer();
     const second = organizer();

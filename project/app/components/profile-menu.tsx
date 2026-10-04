@@ -2,8 +2,10 @@ import { useEffect, useRef } from "react";
 import { Form, useLocation, useRouteLoaderData } from "react-router";
 
 import type { HeaderProfile } from "~/.server/profile";
+import { DISCONNECT_PROMPT } from "~/lib/privacy";
 import { INSTRUMENT_MAX } from "~/lib/profile";
 
+import { ConfirmForm } from "./confirm-form";
 import { SubmitButton } from "./submit-button";
 
 /**
@@ -77,6 +79,16 @@ export function ProfileMenu() {
                 Sign out
               </SubmitButton>
             </Form>
+            <ConfirmForm
+              action={`/auth/google/disconnect?returnTo=${encodeURIComponent(here)}`}
+              fields={{}}
+              trigger="Disconnect Google"
+              title={DISCONNECT_PROMPT.title}
+              body={DISCONNECT_PROMPT.body}
+              label={DISCONNECT_PROMPT.label}
+              feedbackKey="profile-disconnect"
+              triggerClassName="secondary small"
+            />
           </>
         ) : profile.canSignIn ? (
           <a

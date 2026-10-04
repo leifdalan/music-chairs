@@ -180,10 +180,11 @@ export function rewriteGroupEvents(groupId: string): void {
  * grant gone (revoked, or the person disconnected) nothing can be removed and
  * the account's removals are dropped. Failures stay for the next sweep.
  */
-export async function removePendingEvents(): Promise<void> {
+export async function removePendingEvents(accountId?: string): Promise<number> {
   const store = getStore();
   let failures = 0;
   for (const removal of store.listEventRemovals()) {
+    if (accountId !== undefined && removal.accountId !== accountId) continue;
     const grant = store.findGrant(removal.accountId);
     if (!grant) {
       store.forgetEventRemovalsFor(removal.accountId);
@@ -203,6 +204,7 @@ export async function removePendingEvents(): Promise<void> {
   }
   if (failures > 0)
     console.warn(`music-chairs: ${failures} calendar removal(s) failed; will retry`);
+  return failures;
 }
 
 // One chain for removals, so runs never overlap.
@@ -210,9 +212,61 @@ let removals: Promise<void> = Promise.resolve();
 
 /** Queues a removal run and returns at once. */
 export function scheduleRemovals(): void {
-  removals = removals.then(removePendingEvents).catch((error: unknown) => {
-    console.warn(`music-chairs: calendar removals failed: ${String(error)}`);
+  removals = removals
+    .then(async () => {
+      await removePendingEvents();
+    })
+    .catch((error: unknown) => {
+      console.warn(`music-chairs: calendar removals failed: ${String(error)}`);
+    });
+}
+
+/** How long Disconnect Google waits for the account's events to be removed. */
+const STOP_WRITING_WAIT_MS = 20_000;
+
+/**
+ * Before Disconnect Google withdraws the app's access (plan/phase-14.md): turns
+ * calendar writing off on every membership of the account and removes the
+ * upcoming events the app wrote, including those still queued from removed
+ * memberships, while the token still works. Each member's sync runs on its
+ * chain, so it never overlaps another. True when everything was removed;
+ * false after a failure, or when 20 seconds pass first.
+ */
+export async function stopWritingFor(accountId: string): Promise<boolean> {
+  const store = getStore();
+  const targets: SyncingMember[] = store
+    .listAccountMemberships(accountId)
+    .map(({ group, member }) => ({ memberId: member.id, groupId: group.id, accountId }));
+  for (const target of targets) store.setCalendarSync(target.groupId, target.memberId, false);
+  const work = targets.map((target) => {
+    const next = (chains.get(target.memberId) ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => syncMember(target));
+    chains.set(
+      target.memberId,
+      next.catch(() => {}),
+    );
+    return next;
   });
+  const removing = removals.catch(() => {}).then(() => removePendingEvents(accountId));
+  removals = removing.then(() => {}).catch(() => {});
+  // Wait for every sync and the queued removals, even after one fails, so the
+  // grant is revoked only once nothing is still using it.
+  const outcome = Promise.allSettled([...work, removing]).then((results) =>
+    results.every(
+      (result, index) =>
+        result.status === "fulfilled" && (index < work.length || result.value === 0),
+    ),
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), STOP_WRITING_WAIT_MS);
+  });
+  try {
+    return await Promise.race([outcome, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Resolves when every queued sync and removal run has finished. */
