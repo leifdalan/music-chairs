@@ -24,11 +24,12 @@ informs: ["17"]
 - "I know this is a small project but I'd like for the infrastructure to be defined with either terraform or the AWS CDK, probably terraform is better." Terraform, then.
 - Standing constraints from Phase 5 still hold: account 777460179484 through the `music-chairs` profile only, us-west-2 (alerts in us-east-1), under $10 a month, the Google client secret only in Parameter Store.
 
-To settle at phase start:
-- Terraform (HashiCorp's licence) or OpenTofu, its open-source fork.
-- State locking: S3's own lock file, or a DynamoDB table.
-- Whether Terraform also manages the `dalan.dev` hosted zone's other records, such as the two Google Search Console verification TXT values added by hand on 2026-10-03, or only the records music-chairs owns.
-- Whether the state bucket is created by a one-time bootstrap step, or by hand as a user action.
+Settled at phase start (operator, 2026-10-03):
+
+- Terraform itself, not OpenTofu.
+- State locking uses S3's own lock file next to the state, with no DynamoDB table.
+- Terraform manages `rehearse.dalan.dev` and the two Google Search Console verification TXT values on `dalan.dev`, which the app's Google verification depends on. Every other `dalan.dev` record stays untouched.
+- `./bin/deploy bootstrap` creates the private, versioned, encrypted state bucket once, and does nothing if it already exists.
 
 ## Acceptance
 
@@ -36,7 +37,23 @@ To settle at phase start:
 - `./bin/deploy all` and `./bin/deploy smoke` pass through Terraform. The live database's schema version and row counts equal the pre-release copy. The instance's static IP, DNS answer and backup bucket are the same ones as before the phase.
 - No CloudFormation stack for music-chairs remains, and no resource it created was deleted.
 - `./bin/check all` passes, including Terraform formatting and validation.
-- User Demo, to be tightened at phase start: on the laptop, run the infra dry run and read the plan saying nothing will change. Then open https://rehearse.dalan.dev on a phone, and check the AWS console shows no CloudFormation stacks and the same Lightsail instance, IP and backup bucket as before.
+
+User Demo:
+
+- **Entry point.** On the laptop, in the repository, with a fresh `aws login --profile music-chairs`.
+- **Suggested inputs.**
+  1. Run `./bin/deploy infra --dry-run --profile music-chairs`.
+  2. Run `./bin/deploy infra --profile music-chairs`.
+  3. In the AWS console, open **CloudFormation** in us-west-2 and us-east-1, **Lightsail** → Instances and Networking, and **S3**.
+  4. On your phone, open https://rehearse.dalan.dev and one of your groups.
+- **What to look for.**
+  - Both runs say Terraform's plan has no changes.
+  - CloudFormation lists no music-chairs stacks in either region.
+  - Lightsail shows the same instance and static IP as before.
+  - S3 shows the backup bucket, plus a new state bucket holding the state file.
+  - The site and your group's data are exactly as before.
+  - `dig TXT dalan.dev` still shows both Google verification values.
+- **Variations to explore.** Change the monthly budget amount in the Terraform configuration and run the dry run: the plan shows exactly that one change. Revert it before applying anything.
 
 ## Brief refs
 

@@ -18,7 +18,8 @@ usage() {
 Usage: ./bin/setup
 
 Provision the repository's pinned, locked development environments: the
-governance environment in tooling/ and the deliverable in project/.
+governance environment in tooling/, the deliverable in project/, and the pinned
+Terraform with its locked providers for project/deploy/terraform.
 USAGE
 }
 
@@ -35,7 +36,7 @@ if [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-for toolchain_helper in _python-toolchain _node-toolchain; do
+for toolchain_helper in _python-toolchain _node-toolchain _terraform-toolchain; do
   if [[ ! -r "$repo_root/bin/$toolchain_helper" ]]; then
     echo "SETUP ERROR missing required file: bin/$toolchain_helper" >&2
     exit 1
@@ -44,6 +45,7 @@ for toolchain_helper in _python-toolchain _node-toolchain; do
 done
 python_toolchain_init SETUP
 node_toolchain_init SETUP
+terraform_toolchain_init SETUP
 
 fail() {
   echo "SETUP FAIL (exit $1)" >&2
@@ -68,6 +70,16 @@ else
   fail $?
 fi
 if node_toolchain_probe; then
+  :
+else
+  fail $?
+fi
+if terraform_toolchain_install; then
+  :
+else
+  fail $?
+fi
+if terraform_toolchain_probe; then
   :
 else
   fail $?

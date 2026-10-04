@@ -1,8 +1,9 @@
 """Hermetic tests for the deploy command and its server scripts (no AWS, no network).
 
-`bin/deploy` reaches AWS and the server only through the commands named by
-MUSIC_CHAIRS_AWS and MUSIC_CHAIRS_SSH, so these tests replace both with scripted
-fakes that record every call.
+`bin/deploy` reaches AWS, Terraform and the server only through the commands
+named by MUSIC_CHAIRS_AWS, TOOLCHAIN_TERRAFORM (read by bin/terraform) and
+MUSIC_CHAIRS_SSH, so these tests replace all three with scripted fakes that
+record every call. The Terraform configuration itself is read with python-hcl2.
 """
 
 from __future__ import annotations
@@ -19,8 +20,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
+import hcl2
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = ROOT / "bin" / "deploy"
@@ -43,8 +44,35 @@ sys.exit(254)
 """
 
 
-COMPLETE = {"Stacks": [{"StackStatus": "CREATE_COMPLETE"}]}
-MISSING = {"returncode": 255, "stderr": "Stack with id music-chairs-alerts does not exist"}
+# A fake Terraform: records each call with the environment bin/deploy gives it,
+# writes the saved plan file, and answers `show -json` and `output -json` from
+# FAKE_TF_RULES (Terraform's JSON plan and output formats).
+FAKE_TERRAFORM = """#!{python}
+import json, os, sys
+argv = sys.argv[1:]
+keys = ("TF_DATA_DIR", "AWS_PROFILE", "TF_INPUT", "TF_IN_AUTOMATION")
+with open(os.environ["FAKE_TF_LOG"], "a") as log:
+    log.write(json.dumps({{"argv": argv, "env": {{k: os.environ.get(k) for k in keys}}}}) + "\\n")
+rules = json.load(open(os.environ["FAKE_TF_RULES"]))
+command = next(a for a in argv if not a.startswith("-"))
+if command == "plan":
+    with open(argv[argv.index("-out") + 1], "w") as plan:
+        plan.write("saved plan")
+elif command == "show":
+    sys.stdout.write(json.dumps(rules["plan"]))
+elif command == "output":
+    sys.stdout.write(json.dumps(rules["outputs"]))
+sys.exit(rules.get("exit", {{}}).get(command, 0))
+"""
+
+NO_CHANGES = {"resource_changes": []}
+OUTPUTS = {
+    "static_ip_address": {"value": "203.0.113.7"},
+    "backup_bucket_name": {"value": "bucket"},
+    "backup_user_name": {"value": "backup-user"},
+    "app_user_name": {"value": "app-user"},
+}
+STATE_BUCKET_EXISTS = {"match": ["s3api", "head-bucket"], "stdout": {}}
 
 
 def write_executable(path: Path, content: str) -> Path:
@@ -65,13 +93,26 @@ def fakes(tmp_path: Path):
     rules_file = tmp_path / "rules.json"
     aws = write_executable(tmp_path / "aws", FAKE_AWS.format(python=sys.executable))
     ssh = write_executable(tmp_path / "ssh", f'#!/bin/sh\necho ssh "$@" >> {tmp_path}/ssh.log\n')
+    terraform = write_executable(
+        tmp_path / "terraform", FAKE_TERRAFORM.format(python=sys.executable)
+    )
+    tf_rules_file = tmp_path / "terraform-rules.json"
 
-    def run(*args: str, account: str = ACCOUNT, rules: list | None = None, env: dict | None = None):
+    def run(
+        *args: str,
+        account: str = ACCOUNT,
+        rules: list | None = None,
+        env: dict | None = None,
+        terraform_rules: dict | None = None,
+    ):
         all_rules = [
             {"match": ["sts", "get-caller-identity"], "stdout": {"Account": account}},
             *(rules or []),
         ]
         rules_file.write_text(json.dumps(all_rules))
+        tf_rules_file.write_text(
+            json.dumps({"plan": NO_CHANGES, "outputs": OUTPUTS, **(terraform_rules or {})})
+        )
         # The operator's own alert address must never leak into a test run.
         ambient = {k: v for k, v in os.environ.items() if k != "MUSIC_CHAIRS_ALERT_EMAIL"}
         environment = {
@@ -79,8 +120,11 @@ def fakes(tmp_path: Path):
             "HOME": str(home),
             "MUSIC_CHAIRS_AWS": str(aws),
             "MUSIC_CHAIRS_SSH": str(ssh),
+            "TOOLCHAIN_TERRAFORM": str(terraform),
             "FAKE_LOG": str(log),
             "FAKE_RULES": str(rules_file),
+            "FAKE_TF_LOG": str(tmp_path / "terraform.log"),
+            "FAKE_TF_RULES": str(tf_rules_file),
             **(env or {}),
         }
         # The repository's interpreter, not the uv shebang: with HOME replaced, uv
@@ -110,17 +154,28 @@ def test_deploy_refuses_any_account_but_the_configured_one(fakes) -> None:
     assert not (tmp_path / "ssh.log").exists()
 
 
-def test_dry_run_confirms_the_account_then_lists_every_step_in_order(fakes) -> None:
-    run, log, _, _ = fakes
+def terraform_calls(tmp_path: Path) -> list[dict]:
+    log = tmp_path / "terraform.log"
+    return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
 
-    result = run("all", "--dry-run", env={"MUSIC_CHAIRS_ALERT_EMAIL": "someone@example.test"})
+
+def test_dry_run_confirms_the_account_then_lists_every_step_in_order(fakes) -> None:
+    run, log, home, tmp_path = fakes
+    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
+
+    result = run(
+        "all",
+        "--dry-run",
+        rules=[STATE_BUCKET_EXISTS],
+        env={"MUSIC_CHAIRS_ALERT_EMAIL": "someone@example.test"},
+    )
 
     assert result.returncode == 0, result.stderr
     steps = [line for line in result.stdout.splitlines() if line.startswith("would ")]
     assert [step.split(" ")[1:3] for step in steps] == [
+        ["ensure", "the"],
         ["ensure", "Lightsail"],
-        ["deploy", "stack"],
-        ["deploy", "stack"],
+        ["apply", "the"],
         ["read", "the"],
         ["upload", "project/deploy"],
         ["install", "the"],
@@ -128,10 +183,17 @@ def test_dry_run_confirms_the_account_then_lists_every_step_in_order(fakes) -> N
         ["check", "the"],
         ["run", "the"],
     ]
-    assert "music-chairs in us-west-2" in steps[1]
-    assert "music-chairs-alerts in us-east-1" in steps[2]
+    assert "plan: no changes" in result.stdout
     assert "someone@example.test" not in result.stdout + result.stderr
-    assert [call[:2] for call in calls(log)] == [["sts", "get-caller-identity"]]
+    assert [call[:2] for call in calls(log)] == [
+        ["sts", "get-caller-identity"],
+        ["s3api", "head-bucket"],
+    ]
+    # A dry run plans but never applies.
+    commands = [
+        next(a for a in c["argv"] if not a.startswith("-")) for c in terraform_calls(tmp_path)
+    ]
+    assert commands == ["init", "plan", "show"]
 
 
 def test_tool_overrides_must_be_absolute_paths(fakes) -> None:
@@ -144,79 +206,203 @@ def test_tool_overrides_must_be_absolute_paths(fakes) -> None:
     assert calls(log) == []
 
 
-def test_a_change_set_that_would_replace_the_instance_is_refused(fakes) -> None:
-    run, log, home, _ = fakes
-    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
-    replacement = {
-        "Changes": [
-            {
-                "ResourceChange": {
-                    "LogicalResourceId": "Instance",
-                    "Action": "Modify",
-                    "Replacement": "True",
-                }
-            }
-        ]
+def plan_changing(address: str, actions: list[str]) -> dict:
+    """A plan in Terraform's JSON format with one resource change."""
+    kind, name = address.split(".")
+    return {
+        "format_version": "1.2",
+        "resource_changes": [
+            {"address": address, "type": kind, "name": name, "change": {"actions": actions}}
+        ],
     }
-    rules = [
-        {"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {"name": "music-chairs"}}},
-        {"match": ["cloudformation", "describe-stacks"], "stdout": COMPLETE},
-        {"match": ["cloudformation", "create-change-set"], "stdout": {"Id": "x"}},
-        {"match": ["cloudformation", "wait", "change-set-create-complete"], "stdout": {}},
-        {"match": ["cloudformation", "describe-change-set"], "stdout": replacement},
-        {"match": ["cloudformation", "delete-change-set"], "stdout": {}},
-    ]
-
-    result = run("infra", rules=rules)
-
-    assert result.returncode == 1
-    assert "would replace or remove Instance" in result.stderr
-    operations = [call[1] for call in calls(log)]
-    assert "delete-change-set" in operations
-    assert "execute-change-set" not in operations
 
 
-def test_the_first_alerts_deploy_requires_the_email_and_never_prompts(fakes) -> None:
-    run, log, home, _ = fakes
+def test_a_plan_that_would_destroy_replace_or_forget_a_protected_resource_is_refused(
+    fakes,
+) -> None:
+    run, _, home, tmp_path = fakes
     (home / ".ssh" / "music-chairs-lightsail").write_text("key")
-    unchanged = {"StatusReason": "The submitted information didn't contain changes."}
-    rules = [
-        {"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}},
-        {"match": ["describe-stacks", "music-chairs-alerts"], **MISSING},
-        {"match": ["cloudformation", "describe-stacks"], "stdout": COMPLETE},
-        {"match": ["cloudformation", "create-change-set"], "stdout": {"Id": "x"}},
-        {"match": ["change-set-create-complete"], "returncode": 255, "stdout": {}},
-        {"match": ["cloudformation", "describe-change-set"], "stdout": unchanged},
-        {"match": ["cloudformation", "delete-change-set"], "stdout": {}},
+    rules = [{"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}}]
+    cases = [
+        ("aws_lightsail_instance.app", ["delete", "create"]),
+        ("aws_lightsail_static_ip.app", ["create", "delete"]),
+        ("aws_s3_bucket.backups", ["delete"]),
+        ("aws_s3_bucket_versioning.backups", ["delete"]),
+        ("aws_iam_user.app", ["forget"]),
+        ("aws_route53_record.google_verification", ["delete"]),
     ]
 
-    result = run("infra", rules=rules)
+    for address, actions in cases:
+        (tmp_path / "terraform.log").unlink(missing_ok=True)
+        result = run(
+            "infra", rules=rules, terraform_rules={"plan": plan_changing(address, actions)}
+        )
 
-    assert result.returncode == 1
-    assert "set MUSIC_CHAIRS_ALERT_EMAIL" in result.stderr
-    assert "stack music-chairs is already up to date" in result.stdout
-    assert not any(
-        "music-chairs-alerts" in call and "create-change-set" in call for call in calls(log)
+        assert result.returncode == 1, address
+        assert f"would replace, remove or forget {address}" in result.stderr
+        assert "apply" not in [c["argv"][1] for c in terraform_calls(tmp_path)], address
+
+    # An unprotected resource may be replaced, and the plan is then applied.
+    result = run(
+        "infra",
+        rules=rules,
+        terraform_rules={
+            "plan": plan_changing("aws_route53_health_check.app", ["delete", "create"])
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "plan: 1 to add, 0 to change, 1 to destroy" in result.stdout
+
+
+def test_a_clean_plan_is_applied_from_its_saved_file_without_prompts_or_files_in_the_tree(
+    fakes,
+) -> None:
+    run, _, home, tmp_path = fakes
+    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
+    rules = [{"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}}]
+
+    result = run(
+        "infra",
+        rules=rules,
+        terraform_rules={"plan": plan_changing("aws_sns_topic_subscription.alerts", ["create"])},
     )
 
+    assert result.returncode == 0, result.stderr
+    assert "plan: 1 to add, 0 to change, 0 to destroy" in result.stdout
+    recorded = terraform_calls(tmp_path)
+    by_command = {next(a for a in c["argv"] if not a.startswith("-")): c for c in recorded}
+    assert list(by_command) == ["init", "plan", "show", "apply"]
+    for call in recorded:
+        assert call["argv"][0] == f"-chdir={ROOT / 'project' / 'deploy' / 'terraform'}"
+        assert call["env"]["AWS_PROFILE"] == "music-chairs"
+        assert call["env"]["TF_INPUT"] == "0"
+        assert not call["env"]["TF_DATA_DIR"].startswith(str(ROOT))
+    init = by_command["init"]["argv"]
+    assert "-input=false" in init and "-lockfile=readonly" in init
+    assert f"-backend-config=bucket={CONFIG['stateBucket']}" in init
+    plan_file = by_command["plan"]["argv"][by_command["plan"]["argv"].index("-out") + 1]
+    assert not plan_file.startswith(str(ROOT))
+    assert by_command["apply"]["argv"][-1] == plan_file
+    assert "-input=false" in by_command["plan"]["argv"] + by_command["apply"]["argv"]
+    # The saved plan (which can hold the alert email) is gone afterwards.
+    assert not Path(plan_file).exists()
 
-def test_a_stack_left_by_a_failed_first_deploy_is_refused_with_recovery_advice(fakes) -> None:
-    run, log, home, _ = fakes
-    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
-    rules = [
-        {"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}},
-        {
-            "match": ["cloudformation", "describe-stacks"],
-            "stdout": {"Stacks": [{"StackStatus": "ROLLBACK_COMPLETE"}]},
-        },
+
+def test_bootstrap_creates_only_what_is_missing_and_needs_the_email_once(fakes) -> None:
+    run, log, _, _ = fakes
+    missing_bucket = {
+        "match": ["s3api", "head-bucket"],
+        "returncode": 254,
+        "stderr": "(404) Not Found",
+    }
+    missing_parameter = {
+        "match": ["ssm", "get-parameter"],
+        "returncode": 254,
+        "stderr": "An error occurred (ParameterNotFound)",
+    }
+    created = [
+        {"match": ["s3api"], "stdout": {}},
+        {"match": ["ssm", "put-parameter"], "stdout": {}},
     ]
 
-    result = run("infra", rules=rules)
+    refused = run("bootstrap", rules=[missing_bucket, missing_parameter, *created])
+    assert refused.returncode == 1
+    assert "set MUSIC_CHAIRS_ALERT_EMAIL once" in refused.stderr
+    assert not any(call[:2] == ["ssm", "put-parameter"] for call in calls(log))
 
-    assert result.returncode == 1
-    assert "in state ROLLBACK_COMPLETE and cannot be updated" in result.stderr
-    assert "A failed first deploy" in result.stderr
-    assert not any("create-change-set" in call for call in calls(log))
+    log.unlink()
+    present = run(
+        "bootstrap",
+        rules=[
+            STATE_BUCKET_EXISTS,
+            {"match": ["s3api"], "stdout": {}},
+            {"match": ["ssm", "get-parameter"], "stdout": {}},
+        ],
+    )
+    assert present.returncode == 0, present.stderr
+    # An existing bucket is never recreated, but its protections are re-applied.
+    assert [call[:2] for call in calls(log)] == [
+        ["sts", "get-caller-identity"],
+        ["s3api", "head-bucket"],
+        ["s3api", "put-public-access-block"],
+        ["s3api", "put-bucket-ownership-controls"],
+        ["s3api", "put-bucket-encryption"],
+        ["s3api", "put-bucket-versioning"],
+        ["ssm", "get-parameter"],
+    ]
+
+    log.unlink()
+    made = run(
+        "bootstrap",
+        rules=[missing_bucket, missing_parameter, *created],
+        env={"MUSIC_CHAIRS_ALERT_EMAIL": "someone@example.test"},
+    )
+    assert made.returncode == 0, made.stderr
+    bucket_calls = {call[1]: call for call in calls(log) if call[0] == "s3api"}
+    assert list(bucket_calls) == [
+        "head-bucket",
+        "create-bucket",
+        "put-public-access-block",
+        "put-bucket-ownership-controls",
+        "put-bucket-encryption",
+        "put-bucket-versioning",
+    ]
+    settings = {
+        "put-public-access-block": (
+            "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,"
+            "RestrictPublicBuckets=true"
+        ),
+        "put-bucket-ownership-controls": "Rules=[{ObjectOwnership=BucketOwnerEnforced}]",
+        "put-bucket-encryption": (
+            "Rules=[{ApplyServerSideEncryptionByDefault={SSEAlgorithm=AES256}}]"
+        ),
+        "put-bucket-versioning": "Status=Enabled",
+    }
+    for command, value in settings.items():
+        assert bucket_calls[command][5] == value, command
+
+
+def test_the_alert_email_reaches_aws_only_through_a_private_file(fakes) -> None:
+    run, log, _, tmp_path = fakes
+    email = "someone@example.test"
+    seen = tmp_path / "request.log"
+    # Records the request file's contents and permissions while the call runs.
+    aws = write_executable(
+        tmp_path / "aws-file",
+        FAKE_AWS.format(python=sys.executable).replace(
+            "argv = sys.argv[1:]",
+            "argv = sys.argv[1:]\n"
+            "if '--cli-input-json' in argv:\n"
+            "    path = argv[argv.index('--cli-input-json') + 1].removeprefix('file://')\n"
+            f"    open({str(seen)!r}, 'w').write(json.dumps({{'path': path, "
+            "'mode': oct(os.stat(path).st_mode & 0o777), 'body': json.load(open(path))}))",
+        ),
+    )
+    rules = [
+        STATE_BUCKET_EXISTS,
+        {"match": ["s3api"], "stdout": {}},
+        {"match": ["ssm", "get-parameter"], "returncode": 254, "stderr": "ParameterNotFound"},
+        {"match": ["ssm", "put-parameter"], "stdout": {}},
+    ]
+
+    result = run(
+        "bootstrap",
+        rules=rules,
+        env={"MUSIC_CHAIRS_ALERT_EMAIL": email, "MUSIC_CHAIRS_AWS": str(aws)},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert email not in result.stdout + result.stderr
+    assert not any(email in token for call in calls(log) for token in call)
+    request = json.loads(seen.read_text())
+    assert request["body"] == {
+        "Name": "/music-chairs/alert-email",
+        "Type": "SecureString",
+        "Value": email,
+    }
+    assert request["mode"] == "0o600"
+    assert not request["path"].startswith(str(ROOT))
+    assert not Path(request["path"]).exists()
 
 
 def test_an_existing_key_file_is_never_overwritten_by_a_new_key_pair(fakes) -> None:
@@ -233,45 +419,7 @@ def test_an_existing_key_file_is_never_overwritten_by_a_new_key_pair(fakes) -> N
     assert key_file.read_text() == "an older key"
 
 
-def test_the_alert_email_reaches_aws_only_as_the_alerts_parameter(fakes) -> None:
-    run, log, home, _ = fakes
-    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
-    email = "someone@example.test"
-    rules = [
-        {"match": ["lightsail", "get-key-pair"], "stdout": {"keyPair": {}}},
-        {"match": ["describe-stacks", "music-chairs-alerts"], **MISSING},
-        {"match": ["cloudformation", "describe-stacks"], "stdout": COMPLETE},
-        {"match": ["cloudformation", "create-change-set"], "stdout": {"Id": "x"}},
-        {"match": ["cloudformation", "wait"], "stdout": {}},
-        {"match": ["cloudformation", "describe-change-set"], "stdout": {"Changes": []}},
-        {"match": ["cloudformation", "execute-change-set"], "stdout": {}},
-    ]
-
-    result = run("infra", rules=rules, env={"MUSIC_CHAIRS_ALERT_EMAIL": email})
-
-    assert result.returncode == 0, result.stderr
-    assert email not in result.stdout + result.stderr
-    carrying = [call for call in calls(log) if any(email in token for token in call)]
-    assert len(carrying) == 1
-    call = carrying[0]
-    assert call[:2] == ["cloudformation", "create-change-set"]
-    assert "music-chairs-alerts" in call
-    parameters = json.loads(call[call.index("--parameters") + 1])
-    assert {"ParameterKey": "AlertEmail", "ParameterValue": email} in parameters
-    assert [token for token in call if email in token] == [call[call.index("--parameters") + 1]]
-
-
-RELEASE_OUTPUTS = [
-    {"OutputKey": "StaticIpAddress", "OutputValue": "203.0.113.7"},
-    {"OutputKey": "BackupBucketName", "OutputValue": "bucket"},
-    {"OutputKey": "BackupUserName", "OutputValue": "backup-user"},
-    {"OutputKey": "AppUserName", "OutputValue": "app-user"},
-]
 RELEASE_RULES = [
-    {
-        "match": ["cloudformation", "describe-stacks"],
-        "stdout": {"Stacks": [{"Outputs": RELEASE_OUTPUTS}]},
-    },
     {
         "match": ["lightsail", "get-instance-access-details"],
         "stdout": {"accessDetails": {"hostKeys": [{"algorithm": "ssh-ed25519", "publicKey": "A"}]}},
@@ -287,6 +435,30 @@ def scripted_ssh(tmp_path: Path, cases: str) -> Path:
         f'echo "$last" >> {tmp_path}/remote.log\n'
         f'case "$last" in\n{cases}\nesac\n',
     )
+
+
+def test_the_release_reads_terraform_outputs_and_uploads_no_terraform_files(fakes) -> None:
+    run, _, home, tmp_path = fakes
+    (home / ".ssh" / "music-chairs-lightsail").write_text("key")
+    bundle = tmp_path / "bundle.tgz"
+    # Keeps the uploaded deploy bundle, then stops the release at provisioning.
+    ssh = scripted_ssh(
+        tmp_path,
+        f"  *'tar -xzf -'*) cat > {bundle};;\n  *provision.sh*) echo stopped here >&2; exit 1;;",
+    )
+
+    result = run("release", rules=RELEASE_RULES, env={"MUSIC_CHAIRS_SSH": str(ssh)})
+
+    assert result.returncode == 1
+    assert "stopped here" in result.stderr
+    remote = (tmp_path / "remote.log").read_text()
+    assert "BUCKET=bucket" in remote
+    with tarfile.open(bundle) as tar:
+        names = tar.getnames()
+    assert "provision.sh" in names and "config.json" in names
+    assert not any(name.startswith("terraform") for name in names)
+    outputs = [c for c in terraform_calls(tmp_path) if "output" in c["argv"]]
+    assert outputs and outputs[0]["argv"][-2:] == ["output", "-json"]
 
 
 def test_an_ssh_failure_never_rotates_the_backup_key(fakes) -> None:
@@ -349,27 +521,78 @@ def test_the_app_key_is_created_for_the_app_user_and_installed_root_only(fakes) 
     assert "s3cr3t" not in result.stdout + result.stderr + "\n".join(remote)
 
 
-def template(name: str) -> dict:
-    return yaml.safe_load((DEPLOY_DIR / name).read_text())
+TERRAFORM_DIR = DEPLOY_DIR / "terraform"
 
 
-def test_the_server_stack_retains_live_data_and_keeps_backups_private_for_30_days() -> None:
-    resources = template("stack.yaml")["Resources"]
+def unquote(value):
+    """python-hcl2 keeps HCL's quotes on strings and keys; this strips them, recursively."""
+    if isinstance(value, str):
+        return value[1:-1] if len(value) >= 2 and value[0] == value[-1] == '"' else value
+    if isinstance(value, list):
+        return [unquote(item) for item in value]
+    if isinstance(value, dict):
+        return {unquote(k): unquote(v) for k, v in value.items() if k != "__is_block__"}
+    return value
 
-    for logical in ("Instance", "StaticIp", "BackupBucket"):
-        assert resources[logical]["DeletionPolicy"] == "Retain", logical
-        assert resources[logical]["UpdateReplacePolicy"] == "Retain", logical
-    ports = resources["Instance"]["Properties"]["Networking"]["Ports"]
-    assert sorted(port["FromPort"] for port in ports) == [22, 80, 443]
-    bucket = resources["BackupBucket"]["Properties"]
-    rule, markers = bucket["LifecycleConfiguration"]["Rules"]
-    assert rule["ExpirationInDays"] == 30
-    assert rule["NoncurrentVersionExpiration"]["NoncurrentDays"] == 7
-    assert markers["ExpiredObjectDeleteMarker"] is True
-    assert bucket["VersioningConfiguration"]["Status"] == "Enabled"
-    assert all(bucket["PublicAccessBlockConfiguration"].values())
-    statement = resources["BackupUser"]["Properties"]["Policies"][0]["PolicyDocument"]["Statement"]
-    assert [entry["Action"] for entry in statement] == ["s3:PutObject"]
+
+def terraform_blocks() -> dict:
+    """Every resource ("type.name"), data source ("data.type.name") and terraform block."""
+    found: dict = {"terraform": []}
+    for path in sorted(TERRAFORM_DIR.glob("*.tf")):
+        parsed = unquote(hcl2.load(path.open()))
+        for block in parsed.get("resource", []):
+            for kind, named in block.items():
+                for name, body in named.items():
+                    found[f"{kind}.{name}"] = body
+        for block in parsed.get("data", []):
+            for kind, named in block.items():
+                for name, body in named.items():
+                    found[f"data.{kind}.{name}"] = body
+        found["terraform"].extend(parsed.get("terraform", []))
+    return found
+
+
+def policy(name: str, **values: str) -> dict:
+    """A policy template rendered the way Terraform's templatefile fills ${...}."""
+    text = (TERRAFORM_DIR / "policies" / name).read_text()
+    for key, value in values.items():
+        text = text.replace("${" + key + "}", value)
+    return json.loads(text)
+
+
+def test_the_configuration_protects_live_data_and_keeps_backups_private_for_30_days() -> None:
+    blocks = terraform_blocks()
+
+    for address in (
+        "aws_lightsail_instance.app",
+        "aws_lightsail_static_ip.app",
+        "aws_lightsail_static_ip_attachment.app",
+        "aws_s3_bucket.backups",
+    ):
+        assert blocks[address]["lifecycle"][0]["prevent_destroy"] is True, address
+    assert blocks["aws_lightsail_instance.app"]["lifecycle"][0]["ignore_changes"] == [
+        "blueprint_id",
+        "user_data",
+    ]
+    ports = blocks["aws_lightsail_instance_public_ports.app"]["dynamic"][0]["port_info"]
+    assert ports["for_each"] == [22, 80, 443]
+    assert ports["content"][0]["cidrs"] == ["0.0.0.0/0"]
+    keep, markers = blocks["aws_s3_bucket_lifecycle_configuration.backups"]["rule"]
+    assert keep["expiration"][0]["days"] == 30
+    assert keep["noncurrent_version_expiration"][0]["noncurrent_days"] == 7
+    assert markers["expiration"][0]["expired_object_delete_marker"] is True
+    versioning = blocks["aws_s3_bucket_versioning.backups"]["versioning_configuration"][0]
+    assert versioning["status"] == "Enabled"
+    public = blocks["aws_s3_bucket_public_access_block.backups"]
+    assert all(public[key] is True for key in public if key != "bucket")
+    encryption = blocks["aws_s3_bucket_server_side_encryption_configuration.backups"]["rule"][0]
+    assert encryption["apply_server_side_encryption_by_default"][0]["sse_algorithm"] == "AES256"
+    ownership = blocks["aws_s3_bucket_ownership_controls.backups"]["rule"][0]
+    assert ownership["object_ownership"] == "BucketOwnerEnforced"
+    statement = policy("put-backups.json.tftpl", bucket_arn="arn:aws:s3:::b")["Statement"]
+    assert statement == [
+        {"Effect": "Allow", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::b/backups/*"}
+    ]
     assert CONFIG["bundleId"] == "micro_3_0"
     # Lightsail names are unique across its resource types: an instance named like
     # the key pair fails to create.
@@ -378,21 +601,66 @@ def test_the_server_stack_retains_live_data_and_keeps_backups_private_for_30_day
 
 
 def test_the_app_key_may_read_only_the_google_secret_parameter() -> None:
-    stack = template("stack.yaml")
-    statements = stack["Resources"]["AppUser"]["Properties"]["Policies"][0]["PolicyDocument"][
-        "Statement"
-    ]
+    blocks = terraform_blocks()
+    statements = policy(
+        "read-google-secret.json.tftpl",
+        parameter_arn="arn:aws:ssm:r:1:parameter/p",
+        region="r",
+    )["Statement"]
 
     assert [entry["Action"] for entry in statements] == ["ssm:GetParameter", "kms:Decrypt"]
-    parameter_arn = statements[0]["Resource"]["Fn::Join"][1]
-    assert parameter_arn[0] == "arn:aws:ssm:" and parameter_arn[-1] == {
-        "Ref": "GoogleSecretParameter"
-    }
-    via = statements[1]["Condition"]["StringEquals"]["kms:ViaService"]["Fn::Join"][1]
-    assert via == ["ssm.", {"Ref": "AWS::Region"}, ".amazonaws.com"]
-    assert stack["Outputs"]["AppUserName"]["Value"] == {"Ref": "AppUser"}
+    assert statements[0]["Resource"] == "arn:aws:ssm:r:1:parameter/p"
+    assert statements[1]["Condition"] == {"StringEquals": {"kms:ViaService": "ssm.r.amazonaws.com"}}
+    arn = blocks["aws_iam_user_policy.app"]["policy"]
+    assert "parameter${local.config.googleSecretParameter}" in arn
     assert CONFIG["googleSecretParameter"] == "/music-chairs/google-client-secret"
     assert CONFIG["googleClientId"].endswith(".apps.googleusercontent.com")
+
+
+def test_the_alerts_check_http_health_and_budgets_as_decided() -> None:
+    blocks = terraform_blocks()
+
+    check = blocks["aws_route53_health_check.app"]
+    assert (check["type"], check["port"], check["resource_path"]) == ("HTTP", 80, "/healthz")
+    assert (check["request_interval"], check["failure_threshold"]) == (30, 3)
+    alarm = blocks["aws_cloudwatch_metric_alarm.outage"]
+    assert (alarm["metric_name"], alarm["comparison_operator"], alarm["treat_missing_data"]) == (
+        "HealthCheckStatus",
+        "LessThanThreshold",
+        "breaching",
+    )
+    assert (alarm["statistic"], alarm["period"], alarm["evaluation_periods"]) == ("Minimum", 60, 2)
+    assert alarm["threshold"] == 1
+    assert alarm["dimensions"] == {"HealthCheckId": "${aws_route53_health_check.app.id}"}
+    topic = "${aws_sns_topic.alerts.arn}"
+    assert alarm["alarm_actions"] == [topic] and alarm["ok_actions"] == [topic]
+    budget = blocks["aws_budgets_budget.monthly"]
+    assert budget["limit_amount"] == "${tostring(local.config.monthlyBudgetUsd)}"
+    notifications = blocks["aws_budgets_budget.monthly"]["notification"]
+    assert sorted((n["notification_type"], n["threshold"]) for n in notifications) == [
+        ("ACTUAL", 100),
+        ("FORECASTED", 95),
+    ]
+    assert CONFIG["monthlyBudgetUsd"] == 10
+    # The address comes only from Parameter Store, never from the repository.
+    email = "${data.aws_ssm_parameter.alert_email.value}"
+    assert blocks["aws_sns_topic_subscription.alerts"]["endpoint"] == email
+    assert all(n["subscriber_email_addresses"] == [email] for n in notifications)
+    assert blocks["data.aws_ssm_parameter.alert_email"]["with_decryption"] is True
+    for path in [DEPLOY_DIR / "config.json", *TERRAFORM_DIR.rglob("*.tf*")]:
+        assert "@" not in path.read_text().replace("@{", ""), path
+
+
+def test_terraform_owns_exactly_the_google_verification_values_and_locks_its_state() -> None:
+    blocks = terraform_blocks()
+
+    record = blocks["aws_route53_record.google_verification"]
+    assert (record["name"], record["type"]) == ("dalan.dev", "TXT")
+    assert record["records"] == "${local.config.googleSiteVerification}"
+    assert len(CONFIG["googleSiteVerification"]) == 2
+    assert all(v.startswith("google-site-verification=") for v in CONFIG["googleSiteVerification"])
+    backend = next(b["backend"] for b in blocks["terraform"] if "backend" in b)[0]["s3"]
+    assert backend == {"encrypt": True, "use_lockfile": True}
 
 
 def test_the_service_runs_the_installed_secret_fetch_and_reads_the_file_it_writes() -> None:
@@ -556,22 +824,6 @@ def test_the_smoke_reports_sign_in_only_for_a_redirect_to_google_or_its_503(
             assert deploy.google_sign_in(origin) == expected
     finally:
         server.shutdown()
-
-
-def test_the_alerts_stack_checks_http_health_and_budgets_as_decided() -> None:
-    alerts = template("alerts.yaml")
-    resources = alerts["Resources"]
-
-    assert alerts["Parameters"]["AlertEmail"]["NoEcho"] is True
-    check = resources["HealthCheck"]["Properties"]["HealthCheckConfig"]
-    assert (check["Type"], check["Port"], check["ResourcePath"]) == ("HTTP", 80, "/healthz")
-    notifications = resources["MonthlyBudget"]["Properties"]["NotificationsWithSubscribers"]
-    assert sorted(
-        (n["Notification"]["NotificationType"], n["Notification"]["Threshold"])
-        for n in notifications
-    ) == [("ACTUAL", 100), ("FORECASTED", 95)]
-    assert CONFIG["monthlyBudgetUsd"] == 10
-    assert "@" not in (DEPLOY_DIR / "config.json").read_text()
 
 
 def test_the_server_scripts_parse() -> None:

@@ -5,8 +5,6 @@
   "alertsRegion": "us-east-1",
   "domain": "rehearse.dalan.dev",
   "hostedZoneId": "Z05992221270I1PQFMDW3",
-  "stack": "music-chairs",
-  "alertsStack": "music-chairs-alerts",
   "instanceName": "music-chairs-app",
   "bundleId": "micro_3_0",
   "blueprintId": "debian_12",
@@ -15,5 +13,16 @@
   "sshUser": "admin",
   "monthlyBudgetUsd": 10,
   "googleClientId": "719218972879-dcaitqp687p9id29nielonukiqrgfgm9.apps.googleusercontent.com",
-  "googleSecretParameter": "/music-chairs/google-client-secret"
+  "googleSecretParameter": "/music-chairs/google-client-secret",
+  "stateBucket": "music-chairs-terraform-state-777460179484",
+  "alertEmailParameter": "/music-chairs/alert-email",
+  "backupBucketName": "music-chairs-backupbucket-fpsdjjgjp84a",
+  "backupUserName": "music-chairs-BackupUser-z58u6Anw0agn",
+  "appUserName": "music-chairs-AppUser-p04zhTII7R4W",
+  "alertTopicName": "music-chairs-alerts-AlertTopic-wNNFicceRbsr",
+  "outageAlarmName": "music-chairs-alerts-OutageAlarm-Jnq1PfnbBGrL",
+  "googleSiteVerification": [
+    "google-site-verification=z2fjXWiTXprhwHTJTC_ruSmEdgwP0VTaD_0Q9GwCUQw",
+    "google-site-verification=w_C67CKXYwEY2fDn3-k9loy6zYqL3JA7Unjw3yDdnz4"
+  ]
 }

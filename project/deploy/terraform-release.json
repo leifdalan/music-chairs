@@ -1,0 +1,10 @@
+{
+  "version": "1.16.5",
+  "source": "https://releases.hashicorp.com/terraform/1.16.5/",
+  "sha256": {
+    "darwin_amd64": "9809158e481cf2d3a8433e59179f397b8edb5172397711bd98f6bb32edcaf53b",
+    "darwin_arm64": "ecdef65e24193d627f27c39baeda31295f08c938d8a3d4764f442fb916d4b7dc",
+    "linux_amd64": "2bc2fcfff033265c9e02ca0351f01794eb122f62a9b2a49a3294b9e49eaab5e4",
+    "linux_arm64": "61a50b00485ee4810cf20581ef080fc54d34d666e175c58d9a10501c65c1ccde"
+  }
+}

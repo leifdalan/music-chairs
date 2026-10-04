@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Shared Terraform selection, installation and probe for the infrastructure in
+# project/deploy/terraform (plan/phase-16.md).
+#
+# Source this file after defining repo_root, then call terraform_toolchain_init
+# with the entry point's diagnostic prefix. project/deploy/terraform-release.json
+# pins the version and the official SHA-256 of each platform's zip; ./bin/setup
+# downloads that zip once into the user cache, verifies it, and mirrors the
+# providers locked by project/deploy/terraform/.terraform.lock.hcl beside it, so
+# every later command (formatting, validation, plans) works offline.
+# TOOLCHAIN_TERRAFORM names an authoritative alternative binary and never falls
+# back to the pinned one or to any terraform on PATH. Written for bash 3.2.
+
+terraform_toolchain_init() {
+  terraform_toolchain_prefix="$1"
+  # No call home to HashiCorp's version checkpoint: every command stays offline
+  # unless it really needs the network (setup's download, AWS calls).
+  export CHECKPOINT_DISABLE=1
+  terraform_toolchain_config="$repo_root/project/deploy/terraform"
+  local release="$repo_root/project/deploy/terraform-release.json"
+  if [[ ! -f "$release" ]]; then
+    echo "$terraform_toolchain_prefix ERROR missing required file: project/deploy/terraform-release.json" >&2
+    return 1
+  fi
+  terraform_toolchain_version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$release")"
+  if [[ -z "$terraform_toolchain_version" ]]; then
+    echo "$terraform_toolchain_prefix ERROR project/deploy/terraform-release.json names no version" >&2
+    return 1
+  fi
+
+  local os arch
+  case "$(uname -s)" in
+    Darwin) os=darwin ;;
+    Linux) os=linux ;;
+    *) os=unsupported ;;
+  esac
+  case "$(uname -m)" in
+    arm64 | aarch64) arch=arm64 ;;
+    x86_64 | amd64) arch=amd64 ;;
+    *) arch=unsupported ;;
+  esac
+  terraform_toolchain_platform="${os}_${arch}"
+  terraform_toolchain_sha256="$(sed -n "s/^ *\"$terraform_toolchain_platform\": *\"\([0-9a-f]\{64\}\)\".*/\1/p" "$release")"
+
+  terraform_toolchain_cache="${XDG_CACHE_HOME:-$HOME/.cache}/music-chairs/terraform"
+  terraform_toolchain_mirror="$terraform_toolchain_cache/providers"
+  terraform_toolchain_bin="$terraform_toolchain_cache/$terraform_toolchain_version/terraform"
+  terraform_toolchain_description="Terraform $terraform_toolchain_version pinned by project/deploy/terraform-release.json"
+
+  if [[ -n "${TOOLCHAIN_TERRAFORM:-}" ]]; then
+    if [[ "$TOOLCHAIN_TERRAFORM" != /* || ! -x "$TOOLCHAIN_TERRAFORM" ]]; then
+      echo \
+        "$terraform_toolchain_prefix ERROR authoritative TOOLCHAIN_TERRAFORM must be an executable absolute path: $TOOLCHAIN_TERRAFORM" \
+        >&2
+      echo "$terraform_toolchain_prefix ERROR no fallback was attempted" >&2
+      return 1
+    fi
+    terraform_toolchain_bin="$TOOLCHAIN_TERRAFORM"
+    terraform_toolchain_description="authoritative TOOLCHAIN_TERRAFORM=$TOOLCHAIN_TERRAFORM"
+  fi
+}
+
+# Downloads and verifies the pinned binary when it is missing, then mirrors the
+# locked providers. Only ./bin/setup calls this; it is the one networked step.
+terraform_toolchain_install() {
+  if [[ -n "${TOOLCHAIN_TERRAFORM:-}" ]]; then
+    echo "$terraform_toolchain_prefix using $terraform_toolchain_description; nothing to install"
+  elif [[ ! -x "$terraform_toolchain_bin" ]]; then
+    if [[ -z "$terraform_toolchain_sha256" ]]; then
+      echo \
+        "$terraform_toolchain_prefix ERROR project/deploy/terraform-release.json has no checksum for $terraform_toolchain_platform" \
+        >&2
+      return 1
+    fi
+    local work zip actual
+    work="$(mktemp -d)"
+    zip="$work/terraform.zip"
+    if ! curl -fsSL -o "$zip" \
+      "https://releases.hashicorp.com/terraform/$terraform_toolchain_version/terraform_${terraform_toolchain_version}_${terraform_toolchain_platform}.zip"; then
+      rm -rf "$work"
+      echo "$terraform_toolchain_prefix ERROR could not download Terraform $terraform_toolchain_version" >&2
+      return 1
+    fi
+    if command -v sha256sum >/dev/null 2>&1; then
+      actual="$(sha256sum "$zip" | cut -d' ' -f1)"
+    else
+      actual="$(shasum -a 256 "$zip" | cut -d' ' -f1)"
+    fi
+    if [[ "$actual" != "$terraform_toolchain_sha256" ]]; then
+      rm -rf "$work"
+      echo \
+        "$terraform_toolchain_prefix ERROR Terraform download checksum $actual does not match the pinned $terraform_toolchain_sha256; nothing was installed" \
+        >&2
+      return 1
+    fi
+    if ! unzip -q -o "$zip" terraform -d "$work"; then
+      rm -rf "$work"
+      echo "$terraform_toolchain_prefix ERROR could not unpack Terraform" >&2
+      return 1
+    fi
+    mkdir -p "$(dirname "$terraform_toolchain_bin")"
+    mv "$work/terraform" "$terraform_toolchain_bin"
+    chmod 755 "$terraform_toolchain_bin"
+    rm -rf "$work"
+  fi
+  mkdir -p "$terraform_toolchain_mirror"
+  local data mirrored=0
+  data="$(mktemp -d)"
+  TF_DATA_DIR="$data" "$terraform_toolchain_bin" -chdir="$terraform_toolchain_config" \
+    providers mirror "$terraform_toolchain_mirror" || mirrored=$?
+  rm -rf "$data"
+  return "$mirrored"
+}
+
+# The selected binary runs and is the pinned version (an override is trusted as given).
+terraform_toolchain_probe() {
+  if [[ ! -x "$terraform_toolchain_bin" ]]; then
+    echo \
+      "$terraform_toolchain_prefix ERROR Terraform is not installed: $terraform_toolchain_bin; run ./bin/setup" \
+      >&2
+    return 1
+  fi
+  if [[ -n "${TOOLCHAIN_TERRAFORM:-}" ]]; then
+    return 0
+  fi
+  local reported
+  if ! reported="$("$terraform_toolchain_bin" version -json)"; then
+    echo "$terraform_toolchain_prefix ERROR $terraform_toolchain_description does not run" >&2
+    return 1
+  fi
+  if [[ "$reported" != *"\"terraform_version\": \"$terraform_toolchain_version\""* ]]; then
+    echo \
+      "$terraform_toolchain_prefix ERROR $terraform_toolchain_bin is not Terraform $terraform_toolchain_version; run ./bin/setup" \
+      >&2
+    return 1
+  fi
+}

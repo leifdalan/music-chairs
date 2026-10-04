@@ -33,3 +33,7 @@ Added 2026-10-03: the operator will do a big UI/UX pass first to populate this p
 ## Inherited from Phase 15
 
 Pinned by [Phase 15](phase-15.md): new screens and controls the visual system must cover: the tick-row picker on the schedule and request pages (`ProposeTimes` and `FreeTime` in `project/app/components/propose-times.tsx`, whole-row labels at least 44px tall with a checked outline, refusals shown next to **Propose selected**), the **Override with a custom proposal** disclosure at the end of the schedule page, and the home screen's **Waiting for your answer** list (`pendingRequests`).
+
+## Inherited from Phase 16
+
+Pinned by [Phase 16](phase-16.md): every AWS resource is defined in Terraform (`project/deploy/terraform`, settings in `project/deploy/config.json`) and changed only through `./bin/deploy`; the visual cleanup changes no infrastructure. Anything a chosen theme or framework loads from a CDN or a new domain (fonts, scripts) is a privacy-policy question for this phase (see Phase 14), not an infrastructure one.

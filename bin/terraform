@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Run the repository-pinned Terraform (plan/phase-16.md). Its working data
+# (providers, backend settings) lives in the user cache, never in the tree,
+# unless the caller chose a TF_DATA_DIR.
+
+set -euo pipefail
+
+entrypoint_path="${BASH_SOURCE[0]}"
+while [[ -L "$entrypoint_path" ]]; do
+  entrypoint_dir="$(cd "$(dirname "$entrypoint_path")" && pwd)"
+  entrypoint_path="$(readlink "$entrypoint_path")"
+  [[ "$entrypoint_path" == /* ]] || entrypoint_path="$entrypoint_dir/$entrypoint_path"
+done
+repo_root="$(cd "$(dirname "$entrypoint_path")/.." && pwd)"
+
+toolchain_helper="$repo_root/bin/_terraform-toolchain"
+if [[ ! -r "$toolchain_helper" ]]; then
+  echo "TERRAFORM ERROR missing required file: bin/_terraform-toolchain" >&2
+  exit 1
+fi
+source "$toolchain_helper"
+terraform_toolchain_init TERRAFORM
+terraform_toolchain_probe
+
+export TF_DATA_DIR="${TF_DATA_DIR:-$terraform_toolchain_cache/data/manual}"
+exec "$terraform_toolchain_bin" "$@"

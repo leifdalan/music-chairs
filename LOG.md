@@ -2159,3 +2159,147 @@ User demo (per `policies/user-demo-protocols.md`):
 
 Remaining:
 - None for this phase. Phase 16 (visual cleanup) follows.
+
+## 2026-10-03 20:21 — START
+
+Phase 16 — Infrastructure defined in Terraform
+
+Execution trace: ad569669dfbf4879af5828f8f8b8df65
+
+Operator decisions recorded in plan/phase-16.md before this run: the operator asked for the infrastructure in Terraform and placed it before the visual cleanup. At phase start: Terraform rather than OpenTofu; S3 lock-file locking; Terraform manages rehearse.dalan.dev and the two Google verification TXT values; ./bin/deploy bootstrap creates the state bucket. The User Demo was tightened before capture.
+
+Planned work:
+- A Terraform configuration under `project/deploy/` defining what the CloudFormation stacks define today:
+  - from `project/deploy/stack.yaml`: the Lightsail instance, its static IP, the `rehearse.dalan.dev` DNS record, the private versioned and encrypted backup bucket with its lifecycle rules, and the backup and app IAM users with their policies;
+  - from `project/deploy/alerts.yaml`: the alert topic and its email subscription, the Route 53 health check, the outage alarm in us-east-1, and the monthly budget with its actual and forecast thresholds.
+- The live resources are adopted into Terraform state without being replaced: no new instance, IP address, bucket or DNS change. The CloudFormation stacks are then retired without deleting anything they created, and `stack.yaml`, `alerts.yaml` and the CloudFormation code in `bin/deploy` are removed (greenfield: no dual path).
+- Terraform's state lives in an encrypted, versioned S3 bucket in the same account, with locking, so a run from another machine sees the same state.
+- Terraform is pinned to an exact version and installed by `./bin/setup` like the rest of the toolchain, with its checksum verified. `./bin/deploy infra` shows the plan and applies it, and its dry run shows the plan without applying. `./bin/deploy all` keeps working end to end.
+- `./bin/check` runs `terraform fmt -check` and `terraform validate`. The deploy tests cover the new `bin/deploy` path without touching AWS. `project/deploy/README.md` describes the new flow.
+
+## 2026-10-03 22:13 — END
+Phase 16 — Infrastructure defined in Terraform
+
+Phase 16 is accepted on its gates. Everything music-chairs runs on in AWS is now defined in Terraform (project/deploy/terraform) and changed only through it. The two CloudFormation stacks are retired and their templates and code deleted. Nothing was replaced: the same server, static IP, DNS answer, backup bucket, IAM users and access keys, health check, alarm and budget carry on, and the live database was identical before and after.
+
+- **Terraform** is pinned to 1.16.5 and the AWS provider to 6.67.0, checksum-verified and installed by ./bin/setup. ./bin/check formats and validates the configuration offline.
+- **Deploying.** `./bin/deploy all` runs bootstrap (the state bucket and alert-email parameter), then infra (plan, summary, apply exactly that plan), then release and smoke. It refuses any plan that would destroy, replace or forget the server, its address, the backups, the IAM users or the Google verification record.
+- **Alerts.** The alert email now lives in Parameter Store. A new alert subscription was created, and **AWS has sent its confirmation email: it must be clicked within 48 hours**, or SNS removes it and later plans show one subscription to add (user action aquatic-chamois).
+
+Execution trace: ad569669dfbf4879af5828f8f8b8df65
+
+Files changed:
+- plan/phase-16.md — operator decisions settled at phase start (Terraform not OpenTofu; S3 lock-file locking; Terraform owns rehearse.dalan.dev and the two Google verification TXT values; a bootstrap command creates the state bucket) and the tightened User Demo, recorded before the run
+- project/deploy/terraform/ — new: the configuration (versions, backend, providers, server, dns, backups, iam, alerts, outputs, policy templates) and the provider lock file for four platforms
+- project/deploy/terraform-release.json — new: the pinned Terraform version and per-platform SHA-256
+- project/deploy/stack.yaml, project/deploy/alerts.yaml — deleted
+- project/deploy/config.json — the adopted resources' names, the state bucket, the alert-email parameter, the Google verification values; the CloudFormation stack names removed
+- bin/deploy — CloudFormation code removed; bootstrap (the email passes through an owner-only temporary file), infra on Terraform with the destructive-plan refusal, release from Terraform outputs without uploading Terraform files
+- bin/terraform, bin/_terraform-toolchain — new: the pinned, checksum-verified Terraform, offline (no HashiCorp checkpoint), with its working data in the user cache
+- bin/setup, bin/check, bin/README.md — Terraform install and provider mirror; the lint-terraform gate; catalog
+- docs/ — two AWS provider pages pinned (MPL-2.0) and cataloged
+- project/deploy/README.md — the Terraform flow, recovery, the ports and TXT cautions
+- tests/test_deploy.py, tests/test_check.py, tests/test_toolchain_entrypoints.py, tests/proof-estate.yaml, reports/test-governance/music-chairs-reset.jsonl — proofs rebuilt around a fake Terraform and the parsed configuration: 14 admissions, 6 retirements (5 consolidated, 1 deleted), 5 repairs (pytest 164)
+- tooling/pyproject.toml, tooling/uv.lock — python-hcl2 8.1.4 for the structural tests
+- user-actions/aquatic-chamois.md — the new subscription's 48-hour confirmation
+- plan/INDEX.md — Phase 16 ✅, Phase 17 ⬅️ (pending, applied after this block)
+- plan/phase-17.md — inherited Phase 16 notes (pending AUTO ripple)
+- lessons/amorphous-jaguarundi.md, lessons/amorphous-cow.md — new (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK (attempt 2, after the bootstrap correction)
+- One-time adoption ($RUN_DIR/adopt.sh, outside the tree, hash-checked; operation migrate.adopt):
+  - Attempt 1 stopped at bootstrap: the AWS CLI 2.37 for macOS cannot read --cli-input-json from /dev/stdin. Corrected in bin/deploy, and the candidate was regated.
+  - Attempt 2 parked before executing the alerts change set: CloudFormation reports the retain-policy edit itself as Modify with only DeletionPolicy/UpdateReplacePolicy details. Tolerated exactly that, per CODE-F015's advice.
+  - Attempt 3 parked at the plan check before deleting anything: the budget's notification blocks changed sensitivity marking only, with identical values. Tolerated exactly that.
+  - Attempt 4: OK. Both stacks retained every resource; the plan before retirement was the two expected creates plus the sensitivity-only update; the alerts stack was retired first with topic, health check, alarm and budget intact, then the server stack; the after snapshot equalled the before (IP, A and TXT answers, IAM key IDs, database 8/3/4/2/31/0/0); the plan after retirement passed.
+- ./bin/deploy all --profile music-chairs: OK — exactly 2 to add (alert subscription, public ports 22/80/443), 1 sensitivity-only change, 0 to destroy; release 2e1a948-dirty-20261004T050848Z healthy; Google sign-in available
+- ./bin/deploy infra --dry-run --profile music-chairs: OK — plan: no changes. Verified read-only: neither CloudFormation stack exists; DNS answers the same static IP; dalan.dev keeps its two TXT values; ports 22/80/443 open; the alert subscription is PendingConfirmation
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 489/489, pytest 164): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation); the bootstrap correction after the failed adoption gate was a direct fix with fresh tests and a recorded delta assessment
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review, 2 passes; the second with cause: the irreversible adoption script was revised): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 333.068 s; first event 0.549 s; longest idle 50.925 s; success
+- Coder: inline (no role span)
+- Critic (code review 1): 487.394 s; first event 0.552 s; longest idle 53.167 s; success
+- Critic (code review 2): 146.431 s; first event 0.581 s; longest idle 32.592 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 6626.737 s; intelligence 966.893 s; gates 537.759 s; orchestration 6626.110 s; wait 965.562 s; retry 668.071 s; failed 262.717 s; unattributed 0.627 s (category totals are interval unions and may overlap).
+- Awaiting user input: not recorded as a park. A permission prompt for adoption attempt 4 timed out while the operator was away; the step was rerun with the operator's approval after an unrelated interruption. That wait is inside orchestration time.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=95d1fcb13cbee8e418f44f9be47723aebc5e8273a32837e62e71ef021a0a5710 critiqued=d3874eb03cd1c89fbd4e8f2b2da8f2150f8a0299b37fffe4850e4ae94c4585e1 (pass 1), 001a68dddee41d37acfd63060b044727f595a9595cf394d26f71f8505448362a (pass 2) approved=3b3157753b328f05878acee7b8e9b6e8eed577dd7a2076f52491f3e45220b528 final=3b3157753b328f05878acee7b8e9b6e8eed577dd7a2076f52491f3e45220b528
+- Revision packets: 0
+- Advisory reports: 3 — plan review 13 findings (all adopted); code critique 1, 12 findings (11 adopted, 1 demo correction deferred to this block); code critique 2, 5 findings (all adopted)
+- Gates: implementation-final attempts 1–4 recorded; the final sequence (smoke.local 2, migrate.adopt 4, deploy.all 2, deploy.infra-check 2, deploy.smoke 2, test.changed 2) all against the approved candidate; product and full-tree identities unchanged across them
+- Adoption script: $RUN_DIR/adopt.sh SHA-256 775c6c69ed75ad435e8427adf10fd69a4d57cf85df266016791b306633172bf9 (reviewed versions and diffs preserved in the run directory)
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- Three adoption attempts stopped safely before the final one. Each cost a correction and a rerun; lesson amorphous-cow records how to avoid that.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound):
+  - After adoption and apply, `terraform plan` reports no changes.
+  - `./bin/deploy all` and `./bin/deploy smoke` pass through Terraform.
+  - The live database's schema version and row counts equal the pre-adoption snapshot.
+  - The static IP, DNS answer, backup bucket and IAM keys are the same as before.
+  - No CloudFormation stack remains, and nothing it created was deleted.
+  - `./bin/check all` (with Terraform fmt and validate) is the handoff gate below.
+- Parked for the user: the User Demo below, and confirming the new alert subscription email within 48 hours.
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-17.md — add "Inherited from Phase 16": infrastructure is Terraform in project/deploy/terraform run through ./bin/deploy; the visual cleanup changes no infrastructure; anything a theme loads from a CDN or new domain is a privacy-policy question, not an infrastructure one — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed: amorphous-jaguarundi — a fake of an external CLI must not accept an input the real CLI rejects; amorphous-cow — guards over live outputs should be written against probed real outputs
+- occurrences pending: none
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (6) → policy; lively-salamander (4) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On the laptop, in the repository, with a fresh `aws login --profile music-chairs`.
+- **Suggested inputs.**
+  1. Run `./bin/deploy infra --dry-run --profile music-chairs`.
+  2. Run `./bin/deploy infra --profile music-chairs`.
+  3. In the AWS console, open **CloudFormation** in us-west-2 and us-east-1, **Lightsail** → Instances and Networking, and **S3**.
+  4. On your phone, open https://rehearse.dalan.dev and one of your groups.
+- **What to look for.**
+  - Both runs say Terraform's plan has no changes.
+  - CloudFormation lists no music-chairs stacks in either region.
+  - Lightsail shows the same instance and static IP as before.
+  - S3 shows the backup bucket, plus a new state bucket holding the state file.
+  - The site and your group's data are exactly as before.
+  - `dig TXT dalan.dev` still shows both Google verification values.
+- **Variations to explore.** Change the monthly budget amount and run the dry run: the plan shows exactly that one change. Revert it before applying anything.
+- Notes (corrections to the demo captured in plan/phase-16.md):
+  - The budget amount lives in `monthlyBudgetUsd` in project/deploy/config.json, not in the .tf files.
+  - Until you confirm the alert subscription email (within 48 hours of 2026-10-04 05:08 UTC), "no changes" holds; after 48 hours unconfirmed, the plans show "1 to add" for aws_sns_topic_subscription.alerts. That is expected and fixed by confirming the next email.
+
+Remaining:
+- None for this phase. Phase 17 (visual cleanup) waits for the operator's UI/UX pass and framework choice (user action satisfied-turkey).

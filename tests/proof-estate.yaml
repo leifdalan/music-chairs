@@ -60,8 +60,10 @@ families:
   source_paths:
   - bin/deploy
   - project/deploy/config.json
-  - project/deploy/stack.yaml
-  - project/deploy/alerts.yaml
+  - project/deploy/terraform/**
+  - project/deploy/terraform-release.json
+  - bin/terraform
+  - bin/_terraform-toolchain
   - project/deploy/install-release.sh
   - project/deploy/provision.sh
   - project/deploy/backup.sh
@@ -71,29 +73,37 @@ families:
   covers:
   - bin/deploy
   - project/deploy/config.json
-  - project/deploy/stack.yaml
-  - project/deploy/alerts.yaml
+  - project/deploy/terraform/**
+  - project/deploy/terraform-release.json
+  - bin/terraform
+  - bin/_terraform-toolchain
   - project/deploy/install-release.sh
   - project/deploy/provision.sh
   - project/deploy/backup.sh
   - project/deploy/fetch-secret.sh
   - project/deploy/music-chairs.service
   - tests/test_deploy.py
-  contract: The deploy command acts only on the configured AWS account, never replaces the instance
-    holding the live database, never prompts or leaks the alert email, keeps the server's Google-secret key
-    root-only and scoped to one parameter, and a failed release restores the database copy and
-    the previous release.
+  contract: The deploy command acts only on the configured AWS account, never applies a Terraform plan
+    that destroys, replaces or forgets the instance holding the live database or the other protected
+    resources, never prompts or leaks the alert email, keeps the server's Google-secret key root-only and
+    scoped to one parameter, and a failed release restores the database copy and the previous release.
   risk_class: deploy
-  oracle: Recorded calls of fake aws and ssh executables, exit statuses and messages from the real
-    entry point, parsed CloudFormation templates, and the file system left by install-release.sh with
-    fake systemctl, curl and sqlite3.
+  oracle: Recorded calls of fake aws, terraform and ssh executables (argv and environment), exit statuses
+    and messages from the real entry point, Terraform's JSON plan format, the .tf files parsed with
+    python-hcl2, and the file system left by install-release.sh with fake systemctl, curl and sqlite3.
   admission: 'Phase 5: the deploy critical risk became applicable when bin/deploy was added.'
   nearest_overlap: No other family proves deployment behaviour.
   historical_evidence: []
   mutation_evidence:
   - 'account comparison disabled in bin/deploy: test_deploy_refuses_any_account_but_the_configured_one
     fails'
-  - 'replacement check disabled in bin/deploy: test_a_change_set_that_would_replace_the_instance_is_refused
+  - 'Terraform refusal skipped in bin/deploy: test_a_plan_that_would_destroy_replace_or_forget_a_protected_resource_is_refused
+    fails'
+  - 'saved plan not applied (-auto-approve) in bin/deploy: test_a_clean_plan_is_applied_from_its_saved_file_without_prompts_or_files_in_the_tree
+    fails'
+  - 'alert email passed with --value in bin/deploy: test_the_alert_email_reaches_aws_only_through_stdin
+    fails'
+  - 'bucket prevent_destroy removed in backups.tf: test_the_configuration_protects_live_data_and_keeps_backups_private_for_30_days
     fails'
   - 'database restore removed from install-release.sh: test_a_release_that_fails_its_health_check_restores_the_data_and_the_previous_release
     fails'
@@ -700,6 +710,9 @@ families:
   - bin/node
   - bin/_python-toolchain
   - bin/_node-toolchain
+  - bin/_terraform-toolchain
+  - bin/terraform
+  - project/deploy/terraform-release.json
   - tooling/**
   - tests/test_toolchain_entrypoints.py
   covers:
@@ -709,6 +722,9 @@ families:
   - bin/node
   - bin/_python-toolchain
   - bin/_node-toolchain
+  - bin/_terraform-toolchain
+  - bin/terraform
+  - project/deploy/terraform-release.json
   - tooling/**
   - tests/test_toolchain_entrypoints.py
   contract: setup, test, python, and node select both pinned runtimes, route focused tests by path, honor
@@ -851,6 +867,30 @@ families:
   nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
   historical_evidence: []
   mutation_evidence: []
+  tier: full
+  flake_rate: 0.0
+  replacement_lineage: []
+- id: gate-lint-terraform
+  kind: gate
+  selectors:
+  - lint-terraform
+  source_paths:
+  - bin/check
+  - bin/terraform
+  - project/deploy/terraform/**
+  covers:
+  - bin/check
+  - bin/terraform
+  - project/deploy/terraform/**
+  contract: The structural proof remains executable in the authoritative repository lifecycle.
+  risk_class: lifecycle-custody
+  oracle: The named gate or hook command remains present and fails the lifecycle step on error.
+  admission: 'Phase 16: Terraform formatting and offline validation of project/deploy/terraform became a
+    lint gate.'
+  nearest_overlap: Behavioral families prove implementations; this proof uniquely proves lifecycle wiring.
+  historical_evidence: []
+  mutation_evidence:
+  - 'lint-terraform removed from bin/check: test_all_is_default_locked_ordered_and_cwd_independent fails'
   tier: full
   flake_rate: 0.0
   replacement_lineage: []

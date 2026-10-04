@@ -27,7 +27,8 @@ the pnpm version `project/package.json` pins). Before reporting success it
 probes each: pytest, PyYAML and `ruff --version` in `tooling/`; React Router,
 React's server renderer and every gate tool on the selected Node in
 `project/`. It works from any current directory and refuses a stale or missing
-lockfile.
+lockfile. It also installs the pinned Terraform and mirrors its locked
+providers (see `terraform`), refusing a download whose checksum does not match.
 
 ```bash
 ./bin/setup
@@ -57,17 +58,21 @@ unmapped, so it always runs both suites; mapped code also selects the families o
 
 ### `deploy` — deploy music-chairs to AWS
 
-Creates or updates the AWS infrastructure (`infra`), installs a release on the
-server (`release`) and checks the public site (`smoke`); `all` runs the three in
-order. Every subcommand first confirms that the AWS profile (default
+Creates Terraform's state bucket and the alert email parameter once
+(`bootstrap`), plans and applies the Terraform infrastructure in
+`project/deploy/terraform` (`infra`), installs a release on the server
+(`release`) and checks the public site (`smoke`); `all` runs the four in order. Every subcommand first confirms that the AWS profile (default
 `music-chairs`, from `project/deploy/config.json`) is signed in to the
 configured account and refuses otherwise, before any other AWS or SSH call.
-It refuses an infrastructure change set that would replace or remove the
-instance holding the live database, and is non-interactive: the first alerts
-deploy needs `MUSIC_CHAIRS_ALERT_EMAIL`. `smoke` also reports whether Google
-sign-in is available. `--dry-run` confirms the account and lists the steps. Exit status 1 on any refusal or failure. Tests replace the AWS
-CLI and ssh with `MUSIC_CHAIRS_AWS` and `MUSIC_CHAIRS_SSH`, which must be
-absolute paths. Details: `project/deploy/README.md`.
+It refuses a Terraform plan that would destroy, replace or forget the instance
+holding the live database, its address, the backups, the server's IAM users or
+the Google verification record, and is non-interactive: the first `bootstrap`
+needs `MUSIC_CHAIRS_ALERT_EMAIL`. Terraform runs only through `bin/terraform`.
+`smoke` also reports whether Google sign-in is available. `--dry-run` confirms
+the account, prints the plan's summary and lists the other steps. Exit status 1
+on any refusal or failure. Tests replace the AWS CLI and ssh with
+`MUSIC_CHAIRS_AWS` and `MUSIC_CHAIRS_SSH`, which must be absolute paths, and
+Terraform with `TOOLCHAIN_TERRAFORM`. Details: `project/deploy/README.md`.
 
 ```bash
 ./bin/deploy all
@@ -76,6 +81,28 @@ absolute paths. Details: `project/deploy/README.md`.
 ```bash
 ./bin/deploy release --dry-run
 ```
+
+### `terraform` — repository-pinned Terraform
+
+Runs the Terraform version `project/deploy/terraform-release.json` pins, which
+`./bin/setup` downloads once into the user cache, verifies against the pinned
+SHA-256 and pairs with a mirror of the providers locked by
+`project/deploy/terraform/.terraform.lock.hcl`. Its working data defaults to the
+user cache, never the tree. `TOOLCHAIN_TERRAFORM` names an authoritative
+alternative binary (absolute path) and never falls back; a missing install exits
+nonzero and asks for `./bin/setup`.
+
+```bash
+./bin/terraform -chdir=project/deploy/terraform fmt -check
+```
+
+### `_terraform-toolchain` — shared Terraform selection, install and probe
+
+Sourced by `setup` and `terraform`. Resolves the pinned version and platform,
+honours `TOOLCHAIN_TERRAFORM`, downloads and verifies the binary only for
+`setup` (refusing a checksum mismatch and installing nothing), mirrors the
+locked providers, and probes that the selected binary is the pinned version.
+Written for bash 3.2.
 
 ### `python` — repository-selected Python
 

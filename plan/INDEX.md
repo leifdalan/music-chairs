@@ -71,8 +71,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 13](phase-13.md) | Adding members from Google contacts or by name                     | ✅     |
 | [Phase 14](phase-14.md) | A privacy policy and a home page that pass Google's app verification | ✅     |
 | [Phase 15](phase-15.md) | Proposing several free times at once, and pending requests on the home screen | ✅     |
-| [Phase 16](phase-16.md) | Infrastructure defined in Terraform                                | ⬅️     |
-| [Phase 17](phase-17.md) | Visual cleanup                                                    | ⏳     |
+| [Phase 16](phase-16.md) | Infrastructure defined in Terraform                                | ✅     |
+| [Phase 17](phase-17.md) | Visual cleanup                                                    | ⬅️     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 

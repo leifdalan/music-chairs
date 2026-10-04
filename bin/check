@@ -113,7 +113,24 @@ run_lint() {
     run_gate lint-node node_toolchain_run eslint . || return $?
     run_gate lint-typecheck run_typecheck || return $?
   ) || return $?
+  run_gate lint-terraform run_terraform_lint || return $?
   echo "CHECK lint PASS"
+}
+
+# Formats and validates project/deploy/terraform offline, from the providers
+# ./bin/setup mirrored. The working data is cached per provider lock, so the
+# provider unpacks once rather than on every check.
+run_terraform_lint() {
+  local terraform="$repo_root/bin/terraform"
+  local config="$repo_root/project/deploy/terraform"
+  local mirror="${XDG_CACHE_HOME:-$HOME/.cache}/music-chairs/terraform/providers"
+  local lock_hash
+  lock_hash="$(cksum <"$config/.terraform.lock.hcl" | cut -d' ' -f1)"
+  local data="${XDG_CACHE_HOME:-$HOME/.cache}/music-chairs/terraform/data/validate-$lock_hash"
+  "$terraform" -chdir="$config" fmt -check -recursive &&
+    TF_DATA_DIR="$data" "$terraform" -chdir="$config" init -backend=false -input=false \
+      -lockfile=readonly -plugin-dir="$mirror" >/dev/null &&
+    TF_DATA_DIR="$data" "$terraform" -chdir="$config" validate -no-color
 }
 
 # Route types are generated (into the ignored .react-router/) before tsc reads them.

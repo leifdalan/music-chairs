@@ -68,7 +68,7 @@ def toolchain_repo(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     (root / "bin").mkdir(parents=True)
     (root / "tooling").mkdir()
     (root / "project").mkdir()
-    for helper in ("_python-toolchain", "_node-toolchain"):
+    for helper in ("_python-toolchain", "_node-toolchain", "_terraform-toolchain"):
         shutil.copy2(REPO_ROOT / "bin" / helper, root / "bin" / helper)
     for entrypoint in ENTRYPOINTS:
         shutil.copy2(REPO_ROOT / "bin" / entrypoint, root / "bin" / entrypoint)
@@ -88,6 +88,7 @@ fi
     (root / "project" / "package.json").write_text('{"name": "fixture"}\n')
     (root / "project" / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n")
     _write_executable(root / "project" / "node_modules" / "node" / "bin" / "node", NODE_STUB)
+    _write_terraform_release(root, "0" * 64)
 
     log_path = tmp_path / "calls.log"
     tool_dir = tmp_path / "tools"
@@ -118,14 +119,35 @@ printf 'corepack cwd=%s args=%s\\n' "$PWD" "$*" >> "$TOOLCHAIN_TEST_LOG"
 exit "${TOOLCHAIN_TEST_COREPACK_FAIL:-0}"
 """,
     )
+    # An authoritative Terraform stand-in, so setup never downloads one.
+    _write_executable(
+        tool_dir / "terraform",
+        """#!/usr/bin/env bash
+printf 'terraform args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
+""",
+    )
     environment = os.environ.copy()
     # No host node, corepack, or uv can leak in: only the stubs and base utilities.
     environment["PATH"] = f"{tool_dir}:/usr/bin:/bin"
+    environment["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    environment["TOOLCHAIN_TERRAFORM"] = str(tool_dir / "terraform")
     environment["TOOLCHAIN_TEST_LOG"] = str(log_path)
     environment["TOOLCHAIN_TEST_MANAGED_ROOT"] = str(tool_dir / "managed-python")
     environment.pop("TOOLCHAIN_PYTHON", None)
     environment.pop("TOOLCHAIN_NODE", None)
     return root, environment
+
+
+def _write_terraform_release(root: Path, sha256: str) -> None:
+    platform = {"Darwin": "darwin", "Linux": "linux"}[os.uname().sysname]
+    arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[os.uname().machine]
+    release = root / "project" / "deploy" / "terraform-release.json"
+    release.parent.mkdir(parents=True, exist_ok=True)
+    release.write_text(
+        '{\n  "version": "9.9.9",\n  "sha256": {\n'
+        f'    "{platform}_{arch}": "{sha256}"\n'
+        "  }\n}\n"
+    )
 
 
 def _run_path(
@@ -221,7 +243,89 @@ def test_setup_provisions_and_probes_both_runtimes_from_their_lockfiles(
         _python_probe(root),
         f"corepack cwd={root / 'project'} args=pnpm install --frozen-lockfile",
         f"node={node} cwd={root / 'project'} probe",
+        (
+            f"terraform args=-chdir={root / 'project' / 'deploy' / 'terraform'} providers "
+            f"mirror {tmp_path / 'cache' / 'music-chairs' / 'terraform' / 'providers'}"
+        ),
     ]
+
+
+def test_setup_installs_only_a_terraform_matching_its_pinned_checksum(
+    toolchain_repo: tuple[Path, dict[str, str]], tmp_path: Path
+) -> None:
+    root, environment = toolchain_repo
+    environment.pop("TOOLCHAIN_TERRAFORM")
+    # A fake download: a zip holding a terraform that reports the pinned version.
+    payload = tmp_path / "payload"
+    _write_executable(
+        payload / "terraform",
+        """#!/usr/bin/env bash
+if [[ "$1" == "version" ]]; then printf '{"terraform_version": "9.9.9"}\\n'; exit 0; fi
+printf 'pinned terraform args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
+""",
+    )
+    archive = tmp_path / "terraform.zip"
+    subprocess.run(["zip", "-q", "-j", str(archive), str(payload / "terraform")], check=True)
+    _write_executable(
+        tmp_path / "tools" / "curl",
+        f'#!/usr/bin/env bash\nwhile [[ "$1" != "-o" ]]; do shift; done\ncp {archive} "$2"\n',
+    )
+    installed = tmp_path / "cache" / "music-chairs" / "terraform" / "9.9.9" / "terraform"
+
+    refused = _run(root, environment, "setup")
+
+    assert refused.returncode != 0
+    assert "does not match the pinned" in refused.stderr
+    assert not installed.exists()
+
+    digest = subprocess.run(
+        ["shasum", "-a", "256", str(archive)], capture_output=True, text=True, check=True
+    ).stdout.split()[0]
+    _write_terraform_release(root, digest)
+    accepted = _run(root, environment, "setup")
+
+    assert accepted.returncode == 0, accepted.stderr
+    assert installed.exists()
+    assert any(call.startswith("pinned terraform args=") for call in _calls(environment))
+
+
+def test_terraform_runs_offline_with_its_data_outside_the_tree(
+    toolchain_repo: tuple[Path, dict[str, str]], tmp_path: Path
+) -> None:
+    root, environment = toolchain_repo
+    shutil.copy2(REPO_ROOT / "bin" / "terraform", root / "bin" / "terraform")
+    _write_executable(
+        tmp_path / "tools" / "terraform",
+        """#!/usr/bin/env bash
+printf 'terraform data=%s checkpoint=%s args=%s\\n' "$TF_DATA_DIR" "$CHECKPOINT_DISABLE" "$*" \\
+  >> "$TOOLCHAIN_TEST_LOG"
+""",
+    )
+
+    defaulted = _run(root, environment, "terraform", "version")
+    environment["TF_DATA_DIR"] = str(tmp_path / "chosen")
+    chosen = _run(root, environment, "terraform", "version")
+
+    assert defaulted.returncode == 0 and chosen.returncode == 0, defaulted.stderr + chosen.stderr
+    cache = tmp_path / "cache" / "music-chairs" / "terraform" / "data" / "manual"
+    assert _calls(environment) == [
+        f"terraform data={cache} checkpoint=1 args=version",
+        f"terraform data={tmp_path / 'chosen'} checkpoint=1 args=version",
+    ]
+
+
+def test_invalid_terraform_override_refuses_without_fallback(
+    toolchain_repo: tuple[Path, dict[str, str]],
+) -> None:
+    root, environment = toolchain_repo
+    environment["TOOLCHAIN_TERRAFORM"] = "terraform"
+
+    result = _run(root, environment, "setup")
+
+    assert result.returncode != 0
+    assert "TOOLCHAIN_TERRAFORM must be an executable absolute path" in result.stderr
+    assert "no fallback was attempted" in result.stderr
+    assert not any(call.startswith("terraform ") for call in _calls(environment))
 
 
 def test_setup_propagates_the_package_manager_status(
@@ -250,6 +354,8 @@ def _assert_selected_repository(
             assert f"--project {root / 'tooling'} --locked" in call, call
         elif call.startswith("node="):
             assert call.startswith(f"node={_managed_node(root)} "), call
+        elif call.startswith("terraform "):
+            assert f"-chdir={root / 'project' / 'deploy' / 'terraform'} " in call, call
         else:
             assert call.startswith(f"corepack cwd={root / 'project'} "), call
 

@@ -202,8 +202,26 @@ esac
             root / "bin" / executable,
             f'#!/usr/bin/env bash\nprintf \'{label} cwd=%s\\n\' "$PWD" >> "$CHECK_TEST_LOG"\n',
         )
+    # The pinned Terraform wrapper: logs which configuration and subcommand ran.
+    _write_executable(
+        root / "bin" / "terraform",
+        """#!/usr/bin/env bash
+chdir="${1#-chdir=}"
+printf 'terraform chdir=%s cmd=%s\n' "$chdir" "$2" >> "$CHECK_TEST_LOG"
+if [[ "$2" == "init" ]]; then
+  printf 'terraform init data=%s args=%s\n' "$TF_DATA_DIR" "${*:3}" >> "$CHECK_TEST_INIT_LOG"
+fi
+if [[ "$2" == "${CHECK_TEST_TERRAFORM_FAIL:-none}" ]]; then
+  exit "${CHECK_TEST_FAIL_CODE:-23}"
+fi
+""",
+    )
+    (root / "project" / "deploy" / "terraform").mkdir(parents=True)
+    (root / "project" / "deploy" / "terraform" / ".terraform.lock.hcl").write_text("# lock\n")
     environment = os.environ.copy()
     environment["PATH"] = f"{tool_dir}:/usr/bin:/bin"
+    environment["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    environment["CHECK_TEST_INIT_LOG"] = str(tmp_path / "terraform-init.log")
     environment["CHECK_TEST_LOG"] = str(log_path)
     environment["CHECK_TEST_MANAGED_ROOT"] = str(tool_dir / "managed-python")
     environment.pop("TOOLCHAIN_PYTHON", None)
@@ -253,6 +271,10 @@ def test_all_is_default_locked_ordered_and_cwd_independent(
         f"node cwd={project} args=/entry/eslint .",
         f"node cwd={project} args=/entry/react-router typegen",
         f"node cwd={project} args=/entry/tsc",
+        *(
+            f"terraform chdir={project / 'deploy' / 'terraform'} cmd={command}"
+            for command in ("fmt", "init", "validate")
+        ),
         (
             f"uv cwd={root / 'tooling'} args=run --locked --managed-python ruff format --check "
             f"{PYTHON_TARGETS}"
@@ -280,6 +302,17 @@ def test_all_is_default_locked_ordered_and_cwd_independent(
         f"governance cwd={root} args=validate",
         f"governance cwd={root} args=timing",
     ]
+    # Terraform validates offline: no backend, mirrored providers, a read-only
+    # lock file, and a cached working directory outside the tree.
+    init = Path(environment["CHECK_TEST_INIT_LOG"]).read_text().strip()
+    data, arguments = init.removeprefix("terraform init data=").split(" args=")
+    assert data.startswith(str(tmp_path / "cache" / "music-chairs" / "terraform" / "data"))
+    assert arguments.split() == [
+        "-backend=false",
+        "-input=false",
+        "-lockfile=readonly",
+        f"-plugin-dir={tmp_path / 'cache' / 'music-chairs' / 'terraform' / 'providers'}",
+    ]
     for mode in ("lint", "format", "test", "policy"):
         assert f"CHECK {mode} PASS" in result.stdout
     assert "CHECK ALL PASS" in result.stdout
@@ -288,7 +321,15 @@ def test_all_is_default_locked_ordered_and_cwd_independent(
 @pytest.mark.parametrize(
     ("mode", "expected"),
     [
-        ("lint", ["CHECK lint-python PASS", "CHECK lint-node PASS", "CHECK lint-typecheck PASS"]),
+        (
+            "lint",
+            [
+                "CHECK lint-python PASS",
+                "CHECK lint-node PASS",
+                "CHECK lint-typecheck PASS",
+                "CHECK lint-terraform PASS",
+            ],
+        ),
         ("format", ["CHECK format-python PASS", "CHECK format-node PASS"]),
     ],
 )
@@ -319,6 +360,21 @@ def test_node_lint_failure_status_propagates_and_suppresses_the_summary(
 
     assert result.returncode == 47
     assert f"CHECK {gate} FAIL (exit 47)" in result.stderr
+    assert "CHECK lint PASS" not in result.stdout
+
+
+@pytest.mark.parametrize("failing_command", ["fmt", "validate"])
+def test_terraform_lint_failure_status_propagates_and_suppresses_the_summary(
+    check_repo: tuple[Path, dict[str, str]], failing_command: str
+) -> None:
+    root, environment = check_repo
+    environment["CHECK_TEST_TERRAFORM_FAIL"] = failing_command
+    environment["CHECK_TEST_FAIL_CODE"] = "43"
+
+    result = _run(root, environment, "lint")
+
+    assert result.returncode == 43
+    assert "CHECK lint-terraform FAIL (exit 43)" in result.stderr
     assert "CHECK lint PASS" not in result.stdout
 
 

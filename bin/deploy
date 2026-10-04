@@ -4,11 +4,14 @@
 # ///
 """Deploy music-chairs to AWS: infrastructure, a release, and a public smoke check.
 
-Settings live in project/deploy/config.json. Every subcommand first confirms that
-the AWS profile belongs to the configured account and refuses otherwise, before
-any other AWS or SSH call. Nothing secret is written to the repository: the
-alert email comes from MUSIC_CHAIRS_ALERT_EMAIL, the SSH key and pinned host key
-live under ~/.ssh, and the backup key is piped straight to the server.
+Settings live in project/deploy/config.json; the infrastructure is the Terraform
+configuration in project/deploy/terraform, run through the repository's pinned
+bin/terraform. Every subcommand first confirms that the AWS profile belongs to
+the configured account and refuses otherwise, before any other AWS, Terraform or
+SSH call. Nothing secret is written to the repository: the alert email is read
+once from MUSIC_CHAIRS_ALERT_EMAIL into Parameter Store, Terraform's plan files
+live in a temporary directory, the SSH key and pinned host key live under
+~/.ssh, and the backup key is piped straight to the server.
 """
 
 from __future__ import annotations
@@ -31,15 +34,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / "project"
 DEPLOY = PROJECT / "deploy"
-PROTECTED = {"Instance", "StaticIp"}
-# Stack states a change set of type UPDATE may start from.
-UPDATABLE = {
-    "CREATE_COMPLETE",
-    "UPDATE_COMPLETE",
-    "UPDATE_ROLLBACK_COMPLETE",
-    "IMPORT_COMPLETE",
-    "IMPORT_ROLLBACK_COMPLETE",
+TERRAFORM_DIR = DEPLOY / "terraform"
+# Never destroyed, replaced or forgotten by a plan: the live database's server
+# and address, the backups and their protections, the keys the server holds, and
+# the Google verification values.
+PROTECTED = {
+    "aws_lightsail_instance.app",
+    "aws_lightsail_static_ip.app",
+    "aws_lightsail_static_ip_attachment.app",
+    "aws_s3_bucket.backups",
+    "aws_s3_bucket_versioning.backups",
+    "aws_s3_bucket_lifecycle_configuration.backups",
+    "aws_s3_bucket_public_access_block.backups",
+    "aws_s3_bucket_server_side_encryption_configuration.backups",
+    "aws_s3_bucket_ownership_controls.backups",
+    "aws_iam_user.backup",
+    "aws_iam_user_policy.backup",
+    "aws_iam_user.app",
+    "aws_iam_user_policy.app",
+    "aws_route53_record.google_verification",
 }
+# Files in project/deploy that never go to the server.
+NOT_UPLOADED = {"terraform", "terraform-release.json"}
 REMOTE_DEPLOY_DIR = "/tmp/music-chairs-deploy"
 REMOTE_ARCHIVE = "/tmp/music-chairs-release.tgz"
 
@@ -68,6 +84,11 @@ class Deployment:
         self.dry_run = dry_run
         self.aws_cli = tool("MUSIC_CHAIRS_AWS", "aws")
         self.ssh_cli = tool("MUSIC_CHAIRS_SSH", "ssh")
+        # Always the pinned wrapper; TOOLCHAIN_TERRAFORM (read by the wrapper) is
+        # the one override.
+        self.terraform_cli = str(ROOT / "bin" / "terraform")
+        cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+        self.terraform_data = cache / "music-chairs" / "terraform" / "data" / "deploy"
         ssh_dir = Path.home() / ".ssh"
         self.key_file = ssh_dir / "music-chairs-lightsail"
         self.known_hosts = ssh_dir / "music-chairs-known-hosts"
@@ -135,173 +156,148 @@ class Deployment:
         with os.fdopen(descriptor, "w") as handle:
             handle.write(created["privateKeyBase64"])
 
-    def stack_status(self, name: str, region: str) -> str | None:
-        """The stack's status, or None when it does not exist."""
-        found = self.aws(
-            "cloudformation", "describe-stacks", "--stack-name", name, region=region, check=False
-        )
-        if "__error__" in found:
-            if "does not exist" in found["__error__"]:
-                return None
-            raise DeployError(f"could not read stack {name}: {found['__error__'].strip()}")
-        return found["Stacks"][0]["StackStatus"]
+    # -- bootstrap -----------------------------------------------------------
 
-    def change_set_type(self, name: str, region: str) -> str:
-        status = self.stack_status(name, region)
-        if status is None or status == "REVIEW_IN_PROGRESS":
-            return "CREATE"
-        if status in UPDATABLE:
-            return "UPDATE"
-        raise DeployError(
-            f"stack {name} is in state {status} and cannot be updated. If its first deploy "
-            "failed, see 'A failed first deploy' in project/deploy/README.md. Nothing was changed."
-        )
-
-    def deploy_stack(
-        self, name: str, template: Path, parameters: list[dict], region: str, protect: set[str]
-    ) -> None:
-        if not self.step(f"deploy stack {name} in {region} through a change set"):
+    def bootstrap(self) -> None:
+        """Creates Terraform's state bucket and the alert email parameter when absent."""
+        config = self.config
+        bucket = config["stateBucket"]
+        parameter = config["alertEmailParameter"]
+        if not self.step(f"ensure the state bucket {bucket} and the parameter {parameter}"):
             return
-        change_type = self.change_set_type(name, region)
-        change_set = f"deploy-{int(time.time())}"
+        found = self.aws("s3api", "head-bucket", "--bucket", bucket, check=False)
+        if "__error__" in found:
+            if "404" not in found["__error__"] and "Not Found" not in found["__error__"]:
+                raise DeployError(f"could not check bucket {bucket}: {found['__error__'].strip()}")
+            self.aws(
+                "s3api",
+                "create-bucket",
+                "--bucket",
+                bucket,
+                "--create-bucket-configuration",
+                f"LocationConstraint={config['region']}",
+            )
+            print(f"created state bucket {bucket}")
+        # Re-applied every time (each call is idempotent), so a bootstrap that
+        # stopped part-way still ends with a private, encrypted, versioned bucket.
         self.aws(
-            "cloudformation",
-            "create-change-set",
-            "--stack-name",
-            name,
-            "--change-set-name",
-            change_set,
-            "--change-set-type",
-            change_type,
-            "--template-body",
-            template.read_text(),
-            "--parameters",
-            json.dumps(parameters),
-            "--capabilities",
-            "CAPABILITY_IAM",
-            region=region,
+            "s3api",
+            "put-public-access-block",
+            "--bucket",
+            bucket,
+            "--public-access-block-configuration",
+            "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,"
+            "RestrictPublicBuckets=true",
         )
-        waited = self.aws(
-            "cloudformation",
-            "wait",
-            "change-set-create-complete",
-            "--stack-name",
-            name,
-            "--change-set-name",
-            change_set,
-            region=region,
+        self.aws(
+            "s3api",
+            "put-bucket-ownership-controls",
+            "--bucket",
+            bucket,
+            "--ownership-controls",
+            "Rules=[{ObjectOwnership=BucketOwnerEnforced}]",
+        )
+        self.aws(
+            "s3api",
+            "put-bucket-encryption",
+            "--bucket",
+            bucket,
+            "--server-side-encryption-configuration",
+            "Rules=[{ApplyServerSideEncryptionByDefault={SSEAlgorithm=AES256}}]",
+        )
+        self.aws(
+            "s3api",
+            "put-bucket-versioning",
+            "--bucket",
+            bucket,
+            "--versioning-configuration",
+            "Status=Enabled",
+        )
+        existing = self.aws("ssm", "get-parameter", "--name", parameter, check=False)
+        if "__error__" not in existing:
+            return
+        if "ParameterNotFound" not in existing["__error__"]:
+            raise DeployError(f"could not read {parameter}: {existing['__error__'].strip()}")
+        email = os.environ.get("MUSIC_CHAIRS_ALERT_EMAIL", "").strip()
+        if not email:
+            raise DeployError(
+                f"set MUSIC_CHAIRS_ALERT_EMAIL once to create {parameter}; it is kept in AWS "
+                "only, never in the repository. Nothing else was changed."
+            )
+        # The address goes through a private file that is removed at once, never on
+        # a command line (the AWS CLI cannot read --cli-input-json from a pipe).
+        with tempfile.TemporaryDirectory() as work:
+            request = Path(work) / "parameter.json"
+            descriptor = os.open(request, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w") as handle:
+                json.dump({"Name": parameter, "Type": "SecureString", "Value": email}, handle)
+            self.aws("ssm", "put-parameter", "--cli-input-json", f"file://{request}")
+        print(f"created {parameter}")
+
+    # -- infra ---------------------------------------------------------------
+
+    def terraform(self, *args: str, capture: bool = False) -> str:
+        env = {
+            **os.environ,
+            "AWS_PROFILE": self.profile,
+            "TF_IN_AUTOMATION": "1",
+            "TF_INPUT": "0",
+            "TF_DATA_DIR": str(self.terraform_data),
+        }
+        result = subprocess.run(
+            [self.terraform_cli, f"-chdir={TERRAFORM_DIR}", *args],
+            env=env,
+            capture_output=capture,
+            text=True,
             check=False,
         )
-        described = self.aws(
-            "cloudformation",
-            "describe-change-set",
-            "--stack-name",
-            name,
-            "--change-set-name",
-            change_set,
-            region=region,
+        if result.returncode != 0:
+            detail = (result.stderr or "").strip() if capture else ""
+            raise DeployError(f"terraform {args[0]} failed" + (f": {detail}" if detail else ""))
+        return result.stdout if capture else ""
+
+    def terraform_init(self) -> None:
+        config = self.config
+        self.terraform(
+            "init",
+            "-input=false",
+            "-lockfile=readonly",
+            "-reconfigure",
+            f"-backend-config=bucket={config['stateBucket']}",
+            "-backend-config=key=music-chairs.tfstate",
+            f"-backend-config=region={config['region']}",
+            f"-backend-config=profile={self.profile}",
         )
-        if "__error__" in waited:
-            reason = described.get("StatusReason", "")
-            self.aws(
-                "cloudformation",
-                "delete-change-set",
-                "--stack-name",
-                name,
-                "--change-set-name",
-                change_set,
-                region=region,
-                check=False,
-            )
-            if "didn't contain changes" in reason or "No updates" in reason:
-                print(f"stack {name} is already up to date")
-                return
-            raise DeployError(f"change set for {name} failed: {reason}")
-        for change in described.get("Changes", []):
-            resource = change.get("ResourceChange", {})
-            replaces = resource.get("Replacement") in ("True", "Conditional")
-            if resource.get("LogicalResourceId") in protect and (
-                resource.get("Action") == "Remove" or replaces
-            ):
-                self.aws(
-                    "cloudformation",
-                    "delete-change-set",
-                    "--stack-name",
-                    name,
-                    "--change-set-name",
-                    change_set,
-                    region=region,
-                    check=False,
-                )
-                raise DeployError(
-                    "refusing: this change would replace or remove "
-                    f"{resource['LogicalResourceId']}, which holds the live database. "
-                    "Nothing was changed."
-                )
-        self.aws(
-            "cloudformation",
-            "execute-change-set",
-            "--stack-name",
-            name,
-            "--change-set-name",
-            change_set,
-            region=region,
-        )
-        waiter = "stack-create-complete" if change_type == "CREATE" else "stack-update-complete"
-        self.aws("cloudformation", "wait", waiter, "--stack-name", name, region=region)
-        print(f"stack {name} deployed")
 
     def infra(self) -> None:
-        config = self.config
         self.ensure_key_pair()
-        parameters = {
-            "InstanceName": config["instanceName"],
-            "BundleId": config["bundleId"],
-            "BlueprintId": config["blueprintId"],
-            "AvailabilityZone": config["availabilityZone"],
-            "KeyPairName": config["keyPairName"],
-            "DomainName": config["domain"],
-            "HostedZoneId": config["hostedZoneId"],
-            "GoogleSecretParameter": config["googleSecretParameter"],
-        }
-        self.deploy_stack(
-            config["stack"],
-            DEPLOY / "stack.yaml",
-            [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()],
-            config["region"],
-            PROTECTED,
-        )
-        email = os.environ.get("MUSIC_CHAIRS_ALERT_EMAIL", "").strip()
-        alerts = config["alertsStack"]
-        if email:
-            email_parameter = {"ParameterKey": "AlertEmail", "ParameterValue": email}
-        elif self.dry_run or self.stack_status(alerts, config["alertsRegion"]) in UPDATABLE:
-            email_parameter = {"ParameterKey": "AlertEmail", "UsePreviousValue": True}
-        else:
-            raise DeployError(
-                "set MUSIC_CHAIRS_ALERT_EMAIL for the first deploy of the alerts stack; it is "
-                "kept in AWS only, never in the repository"
+        if self.dry_run:
+            existing = self.aws(
+                "s3api", "head-bucket", "--bucket", self.config["stateBucket"], check=False
             )
-        self.deploy_stack(
-            alerts,
-            DEPLOY / "alerts.yaml",
-            [
-                {"ParameterKey": "DomainName", "ParameterValue": config["domain"]},
-                email_parameter,
-                {
-                    "ParameterKey": "MonthlyBudgetUsd",
-                    "ParameterValue": str(config["monthlyBudgetUsd"]),
-                },
-            ],
-            config["alertsRegion"],
-            set(),
-        )
+            if "__error__" in existing:
+                raise DeployError(
+                    "the state bucket does not exist yet; run ./bin/deploy bootstrap first"
+                )
+        print("plan the infrastructure with Terraform")
+        self.terraform_init()
+        with tempfile.TemporaryDirectory() as work:
+            plan_file = str(Path(work) / "infra.tfplan")
+            self.terraform("plan", "-input=false", "-out", plan_file)
+            plan = json.loads(self.terraform("show", "-json", plan_file, capture=True))
+            refuse_destructive(plan)
+            print(summarize(plan))
+            if not self.step("apply the plan"):
+                return
+            self.terraform("apply", "-input=false", plan_file)
+        print("infrastructure up to date")
 
     # -- release -------------------------------------------------------------
 
     def outputs(self) -> dict[str, str]:
-        stacks = self.aws("cloudformation", "describe-stacks", "--stack-name", self.config["stack"])
-        return {o["OutputKey"]: o["OutputValue"] for o in stacks["Stacks"][0].get("Outputs", [])}
+        self.terraform_init()
+        shown = json.loads(self.terraform("output", "-json", capture=True))
+        return {name: item["value"] for name, item in shown.items()}
 
     def pin_host_key(self, address: str) -> None:
         details = self.aws(
@@ -362,9 +358,9 @@ class Deployment:
 
     def release(self) -> None:
         config = self.config
-        if self.step("read the stack outputs and pin the instance's SSH host key"):
+        if self.step("read the Terraform outputs and pin the instance's SSH host key"):
             outputs = self.outputs()
-            address = outputs["StaticIpAddress"]
+            address = outputs["static_ip_address"]
             self.pin_host_key(address)
         if self.step("upload project/deploy and run provision.sh (idempotent server setup)"):
             node_version = json.loads((PROJECT / "package.json").read_text())["devEngines"][
@@ -373,7 +369,8 @@ class Deployment:
             with tempfile.TemporaryFile() as bundle:
                 with tarfile.open(fileobj=bundle, mode="w:gz") as tar:
                     for path in sorted(DEPLOY.iterdir()):
-                        tar.add(path, arcname=path.name)
+                        if path.name not in NOT_UPLOADED:
+                            tar.add(path, arcname=path.name)
                 bundle.seek(0)
                 self.ssh(
                     address,
@@ -385,7 +382,7 @@ class Deployment:
                 "DOMAIN": config["domain"],
                 "PUBLIC_URL": f"https://{config['domain']}",
                 "NODE_VERSION": node_version,
-                "BUCKET": outputs["BackupBucketName"],
+                "BUCKET": outputs["backup_bucket_name"],
                 "REGION": config["region"],
                 "GOOGLE_CLIENT_ID": config["googleClientId"],
                 "GOOGLE_SECRET_PARAMETER": config["googleSecretParameter"],
@@ -400,10 +397,10 @@ class Deployment:
             # The backup runs as music-chairs; the app key is read only by root
             # (fetch-secret.sh), so the app itself cannot read it.
             self.ensure_server_key(
-                address, outputs["BackupUserName"], "/etc/music-chairs/backup.env", "music-chairs"
+                address, outputs["backup_user_name"], "/etc/music-chairs/backup.env", "music-chairs"
             )
             self.ensure_server_key(
-                address, outputs["AppUserName"], "/etc/music-chairs/app.env", "root"
+                address, outputs["app_user_name"], "/etc/music-chairs/app.env", "root"
             )
         if self.step(
             "build the app and install it as a release (rolls back on a failed health check)"
@@ -517,6 +514,33 @@ class Deployment:
         print(f"smoke passed against {origin}")
 
 
+def refuse_destructive(plan: dict) -> None:
+    """Refuses a plan that would destroy, replace or forget a protected resource."""
+    for change in plan.get("resource_changes", []):
+        actions = change.get("change", {}).get("actions", [])
+        if change.get("address") in PROTECTED and ("delete" in actions or "forget" in actions):
+            raise DeployError(
+                f"refusing: this change would replace, remove or forget {change['address']}, "
+                "which the live service depends on. Nothing was changed."
+            )
+
+
+def summarize(plan: dict) -> str:
+    """The plan's counts, as Terraform reports them."""
+    counts = {"create": 0, "update": 0, "delete": 0, "forget": 0}
+    for change in plan.get("resource_changes", []):
+        for action in change.get("change", {}).get("actions", []):
+            if action in counts:
+                counts[action] += 1
+    if not any(counts.values()):
+        return "plan: no changes"
+    summary = (
+        f"plan: {counts['create']} to add, {counts['update']} to change, "
+        f"{counts['delete']} to destroy"
+    )
+    return summary + (f", {counts['forget']} to forget" if counts["forget"] else "")
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
@@ -541,7 +565,7 @@ def google_sign_in(origin: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["infra", "release", "smoke", "all"])
+    parser.add_argument("command", choices=["bootstrap", "infra", "release", "smoke", "all"])
     parser.add_argument(
         "--profile", default=None, help="AWS CLI profile (default from config.json)"
     )
@@ -555,6 +579,8 @@ def main() -> int:
         config = json.loads((DEPLOY / "config.json").read_text())
         deployment = Deployment(args.profile or config["profile"], args.dry_run)
         deployment.guard()
+        if args.command in ("bootstrap", "all"):
+            deployment.bootstrap()
         if args.command in ("infra", "all"):
             deployment.infra()
         if args.command in ("release", "all"):
