@@ -32,6 +32,38 @@ AWS emails a confirmation link for the alert subscription; click it within 48 ho
 
 Terraform's behaviour relied on here is documented by HashiCorp: the S3 backend and its lock file (https://developer.hashicorp.com/terraform/language/backend/s3, as of Terraform 1.16, retrieved 2026-10-04) and the `prevent_destroy` lifecycle setting (https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle, retrieved 2026-10-04). The AWS provider's resource pages are pinned under `docs/`.
 
+## Continuous integration and deployment
+
+Changes reach `main` through pull requests (plan/phase-18.md). `.github/workflows/ci.yml` (workflow **CI/CD**) runs on GitHub-hosted Ubuntu machines:
+
+- **check**, on every pull request and every push to `main`: `./bin/setup`, `./bin/check all` and `project/scripts/smoke.sh`, with Node 24.21.0 and uv 0.12.22 pinned. A ruleset on `main` requires this check, requires a pull request, and blocks force-pushes and deletion, so nothing reaches `main` untested.
+- **deploy**, after **check** on a push to `main` (a merged pull request), one at a time: it assumes the IAM role `music-chairs-github-deploy` through GitHub's OpenID Connect token, writes the deploy SSH key from the secret `DEPLOY_SSH_KEY`, and runs `./bin/deploy all --profile music-chairs --refuse-infra-changes`.
+
+GitHub holds no AWS keys. The role (`project/deploy/terraform/github.tf`) trusts only GitHub tokens whose subject is `repo:leifdalan@571833/music-chairs@1402125894:ref:refs/heads/main`: GitHub's immutable subject format, the default for repositories created after 2026-07-15, built from the owner and repository with their numeric ids (`githubOidcRepository` in `config.json`; GitHub's wording is pinned in `docs/github-actions-oidc-rulesets-2026-10-04.md`). It can read the account (AWS's `ReadOnlyAccess`) except, through AWS's APIs, the database backups, the Google client secret and parameter paths; it can write Terraform's state and the state bucket's settings, and decrypt only the alert-email parameter. It cannot change IAM or any other AWS resource. It is still, like the deploy key, administrator access to the server: `ReadOnlyAccess` includes Lightsail's `GetInstanceAccessDetails`, which issues temporary SSH access as `admin` (passwordless sudo), and the server holds the live database and the key that reads the Google secret. The denies stop only direct reads through AWS. So:
+
+- **Infrastructure changes are applied by hand before merging**: `./bin/deploy infra --profile music-chairs` from a branch, then merge. The deploy job refuses any plan with changes.
+- **A server without its backup or app key** needs a hand deploy (`./bin/deploy release`); the job cannot create IAM keys.
+
+To rerun a deploy, rerun the workflow run for the merge commit in GitHub's **Actions** tab. When GitHub is unavailable, deploy by hand from a clean checkout of `main`: `./bin/deploy all`.
+
+**The deploy key.** `deploy-keys.pub` lists the public keys the deploy job may use; `provision.sh` keeps them as one marked block in the SSH user's `authorized_keys` (`install-deploy-keys.sh`), leaving the operator's key and every other line untouched, and refuses to write a file with no key outside the block. To rotate the key without a failed deploy, overlap the old and new keys:
+
+1. Make a new pair and add its public half to `deploy-keys.pub` as a second line; merge. CI still deploys with the old key and installs both.
+2. Store the new private half as the secret; the directory is then removed.
+3. Remove the old line from `deploy-keys.pub`; merge. CI deploys with the new key.
+
+```sh
+umask 077; d=$(mktemp -d); ssh-keygen -q -t ed25519 -N '' -C music-chairs-github-deploy -f "$d/key"; cat "$d/key.pub"
+```
+
+```sh
+./bin/gh secret set DEPLOY_SSH_KEY < "$d/key" && rm -rf "$d"
+```
+
+An empty list removes the block; revoke by hand (`./bin/deploy release`), since a CI deploy would lose its own key partway through. Revoking the key does not end CI's access to the server on its own: `ReadOnlyAccess` includes Lightsail's `GetInstanceAccessDetails`, which issues temporary SSH access, so also delete the repository variable `DEPLOY_ROLE_ARN` (or the role). If `authorized_keys` is ever damaged, Lightsail's browser SSH (certificate-based, independent of that file) still gets in.
+
+**GitHub settings**, made once with `./bin/gh` (signed in by the operator): the repository variable `DEPLOY_ROLE_ARN` (Terraform's `deploy_role_arn` output), the secret `DEPLOY_SSH_KEY`, and the ruleset **main** (`pull_request`, `required_status_checks` for `check`, `non_fast_forward`, `deletion`, no bypass). The repository is public, which gives unlimited hosted minutes and an enforceable ruleset on the free plan; it holds no secret. A rename or transfer changes GitHub's subject (the numeric ids stay), so update `githubOidcRepository` and apply by hand first.
+
 ## Secrets
 
 - **SSH key:** `bin/deploy` creates the Lightsail key pair `music-chairs` on first use and saves its private key to `~/.ssh/music-chairs-lightsail` (it cannot be downloaded again). The instance's host key is pinned in `~/.ssh/music-chairs-known-hosts` from Lightsail's own record.

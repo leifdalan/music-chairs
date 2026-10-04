@@ -13,3 +13,7 @@ output "backup_user_name" {
 output "app_user_name" {
   value = aws_iam_user.app.name
 }
+
+output "deploy_role_arn" {
+  value = aws_iam_role.github_deploy.arn
+}

@@ -1,0 +1,55 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NoBackups",
+      "Effect": "Deny",
+      "Action": "s3:GetObject*",
+      "Resource": "${backup_bucket_arn}/*"
+    },
+    {
+      "Sid": "NoGoogleSecret",
+      "Effect": "Deny",
+      "Action": "ssm:GetParameter*",
+      "Resource": "${google_secret_arn}"
+    },
+    {
+      "Sid": "NoParameterPaths",
+      "Effect": "Deny",
+      "Action": "ssm:GetParametersByPath",
+      "Resource": ["${parameter_prefix}/", "${parameter_prefix}/music-chairs"]
+    },
+    {
+      "Sid": "TerraformState",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "${state_bucket_arn}/music-chairs.tfstate",
+        "${state_bucket_arn}/music-chairs.tfstate.tflock"
+      ]
+    },
+    {
+      "Sid": "StateBucketSettings",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketOwnershipControls",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutBucketVersioning"
+      ],
+      "Resource": "${state_bucket_arn}"
+    },
+    {
+      "Sid": "AlertEmail",
+      "Effect": "Allow",
+      "Action": "kms:Decrypt",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": "ssm.${region}.amazonaws.com",
+          "kms:EncryptionContext:PARAMETER_ARN": "${alert_email_arn}"
+        }
+      }
+    }
+  ]
+}

@@ -18,8 +18,9 @@ usage() {
 Usage: ./bin/setup
 
 Provision the repository's pinned, locked development environments: the
-governance environment in tooling/, the deliverable in project/, and the pinned
-Terraform with its locked providers for project/deploy/terraform.
+governance environment in tooling/, the deliverable in project/, the pinned
+Terraform with its locked providers for project/deploy/terraform, and the
+pinned GitHub CLI (bin/gh).
 USAGE
 }
 
@@ -36,7 +37,7 @@ if [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-for toolchain_helper in _python-toolchain _node-toolchain _terraform-toolchain; do
+for toolchain_helper in _python-toolchain _node-toolchain _terraform-toolchain _gh-toolchain; do
   if [[ ! -r "$repo_root/bin/$toolchain_helper" ]]; then
     echo "SETUP ERROR missing required file: bin/$toolchain_helper" >&2
     exit 1
@@ -46,6 +47,7 @@ done
 python_toolchain_init SETUP
 node_toolchain_init SETUP
 terraform_toolchain_init SETUP
+gh_toolchain_init SETUP
 
 fail() {
   echo "SETUP FAIL (exit $1)" >&2
@@ -80,6 +82,16 @@ else
   fail $?
 fi
 if terraform_toolchain_probe; then
+  :
+else
+  fail $?
+fi
+if gh_toolchain_install; then
+  :
+else
+  fail $?
+fi
+if gh_toolchain_probe; then
   :
 else
   fail $?

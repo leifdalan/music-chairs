@@ -68,7 +68,12 @@ def toolchain_repo(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     (root / "bin").mkdir(parents=True)
     (root / "tooling").mkdir()
     (root / "project").mkdir()
-    for helper in ("_python-toolchain", "_node-toolchain", "_terraform-toolchain"):
+    for helper in (
+        "_python-toolchain",
+        "_node-toolchain",
+        "_terraform-toolchain",
+        "_gh-toolchain",
+    ):
         shutil.copy2(REPO_ROOT / "bin" / helper, root / "bin" / helper)
     for entrypoint in ENTRYPOINTS:
         shutil.copy2(REPO_ROOT / "bin" / entrypoint, root / "bin" / entrypoint)
@@ -89,6 +94,7 @@ fi
     (root / "project" / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n")
     _write_executable(root / "project" / "node_modules" / "node" / "bin" / "node", NODE_STUB)
     _write_terraform_release(root, "0" * 64)
+    _write_gh_release(root, "0" * 64)
 
     log_path = tmp_path / "calls.log"
     tool_dir = tmp_path / "tools"
@@ -131,6 +137,14 @@ printf 'terraform args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
     environment["PATH"] = f"{tool_dir}:/usr/bin:/bin"
     environment["XDG_CACHE_HOME"] = str(tmp_path / "cache")
     environment["TOOLCHAIN_TERRAFORM"] = str(tool_dir / "terraform")
+    # And an authoritative gh stand-in, so setup never downloads one either.
+    _write_executable(
+        tool_dir / "gh",
+        """#!/usr/bin/env bash
+printf 'gh args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
+""",
+    )
+    environment["TOOLCHAIN_GH"] = str(tool_dir / "gh")
     environment["TOOLCHAIN_TEST_LOG"] = str(log_path)
     environment["TOOLCHAIN_TEST_MANAGED_ROOT"] = str(tool_dir / "managed-python")
     environment.pop("TOOLCHAIN_PYTHON", None)
@@ -142,6 +156,18 @@ def _write_terraform_release(root: Path, sha256: str) -> None:
     platform = {"Darwin": "darwin", "Linux": "linux"}[os.uname().sysname]
     arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[os.uname().machine]
     release = root / "project" / "deploy" / "terraform-release.json"
+    release.parent.mkdir(parents=True, exist_ok=True)
+    release.write_text(
+        '{\n  "version": "9.9.9",\n  "sha256": {\n'
+        f'    "{platform}_{arch}": "{sha256}"\n'
+        "  }\n}\n"
+    )
+
+
+def _write_gh_release(root: Path, sha256: str) -> None:
+    platform = {"Darwin": "darwin", "Linux": "linux"}[os.uname().sysname]
+    arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[os.uname().machine]
+    release = root / "tooling" / "gh-release.json"
     release.parent.mkdir(parents=True, exist_ok=True)
     release.write_text(
         '{\n  "version": "9.9.9",\n  "sha256": {\n'
@@ -279,7 +305,10 @@ printf 'pinned terraform args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
     assert not installed.exists()
 
     digest = subprocess.run(
-        ["shasum", "-a", "256", str(archive)], capture_output=True, text=True, check=True
+        ["shasum", "-a", "256", str(archive)],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.split()[0]
     _write_terraform_release(root, digest)
     accepted = _run(root, environment, "setup")
@@ -487,7 +516,11 @@ def test_authoritative_runtime_override_is_used_for_probe_and_command(
     ("entrypoint", "arguments", "command"),
     [
         ("setup", (), None),
-        ("test", ("project/tests/site.test.ts",), "args=/entry/vitest run tests/site.test.ts"),
+        (
+            "test",
+            ("project/tests/site.test.ts",),
+            "args=/entry/vitest run tests/site.test.ts",
+        ),
         ("node", ("--version",), "args=--version"),
     ],
 )
@@ -556,3 +589,82 @@ def test_missing_package_manager_launcher_is_a_named_prerequisite(
 
     assert result.returncode == 1
     assert "NODE ERROR missing prerequisite: corepack" in result.stderr
+
+
+def test_setup_installs_only_a_gh_matching_its_pinned_checksum(
+    toolchain_repo: tuple[Path, dict[str, str]], tmp_path: Path
+) -> None:
+    root, environment = toolchain_repo
+    environment.pop("TOOLCHAIN_GH")
+    # A fake download laid out as GitHub's archives are: gh_<version>_<platform>/bin/gh.
+    darwin = os.uname().sysname == "Darwin"
+    arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[os.uname().machine]
+    folder = f"gh_9.9.9_{'macOS' if darwin else 'linux'}_{arch}"
+    payload = tmp_path / "payload"
+    _write_executable(
+        payload / folder / "bin" / "gh",
+        """#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then printf 'gh version 9.9.9 (2026-01-01)\\n'; exit 0; fi
+printf 'pinned gh args=%s\\n' "$*" >> "$TOOLCHAIN_TEST_LOG"
+""",
+    )
+    archive = tmp_path / (folder + (".zip" if darwin else ".tar.gz"))
+    if darwin:
+        subprocess.run(["zip", "-q", "-r", str(archive), folder], cwd=payload, check=True)
+    else:
+        subprocess.run(["tar", "-czf", str(archive), folder], cwd=payload, check=True)
+    _write_executable(
+        tmp_path / "tools" / "curl",
+        f'#!/usr/bin/env bash\nprintf "curl %s\\n" "${{@: -1}}" >> "$TOOLCHAIN_TEST_LOG"\n'
+        f'while [[ "$1" != "-o" ]]; do shift; done\ncp {archive} "$2"\n',
+    )
+    installed = tmp_path / "cache" / "music-chairs" / "gh" / "9.9.9" / "gh"
+
+    refused = _run(root, environment, "setup")
+
+    assert refused.returncode != 0
+    assert "gh download checksum" in refused.stderr
+    assert "does not match the pinned" in refused.stderr
+    assert not installed.exists()
+
+    digest = subprocess.run(
+        ["shasum", "-a", "256", str(archive)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()[0]
+    _write_gh_release(root, digest)
+    accepted = _run(root, environment, "setup")
+
+    assert accepted.returncode == 0, accepted.stderr
+    assert installed.exists()
+    assert f"curl https://github.com/cli/cli/releases/download/v9.9.9/{archive.name}" in _calls(
+        environment
+    )
+
+
+def test_gh_runs_only_the_pinned_or_the_authoritative_binary(
+    toolchain_repo: tuple[Path, dict[str, str]], tmp_path: Path
+) -> None:
+    root, environment = toolchain_repo
+    shutil.copy2(REPO_ROOT / "bin" / "gh", root / "bin" / "gh")
+    # A gh on PATH that must never run.
+    _write_executable(
+        tmp_path / "tools" / "path-bin" / "gh",
+        "#!/usr/bin/env bash\nprintf 'PATH gh\\n' >> \"$TOOLCHAIN_TEST_LOG\"\n",
+    )
+    environment["PATH"] = f"{tmp_path / 'tools' / 'path-bin'}:{environment['PATH']}"
+
+    chosen = _run(root, environment, "gh", "pr", "list")
+    environment["TOOLCHAIN_GH"] = "gh"
+    relative = _run(root, environment, "gh", "pr", "list")
+    environment.pop("TOOLCHAIN_GH")
+    missing = _run(root, environment, "gh", "pr", "list")
+
+    assert chosen.returncode == 0, chosen.stderr
+    assert relative.returncode != 0
+    assert "TOOLCHAIN_GH must be an executable absolute path" in relative.stderr
+    assert "no fallback was attempted" in relative.stderr
+    assert missing.returncode != 0
+    assert "gh is not installed" in missing.stderr and "run ./bin/setup" in missing.stderr
+    assert _calls(environment) == ["gh args=pr list"]

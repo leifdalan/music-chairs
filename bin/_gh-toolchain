@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Shared GitHub CLI selection, installation and probe (plan/phase-18.md): the
+# orchestrator sets the deploy secret and ruleset and opens and merges pull
+# requests with it.
+#
+# Source this file after defining repo_root, then call gh_toolchain_init with
+# the entry point's diagnostic prefix. tooling/gh-release.json pins the version
+# and the official SHA-256 of each platform's archive; ./bin/setup downloads
+# that archive once into the user cache and verifies it. TOOLCHAIN_GH names an
+# authoritative alternative binary and never falls back to the pinned one or to
+# any gh on PATH. Written for bash 3.2.
+
+gh_toolchain_init() {
+  gh_toolchain_prefix="$1"
+  local release="$repo_root/tooling/gh-release.json"
+  if [[ ! -f "$release" ]]; then
+    echo "$gh_toolchain_prefix ERROR missing required file: tooling/gh-release.json" >&2
+    return 1
+  fi
+  gh_toolchain_version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$release")"
+  if [[ -z "$gh_toolchain_version" ]]; then
+    echo "$gh_toolchain_prefix ERROR tooling/gh-release.json names no version" >&2
+    return 1
+  fi
+
+  local os arch
+  case "$(uname -s)" in
+    Darwin) os=darwin ;;
+    Linux) os=linux ;;
+    *) os=unsupported ;;
+  esac
+  case "$(uname -m)" in
+    arm64 | aarch64) arch=arm64 ;;
+    x86_64 | amd64) arch=amd64 ;;
+    *) arch=unsupported ;;
+  esac
+  gh_toolchain_platform="${os}_${arch}"
+  gh_toolchain_sha256="$(sed -n "s/^ *\"$gh_toolchain_platform\": *\"\([0-9a-f]\{64\}\)\".*/\1/p" "$release")"
+  # GitHub's archive names: gh_<version>_macOS_arm64.zip, gh_<version>_linux_amd64.tar.gz.
+  case "$os" in
+    darwin) gh_toolchain_archive="gh_${gh_toolchain_version}_macOS_${arch}.zip" ;;
+    *) gh_toolchain_archive="gh_${gh_toolchain_version}_linux_${arch}.tar.gz" ;;
+  esac
+
+  gh_toolchain_cache="${XDG_CACHE_HOME:-$HOME/.cache}/music-chairs/gh"
+  gh_toolchain_bin="$gh_toolchain_cache/$gh_toolchain_version/gh"
+  gh_toolchain_description="gh $gh_toolchain_version pinned by tooling/gh-release.json"
+
+  if [[ -n "${TOOLCHAIN_GH:-}" ]]; then
+    if [[ "$TOOLCHAIN_GH" != /* || ! -x "$TOOLCHAIN_GH" ]]; then
+      echo \
+        "$gh_toolchain_prefix ERROR authoritative TOOLCHAIN_GH must be an executable absolute path: $TOOLCHAIN_GH" \
+        >&2
+      echo "$gh_toolchain_prefix ERROR no fallback was attempted" >&2
+      return 1
+    fi
+    gh_toolchain_bin="$TOOLCHAIN_GH"
+    gh_toolchain_description="authoritative TOOLCHAIN_GH=$TOOLCHAIN_GH"
+  fi
+}
+
+# Downloads and verifies the pinned binary when it is missing. Only ./bin/setup
+# calls this; it is the one networked step.
+gh_toolchain_install() {
+  if [[ -n "${TOOLCHAIN_GH:-}" ]]; then
+    echo "$gh_toolchain_prefix using $gh_toolchain_description; nothing to install"
+    return 0
+  fi
+  if [[ -x "$gh_toolchain_bin" ]]; then
+    return 0
+  fi
+  if [[ -z "$gh_toolchain_sha256" ]]; then
+    echo \
+      "$gh_toolchain_prefix ERROR tooling/gh-release.json has no checksum for $gh_toolchain_platform" \
+      >&2
+    return 1
+  fi
+  local work archive actual
+  work="$(mktemp -d)"
+  archive="$work/$gh_toolchain_archive"
+  if ! curl -fsSL -o "$archive" \
+    "https://github.com/cli/cli/releases/download/v$gh_toolchain_version/$gh_toolchain_archive"; then
+    rm -rf "$work"
+    echo "$gh_toolchain_prefix ERROR could not download gh $gh_toolchain_version" >&2
+    return 1
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$archive" | cut -d' ' -f1)"
+  else
+    actual="$(shasum -a 256 "$archive" | cut -d' ' -f1)"
+  fi
+  if [[ "$actual" != "$gh_toolchain_sha256" ]]; then
+    rm -rf "$work"
+    echo \
+      "$gh_toolchain_prefix ERROR gh download checksum $actual does not match the pinned $gh_toolchain_sha256; nothing was installed" \
+      >&2
+    return 1
+  fi
+  local unpacked=0
+  case "$gh_toolchain_archive" in
+    *.zip) unzip -q -o "$archive" -d "$work" || unpacked=$? ;;
+    *) tar -xzf "$archive" -C "$work" || unpacked=$? ;;
+  esac
+  local found="$work/${gh_toolchain_archive%.zip}"
+  found="${found%.tar.gz}/bin/gh"
+  if [[ "$unpacked" -ne 0 || ! -f "$found" ]]; then
+    rm -rf "$work"
+    echo "$gh_toolchain_prefix ERROR could not unpack gh" >&2
+    return 1
+  fi
+  mkdir -p "$(dirname "$gh_toolchain_bin")"
+  mv "$found" "$gh_toolchain_bin"
+  chmod 755 "$gh_toolchain_bin"
+  rm -rf "$work"
+}
+
+# The selected binary runs and is the pinned version (an override is trusted as given).
+gh_toolchain_probe() {
+  if [[ ! -x "$gh_toolchain_bin" ]]; then
+    echo "$gh_toolchain_prefix ERROR gh is not installed: $gh_toolchain_bin; run ./bin/setup" >&2
+    return 1
+  fi
+  if [[ -n "${TOOLCHAIN_GH:-}" ]]; then
+    return 0
+  fi
+  local reported
+  if ! reported="$("$gh_toolchain_bin" --version)"; then
+    echo "$gh_toolchain_prefix ERROR $gh_toolchain_description does not run" >&2
+    return 1
+  fi
+  if [[ "$reported" != "gh version $gh_toolchain_version "* ]]; then
+    echo "$gh_toolchain_prefix ERROR $gh_toolchain_bin is not gh $gh_toolchain_version; run ./bin/setup" >&2
+    return 1
+  fi
+}

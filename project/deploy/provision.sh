@@ -4,12 +4,12 @@
 # what is missing and rewrites the configuration it owns.
 #
 # Inputs (environment): DOMAIN, PUBLIC_URL, NODE_VERSION, BUCKET, REGION,
-# GOOGLE_CLIENT_ID, GOOGLE_SECRET_PARAMETER.
+# GOOGLE_CLIENT_ID, GOOGLE_SECRET_PARAMETER, SSH_USER.
 # Files: the rest of project/deploy, unpacked next to this script.
 set -euo pipefail
 
 : "${DOMAIN:?}" "${PUBLIC_URL:?}" "${NODE_VERSION:?}" "${BUCKET:?}" "${REGION:?}"
-: "${GOOGLE_CLIENT_ID:?}" "${GOOGLE_SECRET_PARAMETER:?}"
+: "${GOOGLE_CLIENT_ID:?}" "${GOOGLE_SECRET_PARAMETER:?}" "${SSH_USER:?}"
 here="$(cd "$(dirname "$0")" && pwd)"
 export DEBIAN_FRONTEND=noninteractive
 
@@ -97,6 +97,9 @@ if [ "$(cat "$journald_conf" 2>/dev/null)" != "$journald_want" ]; then
   printf '%s\n' "$journald_want" >"$journald_conf"
   systemctl restart systemd-journald
 fi
+
+# GitHub's deploy key beside the operator's (plan/phase-18.md).
+bash "$here/install-deploy-keys.sh" "$here/deploy-keys.pub" "/home/$SSH_USER/.ssh/authorized_keys" "$SSH_USER"
 
 systemctl daemon-reload
 systemctl enable --now caddy

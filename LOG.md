@@ -2476,3 +2476,15 @@ Execution trace: ab681487b0394f9d8d5f7ffdf1944c2e
 - Lessons: filed tested-skunk (local: moving where a control returns to must move that page's return feedback with it); lively-salamander gained its Phase 17 occurrence (5 total) and winged-tuna its (2 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.
+
+## 2026-10-04 12:28 — START
+Phase 18 — CI/CD: tests on every change, deploy on merge to main
+
+Execution trace: 4e6f5511f4b8439295e8021a059c4258
+
+Planned work:
+- A GitHub Actions workflow that runs the repository's own gates (`./bin/setup`, then `./bin/check all`) on every pull request and every push, with results visible on GitHub.
+- A deploy workflow that runs `./bin/deploy all` and `./bin/deploy smoke` when a change lands on `main`, only after the tests pass, and never two deploys at once.
+- AWS access for the deploy that needs no long-lived keys in GitHub: a role the workflow assumes through GitHub's OpenID Connect identity, defined in Terraform and limited to what the deploy does.
+- The runner the jobs use, set up and documented (see Decisions), and a branch protection or ruleset on `main` matching the chosen flow.
+- `project/deploy/README.md` (or a new CI section beside it) and `bin/README.md` describe the pipeline, how to rerun it and how to deploy by hand when GitHub is unavailable.
