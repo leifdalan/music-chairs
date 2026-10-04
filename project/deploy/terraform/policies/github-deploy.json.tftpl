@@ -40,6 +40,12 @@
       "Resource": "${state_bucket_arn}"
     },
     {
+      "Sid": "HostKeys",
+      "Effect": "Allow",
+      "Action": "lightsail:GetInstanceAccessDetails",
+      "Resource": "*"
+    },
+    {
       "Sid": "AlertEmail",
       "Effect": "Allow",
       "Action": "kms:Decrypt",

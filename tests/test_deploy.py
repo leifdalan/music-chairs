@@ -1068,6 +1068,9 @@ def test_the_deploy_role_reads_but_never_backups_or_secrets_and_writes_only_stat
         "TerraformState": ["s3:PutObject", "s3:DeleteObject"],
         "StateBucketSettings": statements["StateBucketSettings"]["Action"],
         "AlertEmail": "kms:Decrypt",
+        # Not in ReadOnlyAccess, which lists Lightsail's reads one by one; bin/deploy
+        # pins the server's host key with it.
+        "HostKeys": "lightsail:GetInstanceAccessDetails",
     }
     assert len(statements["StateBucketSettings"]["Action"]) == 4
     actions = [
@@ -1075,7 +1078,7 @@ def test_the_deploy_role_reads_but_never_backups_or_secrets_and_writes_only_stat
         for entry in allowed
         for action in (entry["Action"] if isinstance(entry["Action"], list) else [entry["Action"]])
     ]
-    assert not any(action.startswith(("iam:", "sts:", "lightsail:")) for action in actions)
+    assert not any(action.startswith(("iam:", "sts:")) for action in actions)
 
     # The bucket settings it may write are exactly those bootstrap re-applies.
     present = run(
