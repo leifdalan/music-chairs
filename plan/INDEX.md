@@ -41,13 +41,14 @@ graph TD
     P13[Phase 13<br/>Adding members from Google contacts or by name]
     P14[Phase 14<br/>Privacy policy and home page for Google verification]
     P15[Phase 15<br/>Proposing several free times; pending requests at home]
-    P16[Phase 16<br/>Visual cleanup]
+    P16[Phase 16<br/>Infrastructure in Terraform]
+    P17[Phase 17<br/>Visual cleanup]
     P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
     P3 --> P7
-    P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P13 --> P14 --> P15 --> P16
+    P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P13 --> P14 --> P15 --> P16 --> P17
 ```
 
-Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last. Phase 14 comes from Google's refusal to verify the app (2026-10-03): the operator placed a privacy policy and home page next, moving proposing several times to Phase 15 and visual cleanup to Phase 16. Phases 10–16 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
+Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last. Phase 14 comes from Google's refusal to verify the app (2026-10-03): the operator placed a privacy policy and home page next, moving proposing several times to Phase 15 and visual cleanup to Phase 16. Phase 16 comes from the operator's request on 2026-10-03 to define the infrastructure in Terraform rather than CloudFormation; the operator placed it before the visual cleanup, which moves to Phase 17 and waits for the operator's UI/UX pass and choice of visual framework. Phases 10–17 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
 
 ## Phase Table
 
@@ -70,7 +71,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 13](phase-13.md) | Adding members from Google contacts or by name                     | ✅     |
 | [Phase 14](phase-14.md) | A privacy policy and a home page that pass Google's app verification | ✅     |
 | [Phase 15](phase-15.md) | Proposing several free times at once, and pending requests on the home screen | ✅     |
-| [Phase 16](phase-16.md) | Visual cleanup                                                    | ⬅️     |
+| [Phase 16](phase-16.md) | Infrastructure defined in Terraform                                | ⬅️     |
+| [Phase 17](phase-17.md) | Visual cleanup                                                    | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
