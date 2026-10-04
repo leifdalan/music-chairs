@@ -15,6 +15,7 @@ import {
 import { SlotFields } from "~/components/slot-fields";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
+import { FreeTime, ProposeTimes } from "~/components/propose-times";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import {
@@ -43,6 +44,7 @@ import {
   type OverlapMember,
 } from "~/lib/overlap";
 import { calendarNotice } from "~/lib/calendar-notices";
+import { parseProposedTimes, timeValue } from "~/lib/propose";
 import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 
@@ -283,6 +285,11 @@ function problem(message: string) {
   return data({ problem: message }, { status: 400 });
 }
 
+/** A refused "Propose selected", shown inside the free-times picker. */
+function proposeProblem(message: string) {
+  return data({ proposeProblem: message }, { status: 400 });
+}
+
 /**
  * The viewer's own calendar options: their private feed link, and Google
  * Calendar writing when this visitor may use it. Only the viewer's own feed
@@ -382,6 +389,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
 
+  if (intent === "propose-times") {
+    const location = validateLocation(form.get("location"));
+    if (!location.ok) return proposeProblem(location.error);
+    const times = parseProposedTimes(form, today);
+    if (!times.ok) return proposeProblem(times.error);
+    store.addRehearsals(group.id, times.inputs, location.value);
+    const count = times.inputs.length;
+    return back(count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`);
+  }
+
   if (intent === "propose") {
     const parsed = parseSlotInput(form);
     const location = validateLocation(form.get("location"));
@@ -472,6 +489,57 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   } = loaderData;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
+  const pickProblem =
+    actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
+  const freeTimes =
+    days.length === 0 ? (
+      <p className="hint">Nobody has entered availability for the coming weeks yet.</p>
+    ) : (
+      <ul className="days">
+        {days.map((day) => (
+          <li key={day.date}>
+            <h3>{formatDate(day.date)}</h3>
+            <ul className="stretches">
+              {day.stretches.map((stretch) => (
+                <li
+                  key={stretch.startMinute}
+                  className={stretch.everyoneNeeded ? "stretch everyone" : "stretch"}
+                >
+                  <FreeTime
+                    tickable={isOrganizer}
+                    value={timeValue(day.date, stretch.startMinute, stretch.endMinute)}
+                    label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
+                  >
+                    <span className="stretch-time">
+                      {timeRange(stretch.startMinute, stretch.endMinute)}
+                      <span className="stretch-count">
+                        {stretch.freeCount} of {stretch.memberCount} free
+                      </span>
+                    </span>
+                    {stretch.everyoneNeeded ? (
+                      <span className="hint stretch-line">Everyone needed is free.</span>
+                    ) : null}
+                    {stretch.freeNames ? (
+                      <span className="hint stretch-line">
+                        Free: {stretch.freeNames.join(", ")}
+                      </span>
+                    ) : null}
+                    {stretch.missing && stretch.missing.length > 0 ? (
+                      <span className="hint stretch-line">
+                        Not free:{" "}
+                        {stretch.missing
+                          .map((m) => (m.optional ? `${m.name} (optional)` : m.name))
+                          .join(", ")}
+                      </span>
+                    ) : null}
+                  </FreeTime>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    );
   const proposed = rehearsals.filter((item) => item.status === "proposed");
   const confirmed = rehearsals.filter((item) => item.status === "confirmed");
   return (
@@ -524,14 +592,6 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         </section>
       ) : null}
 
-      {prefill ? (
-        <ProposeForm
-          key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}-${rehearsals.length}`}
-          prefill={prefill}
-          result={formResult}
-        />
-      ) : null}
-
       <section aria-labelledby="overlap-heading">
         <h2 id="overlap-heading">When people are free</h2>
         <p className="hint">
@@ -544,56 +604,34 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               ? null
               : "Showing how many people are free."}
         </p>
-        {days.length === 0 ? (
-          <p className="hint">Nobody has entered availability for the coming weeks yet.</p>
+        {isOrganizer ? (
+          <ProposeTimes
+            hasTimes={days.length > 0}
+            problem={pickProblem}
+            resetKey={rehearsals.length}
+          >
+            {freeTimes}
+          </ProposeTimes>
         ) : (
-          <ul className="days">
-            {days.map((day) => (
-              <li key={day.date}>
-                <h3>{formatDate(day.date)}</h3>
-                <ul className="stretches">
-                  {day.stretches.map((stretch) => (
-                    <li
-                      key={stretch.startMinute}
-                      className={stretch.everyoneNeeded ? "stretch everyone" : "stretch"}
-                    >
-                      <p className="stretch-time">
-                        {timeRange(stretch.startMinute, stretch.endMinute)}
-                        <span className="stretch-count">
-                          {stretch.freeCount} of {stretch.memberCount} free
-                        </span>
-                      </p>
-                      {stretch.everyoneNeeded ? (
-                        <p className="hint">Everyone needed is free.</p>
-                      ) : null}
-                      {stretch.freeNames ? (
-                        <p className="hint">Free: {stretch.freeNames.join(", ")}</p>
-                      ) : null}
-                      {stretch.missing && stretch.missing.length > 0 ? (
-                        <p className="hint">
-                          Not free:{" "}
-                          {stretch.missing
-                            .map((m) => (m.optional ? `${m.name} (optional)` : m.name))
-                            .join(", ")}
-                        </p>
-                      ) : null}
-                      {isOrganizer ? (
-                        <Link
-                          className="propose-link"
-                          to={`?date=${day.date}&start=${timeInputValue(stretch.startMinute)}&end=${timeInputValue(stretch.endMinute)}#propose-heading`}
-                          aria-label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
-                        >
-                          Propose this time
-                        </Link>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          freeTimes
         )}
       </section>
+
+      {prefill ? (
+        <details
+          // A new "Propose again" opens it again even after it was folded by hand.
+          key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}`}
+          className="custom-proposal"
+          open={Boolean(prefill.startDate) || formResult !== undefined}
+        >
+          <summary>Override with a custom proposal</summary>
+          <ProposeForm
+            key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}-${rehearsals.length}`}
+            prefill={prefill}
+            result={formResult}
+          />
+        </details>
+      ) : null}
     </main>
   );
 }

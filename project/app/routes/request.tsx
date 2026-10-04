@@ -6,17 +6,19 @@ import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
+import { FreeTime, ProposeTimes } from "~/components/propose-times";
 import { SubmitButton } from "~/components/submit-button";
 import {
   addDays,
   expandOccurrences,
   formatDate,
   formatMinutes,
-  timeInputValue,
   todayInZone,
+  validateLocation,
 } from "~/lib/availability";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
-import { clipToWindows } from "~/lib/requests";
+import { parseProposedTimes, timeValue } from "~/lib/propose";
+import { answerable, clipToWindows } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/request";
@@ -58,11 +60,6 @@ function formatAnsweredAt(instant: string, zone: string): string {
     hourCycle: "h23",
   }).format(at);
   return `${formatDate(todayInZone(zone, at))}, ${time}`;
-}
-
-/** Whether members can still answer: open, and not over. */
-function answerable(scheduleRequest: ScheduleRequest, today: string): boolean {
-  return scheduleRequest.open && scheduleRequest.endDate >= today;
 }
 
 // A member gets the request, their own times in its span and their own answer
@@ -131,6 +128,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         })
       : null,
     overlap,
+    // Changes when a proposal is made, so the picker starts afresh.
+    rehearsalCount: isOrganizer ? store.listRehearsals(group.id).length : null,
   };
 }
 
@@ -166,6 +165,20 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
     return redirectWithToast(here, before ? "Answer updated" : "Answer sent");
   }
+  // Proposing from the request's free times, whether it is open, closed or over.
+  if (intent === "propose-times") {
+    if (viewer.role !== "organizer") throw data(null, { status: 403 });
+    const location = validateLocation(form.get("location"));
+    if (!location.ok) return data({ proposeProblem: location.error }, { status: 400 });
+    const times = parseProposedTimes(form, todayInZone(group.timeZone, new Date()));
+    if (!times.ok) return data({ proposeProblem: times.error }, { status: 400 });
+    store.addRehearsals(group.id, times.inputs, location.value);
+    const count = times.inputs.length;
+    return redirectWithToast(
+      here,
+      count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`,
+    );
+  }
   if (intent === "close" || intent === "reopen") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
     if (intent === "close") {
@@ -198,8 +211,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     mine,
     answers,
     overlap,
+    rehearsalCount,
   } = loaderData;
   const status = !open ? "Closed" : expired ? "Ended" : null;
+  const pickProblem =
+    actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
   return (
     <main>
       <p className="eyebrow">
@@ -328,41 +344,44 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         <section aria-labelledby="overlap-heading">
           <h2 id="overlap-heading">When people are free</h2>
           <p className="hint">Within this request's dates and times of day.</p>
-          {overlap.length === 0 ? (
-            <p className="hint">Nobody is free at these times yet.</p>
-          ) : (
-            <ul className="days">
-              {overlap.map((day) => (
-                <li key={day.date}>
-                  <h3>{formatDate(day.date)}</h3>
-                  <ul className="stretches">
-                    {day.stretches.map((stretch) => (
-                      <li key={stretch.startMinute} className="stretch">
-                        <p className="stretch-time">
-                          {timeRange(stretch.startMinute, stretch.endMinute)}
-                          <span className="stretch-count">
-                            {stretch.freeCount} of {answers?.length ?? 0} free
-                          </span>
-                        </p>
-                        <p className="hint">Free: {stretch.freeNames.join(", ")}</p>
-                        <Link
-                          className="propose-link"
-                          to={`/g/${groupId}/schedule?${new URLSearchParams({
-                            date: day.date,
-                            start: timeInputValue(stretch.startMinute),
-                            end: timeInputValue(stretch.endMinute),
-                          })}#propose-heading`}
-                          aria-label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
-                        >
-                          Propose this time
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ProposeTimes
+            hasTimes={overlap.length > 0}
+            problem={pickProblem}
+            resetKey={rehearsalCount ?? 0}
+          >
+            {overlap.length === 0 ? (
+              <p className="hint">Nobody is free at these times yet.</p>
+            ) : (
+              <ul className="days">
+                {overlap.map((day) => (
+                  <li key={day.date}>
+                    <h3>{formatDate(day.date)}</h3>
+                    <ul className="stretches">
+                      {day.stretches.map((stretch) => (
+                        <li key={stretch.startMinute} className="stretch">
+                          <FreeTime
+                            tickable
+                            value={timeValue(day.date, stretch.startMinute, stretch.endMinute)}
+                            label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
+                          >
+                            <span className="stretch-time">
+                              {timeRange(stretch.startMinute, stretch.endMinute)}
+                              <span className="stretch-count">
+                                {stretch.freeCount} of {answers?.length ?? 0} free
+                              </span>
+                            </span>
+                            <span className="hint stretch-line">
+                              Free: {stretch.freeNames.join(", ")}
+                            </span>
+                          </FreeTime>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ProposeTimes>
         </section>
       ) : null}
     </main>

@@ -7,7 +7,16 @@ import { readMemberships } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { GROUP_NAME_MAX } from "../app/lib/names";
 import Home, { action, loader } from "../app/routes/home";
-import { cookieFrom, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import { addDays, todayInZone } from "../app/lib/availability";
+import {
+  cookieFrom,
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -182,5 +191,136 @@ describe("home route", () => {
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('value="Viola"');
     expect(html).toContain('<option value="Europe/Paris" selected="">');
+  });
+});
+
+describe("requests waiting for your answer", () => {
+  let people = 0;
+
+  /** A group with an open request ending in a week, a closed one, an ended one and an answered one. */
+  function group(name: string) {
+    const store = getStore();
+    const { group, organizer } = store.createGroup(name, "Viola", "Europe/London");
+    const member = store.addMember(group.id, `Member ${++people}`, "member");
+    const today = todayInZone("Europe/London", new Date());
+    const windows = [{ startMinute: 1140, endMinute: 1260 }];
+    const open = store.createRequest(group.id, {
+      name: `${name} gig`,
+      startDate: today,
+      endDate: addDays(today, 7),
+      windows,
+    });
+    const closed = store.createRequest(group.id, {
+      name: `${name} closed`,
+      startDate: today,
+      endDate: addDays(today, 7),
+      windows,
+    });
+    store.setRequestOpen(group.id, closed.id, false);
+    store.createRequest(group.id, {
+      name: `${name} ended`,
+      startDate: addDays(today, -10),
+      endDate: addDays(today, -1),
+      windows,
+    });
+    const answered = store.createRequest(group.id, {
+      name: `${name} answered`,
+      startDate: today,
+      endDate: addDays(today, 3),
+      windows,
+    });
+    store.answerRequest(group.id, answered.id, member.id, null);
+    return { store, group, organizer, member, open };
+  }
+
+  const pendingFor = async (cookie?: string) =>
+    (await loader(routeArgs("/", {}, { cookie }))).pending;
+
+  it("lists only the open, unanswered requests of the groups joined on this device", async () => {
+    const mine = group("Quartet");
+    const theirs = group("Trio");
+
+    const pending = await pendingFor(await deviceCookie(mine.group.id, mine.member.deviceToken));
+
+    expect(pending).toEqual([
+      {
+        groupId: mine.group.id,
+        groupName: "Quartet",
+        requestId: mine.open.id,
+        name: "Quartet gig",
+        endDate: mine.open.endDate,
+      },
+    ]);
+    expect(JSON.stringify(pending)).not.toContain(theirs.group.id);
+  });
+
+  it("covers the signed-in account's groups, with this device's member deciding per group", async () => {
+    const linked = group("Linked");
+    const both = group("Both");
+    const { store } = linked;
+    people += 1;
+    const { account, cookie: session } = await signedIn({
+      sub: `pending-sub-${people}`,
+      email: `pending${people}@example.test`,
+      name: "P",
+    });
+    const viaAccount = store.addMember(linked.group.id, "Signed in", "member", account.id);
+    store.addMember(both.group.id, "Signed in", "member", account.id);
+    // This device is the organizer in "Both", who has answered its open request.
+    store.answerRequest(both.group.id, both.open.id, both.organizer.id, 2);
+    const device = await deviceCookie(both.group.id, both.organizer.deviceToken);
+
+    const names = async (cookie: string) =>
+      (await pendingFor(cookie)).map((item) => item.name).sort();
+
+    // "Both" is decided by this device's organizer, who answered its gig; the
+    // account's member there, who answered nothing, does not count.
+    expect(await names(`${session}; ${device}`)).toEqual([
+      "Both answered",
+      "Linked answered",
+      "Linked gig",
+    ]);
+    store.answerRequest(linked.group.id, linked.open.id, viaAccount.id, null);
+    expect(await names(`${session}; ${device}`)).toEqual(["Both answered", "Linked answered"]);
+
+    // With the device's member removed, the account's member decides again.
+    const fresh = group("Fresh");
+    const freshDevice = await deviceCookie(fresh.group.id, fresh.member.deviceToken);
+    store.removeMember(fresh.group.id, fresh.member.id);
+    store.addMember(fresh.group.id, "Signed in", "member", account.id);
+    expect(await names(`${session}; ${freshDevice}`)).toEqual([
+      "Both answered",
+      "Both gig",
+      "Fresh answered",
+      "Fresh gig",
+      "Linked answered",
+    ]);
+  });
+
+  it("skips a cookie naming a deleted group or a removed member, without failing", async () => {
+    const gone = group("Gone");
+    const removed = group("Removed");
+    const goneCookie = await deviceCookie(gone.group.id, gone.member.deviceToken);
+    gone.store.deleteGroup(gone.group.id);
+    const removedCookie = await deviceCookie(removed.group.id, removed.member.deviceToken);
+    removed.store.removeMember(removed.group.id, removed.member.id);
+
+    expect(await pendingFor(goneCookie)).toEqual([]);
+    expect(await pendingFor(removedCookie)).toEqual([]);
+  });
+
+  it("shows the list first, each one tap away, and nothing when none are waiting", async () => {
+    const mine = group("Shown");
+    const data = await loader(
+      routeArgs("/", {}, { cookie: await deviceCookie(mine.group.id, mine.member.deviceToken) }),
+    );
+
+    const html = render({ loaderData: { home: data } });
+    expect(html).toContain("Waiting for your answer");
+    expect(html).toContain(`href="/g/${mine.group.id}/requests/${mine.open.id}"`);
+    expect(html.indexOf("Waiting for your answer")).toBeLessThan(html.indexOf("Start a group"));
+    expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(
+      "Waiting for your answer",
+    );
   });
 });

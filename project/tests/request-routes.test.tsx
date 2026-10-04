@@ -465,7 +465,7 @@ describe("answering a request", () => {
     }
   });
 
-  it("shows the organizer the overlap clipped to the request's windows, linking to propose", async () => {
+  it("shows the organizer the overlap clipped to the request's windows, ready to tick", async () => {
     const { group, organizerCookie } = await band();
     const id = await created(group.id, organizerCookie, november);
 
@@ -486,9 +486,8 @@ describe("answering a request", () => {
         freeNames: expect.arrayContaining(["Viola", "Cellist"]),
       },
     ]);
-    expect(render(page)).toContain(
-      `/g/${group.id}/schedule?date=2026-11-02&amp;start=19%3A00&amp;end=22%3A00#propose-heading`,
-    );
+    expect(render(page)).toContain('name="time" value="2026-11-02 1140 1320"');
+    expect(render(page)).not.toContain("#propose-heading");
   });
 
   it("refuses answers to a closed or ended request and hides its Add links", async () => {

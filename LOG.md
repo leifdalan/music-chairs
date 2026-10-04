@@ -2038,3 +2038,124 @@ User demo (per `policies/user-demo-protocols.md`):
 
 Remaining:
 - None for this phase. Phases 15–16 follow; Google's verification decision is the operator's.
+
+## 2026-10-03 18:05 — START
+
+Phase 15 — Proposing several free times at once, and pending requests on the home screen
+
+Execution trace: 732b20d839114200801693a1756f52cb
+
+Operator decisions recorded in plan/phase-15.md before this run: from the list after Phase 9, free times become a multi-select with the custom proposal at the bottom behind an override, and members see pending requests on the home screen. At phase start: the multi-select is on both the schedule page and request pages; location is entered once; a rehearsal length is chosen once (default 2 hours) and each proposal starts at its free time; the home screen covers groups joined on the device and groups linked to the signed-in account. The User Demo was tightened before capture.
+
+Planned work:
+- "When people are free" becomes a multi-select: the organizer ticks one or more free times and proposes them all with one action.
+- The free-form "Propose a rehearsal" form moves to the bottom of the schedule page, hidden behind an "Override with a custom proposal" control.
+- The home screen shows each member, across their groups, the requests still waiting for their answer, each one tap away; nothing extra appears when there are none.
+
+## 2026-10-03 18:26 — END
+Phase 15 — Proposing several free times at once, and pending requests on the home screen
+
+Phase 15 is accepted on its gates and live at https://rehearse.dalan.dev. On the schedule page and on each scheduling request's page, organizers now tick free times instead of following one "Propose this time" link at a time. One rehearsal length (1 to 4 hours, 2 by default) and one optional location apply to every ticked time, and **Propose selected** proposes them all at once. Each proposal starts when its free time starts and is cut short if the free time ends sooner. A refusal, such as nothing ticked, shows next to the button and proposes nothing. The free-form proposal now sits at the bottom of the schedule page, folded under **Override with a custom proposal**; it opens when a "Propose again" link fills it in, or when it has an error. The home screen now starts with **Waiting for your answer**, which lists every open request you haven't answered yet, each one tap away. It covers the groups joined on this device and the groups linked to your Google sign-in, and it is hidden when nothing is waiting. No new data is stored, so the privacy policy is unchanged. How ticking feels on a phone is yours to judge through the User Demo below.
+
+Execution trace: 732b20d839114200801693a1756f52cb
+
+Files changed:
+- plan/phase-15.md — operator decisions settled at phase start (both pages; location once; one length, default 2 hours, cut to the free time; device and Google groups on the home screen) and the tightened User Demo, recorded before the run
+- project/app/lib/propose.ts, project/app/components/propose-times.tsx — new: reading ticked times; the shared picker and whole-row tick boxes
+- project/app/routes/schedule.tsx, project/app/routes/request.tsx — the propose-times action (organizers only), tick boxes in place of the links, the custom proposal disclosure at the end, the picker's reset after a proposal
+- project/app/.server/pending.ts, project/app/routes/home.tsx — new: pending requests; the home section
+- project/app/.server/store.ts — addRehearsals (all or none)
+- project/app/lib/requests.ts — answerable, shared by the request page and the home screen
+- project/app/app.css — tick rows, picker, disclosure, home list
+- project/tests/ — propose-times (parsing; round trips from rendered ticks on both pages including midnight, short and clipped times; organizers only; refusals inside the picker; closed requests; all or none; the custom disclosure), home (pending requests: device and account groups, precedence, removed members, deleted groups, closed/ended/answered, empty), schedule and request-routes updates (Vitest 489)
+- plan/INDEX.md — Phase 15 ✅, Phase 16 ⬅️ (pending, applied after this block)
+- plan/phase-16.md — inherited Phase 15 notes (pending AUTO ripple)
+- lessons/large-rattlesnake.md — new (pending)
+
+Build status:
+- project/scripts/smoke.sh against the production build: OK
+- ./bin/deploy all --profile music-chairs (real deploy): OK — release 19d2ca8-dirty-20261004T012325Z healthy; database untouched at schema 8 with counts equal to the pre-release copy (verified read-only); Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}' (Vitest 489/489; no root pytest path changed): OK
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: requested model=opus effort=default venue=inline (primary mode)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — configured astra (codex) unavailable; the receipt's configured alternative opus was used (preflight fallback)
+- Coder: requested model=opus effort=default venue=inline (primary mode)
+- Critic (code review): requested model=opus effort=default venue=claude — same preflight fallback
+- Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5 (stream init), observed_effort=unreported; observation_errors=none
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 179.441 s; first event 0.655 s; longest idle 36.130 s; success
+- Coder: inline (no role span)
+- Critic (code review): 194.469 s; first event 0.585 s; longest idle 30.116 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1242.239 s; intelligence 373.910 s; gates 147.930 s; orchestration 1241.690 s; wait 373.004 s; failed 0 s; retry 0 s; unattributed 0.549 s (category totals are interval unions and may overlap).
+- Awaiting user input: none recorded as a park. The operator's phase-start answers were collected before the trace opened.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: plan-review=51c0e27ca564cea6327499ce834fad4294e5d24dd8098de4c5e912b23d2fa2c6 critiqued=1184fb22e634980303f433b884187e059d1cd5ab845f33944eae08991b88ae57 approved=83fea144cc62b9454b240654859c16fa1773136981b11380332e79509c6efa8c final=83fea144cc62b9454b240654859c16fa1773136981b11380332e79509c6efa8c
+- Revision packets: 0
+- Advisory reports: 2 — plan review 8 findings (all adopted); code critique 6 findings (all adopted)
+- Gates: implementation-final=4, all recorded against the approved candidate; product and full-tree identities unchanged across them
+- Evidence validation: `bin/kickoff-evidence validate --level acceptance` EVIDENCE VALID
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): `./bin/test project/tests` covers:
+  - Proposing several ticked free times in one action, each becoming a proposed rehearsal. The tick values are read from the rendered page on both the schedule page and a request's page.
+  - Organizer-only access, and the custom proposal still working behind its disclosure.
+  - The home screen listing exactly the open, unanswered requests of the viewer's groups and none of anyone else's.
+
+  26 guards were mutation-checked, all killed. `./bin/deploy all` and `./bin/deploy smoke` passed. `./bin/check all` is the handoff gate below.
+- Parked for the user: the User Demo below, including two browser-only behaviours no server-rendered test can see: the picker clearing after a successful proposal, and a second "Propose again" reopening the folded custom form.
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-16.md — add "Inherited from Phase 15": new screens and controls to include in the visual system — the tick-row picker (ProposeTimes, FreeTime), the custom proposal disclosure, and the home screen's "Waiting for your answer" list — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed: large-rattlesnake — server-rendered tests cannot see what a form keeps after a redirect; plan client-state checks explicitly
+- occurrences pending: none
+- graduation DECIDE: camouflaged-dragon (5) → test policy; gentle-pug (6) → policy; lively-salamander (4) → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On a laptop, open the schedule page of a test group you organize, where at least two members have entered availability that overlaps on several days in the coming weeks. On a phone, have a name-only member of the same group (joined on that phone, not signed in with Google).
+- **Suggested inputs.**
+  1. Under **When people are free**, tick three free times, keep the length at 2 hours, type `Studio B` as the location and tap **Propose selected**.
+  2. Scroll to the bottom, open **Override with a custom proposal**, and propose a weekly time that isn't in the list.
+  3. Create two scheduling requests from the group page.
+  4. On one request's page, tick one free time and propose it.
+  5. On the phone, open https://rehearse.dalan.dev, tap one of the listed requests and answer it, then go back to the home screen.
+- **What to look for.**
+  - Three proposed rehearsals appear, each 2 hours long from the start of its free time (shorter where the free time was shorter), all at Studio B, with one message saying how many were proposed.
+  - The custom proposal appears too, and its form stays out of the way until opened.
+  - The proposal from the request page appears on the schedule.
+  - On the phone, the home screen lists both requests under the group's name, each one tap away. After answering, that request is gone from the list.
+- **Variations to explore.** Tap **Propose selected** with nothing ticked: you're told, next to the button, to tick a time, and nothing is proposed. As the member, the schedule page shows free times without tick boxes. Is ticking easy on a phone?
+- Notes:
+  - After a successful proposal the ticks and location should be empty again; check that before ticking more.
+  - Using a second "Propose again" link (under Times that worked) after folding the custom form should open it again.
+
+Remaining:
+- None for this phase. Phase 16 (visual cleanup) follows.

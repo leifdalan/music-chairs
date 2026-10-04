@@ -159,7 +159,8 @@ describe("schedule route", () => {
       expect(visible).not.toContain(hidden);
     }
     expect(render(page)).not.toContain("Propose a rehearsal");
-    expect(render(page)).not.toContain("Propose this time");
+    expect(render(page)).not.toContain('name="time"');
+    expect(render(page)).not.toContain("Propose selected");
   });
 
   it("shows members names once the organizer turns them on", async () => {
@@ -182,8 +183,9 @@ describe("schedule route", () => {
     expect(stretch).toMatchObject({ everyoneNeeded: true });
     expect([...(stretch?.freeNames ?? [])].sort()).toEqual(["Cellist", "Viola"]);
     expect(stretch?.missing).toEqual([{ name: "Pianist", optional: true }]);
-    expect(render(page)).toContain("Propose this time");
+    expect(render(page)).toContain('name="time" value="2026-10-08 1140 1320"');
     expect(render(page)).toContain('aria-label="Propose Thu 8 Oct, 19:00–22:00"');
+    expect(render(page)).not.toContain("Propose this time");
   });
 
   it("warns when a non-optional member is missing, and still lets the organizer confirm", async () => {

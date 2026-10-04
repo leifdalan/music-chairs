@@ -183,6 +183,8 @@ export type Store = {
   listGroupSlots(groupId: string): Map<string, Slot[]>;
   // Rehearsals belong to a group; an id from another group behaves as unknown.
   addRehearsal(groupId: string, input: SlotInput, location: string): Rehearsal;
+  /** Several proposals at once, all at one location: all or none. */
+  addRehearsals(groupId: string, inputs: SlotInput[], location: string): Rehearsal[];
   listRehearsals(groupId: string): Rehearsal[];
   findRehearsal(groupId: string, rehearsalId: string): Rehearsal | null;
   confirmRehearsal(groupId: string, rehearsalId: string): boolean;
@@ -1141,6 +1143,22 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     return member;
   }
 
+  function addRehearsal(groupId: string, input: SlotInput, location: string): Rehearsal {
+    const id = newToken();
+    insertRehearsal.run(
+      id,
+      groupId,
+      input.kind,
+      input.startDate,
+      input.endDate,
+      input.startMinute,
+      input.endMinute,
+      location,
+      new Date().toISOString(),
+    );
+    return { ...input, id, location, status: "proposed", skips: [] };
+  }
+
   return {
     createGroup(name, organizerName, timeZone, accountId = null) {
       const group: Group = {
@@ -1325,20 +1343,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       }
       return slots;
     },
-    addRehearsal(groupId, input, location) {
-      const id = newToken();
-      insertRehearsal.run(
-        id,
-        groupId,
-        input.kind,
-        input.startDate,
-        input.endDate,
-        input.startMinute,
-        input.endMinute,
-        location,
-        new Date().toISOString(),
-      );
-      return { ...input, id, location, status: "proposed", skips: [] };
+    addRehearsal,
+    addRehearsals(groupId, inputs, location) {
+      return transaction(() => inputs.map((input) => addRehearsal(groupId, input, location)));
     },
     listRehearsals(groupId) {
       return (selectRehearsals.all(groupId) as RehearsalRow[]).map(toRehearsal);

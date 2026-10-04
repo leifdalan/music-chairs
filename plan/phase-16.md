@@ -27,3 +27,7 @@ informs: []
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints" (works well on a phone).
+
+## Inherited from Phase 15
+
+Pinned by [Phase 15](phase-15.md): new screens and controls the visual system must cover: the tick-row picker on the schedule and request pages (`ProposeTimes` and `FreeTime` in `project/app/components/propose-times.tsx`, whole-row labels at least 44px tall with a checked outline, refusals shown next to **Propose selected**), the **Override with a custom proposal** disclosure at the end of the schedule page, and the home screen's **Waiting for your answer** list (`pendingRequests`).

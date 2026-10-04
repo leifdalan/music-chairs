@@ -22,14 +22,25 @@ From the operator's list after Phase 9:
 - "When people are free/propose this time should be a multi-select. The propose a rehearsal should be at the bottom and gated visually by 'override to a custom proposal'."
 - "Members from the home screen should be able to see and navigate to pending requests very easily, given they have one or many."
 
-To settle at phase start: whether the multi-select also applies to free times on a request's page (Phase 9), and whether location is entered once for all the selected times.
+Settled at phase start (operator, 2026-10-03):
+
+- The tick-several-and-propose control appears on both the schedule page and each scheduling request's page; the request page proposes straight from there.
+- Location is entered once, optionally, for all the ticked times.
+- A "Rehearsal length" is chosen once (default 2 hours); each proposal starts at its free time's start and is cut short to the free time when that is shorter.
+- The home screen's pending requests cover the groups joined on this device and the groups linked to the signed-in Google account.
 
 ## Acceptance
 
 - `./bin/test project/tests` covers proposing several selected free times in one action (each becomes a proposed rehearsal), organizer-only access, the custom proposal still working behind its control, and the home screen listing exactly the open, unanswered requests of the viewer's groups and none of anyone else's.
 - `./bin/deploy all` and `./bin/deploy smoke` pass.
 - `./bin/check all` passes.
-- User Demo: as organizer, tick three free times and propose them together; open the custom proposal and propose a different time; as a member with two unanswered requests, open the home screen on a phone and go straight to one. To be tightened at phase start.
+
+User Demo:
+
+- **Entry point.** On a laptop, open the schedule page of a test group you organize, where at least two members have entered availability that overlaps on several days in the coming weeks. On a phone, have a name-only member of the same group (joined on that phone, not signed in with Google).
+- **Suggested inputs.** Under **When people are free**, tick three free times, keep the length at 2 hours, type `Studio B` as the location and tap **Propose selected**. Scroll to the bottom, open **Override with a custom proposal**, and propose a weekly time that isn't in the list. Then create two scheduling requests from the group page. On one request's page, tick one free time and propose it. Finally, on the phone, open `https://rehearse.dalan.dev`, tap one of the listed requests and answer it, then go back to the home screen.
+- **What to look for.** Three proposed rehearsals appear, each 2 hours long from the start of its free time (shorter where the free time was shorter), all at Studio B, with one message saying how many were proposed. The custom proposal appears too, and its form stays out of the way until opened. The proposal from the request page appears on the schedule. On the phone, the home screen lists both requests under the group's name, each one tap away; after answering, that request is gone from the list.
+- **Variations to explore.** Tap **Propose selected** with nothing ticked: you're told to tick a time and nothing is proposed. As the member, the schedule page shows free times without tick boxes. Is ticking easy on a phone?
 
 ## Brief refs
 

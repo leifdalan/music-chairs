@@ -140,6 +140,11 @@ export function parseRequestForm(
   };
 }
 
+/** Whether members can still answer a request: open, and not over (dates in the group's zone). */
+export function answerable(request: { open: boolean; endDate: string }, today: string): boolean {
+  return request.open && request.endDate >= today;
+}
+
 /** The parts of each free stretch that fall inside the request's windows. */
 export function clipToWindows(stretches: Stretch[], windows: TimeWindow[]): Stretch[] {
   const clipped: Stretch[] = [];

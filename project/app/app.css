@@ -393,12 +393,6 @@ button.small,
   color: var(--muted);
 }
 
-.propose-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-}
-
 .rehearsal {
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
@@ -1112,4 +1106,72 @@ button.danger,
   font-size: 0.75rem;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+/* Proposing several free times, and pending requests (Phase 15) */
+
+.free-time.tickable {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.free-time.tickable input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.125rem 0 0;
+  flex: none;
+}
+
+.free-time-body {
+  flex: 1;
+}
+
+.stretch-line {
+  display: block;
+}
+
+.stretch:has(input:checked) {
+  border-left-color: var(--accent);
+  outline: 2px solid var(--accent);
+}
+
+.propose-times-controls {
+  margin-top: 1rem;
+}
+
+.custom-proposal {
+  margin-top: 2rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.custom-proposal > summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 2.75rem;
+}
+
+.pending-requests {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pending-requests a {
+  display: flex;
+  flex-direction: column;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0;
+  border-left: 4px solid var(--accent);
+  border-radius: 0.25rem;
+  background: var(--panel);
+  text-decoration: none;
+}
+
+.pending-name {
+  font-weight: 600;
 }

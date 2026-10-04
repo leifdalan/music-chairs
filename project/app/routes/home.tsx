@@ -4,10 +4,11 @@ import { data, Form, Link } from "react-router";
 import { googleConfig } from "~/.server/google";
 import { redirectWithToast } from "~/.server/flash";
 import { readAccount, rememberMembership } from "~/.server/membership";
+import { pendingRequests } from "~/.server/pending";
 import { getStore } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
-import { canonicalTimeZone } from "~/lib/availability";
+import { canonicalTimeZone, formatDate } from "~/lib/availability";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
 
@@ -52,6 +53,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           }))
       : [],
     notice: notice ? (NOTICES[notice] ?? null) : null,
+    pending: await pendingRequests(request, account),
   };
 }
 
@@ -108,6 +110,23 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         <p className="notice" role="status">
           {loaderData.notice}
         </p>
+      ) : null}
+      {loaderData.pending.length > 0 ? (
+        <section className="pending" aria-labelledby="pending-heading">
+          <h2 id="pending-heading">Waiting for your answer</h2>
+          <ul className="pending-requests">
+            {loaderData.pending.map((item) => (
+              <li key={item.requestId}>
+                <Link to={`/g/${item.groupId}/requests/${item.requestId}`}>
+                  <span className="pending-name">{item.name}</span>
+                  <span className="hint">
+                    {item.groupName} · answer by {formatDate(item.endDate)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
       <section className="about" aria-labelledby="about-heading">
         <h2 id="about-heading">What {siteName} does</h2>
