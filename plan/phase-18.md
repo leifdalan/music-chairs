@@ -1,43 +1,47 @@
 ---
 id: "18"
-title: "Visual cleanup"
+title: "CI/CD: tests on every change, deploy on merge to main"
 depends_on: ["17"]
-informs: []
+informs: ["19"]
 ---
 
-# Phase 18 — Visual cleanup
+# Phase 18 — CI/CD: tests on every change, deploy on merge to main
 
-**Goal**: the interface looks clean and calm, with one consistent visual style and a clear primary action on every screen, once the flows of Phases 8–17 have settled.
+**Goal**: every change to the repository is tested automatically on GitHub, and a change merged to `main` is deployed to https://rehearse.dalan.dev automatically, without paying for build compute.
 
 ## Deliverables
 
-- A small visual system (type scale, spacing, colours, button hierarchy) recorded in the repository and applied to every page.
-- Each page's purpose and primary action made obvious; secondary controls quieter.
+- A GitHub Actions workflow that runs the repository's own gates (`./bin/setup`, then `./bin/check all`) on every pull request and every push, with results visible on GitHub.
+- A deploy workflow that runs `./bin/deploy all` and `./bin/deploy smoke` when a change lands on `main`, only after the tests pass, and never two deploys at once.
+- AWS access for the deploy that needs no long-lived keys in GitHub: a role the workflow assumes through GitHub's OpenID Connect identity, defined in Terraform and limited to what the deploy does.
+- The runner the jobs use, set up and documented (see Decisions), and a branch protection or ruleset on `main` matching the chosen flow.
+- `project/deploy/README.md` (or a new CI section beside it) and `bin/README.md` describe the pipeline, how to rerun it and how to deploy by hand when GitHub is unavailable.
 
-## Decisions (operator, 2026-10-03)
+## Decisions (operator, 2026-10-04)
 
-- Deferred by the operator until after Phases 8–10: "I'm going to wait on visual feedback until after I've seen these pretty major changes." The operator's list of visual changes is collected at phase start.
-- Renumbered from Phase 11 on 2026-10-03 so that it stays last, after the operator's further feature phases 11–14 (see `plan/INDEX.md`).
+The operator's words: "I'd also like to add an operational phase before the ui cleanup. I'd like for us to have a CI/CD pipeline for our test suite, and I'd like for the merge to main to include the deployment. Does github provide an agent such that we can run the tests locally and act as a runner? I don't want to pay for compute given this is such a small project but I'd like to practice good CI/CD hygene". The operator is fine with making the repository private.
 
-Added 2026-10-03: the operator will do a big UI/UX pass first to populate this phase's details, and will shop for a visual framework or theme compatible with React Router 8 (user action `satisfied-turkey`). This phase is planned from that pass and that choice; until both arrive it stays a sketch.
+To settle at phase start:
+- **Runner**: a self-hosted runner on the operator's Mac (free; jobs wait while it is asleep; GitHub advises against self-hosted runners on public repositories) or GitHub-hosted runners within a private repository's free monthly minutes (no machine to keep awake). Check GitHub's current pricing for self-hosted runners in private repositories before deciding.
+- **Flow**: work moves to branches and pull requests, with CI required before merging and the merge deploying; or every push to `main` deploys after its tests pass. This changes how `kickoff` delivers a phase (today the orchestrator runs the live deploy as a gate and fast-forward-pushes `main`), so the methodology's delivery rules and the deploy gate move with it.
+- **Repository visibility**: private (the operator's stated preference) before any self-hosted runner is attached.
+- **Secrets and settings** the workflow needs (the AWS role, any GitHub environment protection) and where each lives.
 
 ## Acceptance
 
-- `./bin/test project/tests` and `./bin/check all` pass.
-- User Demo: walk the main journeys on a phone and a laptop and judge the look. To be tightened at phase start, from the operator's list.
+- A pull request (or push, per the chosen flow) shows the test workflow passing on GitHub, and a deliberately failing test makes it fail.
+- A change merged to `main` deploys, and the public smoke passes, with no AWS keys stored in GitHub.
+- `./bin/check all` passes, and the Terraform plan for the new role shows only additions.
+- User Demo: to be tightened at phase start.
 
 ## Brief refs
 
-- [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints" (works well on a phone).
-
-## Inherited from Phase 15
-
-Pinned by [Phase 15](phase-15.md), as moved by Phase 17: the tick-row picker on a request's page (`ProposeTimes` and `FreeTime` in `project/app/components/propose-times.tsx`, whole-row labels at least 44px tall with a checked outline, refusals shown next to **Propose selected**) and, below it, the **Propose a different time** disclosure. The schedule page lists free times without tick boxes.
-
-## Inherited from Phase 17
-
-Pinned by [Phase 17](phase-17.md): new screens the visual system must cover: on the schedule page, proposed rehearsals under their request's name (`request-group`), confirmed cards' "From <request>" line, the **Earlier rehearsals** section and the **Requests** section (`request-progress`, figures in `ProgressFigures`); on the home screen, the **Your requests** list (`homeRequests`) with each request's proposals (`proposed-list`) and figures; and the **Add to calendar** pair (`CalendarActions` in `project/app/components/calendar-actions.tsx`: a download link, the Google button or its hints) on both.
+- [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints" (AWS, low cost).
 
 ## Inherited from Phase 16
 
-Pinned by [Phase 16](phase-16.md): every AWS resource is defined in Terraform (`project/deploy/terraform`, settings in `project/deploy/config.json`) and changed only through `./bin/deploy`; the visual cleanup changes no infrastructure. Anything a chosen theme or framework loads from a CDN or a new domain (fonts, scripts) is a privacy-policy question for this phase (see Phase 14), not an infrastructure one.
+Pinned by [Phase 16](phase-16.md): every AWS resource is defined in Terraform (`project/deploy/terraform`, settings in `project/deploy/config.json`) and changed only through `./bin/deploy`, whose `infra` step refuses plans that destroy, replace or forget protected resources. The deploy needs the SSH key `~/.ssh/music-chairs-lightsail` and the pinned host key in `~/.ssh/music-chairs-known-hosts`; a CI deploy needs both, or a different way to reach the server.
+
+## Inherited from Phase 17
+
+Pinned by [Phase 17](phase-17.md): `project/scripts/smoke.sh` builds the app and exercises it end to end locally (including the request-based proposing and the calendar download), and `./bin/deploy smoke` checks the public site; both are the natural CI and post-deploy checks. The live database is at schema version 9.
