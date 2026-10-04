@@ -9,11 +9,16 @@ import RequestPage, {
   action as requestAction,
   loader as requestLoader,
 } from "../app/routes/request";
-import Schedule, {
-  action as scheduleAction,
-  loader as scheduleLoader,
-} from "../app/routes/schedule";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, tempDatabase, thrownBy } from "./routes";
+import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
+import {
+  deviceCookie,
+  ORIGIN,
+  requestIn,
+  routeArgs,
+  setCookies,
+  tempDatabase,
+  thrownBy,
+} from "./routes";
 
 tempDatabase();
 
@@ -210,15 +215,6 @@ function tickFor(html: string, label: string): string {
   throw new Error(`no tick box for ${label}`);
 }
 
-function schedulePost(groupId: string, cookie: string | undefined, fields: [string, string][]) {
-  const request = new Request(new URL(`/g/${groupId}/schedule`, ORIGIN), {
-    method: "POST",
-    headers: cookie ? { Cookie: cookie } : {},
-    body: new URLSearchParams(fields),
-  });
-  return scheduleAction({ request, params: { groupId }, context: {} } as never) as Promise<unknown>;
-}
-
 function requestPost(
   groupId: string,
   requestId: string,
@@ -256,123 +252,28 @@ const times = (store: ReturnType<typeof getStore>, groupId: string) =>
     )
     .sort();
 
-describe("proposing ticked times on the schedule page", () => {
-  it("proposes every ticked time as shown on the page, with one length and location", async () => {
-    const { store, group, organizerCookie } = await band();
-    const html = renderSchedule(
-      (await scheduleLoader(
-        routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie: organizerCookie }),
-      )) as ScheduleData,
-    );
+describe("free times on the schedule page", () => {
+  it("shows organizers and members the free times without tick boxes or a propose form", async () => {
+    const { group, organizerCookie, cellistCookie } = await band();
+    const html = async (cookie: string) =>
+      renderSchedule(
+        (await scheduleLoader(
+          routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie }),
+        )) as ScheduleData,
+      );
 
-    const response = await schedulePost(group.id, organizerCookie, [
-      ["intent", "propose-times"],
-      ["time", tickFor(html, "Propose Thu 8 Oct, 19:00–22:00")],
-      ["time", tickFor(html, "Propose Fri 9 Oct, 19:00–20:00")],
-      ["time", tickFor(html, "Propose Sat 10 Oct, 22:00–24:00")],
-      ["length", "120"],
-      ["location", " Studio B "],
-    ]);
+    const organizer = await html(organizerCookie);
+    const member = await html(cellistCookie);
 
-    expect(statusOf(response)).toBe(302);
-    expect((response as Response).headers.get("Location")).toBe(`/g/${group.id}/schedule`);
-    expect(await toastOf(response)).toBe("3 rehearsals proposed");
-    expect(times(store, group.id)).toEqual([
-      "once 2026-10-08 1140-1260 Studio B proposed",
-      "once 2026-10-09 1140-1200 Studio B proposed",
-      "once 2026-10-10 1320-1440 Studio B proposed",
-    ]);
-  });
-
-  it("refuses inside the picker and proposes nothing", async () => {
-    const { store, group, organizerCookie } = await band();
-
-    const refused = await schedulePost(group.id, organizerCookie, [
-      ["intent", "propose-times"],
-      ["length", "120"],
-    ]);
-
-    expect(statusOf(refused)).toBe(400);
-    expect(store.listRehearsals(group.id)).toEqual([]);
-    const data = (await scheduleLoader(
-      routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie: organizerCookie }),
-    )) as ScheduleData;
-    const html = renderSchedule(data, (refused as { data: unknown }).data);
-    expect(pickerOf(html)).toContain("Tick at least one free time.");
-    expect(html.indexOf("Tick at least one free time.")).toBeGreaterThan(
-      html.indexOf("When people are free"),
-    );
-  });
-
-  it("is for organizers only; members see the free times without tick boxes", async () => {
-    const { store, group, cellistCookie } = await band();
-
-    const thrown = await thrownBy(
-      schedulePost(group.id, cellistCookie, [
-        ["intent", "propose-times"],
-        ["time", "2026-10-08 1140 1320"],
-        ["length", "120"],
-      ]),
-    );
-
-    expect(statusOf(thrown)).toBe(403);
-    expect(store.listRehearsals(group.id)).toEqual([]);
-    const html = renderSchedule(
-      (await scheduleLoader(
-        routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie: cellistCookie }),
-      )) as ScheduleData,
-    );
-    expect(html).toContain("When people are free");
-    expect(html).not.toContain('name="time"');
-    expect(html).not.toContain("Propose selected");
-  });
-
-  it("keeps the custom proposal at the end, folded away until pre-filled, and working", async () => {
-    const { store, group, organizerCookie } = await band();
-    const load = (search = "") =>
-      scheduleLoader(
-        routeArgs(
-          `/g/${group.id}/schedule${search}`,
-          { groupId: group.id },
-          { cookie: organizerCookie },
-        ),
-      ) as Promise<ScheduleData>;
-
-    const folded = renderSchedule(await load());
-    expect(folded.indexOf("Override with a custom proposal")).toBeGreaterThan(
-      folded.indexOf("When people are free"),
-    );
-    expect(folded).toMatch(/<details class="custom-proposal">/);
-    const opened = renderSchedule(await load("?date=2026-10-15&start=19:30&end=21:00"));
-    expect(opened).toMatch(/<details class="custom-proposal" open="">/);
-
-    // A refused custom proposal keeps the disclosure open with its errors showing.
-    const refused = await schedulePost(group.id, organizerCookie, [
-      ["intent", "propose"],
-      ["kind", "weekly"],
-      ["startDate", "2026-10-06"],
-      ["endDate", ""],
-      ["startTime", "12:00"],
-      ["endTime", "10:00"],
-      ["location", ""],
-    ]);
-    const withErrors = renderSchedule(await load(), (refused as { data: unknown }).data);
-    expect(withErrors).toMatch(/<details class="custom-proposal" open="">/);
-    expect(withErrors.slice(withErrors.indexOf('class="custom-proposal"'))).toContain(
-      'class="field-error"',
-    );
-
-    const response = await schedulePost(group.id, organizerCookie, [
-      ["intent", "propose"],
-      ["kind", "weekly"],
-      ["startDate", "2026-10-06"],
-      ["endDate", ""],
-      ["startTime", "10:00"],
-      ["endTime", "12:00"],
-      ["location", "Hall"],
-    ]);
-    expect(await toastOf(response)).toBe("Rehearsal proposed");
-    expect(times(store, group.id)).toEqual(["weekly 2026-10-06 600-720 Hall proposed"]);
+    for (const page of [organizer, member]) {
+      expect(page).toContain("When people are free");
+      expect(page).toContain("19:00–22:00");
+      expect(page).not.toContain('name="time"');
+      expect(page).not.toContain("Propose selected");
+      expect(page).not.toContain("custom-proposal");
+    }
+    expect(organizer).toContain("To propose times, open a request on the");
+    expect(member).not.toContain("To propose times");
   });
 });
 
@@ -413,6 +314,67 @@ describe("proposing ticked times on a request's page", () => {
     );
     expect(await toastOf(response)).toBe("Rehearsal proposed");
     expect(times(store, group.id)).toEqual(["once 2026-10-05 1140-1260  proposed"]);
+    expect(store.listRehearsals(group.id).map((r) => r.requestId)).toEqual([requestId]);
+  });
+
+  it("keeps a custom proposal folded under the free times until refused, and links it to the request", async () => {
+    const { store, group, organizerCookie, cellistCookie, requestId } = await withRequest();
+    const data = () =>
+      requestLoader(
+        routeArgs(
+          `/g/${group.id}/requests/${requestId}`,
+          { groupId: group.id, requestId },
+          { cookie: organizerCookie },
+        ),
+      ) as Promise<RequestData>;
+    const custom = (startTime: string, endTime: string, location: string) =>
+      [
+        ["intent", "propose"],
+        ["kind", "weekly"],
+        ["startDate", "2026-10-06"],
+        ["endDate", ""],
+        ["startTime", startTime],
+        ["endTime", endTime],
+        ["location", location],
+      ] as [string, string][];
+
+    const folded = renderRequest(await data());
+    expect(folded.indexOf("Propose a different time")).toBeGreaterThan(
+      folded.indexOf("When people are free"),
+    );
+    expect(folded).toMatch(/<details class="custom-proposal">/);
+
+    const refused = await requestPost(
+      group.id,
+      requestId,
+      organizerCookie,
+      custom("12:00", "10:00", ""),
+    );
+    expect(statusOf(refused)).toBe(400);
+    const withErrors = renderRequest(await data(), (refused as { data: unknown }).data);
+    expect(withErrors).toMatch(/<details class="custom-proposal" open="">/);
+    expect(withErrors.slice(withErrors.indexOf('class="custom-proposal"'))).toContain(
+      'class="field-error"',
+    );
+
+    const thrown = await thrownBy(
+      requestPost(group.id, requestId, cellistCookie, custom("10:00", "12:00", "Hall")),
+    );
+    expect(statusOf(thrown)).toBe(403);
+    expect(store.listRehearsals(group.id)).toEqual([]);
+
+    const response = await requestPost(
+      group.id,
+      requestId,
+      organizerCookie,
+      custom("10:00", "12:00", "Hall"),
+    );
+    expect((response as Response).headers.get("Location")).toBe(
+      `/g/${group.id}/requests/${requestId}`,
+    );
+    expect(await toastOf(response)).toBe("Rehearsal proposed");
+    expect(times(store, group.id)).toEqual(["weekly 2026-10-06 600-720 Hall proposed"]);
+    expect(store.listRehearsals(group.id)[0].requestId).toBe(requestId);
   });
 
   it("shows a refusal inside the picker on the request page, and starts afresh after a proposal", async () => {
@@ -487,11 +449,21 @@ describe("adding several rehearsals in the store", () => {
     };
 
     expect(() =>
-      store.addRehearsals(group.id, [good, { ...good, kind: "never" as never }], "X"),
+      store.addRehearsals(
+        group.id,
+        requestIn(group.id),
+        [good, { ...good, kind: "never" as never }],
+        "X",
+      ),
     ).toThrow();
     expect(store.listRehearsals(group.id)).toEqual([]);
     expect(
-      store.addRehearsals(group.id, [good, { ...good, startDate: "2026-10-09" }], "X"),
+      store.addRehearsals(
+        group.id,
+        requestIn(group.id),
+        [good, { ...good, startDate: "2026-10-09" }],
+        "X",
+      ),
     ).toHaveLength(2);
   });
 });

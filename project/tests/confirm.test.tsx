@@ -10,7 +10,7 @@ import { action as availabilityAction } from "../app/routes/availability";
 import { action as groupAction } from "../app/routes/group";
 import { action as requestAction } from "../app/routes/request";
 import { action as scheduleAction } from "../app/routes/schedule";
-import { deviceCookie, routeArgs, signedIn, tempDatabase, thrownBy } from "./routes";
+import { deviceCookie, requestIn, routeArgs, signedIn, tempDatabase, thrownBy } from "./routes";
 
 const count = tempDatabase();
 
@@ -53,6 +53,7 @@ async function band() {
   });
   const rehearsal = store.addRehearsal(
     group.id,
+    requestIn(group.id),
     { kind: "weekly", startDate: "2026-10-08", endDate: null, startMinute: 1140, endMinute: 1260 },
     "Studio",
   );

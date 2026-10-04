@@ -8,7 +8,7 @@ import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { action, loader } from "../app/routes/auth.google.disconnect";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
-import { ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import { ORIGIN, requestIn, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
 
 tempDatabase();
 
@@ -51,6 +51,7 @@ async function writingCellist(options: { grant?: boolean } = {}) {
   const firstDate = addDays(todayInZone(ZONE, new Date()), 7);
   const rehearsal = store.addRehearsal(
     group.id,
+    requestIn(group.id),
     {
       kind: "weekly",
       startDate: firstDate,
@@ -244,6 +245,7 @@ describe("Disconnect Google", () => {
     const firstDate = addDays(todayInZone(ZONE, new Date()), 8);
     const rehearsal = store.addRehearsal(
       group.id,
+      requestIn(group.id),
       { kind: "once", startDate: firstDate, endDate: null, startMinute: 600, endMinute: 660 },
       "Hall",
     );

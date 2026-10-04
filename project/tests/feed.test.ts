@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { loader } from "../app/routes/calendar-feed";
-import { routeArgs } from "./routes";
+import { requestIn, routeArgs } from "./routes";
 
 function fetchFeed(feedFile: string) {
   return loader(routeArgs(`/calendar/${feedFile}`, { feedFile })) as Response;
@@ -17,6 +17,7 @@ function band() {
   const first = addDays(todayInZone("UTC", new Date()), 2);
   const rehearsal = store.addRehearsal(
     group.id,
+    requestIn(group.id),
     {
       kind: "weekly",
       startDate: first,
@@ -59,6 +60,7 @@ describe("a member's calendar feed", () => {
     const group = store.findGroup(cellist.groupId)!;
     const later = store.addRehearsal(
       group.id,
+      requestIn(group.id),
       {
         kind: "once",
         startDate: addDays(first, 1),

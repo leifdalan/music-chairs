@@ -6,11 +6,13 @@ import { whenSynced } from "../app/.server/calendar-sync";
 import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
+import { action as requestAction } from "../app/routes/request";
 import Schedule, { action, loader } from "../app/routes/schedule";
 import { fakeGoogle } from "./google-fake";
 import {
   deviceCookie,
   ORIGIN,
+  requestIn,
   routeArgs,
   setCookies,
   signedIn,
@@ -67,6 +69,17 @@ function post(groupId: string, cookie: string | undefined, form: Record<string, 
   return action(routeArgs(`/g/${groupId}/schedule`, { groupId }, { cookie, form }));
 }
 
+const requests = new Map<string, string>();
+
+/** Proposes on the group's request page, where every proposal is made (plan/phase-17.md). */
+function propose(groupId: string, cookie: string | undefined, form: Record<string, string>) {
+  const requestId = requests.get(groupId) ?? requestIn(groupId);
+  requests.set(groupId, requestId);
+  return requestAction(
+    routeArgs(`/g/${groupId}/requests/${requestId}`, { groupId, requestId }, { cookie, form }),
+  );
+}
+
 function statusOf(value: unknown): number | undefined {
   if (value instanceof Response) return value.status;
   return (value as { init?: ResponseInit | null }).init?.status;
@@ -102,7 +115,7 @@ describe("schedule feedback and quarter hours", () => {
   it("proposes on the quarter hour and confirms each step with a toast", async () => {
     const { group, organizerCookie, cellistCookie } = await band();
 
-    const proposed = await post(group.id, organizerCookie, {
+    const proposed = await propose(group.id, organizerCookie, {
       ...nextThursday,
       startTime: "19:15",
       endTime: "21:44",
@@ -158,7 +171,7 @@ describe("schedule route", () => {
     for (const hidden of ["Viola", "Pianist", organizer.id, pianist.id, organizer.deviceToken]) {
       expect(visible).not.toContain(hidden);
     }
-    expect(render(page)).not.toContain("Propose a rehearsal");
+    expect(render(page)).not.toContain("Propose a different time");
     expect(render(page)).not.toContain('name="time"');
     expect(render(page)).not.toContain("Propose selected");
   });
@@ -183,15 +196,14 @@ describe("schedule route", () => {
     expect(stretch).toMatchObject({ everyoneNeeded: true });
     expect([...(stretch?.freeNames ?? [])].sort()).toEqual(["Cellist", "Viola"]);
     expect(stretch?.missing).toEqual([{ name: "Pianist", optional: true }]);
-    expect(render(page)).toContain('name="time" value="2026-10-08 1140 1320"');
-    expect(render(page)).toContain('aria-label="Propose Thu 8 Oct, 19:00–22:00"');
-    expect(render(page)).not.toContain("Propose this time");
+    expect(render(page)).not.toContain('name="time"');
+    expect(render(page)).toContain("To propose times, open a request on the");
   });
 
   it("warns when a non-optional member is missing, and still lets the organizer confirm", async () => {
     const { group, pianist, organizerCookie } = await band();
 
-    const proposed = await post(group.id, organizerCookie, nextThursday);
+    const proposed = await propose(group.id, organizerCookie, nextThursday);
     const [rehearsal] = getStore().listRehearsals(group.id);
     const beforeConfirm = await load(group.id, organizerCookie);
     const confirmed = await post(group.id, organizerCookie, {
@@ -220,7 +232,7 @@ describe("schedule route", () => {
 
   it("shows members proposed and confirmed rehearsals without warnings or member ids", async () => {
     const { group, organizer, pianist, organizerCookie, cellistCookie } = await band();
-    await post(group.id, organizerCookie, nextThursday);
+    await propose(group.id, organizerCookie, nextThursday);
     const [rehearsal] = getStore().listRehearsals(group.id);
 
     const page = await load(group.id, cellistCookie);
@@ -231,6 +243,8 @@ describe("schedule route", () => {
         kind: "once",
         status: "proposed",
         location: "Studio B",
+        requestId: rehearsal.requestId,
+        requestName: "Autumn rehearsals",
         summary: "Thu 8 Oct, 19:30–21:30",
         dates: [
           { date: "2026-10-08", mine: null, counts: { yes: 0, no: 0, maybe: 0 }, names: null },
@@ -247,7 +261,7 @@ describe("schedule route", () => {
   it("checks a one-off rehearsal beyond the overlap window", async () => {
     const { group, organizerCookie } = await band();
 
-    await post(group.id, organizerCookie, { ...nextThursday, startDate: "2026-12-31" });
+    await propose(group.id, organizerCookie, { ...nextThursday, startDate: "2026-12-31" });
     const page = await load(group.id, organizerCookie);
 
     expect(page.rehearsals[0].organizer?.warnings).toEqual([
@@ -257,7 +271,7 @@ describe("schedule route", () => {
 
   it("cancels a date of a weekly rehearsal, ends it, and labels unchecked later dates", async () => {
     const { group, organizerCookie } = await band();
-    await post(group.id, organizerCookie, {
+    await propose(group.id, organizerCookie, {
       ...nextThursday,
       kind: "weekly",
       startDate: "2026-10-08",
@@ -298,7 +312,7 @@ describe("schedule route", () => {
 
   it("deletes a rehearsal and its cancellations", async () => {
     const { group, organizerCookie } = await band();
-    await post(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
+    await propose(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
     const [rehearsal] = getStore().listRehearsals(group.id);
     await post(group.id, organizerCookie, {
       intent: "cancel-date",
@@ -328,16 +342,16 @@ describe("schedule route", () => {
     const { group, organizerCookie } = await band();
     const before = count("rehearsals");
 
-    const result = await post(group.id, organizerCookie, { ...nextThursday, ...change });
+    const result = await propose(group.id, organizerCookie, { ...nextThursday, ...change });
 
     expect(statusOf(result)).toBe(400);
-    expect((result as { data: { errors: object } }).data.errors).toEqual(errors);
+    expect((result as unknown as { data: { errors: object } }).data.errors).toEqual(errors);
     expect(count("rehearsals")).toBe(before);
   });
 
   it("lets only organizers propose, confirm, cancel, end or delete", async () => {
     const { group, organizerCookie, cellistCookie } = await band();
-    await post(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
+    await propose(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
     const [rehearsal] = getStore().listRehearsals(group.id);
     await post(group.id, organizerCookie, {
       intent: "cancel-date",
@@ -368,7 +382,7 @@ describe("schedule route", () => {
 
   it("warns about a far-off one-off date", async () => {
     const { group, organizerCookie } = await band();
-    await post(group.id, organizerCookie, { ...nextThursday, startDate: "2062-10-05" });
+    await propose(group.id, organizerCookie, { ...nextThursday, startDate: "2062-10-05" });
 
     const page = await load(group.id, organizerCookie);
 
@@ -399,25 +413,47 @@ describe("schedule route", () => {
     const { group, cellist, cellistCookie } = await band();
     getStore().setRole(group.id, cellist.id, "organizer");
 
-    const proposed = await post(group.id, cellistCookie, nextThursday);
+    const proposed = await propose(group.id, cellistCookie, nextThursday);
     const page = await load(group.id, cellistCookie);
 
     expect(statusOf(proposed)).toBe(302);
     expect(page.isOrganizer).toBe(true);
   });
 
-  it("pre-fills the propose form from a chosen stretch", async () => {
+  it("no longer proposes on the schedule page, while its other actions still work", async () => {
     const { group, organizerCookie } = await band();
+    await propose(group.id, organizerCookie, nextThursday);
+    const [rehearsal] = getStore().listRehearsals(group.id);
+    const before = count("rehearsals");
 
+    const custom = await thrownBy(post(group.id, organizerCookie, nextThursday));
+    const ticked = await thrownBy(
+      post(group.id, organizerCookie, {
+        intent: "propose-times",
+        time: "2026-10-08 1140 1320",
+        length: "120",
+        location: "Studio B",
+      }),
+    );
+    const confirmed = await post(group.id, organizerCookie, {
+      intent: "confirm",
+      rehearsalId: rehearsal.id,
+    });
     const page = await load(group.id, organizerCookie, "?date=2026-10-08&start=19:00&end=22:00");
 
-    expect(page.prefill).toEqual({
-      startDate: "2026-10-08",
-      startTime: "19:00",
-      endTime: "22:00",
-      location: "",
-    });
-    expect(render(page)).toMatch(/name="startDate"[^>]*value="2026-10-08"/);
+    expect([statusOf(custom), statusOf(ticked)]).toEqual([404, 404]);
+    expect(count("rehearsals")).toBe(before);
+    expect(statusOf(confirmed)).toBe(302);
+    expect(getStore().findRehearsal(group.id, rehearsal.id)?.status).toBe("confirmed");
+    const html = render(page);
+    for (const gone of [
+      "Propose a different time",
+      'name="time"',
+      "Propose selected",
+      "Propose again",
+    ]) {
+      expect(html).not.toContain(gone);
+    }
   });
 
   describe("times that worked", () => {
@@ -430,6 +466,7 @@ describe("schedule route", () => {
       const store = getStore();
       const rehearsal = store.addRehearsal(
         groupId,
+        requestIn(groupId),
         {
           kind: options.kind ?? "once",
           startDate,
@@ -477,27 +514,8 @@ describe("schedule route", () => {
           location: "Studio B",
         },
       ]);
-      expect(render(page)).toContain(
-        "?date=2026-10-05&amp;start=19%3A30&amp;end=21%3A30&amp;location=Hall#propose-heading",
-      );
-    });
-
-    it("pre-fills the propose form with the time and place", async () => {
-      const { group, organizerCookie } = await band();
-
-      const page = await load(
-        group.id,
-        organizerCookie,
-        "?date=2026-10-08&start=19%3A30&end=21%3A30&location=Studio+B",
-      );
-
-      expect(page.prefill).toEqual({
-        startDate: "2026-10-08",
-        startTime: "19:30",
-        endTime: "21:30",
-        location: "Studio B",
-      });
-      expect(render(page)).toMatch(/name="location"[^>]*value="Studio B"/);
+      expect(render(page)).toContain("Times that worked");
+      expect(render(page)).not.toContain("Propose again");
     });
 
     it("is for organizers only", async () => {
@@ -514,7 +532,7 @@ describe("schedule route", () => {
   describe("RSVP", () => {
     async function weeklyRehearsal() {
       const setup = await band();
-      await post(setup.group.id, setup.organizerCookie, {
+      await propose(setup.group.id, setup.organizerCookie, {
         ...nextThursday,
         kind: "weekly",
         startDate: "2026-10-08",
@@ -640,7 +658,7 @@ describe("schedule route", () => {
         rehearsalId: rehearsal.id,
         date: "2026-10-22",
       });
-      await post(group.id, organizerCookie, nextThursday);
+      await propose(group.id, organizerCookie, nextThursday);
       const once = getStore()
         .listRehearsals(group.id)
         .find((item) => item.kind === "once");
@@ -663,6 +681,7 @@ describe("schedule route", () => {
       // First date 2026-09-24, before the pinned today: a real, uncancelled occurrence.
       const past = getStore().addRehearsal(
         group.id,
+        requestIn(group.id),
         { ...thursdays, startDate: "2026-09-24", startMinute: 1170, endMinute: 1290 },
         "",
       );
@@ -782,7 +801,7 @@ describe("rehearsals in members' calendars", () => {
         CALENDAR_SCOPES.write,
       ]);
       await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
-      await post(group.id, organizerCookie, {
+      await propose(group.id, organizerCookie, {
         ...nextThursday,
         kind: "weekly",
         endDate: "2026-10-29",
@@ -844,7 +863,7 @@ describe("rehearsals in members' calendars", () => {
       expect(getStore().findMember(group.id, cellist.id)?.calendarSync).toBe(true);
       expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({ state: "on" });
 
-      await post(group.id, organizerCookie, nextThursday);
+      await propose(group.id, organizerCookie, nextThursday);
       const [proposed] = getStore().listRehearsals(group.id);
       await whenSynced();
       expect(google.calendarCalls()).toEqual([]);

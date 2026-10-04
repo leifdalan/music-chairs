@@ -15,6 +15,7 @@ import {
   type Store,
 } from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
+import { requestIn } from "./routes";
 
 /** A new member as every later read returns it: without the device token. */
 function withoutToken(member: NewMember): Member {
@@ -355,7 +356,12 @@ describe("rehearsals store", () => {
     const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
     const other = store.createGroup("Other", "Drums", "Europe/London");
 
-    const weekly = store.addRehearsal(group.id, thursdays, "Studio B");
+    const weekly = store.addRehearsal(
+      group.id,
+      requestIn(group.id, { store }),
+      thursdays,
+      "Studio B",
+    );
     expect(store.findRehearsal(group.id, weekly.id)).toMatchObject({
       status: "proposed",
       location: "Studio B",
@@ -383,8 +389,13 @@ describe("rehearsals store", () => {
   it("cancels only dates the rehearsal meets, and refuses to end a one-off", () => {
     const store = memoryStore();
     const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
-    const weekly = store.addRehearsal(group.id, thursdays, "");
-    const once = store.addRehearsal(group.id, { ...thursdays, kind: "once" }, "");
+    const weekly = store.addRehearsal(group.id, requestIn(group.id, { store }), thursdays, "");
+    const once = store.addRehearsal(
+      group.id,
+      requestIn(group.id, { store }),
+      { ...thursdays, kind: "once" },
+      "",
+    );
 
     expect(store.setCancelled(group.id, weekly.id, "2026-10-09", true)).toBe(false);
     expect(store.setCancelled(group.id, weekly.id, "2026-10-08", true)).toBe(true);
@@ -399,7 +410,12 @@ describe("rsvp store", () => {
     const store = memoryStore();
     const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
     const cello = store.addMember(group.id, "Cello", "member");
-    const weekly = store.addRehearsal(group.id, thursdays, "Studio B");
+    const weekly = store.addRehearsal(
+      group.id,
+      requestIn(group.id, { store }),
+      thursdays,
+      "Studio B",
+    );
     return { store, group, organizer, cello, weekly };
   }
 
@@ -426,7 +442,12 @@ describe("rsvp store", () => {
     expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-15", "yes")).toBe(false);
     expect(store.setRsvp(other.group.id, weekly.id, cello.id, "2026-10-08", "yes")).toBe(false);
     expect(store.setRsvp(group.id, weekly.id, other.organizer.id, "2026-10-08", "yes")).toBe(false);
-    const once = store.addRehearsal(group.id, { ...thursdays, kind: "once" }, "");
+    const once = store.addRehearsal(
+      group.id,
+      requestIn(group.id, { store }),
+      { ...thursdays, kind: "once" },
+      "",
+    );
     expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-08", "yes")).toBe(false);
     expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-01", "yes")).toBe(true);
     expect(store.listRsvps(other.group.id)).toEqual([]);
@@ -738,6 +759,25 @@ describe("scheduling requests", () => {
   });
 });
 
+describe("rehearsals belong to a request", () => {
+  it("records the request and refuses another group's or an unknown request", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Other", "Drums", "Europe/London");
+    const own = requestIn(group.id, { store });
+    const theirs = requestIn(other.group.id, { store });
+
+    const [first, second] = store.addRehearsals(group.id, own, [thursdays, thursdays], "Hall");
+
+    expect([first.requestId, second.requestId]).toEqual([own, own]);
+    expect(store.findRehearsal(group.id, first.id)?.requestId).toBe(own);
+    expect(() => store.addRehearsal(group.id, theirs, thursdays, "Hall")).toThrow();
+    expect(() => store.addRehearsal(group.id, "Q".repeat(22), thursdays, "Hall")).toThrow();
+    expect(() => store.addRehearsals(group.id, theirs, [thursdays], "Hall")).toThrow();
+    expect(store.listRehearsals(group.id)).toHaveLength(2);
+  });
+});
+
 describe("removing members and deleting groups", () => {
   function band(store: Store, name: string) {
     const { group, organizer } = store.createGroup(name, "Viola", "Europe/London");
@@ -752,15 +792,16 @@ describe("removing members and deleting groups", () => {
     ]);
     const slot = store.addSlot(cellist.id, thursdays);
     store.setSkip(cellist.id, slot.id, "2026-10-08", true);
-    const rehearsal = store.addRehearsal(group.id, thursdays, "Studio");
-    store.setCancelled(group.id, rehearsal.id, "2026-10-15", true);
-    store.setRsvp(group.id, rehearsal.id, cellist.id, "2026-10-22", "yes");
     const request = store.createRequest(group.id, {
       name: "Concert",
       startDate: "2026-11-02",
       endDate: "2026-11-29",
       windows: [{ startMinute: 1140, endMinute: 1320 }],
     });
+    // Linked to the request, so deleting the group meets the request link too.
+    const rehearsal = store.addRehearsal(group.id, request.id, thursdays, "Studio");
+    store.setCancelled(group.id, rehearsal.id, "2026-10-15", true);
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "2026-10-22", "yes");
     store.answerRequest(group.id, request.id, cellist.id, 2);
     store.recordCalendarEvent(cellist.id, {
       rehearsalId: rehearsal.id,
@@ -1173,6 +1214,46 @@ describe("schema migrations", () => {
     const db = new DatabaseSync(filename);
     expect(version(db)).toBe(MIGRATIONS.length);
     expect(db.prepare("SELECT email_verified FROM accounts").get()).toEqual({ email_verified: 0 });
+    db.close();
+  });
+
+  it("upgrades a version-8 database to request links, keeping every rehearsal unlinked", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 8));
+    const rehearsalId = "R".repeat(22);
+    raw.exec(`
+      INSERT INTO groups VALUES ('g', 'invite', 'Quartet', 'Europe/London', 0, '2026-10-01');
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
+      INSERT INTO requests VALUES ('q', 'g', 'Concert', '2026-10-01', '2026-10-31', 1, '2026-10-01');
+      INSERT INTO rehearsals
+        (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
+         created_at)
+        VALUES ('${rehearsalId}', 'g', 'weekly', '2026-10-01', NULL, 1140, 1260, 'Hall',
+          'confirmed', '2026-10-01');
+      INSERT INTO rehearsal_cancellations VALUES ('${rehearsalId}', '2026-10-08');
+      INSERT INTO rsvps VALUES ('${rehearsalId}', 'm', '2026-10-15', 'yes', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(8);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+
+    expect(store.listRehearsals("g")).toEqual([
+      expect.objectContaining({
+        id: rehearsalId,
+        status: "confirmed",
+        requestId: null,
+        skips: ["2026-10-08"],
+      }),
+    ]);
+    expect(store.listRsvps("g")).toHaveLength(1);
+    expect(store.listRequests("g")).toHaveLength(1);
+    const db = new DatabaseSync(filename);
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(db.prepare("SELECT request_id FROM rehearsals").get()).toEqual({ request_id: null });
     db.close();
   });
 

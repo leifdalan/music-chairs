@@ -7,14 +7,20 @@ import { getStore, type Group, type Member, type ScheduleRequest } from "~/.serv
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { FreeTime, ProposeTimes } from "~/components/propose-times";
+import { SlotFields } from "~/components/slot-fields";
 import { SubmitButton } from "~/components/submit-button";
+import { TextField } from "~/components/text-field";
 import {
   addDays,
   expandOccurrences,
   formatDate,
   formatMinutes,
+  parseSlotInput,
+  timeInputValue,
   todayInZone,
   validateLocation,
+  type SlotErrors,
+  type SlotFormValues,
 } from "~/lib/availability";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes, timeValue } from "~/lib/propose";
@@ -172,12 +178,40 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!location.ok) return data({ proposeProblem: location.error }, { status: 400 });
     const times = parseProposedTimes(form, todayInZone(group.timeZone, new Date()));
     if (!times.ok) return data({ proposeProblem: times.error }, { status: 400 });
-    store.addRehearsals(group.id, times.inputs, location.value);
+    store.addRehearsals(group.id, scheduleRequest.id, times.inputs, location.value);
     const count = times.inputs.length;
     return redirectWithToast(
       here,
       count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`,
     );
+  }
+  // A time the free times don't show, or a weekly rehearsal, still from this request.
+  if (intent === "propose") {
+    if (viewer.role !== "organizer") throw data(null, { status: 403 });
+    const parsed = parseSlotInput(form);
+    const location = validateLocation(form.get("location"));
+    const errors: ProposeErrors = parsed.ok ? {} : { ...parsed.errors };
+    if (parsed.ok && parsed.value.startDate < todayInZone(group.timeZone, new Date())) {
+      errors.startDate = "Pick today or a later date.";
+    }
+    if (!location.ok) errors.location = location.error;
+    if (!parsed.ok || !location.ok || Object.keys(errors).length > 0) {
+      const values = parsed.ok
+        ? {
+            kind: parsed.value.kind,
+            startDate: parsed.value.startDate,
+            endDate: parsed.value.endDate ?? "",
+            startTime: timeInputValue(parsed.value.startMinute),
+            endTime: timeInputValue(parsed.value.endMinute),
+          }
+        : parsed.values;
+      return data(
+        { errors, values: { ...values, location: String(form.get("location") ?? "") } },
+        { status: 400 },
+      );
+    }
+    store.addRehearsal(group.id, scheduleRequest.id, parsed.value, location.value);
+    return redirectWithToast(here, "Rehearsal proposed");
   }
   if (intent === "close" || intent === "reopen") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
@@ -216,6 +250,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   const status = !open ? "Closed" : expired ? "Ended" : null;
   const pickProblem =
     actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
+  const formResult = actionData && "errors" in actionData ? actionData : undefined;
   return (
     <main>
       <p className="eyebrow">
@@ -382,9 +417,47 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               </ul>
             )}
           </ProposeTimes>
+          <details className="custom-proposal" open={formResult !== undefined}>
+            <summary>Propose a different time</summary>
+            <ProposeForm key={rehearsalCount ?? 0} result={formResult} />
+          </details>
         </section>
       ) : null}
     </main>
+  );
+}
+
+type ProposeValues = SlotFormValues & { location: string };
+type ProposeErrors = SlotErrors & { location?: string };
+
+function ProposeForm({
+  result,
+}: {
+  result: { errors: ProposeErrors; values: ProposeValues } | undefined;
+}) {
+  const values: ProposeValues = result?.values ?? {
+    kind: "once",
+    startDate: "",
+    endDate: "",
+    startTime: "",
+    endTime: "",
+    location: "",
+  };
+  const errors = result?.errors ?? {};
+  // Named by the disclosure's summary, "Propose a different time".
+  return (
+    <Form method="post" className="stack slot-form" replace>
+      <input type="hidden" name="intent" value="propose" />
+      <SlotFields values={values} errors={errors} />
+      <TextField
+        name="location"
+        label="Location (optional)"
+        defaultValue={values.location}
+        error={errors.location}
+        optional
+      />
+      <SubmitButton feedbackKey="propose">Propose</SubmitButton>
+    </Form>
   );
 }
 

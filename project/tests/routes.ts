@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterAll } from "vitest";
 
 import { rememberMembership, startSession } from "../app/.server/membership";
-import { getStore, type Account, type GoogleProfile } from "../app/.server/store";
+import { getStore, type Account, type GoogleProfile, type Store } from "../app/.server/store";
 
 export const ORIGIN = "http://music-chairs.test";
 
@@ -115,4 +115,20 @@ export function tempDatabase(): (table: Table) => number {
 /** A Cookie header for a device whose token is `deviceToken` in `groupId`. */
 export async function deviceCookie(groupId: string, deviceToken: string): Promise<string> {
   return (await rememberMembership(new Request(ORIGIN), groupId, deviceToken)).split(";")[0];
+}
+
+/**
+ * A request in the group to propose rehearsals from (every rehearsal belongs
+ * to one, plan/phase-17.md); returns its id.
+ */
+export function requestIn(
+  groupId: string,
+  { name = "Autumn rehearsals", store = getStore() }: { name?: string; store?: Store } = {},
+): string {
+  return store.createRequest(groupId, {
+    name,
+    startDate: "2026-10-01",
+    endDate: "2026-12-31",
+    windows: [{ startMinute: 0, endMinute: 1440 }],
+  }).id;
 }

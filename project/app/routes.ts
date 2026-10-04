@@ -11,6 +11,7 @@ export default [
   route("g/:groupId/members/add", "routes/members.add.tsx"),
   route("g/:groupId/requests/new", "routes/requests.new.tsx"),
   route("g/:groupId/requests/:requestId", "routes/request.tsx"),
+  route("g/:groupId/requests/:requestId/calendar.ics", "routes/request-calendar.ts"),
   route("join/:inviteToken", "routes/join.tsx"),
   route("auth/google", "routes/auth.google.ts"),
   route("auth/google/callback", "routes/auth.google.callback.ts"),

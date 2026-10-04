@@ -13,6 +13,7 @@ import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { zonedInstant } from "../app/lib/zoned-time";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
+import { requestIn } from "./routes";
 
 const ZONE = "Europe/London";
 let google: GoogleFake;
@@ -47,6 +48,7 @@ function syncingBand(options: { scopes?: string[]; endMinute?: number } = {}) {
   const firstDate = addDays(today, 7);
   const rehearsal = store.addRehearsal(
     group.id,
+    requestIn(group.id),
     {
       kind: "weekly",
       startDate: firstDate,
@@ -72,6 +74,7 @@ describe("which dates go on a member's calendar", () => {
     store.setRsvp(group.id, rehearsal.id, cellist.id, addDays(firstDate, 14), "no");
     store.addRehearsal(
       group.id,
+      requestIn(group.id),
       { kind: "once", startDate: firstDate, endDate: null, startMinute: 600, endMinute: 660 },
       "Proposed only",
     );
@@ -85,6 +88,7 @@ describe("which dates go on a member's calendar", () => {
     const { store, group, cellist, today } = syncingBand();
     const later = store.addRehearsal(
       group.id,
+      requestIn(group.id),
       {
         kind: "once",
         startDate: addDays(today, 70),
@@ -107,6 +111,7 @@ describe("writing to Google Calendar", () => {
     const { store, group, target, firstDate } = syncingBand();
     const later = store.addRehearsal(
       group.id,
+      requestIn(group.id),
       {
         kind: "once",
         startDate: addDays(firstDate, 1),

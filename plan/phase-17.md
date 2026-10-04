@@ -1,39 +1,61 @@
 ---
 id: "17"
-title: "Visual cleanup"
+title: "Rehearsals grouped by request, with completion status, on the schedule and home screen"
 depends_on: ["16"]
-informs: []
+informs: ["18"]
 ---
 
-# Phase 17 — Visual cleanup
+# Phase 17 — Rehearsals grouped by request, with completion status, on the schedule and home screen
 
-**Goal**: the interface looks clean and calm, with one consistent visual style and a clear primary action on every screen, once the flows of Phases 8–15 have settled.
+**Goal**: members and organizers see how each scheduling request is going (which rehearsals it produced, how far along it is) on the schedule page and on the home screen, and once a request is complete they can add its rehearsals to their calendar in one tap.
 
 ## Deliverables
 
-- A small visual system (type scale, spacing, colours, button hierarchy) recorded in the repository and applied to every page.
-- Each page's purpose and primary action made obvious; secondary controls quieter.
+- Every new rehearsal belongs to the request it was proposed from (a new link on rehearsals, migration 9). Proposing happens only on a request's page: the schedule page's free-times picker, its "Propose a rehearsal" form and the "Propose again" links are removed.
+- The schedule page shows each proposed rehearsal under its request's name.
+- A section on the schedule page, visible to members and organizers, showing the schedule's completion status organized by request.
+- The home screen shows each request's proposed rehearsals beside the request, with the same completion figures.
+- When a request is complete, an "Add to calendar" pair next to it: a download of that request's confirmed rehearsals and an "Add to Google Calendar" button.
 
-## Decisions (operator, 2026-10-03)
+## Decisions (operator, 2026-10-04)
 
-- Deferred by the operator until after Phases 8–10: "I'm going to wait on visual feedback until after I've seen these pretty major changes." The operator's list of visual changes is collected at phase start.
-- Renumbered from Phase 11 on 2026-10-03 so that it stays last, after the operator's further feature phases 11–14 (see `plan/INDEX.md`).
+The operator's words: "on schedule, under proposed, we should list the request's name/id. Members and organizers should also be able to see the completion status of the schedule, organized by requests. Also on the main screen you should see proposals like you see requests, like next to the corresponding request, with completion data. When a request is complete, there should be a quick link to 'add to calendar'."
 
-Added 2026-10-03: the operator will do a big UI/UX pass first to populate this phase's details, and will shop for a visual framework or theme compatible with React Router 8 (user action `satisfied-turkey`). This phase is planned from that pass and that choice; until both arrive it stays a sketch.
+Rulings at phase start (operator, 2026-10-04):
+
+- **Every proposal belongs to a request.** The operator's words: "honestly all proposals should belong to a request". New rehearsals can be made only from a request's page. The schedule page keeps "When people are free" and "Times that worked" as information, without proposing.
+- **Existing rehearsals without a request** (made on the schedule page before this phase) are kept unchanged. They appear under one heading, "Earlier rehearsals", on the schedule page and stay in calendars and the feed. Migration 9 adds the link as a nullable column, so those rows keep a null link and nothing is deleted.
+- **Complete** means: at least one of the request's rehearsals is confirmed, and none of its rehearsals is still proposed.
+- **Figures** show both: how many of the request's rehearsals are confirmed out of all it produced ("2 of 3 confirmed"), and, for its rehearsals still proposed, how many members have answered them ("4 of 5 answered").
+- **Add to calendar** offers two things for a complete request: a download (an .ics file holding only that request's confirmed rehearsals, without dates the viewer said No to or that were cancelled), and an "Add to Google Calendar" button. The button turns on the member's existing Google Calendar writing for the group, which adds this request's rehearsals and every other confirmed rehearsal in the group and keeps them up to date (operator's choice over per-request writing). It follows the same states as the schedule page's calendar panel: connect first if Google Calendar isn't connected, and say so when writing is already on.
 
 ## Acceptance
 
-- `./bin/test project/tests` and `./bin/check all` pass.
-- User Demo: walk the main journeys on a phone and a laptop and judge the look. To be tightened at phase start, from the operator's list.
+- `./bin/test project/tests` covers: migration 9 from version 8 with existing rehearsals kept and unlinked; proposals made on a request's page remembering that request; the schedule page refusing a direct proposal and no longer offering one; each proposed rehearsal shown under its request's name, and unlinked ones under "Earlier rehearsals"; the completion status per request for members and organizers, with no other member's private data; the home screen's grouping and figures; the "Add to calendar" pair appearing only for complete requests; the download holding only that request's confirmed dates for the viewer; and the Google button's states.
+- `./bin/deploy all` and `./bin/deploy smoke` pass, and the live database migrates to version 9 with row counts unchanged.
+- `./bin/check all` passes.
+
+User Demo (per `policies/user-demo-protocols.md`):
+
+- **Entry point.** On your phone, https://rehearse.dalan.dev, signed in as the organizer of a group with at least one other member who can open it on another device or browser.
+- **Suggested inputs.**
+  1. From the group page, create a request (any name, the next two weeks, one evening window) and have the other member answer it with some free times.
+  2. On the request's page, tick two free times and propose them.
+  3. Open the schedule page as the organizer, then as the other member.
+  4. As the organizer, confirm one of the two proposals and delete the other.
+  5. Open the home screen, then tap the download and "Add to Google Calendar" next to the request.
+- **What to look for.**
+  - After step 2, the schedule page lists both proposals under the request's name, and has no way to propose a time itself. Any rehearsals made before this update appear under "Earlier rehearsals".
+  - Both viewers see the request's figures, e.g. "0 of 2 confirmed" and how many members have answered the proposals.
+  - The home screen shows the request with its proposals and the same figures.
+  - After step 4, the request shows as complete, with the download and the Google button; before that, neither appears.
+  - The download opens in your calendar app holding only that request's confirmed date. The Google button turns on calendar writing (or asks you to connect Google Calendar first), and the rehearsal appears in Google Calendar.
+- **Variations to explore.** Answer No to the confirmed date and download again: that date is left out. Make a second request and check its rehearsals stay separate from the first's.
 
 ## Brief refs
 
-- [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints" (works well on a phone).
+- [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Choosing rehearsal times", "Technology and constraints" (works well on a phone).
 
 ## Inherited from Phase 15
 
-Pinned by [Phase 15](phase-15.md): new screens and controls the visual system must cover: the tick-row picker on the schedule and request pages (`ProposeTimes` and `FreeTime` in `project/app/components/propose-times.tsx`, whole-row labels at least 44px tall with a checked outline, refusals shown next to **Propose selected**), the **Override with a custom proposal** disclosure at the end of the schedule page, and the home screen's **Waiting for your answer** list (`pendingRequests`).
-
-## Inherited from Phase 16
-
-Pinned by [Phase 16](phase-16.md): every AWS resource is defined in Terraform (`project/deploy/terraform`, settings in `project/deploy/config.json`) and changed only through `./bin/deploy`; the visual cleanup changes no infrastructure. Anything a chosen theme or framework loads from a CDN or a new domain (fonts, scripts) is a privacy-policy question for this phase (see Phase 14), not an infrastructure one.
+Pinned by [Phase 15](phase-15.md): proposals are made in bulk from ticked free times on the schedule page and on a request's page (this phase removes the schedule page's) (`addRehearsals`, `parseProposedTimes`); the home screen lists requests waiting for the viewer's answer (`pendingRequests`, `answerable`). The schema is at version 8; new columns are migration 9 onward.

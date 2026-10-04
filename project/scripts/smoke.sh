@@ -107,7 +107,7 @@ availability_ok() {
 availability_ok || fail "availability page does not list the weekly time"
 echo "  weekly time listed on the availability page"
 
-echo "+ propose and confirm a rehearsal"
+echo "+ propose from a request and confirm a rehearsal"
 # The first Thursday at least a week ahead: never in the past, and inside the
 # eight-week window where its dates can be answered. Node does the date
 # arithmetic because BSD and GNU date disagree.
@@ -120,11 +120,23 @@ dates="$(corepack pnpm exec node -e '
 rehearsal_date="${dates%% *}"
 rehearsal_label="${dates#* }"
 [ -n "$rehearsal_date" ] || fail "could not compute the rehearsal date"
+# Every proposal belongs to a request (plan/phase-17.md).
+request_path="$(curl -s -D - -o /dev/null -X POST -H "Cookie: $cookie" "$origin$location/requests/new" \
+  --data-urlencode "name=Autumn rehearsals" --data-urlencode "startDate=$rehearsal_date" \
+  --data-urlencode "endDate=$rehearsal_date" --data-urlencode "windowStart-0=19:00" \
+  --data-urlencode "windowEnd-0=22:00" | tr -d '\r' |
+  awk -F': ' 'tolower($1) == "location" { print $2 }')"
+case "$request_path" in "$location/requests/"*) ;; *) fail "creating a request did not redirect to it: $request_path" ;; esac
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
   --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \
   --data-urlencode "endTime=21:30" --data-urlencode "location=Studio B")"
-[ "$code" = 302 ] || fail "proposing a rehearsal returned HTTP $code"
+[ "$code" = 404 ] || fail "proposing on the schedule page returned HTTP $code, not 404"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$request_path" \
+  --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
+  --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \
+  --data-urlencode "endTime=21:30" --data-urlencode "location=Studio B")"
+[ "$code" = 302 ] || fail "proposing a rehearsal from the request returned HTTP $code"
 rehearsal="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
   grep -o 'name="intent" value="confirm"/><input type="hidden" name="rehearsalId" value="[A-Za-z0-9_-]\{22\}"' |
   grep -o '[A-Za-z0-9_-]\{22\}' | head -1)"
@@ -141,10 +153,18 @@ schedule_ok() {
   grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 19:30–21:30" "$work/schedule.html" &&
     grep -q "At Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&
-    grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html"
+    grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html" &&
+    grep -q "From Autumn rehearsals" "$work/schedule.html" &&
+    grep -q "1 of 1 confirmed" "$work/schedule.html" &&
+    grep -q "Complete" "$work/schedule.html"
 }
 schedule_ok || fail "schedule page does not show the confirmed rehearsal, its RSVP and the overlap"
-echo "  confirmed weekly rehearsal, a yes answer and the overlap listed on the schedule page"
+echo "  confirmed weekly rehearsal, its request, a yes answer and the overlap listed on the schedule page"
+download_headers="$(curl -s -D - -o "$work/request.ics" -H "Cookie: $cookie" "$origin$request_path/calendar.ics" | tr -d '\r')"
+printf '%s\n' "$download_headers" | grep -qi '^content-type: text/calendar' \
+  || fail "the request's calendar download is not a calendar file"
+grep -q "BEGIN:VEVENT" "$work/request.ics" || fail "the request's calendar download holds no rehearsal"
+echo "  the complete request downloads as a calendar file"
 
 for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"

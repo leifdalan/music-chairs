@@ -2337,3 +2337,142 @@ Lessons:
 
 Remaining:
 - None for this correction. Phase 10 stays ✅.
+
+## 2026-10-04 11:02 — START
+Phase 17 — Rehearsals grouped by request, with completion status, on the schedule and home screen
+
+Execution trace: ab681487b0394f9d8d5f7ffdf1944c2e
+
+Planned work:
+- Every new rehearsal belongs to the request it was proposed from (a new link on rehearsals, migration 9). Proposing happens only on a request's page: the schedule page's free-times picker, its "Propose a rehearsal" form and the "Propose again" links are removed.
+- The schedule page shows each proposed rehearsal under its request's name.
+- A section on the schedule page, visible to members and organizers, showing the schedule's completion status organized by request.
+- The home screen shows each request's proposed rehearsals beside the request, with the same completion figures.
+- When a request is complete, an "Add to calendar" pair next to it: a download of that request's confirmed rehearsals and an "Add to Google Calendar" button.
+
+Note: the Phase 10 correction's END block above says "Lessons: none new", but lesson traditional-octopus was filed after it was written (recorded in that commit's message).
+
+## 2026-10-04 11:32 — END
+Phase 17 — Rehearsals grouped by request, with completion status, on the schedule and home screen
+
+Phase 17 is accepted on its gates and live at https://rehearse.dalan.dev. Every new rehearsal now belongs to the request it was proposed from. Proposing happens only on a request's page: the tick-the-free-times picker is still there, and the custom form moved there as **Propose a different time**. The schedule page no longer proposes; it lists proposed rehearsals under their request's name, marks confirmed ones "From <request>", and has a new **Requests** section showing, for members and organizers alike, "N of M confirmed", "N of M answered" while something is still proposed, and **Complete** once at least one is confirmed and none is still proposed. The two rehearsals made before this update are kept as they were, under **Earlier rehearsals**. The home screen's list is now **Your requests**: requests waiting for your answer first, then requests with rehearsals coming up, each with its proposals and figures. A complete request offers **Download for your calendar** (a one-time .ics copy of that request's confirmed dates, without dates you said No to or that were cancelled) and **Add to Google Calendar**, which turns on the existing Google Calendar writing for the group (or offers to connect first). The live database was upgraded in place to version 9 with nothing lost. How it all feels on a phone, and what your calendar apps do with the download, is yours to judge through the User Demo below.
+
+Execution trace: ab681487b0394f9d8d5f7ffdf1944c2e
+
+Files changed:
+- plan/phase-17.md — new phase (inserted before the visual cleanup on 2026-10-04) with the operator's rulings settled at phase start and the tightened User Demo, recorded before the run
+- plan/phase-18.md (renamed from plan/phase-17.md), plan/INDEX.md, user-actions/satisfied-turkey.md — the visual cleanup renumbered to Phase 18
+- project/app/.server/store.ts — migration 9 (rehearsals.request_id, nullable, indexed); rehearsals carry requestId; adding a rehearsal requires one of the group's requests; deleteGroup deletes rehearsals before requests
+- project/app/.server/progress.ts — new: each request's figures and completion
+- project/app/.server/pending.ts — homeRequests (waiting and in-progress requests) replaces pendingRequests
+- project/app/.server/calendar-sync.ts — feedEvents (shared by the feed and the download) and googleWriteState (shared by the schedule and home)
+- project/app/components/calendar-actions.tsx — new: the Add to calendar pair and the figures line
+- project/app/routes/request-calendar.ts, project/app/routes.ts — new: /g/<group>/requests/<request>/calendar.ics
+- project/app/routes/schedule.tsx — proposing removed; grouped lists, Earlier rehearsals, Requests section, organizer hint; set-calendar can return home
+- project/app/routes/request.tsx — proposals linked to the request; the custom proposal form moved here
+- project/app/routes/home.tsx — Your requests; Google Calendar consent notices shown on home
+- project/app/routes/calendar-feed.ts — uses feedEvents (output unchanged)
+- project/app/app.css — styles for the new lists; the home list's link style scoped to each entry's own link
+- project/scripts/smoke.sh — creates a request, proposes through it, checks the schedule page refuses, the progress and the download
+- project/tests/request-progress.test.tsx (new), store, schedule, propose-times, home, feed, calendar-sync, confirm, disconnect, group-admin tests and tests/routes.ts (requestIn helper) — Vitest 501
+
+Build status:
+- project/scripts/smoke.sh: OK
+- ./bin/deploy all --profile music-chairs: OK — Terraform plan no changes; release ae309cd-dirty-20261004T182744Z healthy; live database at schema version 9, row counts identical to the pre-release copy (2 groups, 4 members, 2 rehearsals, 0 RSVPs, 1 request, 0 calendar events), both rehearsals unlinked; Google sign-in available
+- ./bin/deploy smoke --profile music-chairs: OK
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 501/501, pytest 164/164)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- N/A (initial implementation)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 216.356 s; first event 0.669 s; longest idle 41.747 s; success
+- Coder: inline (no role span)
+- Critic (code review): 192.745 s; first event 0.575 s; longest idle 28.644 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- Makespan 1759.465 s; intelligence 409.102 s; gates 178.506 s; orchestration 1758.775 s; wait 407.988 s; retry 0 s; failed 0 s; unattributed 0.690 s (category totals are interval unions and may overlap).
+- The trace started after the phase-start questions; the operator's answers and this session's CI/CD discussion are outside it.
+- Awaiting user input: none recorded (no operator-input park).
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: initial=674df5de6b5301595d8ab74b6a2c986d4fe04b8d5af2a4fb5e52589349971622 critiqued=b233dfbff76538797e5711a35b1c253da609745986700df01d210680e6dfd8fd final=2541b9d67ec1ea85a9466e7802ed668199a2dad30545e3f39906dce3cb200044
+- Advisory passes: plan review 1 (9 findings, all adopted); code critique 1 (6 findings, all adopted); revision packets 0
+- Gates: implementation-final=4, all recorded against the final product candidate; product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level)
+- Mutation checks: 15 of 16 killed; the survivor (dropping "at least one confirmed" from complete) is equivalent, because a request with nothing proposed is listed only when it has a confirmed rehearsal coming up
+
+Wall-clock observations:
+- None
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): migration 9 from version 8 keeping every row; proposals linked to their request and refused without one; the schedule page no longer proposing; proposals under their request's name and earlier rehearsals under Earlier rehearsals; the per-request figures and completion for members and organizers with no other member's data; the home screen's grouping, order and figures; the Add to calendar pair only for complete requests; the download's contents and refusals; the Google button's states and return; the live migration with row counts unchanged; deploy and smoke.
+- Parked for the user: the User Demo below, including how the download behaves in your phone's calendar app and how the grouped lists read on a phone.
+
+Delivery:
+- default — commit + fast-forward push after the handoff gate
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-18.md — its "Inherited from Phase 15" names surfaces this phase moved (the picker is now only on the request page, the custom proposal is "Propose a different time" there, the home list is "Your requests" from homeRequests); corrected, and an "Inherited from Phase 17" section added listing the new screens the visual system must cover — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- pending: a new local lesson — moving a control so it returns to a different page must carry that page's return feedback (the critique found home dropped Google consent notices)
+- occurrences pending: lively-salamander (an edit script run with a project-relative path raised FileNotFoundError; 5 total after this), winged-tuna (an edit script's index() matched an indented duplicate line and another sliced to end of file, both caught by the type check; 2 total after this)
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples (no target has 30 successful samples)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, open:
+
+https://rehearse.dalan.dev
+
+  signed in as the organizer of a group with at least one other member who can open it on another device or browser.
+- **Suggested inputs.**
+  1. From the group page, create a request (any name, the next two weeks, one evening window) and have the other member answer it with some free times.
+  2. On the request's page, tick two free times and propose them.
+  3. Open the schedule page as the organizer, then as the other member.
+  4. As the organizer, confirm one of the two proposals and delete the other.
+  5. Open the home screen, then tap the download and "Add to Google Calendar" next to the request.
+- **What to look for.**
+  - After step 2, the schedule page lists both proposals under the request's name, and has no way to propose a time itself. Any rehearsals made before this update appear under "Earlier rehearsals".
+  - Both viewers see the request's figures, e.g. "0 of 2 confirmed" and how many members have answered the proposals.
+  - The home screen shows the request with its proposals and the same figures.
+  - After step 4, the request shows as complete, with the download and the Google button; before that, neither appears.
+  - The download opens in your calendar app holding only that request's confirmed date. The Google button turns on calendar writing (or asks you to connect Google Calendar first), and the rehearsal appears in Google Calendar.
+- **Variations to explore.** Answer No to the confirmed date and download again: that date is left out. Make a second request and check its rehearsals stay separate from the first's.
+- Notes: the Google button's label is "Add to Google Calendar" when writing is off; if Google Calendar isn't connected yet it reads "Connect Google Calendar", and after connecting you come back to the home screen with "Google Calendar connected." and tap "Add to Google Calendar" once more. The custom proposal on a request's page is under "Propose a different time".
+
+Remaining:
+- None for this phase. Next, per the operator's request on 2026-10-04: a CI/CD phase (tests on every change, deploy on merge to main, possibly a self-hosted runner) goes before the visual cleanup; it is added to the plan right after this delivery.
+
+## 2026-10-04 11:33 — Close bookkeeping outcomes
+
+Phase 17 — Rehearsals grouped by request, with completion status, on the schedule and home screen
+
+Execution trace: ab681487b0394f9d8d5f7ffdf1944c2e
+
+- Status: applied and verified — Phase 17 ✅, Phase 18 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-18.md's "Inherited from Phase 15" now names where Phase 17 moved those controls, and a new "Inherited from Phase 17" section lists the new screens.
+- Ripple DECIDE: none.
+- Lessons: filed tested-skunk (local: moving where a control returns to must move that page's return feedback with it); lively-salamander gained its Phase 17 occurrence (5 total) and winged-tuna its (2 total); ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate.

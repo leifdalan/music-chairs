@@ -15,6 +15,8 @@ occurrences:
     ref: "Phase 10 PARK"
   - date: 2026-10-03
     ref: "Phase 13 END"
+  - date: 2026-10-04
+    ref: "Phase 17 END"
 ---
 
 In Phase 1 an inline `./../bin/python - <<EOF` edit script launched from `project/` used `project`-relative paths (`vitest.config.ts`). The wrapper resolves the interpreter independently of the caller's working directory and the script raised `FileNotFoundError`; because it was chained with `;` before the test run, the tests ran against the unedited config and wrote a real SQLite file into `project/data/`. The stray file was found and removed before capture.
@@ -26,3 +28,5 @@ Second occurrence (Phase 2): a red-witness mutation applied with `sed` matched n
 Phase 10 recurrence: an inline `../bin/python` script started from `project/` used `app/...` paths and raised `FileNotFoundError`; it was chained so nothing else ran, and it was rerun from the root.
 
 Phase 13 recurrence: an edit script for `project/tests/calendar-consent.test.ts` ran from `project/` with a project-relative path and raised `FileNotFoundError`; because the formatter and test run were chained with `;`, the unedited tests ran green and only the traceback revealed nothing had changed. Rerun from the repository root with `project/`-prefixed paths.
+
+Phase 17 recurrence: a store edit script launched from `project/` used `app/.server/store.ts` and raised `FileNotFoundError`; it was chained with `&&`, so nothing ran on the unedited file, and it was rerun with a root-relative path.

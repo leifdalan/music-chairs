@@ -1160,7 +1160,7 @@ button.danger,
   margin: 0;
 }
 
-.pending-requests a {
+.pending-requests > li > a {
   display: flex;
   flex-direction: column;
   min-height: 2.75rem;
@@ -1174,4 +1174,58 @@ button.danger,
 
 .pending-name {
   font-weight: 600;
+}
+
+/* Rehearsals by request, completion and add to calendar (Phase 17) */
+
+.request-group h3 {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.request-progress {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.request-progress > li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.progress-figures {
+  display: block;
+}
+
+.request-rehearsals {
+  padding: 0 0.75rem 0.5rem;
+}
+
+.proposed-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0;
+}
+
+.proposed-list a {
+  display: inline-block;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
+}
+
+.calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.calendar-actions .hint {
+  flex-basis: 100%;
+  margin: 0;
 }

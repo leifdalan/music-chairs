@@ -4,11 +4,13 @@ import { data, Form, Link } from "react-router";
 import { googleConfig } from "~/.server/google";
 import { redirectWithToast } from "~/.server/flash";
 import { readAccount, rememberMembership } from "~/.server/membership";
-import { pendingRequests } from "~/.server/pending";
+import { homeRequests } from "~/.server/pending";
 import { getStore } from "~/.server/store";
+import { CalendarActions, ProgressFigures } from "~/components/calendar-actions";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate } from "~/lib/availability";
+import { calendarNotice } from "~/lib/calendar-notices";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
 
@@ -52,8 +54,9 @@ export async function loader({ request }: Route.LoaderArgs) {
             displayName: member.displayName,
           }))
       : [],
-    notice: notice ? (NOTICES[notice] ?? null) : null,
-    pending: await pendingRequests(request, account),
+    // Google Calendar consent started from "Your requests" returns here too.
+    notice: notice ? (NOTICES[notice] ?? calendarNotice(request)) : null,
+    requests: await homeRequests(request, account),
   };
 }
 
@@ -111,18 +114,47 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           {loaderData.notice}
         </p>
       ) : null}
-      {loaderData.pending.length > 0 ? (
-        <section className="pending" aria-labelledby="pending-heading">
-          <h2 id="pending-heading">Waiting for your answer</h2>
+      {loaderData.requests.length > 0 ? (
+        <section className="pending" aria-labelledby="requests-heading">
+          <h2 id="requests-heading">Your requests</h2>
           <ul className="pending-requests">
-            {loaderData.pending.map((item) => (
+            {loaderData.requests.map((item) => (
               <li key={item.requestId}>
                 <Link to={`/g/${item.groupId}/requests/${item.requestId}`}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">
-                    {item.groupName} · answer by {formatDate(item.endDate)}
+                    {item.groupName}
+                    {item.waitingUntil
+                      ? ` · Waiting for your answer · answer by ${formatDate(item.waitingUntil)}`
+                      : ""}
                   </span>
                 </Link>
+                {item.progress ? (
+                  <div className="request-rehearsals">
+                    <ProgressFigures item={item.progress} />
+                    {item.progress.proposed.length > 0 ? (
+                      <ul className="proposed-list">
+                        {item.progress.proposed.map((rehearsal) => (
+                          <li key={rehearsal.id}>
+                            <Link to={`/g/${item.groupId}/schedule`}>
+                              Proposed: {rehearsal.summary}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {item.progress.complete ? (
+                      <CalendarActions
+                        groupId={item.groupId}
+                        requestId={item.requestId}
+                        requestName={item.name}
+                        google={item.google}
+                        until={item.until}
+                        returnTo="/"
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

@@ -234,7 +234,7 @@ describe("requests waiting for your answer", () => {
   }
 
   const pendingFor = async (cookie?: string) =>
-    (await loader(routeArgs("/", {}, { cookie }))).pending;
+    (await loader(routeArgs("/", {}, { cookie }))).requests;
 
   it("lists only the open, unanswered requests of the groups joined on this device", async () => {
     const mine = group("Quartet");
@@ -248,7 +248,10 @@ describe("requests waiting for your answer", () => {
         groupName: "Quartet",
         requestId: mine.open.id,
         name: "Quartet gig",
-        endDate: mine.open.endDate,
+        waitingUntil: mine.open.endDate,
+        progress: null,
+        google: null,
+        until: expect.any(String),
       },
     ]);
     expect(JSON.stringify(pending)).not.toContain(theirs.group.id);
@@ -316,11 +319,12 @@ describe("requests waiting for your answer", () => {
     );
 
     const html = render({ loaderData: { home: data } });
+    expect(html).toContain("Your requests");
     expect(html).toContain("Waiting for your answer");
     expect(html).toContain(`href="/g/${mine.group.id}/requests/${mine.open.id}"`);
-    expect(html.indexOf("Waiting for your answer")).toBeLessThan(html.indexOf("Start a group"));
+    expect(html.indexOf("Your requests")).toBeLessThan(html.indexOf("Start a group"));
     expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(
-      "Waiting for your answer",
+      "Your requests",
     );
   });
 });

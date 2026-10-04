@@ -4,10 +4,18 @@
 
 import { createHash } from "node:crypto";
 
+import type { GoogleWriteState } from "~/components/calendar-actions";
 import { offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import type { FeedEvent } from "~/lib/ics";
 import { zonedInstant } from "~/lib/zoned-time";
 
-import { CALENDAR_SCOPES, GoogleAccessRevoked, putEvent, removeEvent } from "./google";
+import {
+  CALENDAR_SCOPES,
+  GoogleAccessRevoked,
+  googleConfig,
+  putEvent,
+  removeEvent,
+} from "./google";
 import { findViewer, publicOrigin, readAccount } from "./membership";
 import {
   getStore,
@@ -59,6 +67,41 @@ export function calendarDates(
         .filter((date) => !declined.has(`${rehearsal.id} ${date}`))
         .map((date) => ({ rehearsal, date })),
     );
+}
+
+/** Calendar-file events for `calendarDates` output: the feed's and a request's download. */
+export function feedEvents(
+  group: Group,
+  dates: { rehearsal: Rehearsal; date: string }[],
+): FeedEvent[] {
+  const zone = group.timeZone;
+  return dates.map(({ rehearsal, date }) => ({
+    uid: `${rehearsal.id}-${date}@music-chairs`,
+    start: zonedInstant(date, rehearsal.startMinute, zone, { skipped: "forward" }) as Date,
+    end: zonedInstant(date, rehearsal.endMinute, zone, { skipped: "forward" }) as Date,
+    summary: `${group.name} rehearsal`,
+    location: rehearsal.location,
+  }));
+}
+
+/**
+ * Whether this visitor can have the app write rehearsals to their Google
+ * Calendar, for the viewer's member of the group: null when Google isn't
+ * configured; "unlinked" or "other-account" when this visitor isn't signed in
+ * as that member; "connect" before the write permission is granted; then
+ * whether writing is off or on.
+ */
+export async function googleWriteState(
+  request: Request,
+  group: Group,
+  viewer: Member,
+): Promise<GoogleWriteState | null> {
+  if (!googleConfig()) return null;
+  const capable = await calendarViewer(request, group);
+  if (!capable) return viewer.googleEmail ? "other-account" : "unlinked";
+  const grant = getStore().findGrant(capable.account.id);
+  if (!grant?.scopes.includes(CALENDAR_SCOPES.write)) return "connect";
+  return capable.member.calendarSync ? "on" : "off";
 }
 
 /** A stable Google event id (base32hex characters) for one member's rehearsal date. */

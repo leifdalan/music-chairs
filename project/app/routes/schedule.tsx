@@ -1,10 +1,11 @@
 import { data, Form, Link, redirect } from "react-router";
 
-import { calendarViewer, scheduleSync } from "~/.server/calendar-sync";
+import { calendarViewer, googleWriteState, scheduleSync } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
-import { CALENDAR_SCOPES, googleConfig } from "~/.server/google";
+import { CALENDAR_SCOPES } from "~/.server/google";
 import { findViewer, publicOrigin } from "~/.server/membership";
+import { requestProgress } from "~/.server/progress";
 import {
   getStore,
   type Group,
@@ -12,12 +13,14 @@ import {
   type Rehearsal,
   type RsvpAnswer,
 } from "~/.server/store";
-import { SlotFields } from "~/components/slot-fields";
+import {
+  CalendarActions,
+  ProgressFigures,
+  type GoogleWriteState,
+} from "~/components/calendar-actions";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
-import { FreeTime, ProposeTimes } from "~/components/propose-times";
 import { SubmitButton } from "~/components/submit-button";
-import { TextField } from "~/components/text-field";
 import {
   addDays,
   describeSlot,
@@ -27,14 +30,9 @@ import {
   isDate,
   isOccurrence,
   offeredDates,
-  parseSlotInput,
-  timeInputValue,
   todayInZone,
-  validateLocation,
   weekdayName,
   windowEnd,
-  type SlotErrors,
-  type SlotFormValues,
 } from "~/lib/availability";
 import {
   buildCells,
@@ -44,7 +42,6 @@ import {
   type OverlapMember,
 } from "~/lib/overlap";
 import { calendarNotice } from "~/lib/calendar-notices";
-import { parseProposedTimes, timeValue } from "~/lib/propose";
 import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 
@@ -125,10 +122,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     if (shown.length > 0) days.push({ date, stretches: shown });
   }
 
-  const search = new URL(request.url).searchParams;
+  const requestNames = new Map(store.listRequests(group.id).map((item) => [item.id, item.name]));
+  const calendar = await calendarPanel(request, group, viewer);
   return {
     timesThatWorked: isOrganizer ? timesThatWorked(rehearsals, today) : null,
-    calendar: await calendarPanel(request, group, viewer),
+    calendar,
+    groupId: group.id,
+    progress: requestProgress(group, today),
     groupName: group.name,
     timeZone: group.timeZone,
     showNames: group.showNames,
@@ -137,14 +137,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     until,
     days,
     rehearsals: rehearsals.map(rehearsalView),
-    prefill: isOrganizer
-      ? {
-          startDate: isDate(search.get("date")) ? String(search.get("date")) : "",
-          startTime: search.get("start") ?? "",
-          endTime: search.get("end") ?? "",
-          location: search.get("location") ?? "",
-        }
-      : null,
   };
 
   function dateView(rehearsal: Rehearsal, date: string) {
@@ -178,6 +170,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       kind: rehearsal.kind,
       status: rehearsal.status,
       location: rehearsal.location,
+      requestId: rehearsal.requestId,
+      requestName: rehearsal.requestId ? (requestNames.get(rehearsal.requestId) ?? null) : null,
       summary: describeSlot(rehearsal),
       dates: dates.map((date) => dateView(rehearsal, date)),
     };
@@ -274,20 +268,8 @@ function mergeEqualCounts(stretches: StretchView[]): StretchView[] {
   return merged;
 }
 
-type ProposeValues = SlotFormValues & { location: string };
-type ProposeErrors = SlotErrors & { location?: string };
-
-function invalidForm(errors: ProposeErrors, values: ProposeValues) {
-  return data({ errors, values }, { status: 400 });
-}
-
 function problem(message: string) {
   return data({ problem: message }, { status: 400 });
-}
-
-/** A refused "Propose selected", shown inside the free-times picker. */
-function proposeProblem(message: string) {
-  return data({ proposeProblem: message }, { status: 400 });
 }
 
 /**
@@ -299,20 +281,11 @@ async function calendarPanel(request: Request, group: Group, viewer: Member) {
   const store = getStore();
   const origin = publicOrigin() ?? new URL(request.url).origin;
   const feedUrl = new URL(`/calendar/${store.feedTokenFor(viewer.id)}.ics`, origin).href;
-  let google: { state: "unlinked" | "other-account" | "connect" | "off" | "on" } | null = null;
-  if (googleConfig()) {
-    const capable = await calendarViewer(request, group);
-    const grant = capable ? store.findGrant(capable.account.id) : null;
-    google = !capable
-      ? { state: viewer.googleEmail ? "other-account" : "unlinked" }
-      : !grant?.scopes.includes(CALENDAR_SCOPES.write)
-        ? { state: "connect" }
-        : { state: capable.member.calendarSync ? "on" : "off" };
-  }
+  const state = await googleWriteState(request, group, viewer);
   return {
     feedUrl,
     webcalUrl: feedUrl.replace(/^https?:/, "webcal:"),
-    google,
+    google: state ? { state } : null,
     connectUrl: `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(`/g/${group.id}/schedule`)}`,
     notice: calendarNotice(request),
   };
@@ -350,11 +323,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.setCalendarSync(group.id, viewer.id, on);
     // Turning it off removes the upcoming events the app wrote.
     scheduleSync([{ memberId: viewer.id, groupId: group.id, accountId: capable.account.id }]);
-    return back(
-      on
-        ? "Rehearsals will be added to your Google Calendar"
-        : "Stopped adding rehearsals to your Google Calendar",
-    );
+    const message = on
+      ? "Rehearsals will be added to your Google Calendar"
+      : "Stopped adding rehearsals to your Google Calendar";
+    // The home screen's "Add to Google Calendar" comes back home; nowhere else.
+    return form.get("returnTo") === "/" ? redirectWithToast("/", message) : back(message);
   }
 
   if (intent === "rsvp" || intent === "rsvp-all") {
@@ -388,40 +361,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
-
-  if (intent === "propose-times") {
-    const location = validateLocation(form.get("location"));
-    if (!location.ok) return proposeProblem(location.error);
-    const times = parseProposedTimes(form, today);
-    if (!times.ok) return proposeProblem(times.error);
-    store.addRehearsals(group.id, times.inputs, location.value);
-    const count = times.inputs.length;
-    return back(count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`);
-  }
-
-  if (intent === "propose") {
-    const parsed = parseSlotInput(form);
-    const location = validateLocation(form.get("location"));
-    const errors: ProposeErrors = parsed.ok ? {} : { ...parsed.errors };
-    if (parsed.ok && parsed.value.startDate < today) {
-      errors.startDate = "Pick today or a later date.";
-    }
-    if (!location.ok) errors.location = location.error;
-    if (!parsed.ok || !location.ok || Object.keys(errors).length > 0) {
-      const values = parsed.ok
-        ? {
-            kind: parsed.value.kind,
-            startDate: parsed.value.startDate,
-            endDate: parsed.value.endDate ?? "",
-            startTime: timeInputValue(parsed.value.startMinute),
-            endTime: timeInputValue(parsed.value.endMinute),
-          }
-        : parsed.values;
-      return invalidForm(errors, { ...values, location: String(form.get("location") ?? "") });
-    }
-    store.addRehearsal(group.id, parsed.value, location.value);
-    return back("Rehearsal proposed");
-  }
 
   const rehearsal = store.findRehearsal(group.id, rehearsalId);
   if (!rehearsal) throw data(null, { status: 404 });
@@ -483,14 +422,12 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     until,
     days,
     rehearsals,
-    prefill,
     calendar,
     timesThatWorked,
+    progress,
+    groupId,
   } = loaderData;
-  const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
-  const pickProblem =
-    actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
   const freeTimes =
     days.length === 0 ? (
       <p className="hint">Nobody has entered availability for the coming weeks yet.</p>
@@ -505,11 +442,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                   key={stretch.startMinute}
                   className={stretch.everyoneNeeded ? "stretch everyone" : "stretch"}
                 >
-                  <FreeTime
-                    tickable={isOrganizer}
-                    value={timeValue(day.date, stretch.startMinute, stretch.endMinute)}
-                    label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
-                  >
+                  <div className="free-time">
                     <span className="stretch-time">
                       {timeRange(stretch.startMinute, stretch.endMinute)}
                       <span className="stretch-count">
@@ -532,7 +465,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                           .join(", ")}
                       </span>
                     ) : null}
-                  </FreeTime>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -540,8 +473,18 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         ))}
       </ul>
     );
-  const proposed = rehearsals.filter((item) => item.status === "proposed");
-  const confirmed = rehearsals.filter((item) => item.status === "confirmed");
+  const linked = rehearsals.filter((item) => item.requestId !== null);
+  const earlier = rehearsals.filter((item) => item.requestId === null);
+  const confirmed = linked.filter((item) => item.status === "confirmed");
+  const proposed = linked.filter((item) => item.status === "proposed");
+  // Proposed rehearsals under their request, in the order they first appear.
+  const byRequest = new Map<string, { name: string; items: RehearsalItem[] }>();
+  for (const item of proposed) {
+    const id = item.requestId as string;
+    const group = byRequest.get(id) ?? { name: item.requestName ?? "", items: [] };
+    group.items.push(item);
+    byRequest.set(id, group);
+  }
   return (
     <main>
       <p className="eyebrow">
@@ -557,7 +500,36 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
       <RehearsalList title="Confirmed" items={confirmed} empty="Nothing confirmed yet." />
-      <RehearsalList title="Proposed" items={proposed} empty="No proposed times." />
+      <section aria-labelledby="proposed-heading">
+        <h2 id="proposed-heading">Proposed</h2>
+        {byRequest.size === 0 ? (
+          <p className="hint">No proposed times.</p>
+        ) : (
+          [...byRequest].map(([requestId, group]) => (
+            <div key={requestId} className="request-group">
+              <h3>
+                <Link to={`../requests/${requestId}`} relative="path">
+                  {group.name}
+                </Link>
+              </h3>
+              <ul className="rehearsals">
+                {group.items.map((item) => (
+                  <RehearsalCard key={item.id} item={item} />
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </section>
+      {earlier.length > 0 ? (
+        <RehearsalList title="Earlier rehearsals" id="earlier-heading" items={earlier} empty="" />
+      ) : null}
+      <ProgressSection
+        progress={progress}
+        groupId={groupId}
+        google={calendar.google?.state ?? null}
+        until={until}
+      />
       <CalendarPanel calendar={calendar} />
 
       {timesThatWorked && timesThatWorked.length > 0 ? (
@@ -573,18 +545,6 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                     {time.location ? `, ${time.location}` : ""}
                     <span className="hint"> · last {formatDate(time.last)}</span>
                   </span>
-                  <Link
-                    className="button-link secondary small"
-                    to={`?${new URLSearchParams({
-                      date: time.next,
-                      start: timeInputValue(time.startMinute),
-                      end: timeInputValue(time.endMinute),
-                      location: time.location,
-                    })}#propose-heading`}
-                    aria-label={`Propose again: ${when} on ${formatDate(time.next)}`}
-                  >
-                    Propose again
-                  </Link>
                 </li>
               );
             })}
@@ -605,33 +565,16 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               : "Showing how many people are free."}
         </p>
         {isOrganizer ? (
-          <ProposeTimes
-            hasTimes={days.length > 0}
-            problem={pickProblem}
-            resetKey={rehearsals.length}
-          >
-            {freeTimes}
-          </ProposeTimes>
-        ) : (
-          freeTimes
-        )}
+          <p className="hint">
+            To propose times, open a request on the{" "}
+            <Link to=".." relative="path">
+              group page
+            </Link>
+            .
+          </p>
+        ) : null}
+        {freeTimes}
       </section>
-
-      {prefill ? (
-        <details
-          // A new "Propose again" opens it again even after it was folded by hand.
-          key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}`}
-          className="custom-proposal"
-          open={Boolean(prefill.startDate) || formResult !== undefined}
-        >
-          <summary>Override with a custom proposal</summary>
-          <ProposeForm
-            key={`${prefill.startDate}-${prefill.startTime}-${prefill.endTime}-${prefill.location}-${rehearsals.length}`}
-            prefill={prefill}
-            result={formResult}
-          />
-        </details>
-      ) : null}
     </main>
   );
 }
@@ -640,14 +583,16 @@ type RehearsalItem = Route.ComponentProps["loaderData"]["rehearsals"][number];
 
 function RehearsalList({
   title,
+  id,
   items,
   empty,
 }: {
   title: string;
+  id?: string;
   items: RehearsalItem[];
   empty: string;
 }) {
-  const headingId = `${title.toLowerCase()}-heading`;
+  const headingId = id ?? `${title.toLowerCase()}-heading`;
   return (
     <section aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
@@ -672,6 +617,9 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
     <li className={`rehearsal ${item.status}`}>
       <p className="slot-summary">{item.summary}</p>
       {item.location ? <p className="hint">At {item.location}</p> : null}
+      {item.status === "confirmed" && item.requestName ? (
+        <p className="hint">From {item.requestName}</p>
+      ) : null}
       {item.dates.length === 0 ? (
         <p className="hint">No dates in the coming weeks.</p>
       ) : (
@@ -888,48 +836,13 @@ function RsvpRow({
   );
 }
 
-function ProposeForm({
-  prefill,
-  result,
-}: {
-  prefill: { startDate: string; startTime: string; endTime: string; location: string };
-  result: { errors: ProposeErrors; values: ProposeValues } | undefined;
-}) {
-  const values: ProposeValues = result?.values ?? {
-    kind: prefill.startDate ? "once" : "weekly",
-    startDate: prefill.startDate,
-    endDate: "",
-    startTime: prefill.startTime,
-    endTime: prefill.endTime,
-    location: prefill.location,
-  };
-  const errors = result?.errors ?? {};
-  return (
-    <section aria-labelledby="propose-heading">
-      <h2 id="propose-heading">Propose a rehearsal</h2>
-      <Form method="post" className="stack slot-form" replace>
-        <input type="hidden" name="intent" value="propose" />
-        <SlotFields values={values} errors={errors} />
-        <TextField
-          name="location"
-          label="Location (optional)"
-          defaultValue={values.location}
-          error={errors.location}
-          optional
-        />
-        <SubmitButton feedbackKey="propose">Propose</SubmitButton>
-      </Form>
-    </section>
-  );
-}
-
 function CalendarPanel({
   calendar,
 }: {
   calendar: {
     feedUrl: string;
     webcalUrl: string;
-    google: { state: "unlinked" | "other-account" | "connect" | "off" | "on" } | null;
+    google: { state: GoogleWriteState } | null;
     connectUrl: string;
     notice: string | null;
   };
@@ -1037,4 +950,49 @@ function stopCalendarPrompt() {
     body: "The upcoming rehearsal events this app added to your Google Calendar will be removed.",
     label: "Stop adding rehearsals",
   };
+}
+
+type ProgressItem = Route.ComponentProps["loaderData"]["progress"][number];
+
+/** How each request is going (plan/phase-17.md), for members and organizers alike. */
+function ProgressSection({
+  progress,
+  groupId,
+  google,
+  until,
+}: {
+  progress: ProgressItem[];
+  groupId: string;
+  google: GoogleWriteState | null;
+  until: string;
+}) {
+  return (
+    <section aria-labelledby="progress-heading">
+      <h2 id="progress-heading">Requests</h2>
+      {progress.length === 0 ? (
+        <p className="hint">No request has rehearsals coming up.</p>
+      ) : (
+        <ul className="request-progress">
+          {progress.map((item) => (
+            <li key={item.requestId}>
+              <Link to={`../requests/${item.requestId}`} relative="path" className="request-name">
+                {item.name}
+              </Link>
+              <ProgressFigures item={item} />
+              {item.complete ? (
+                <CalendarActions
+                  groupId={groupId}
+                  requestId={item.requestId}
+                  requestName={item.name}
+                  google={google}
+                  until={until}
+                  returnTo={`/g/${groupId}/schedule`}
+                />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }

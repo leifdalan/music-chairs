@@ -12,6 +12,7 @@ import { fakeGoogle, type GoogleFake } from "./google-fake";
 import {
   deviceCookie,
   ORIGIN,
+  requestIn,
   routeArgs,
   setCookies,
   signedIn,
@@ -58,6 +59,7 @@ async function band() {
   const firstDate = addDays(today, 7);
   const rehearsal = store.addRehearsal(
     group.id,
+    requestIn(group.id),
     {
       kind: "weekly",
       startDate: firstDate,

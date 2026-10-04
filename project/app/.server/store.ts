@@ -104,8 +104,16 @@ export const SESSION_DAYS = 90;
 
 export type RehearsalStatus = "proposed" | "confirmed";
 
-/** A rehearsal reuses the availability slot shape; `skips` are its cancelled dates. */
-export type Rehearsal = Slot & { location: string; status: RehearsalStatus };
+/**
+ * A rehearsal reuses the availability slot shape; `skips` are its cancelled
+ * dates. `requestId` is the request it was proposed from (plan/phase-17.md);
+ * null only for rehearsals made before every proposal belonged to a request.
+ */
+export type Rehearsal = Slot & {
+  location: string;
+  status: RehearsalStatus;
+  requestId: string | null;
+};
 
 export type RoleChange = "changed" | "unknown" | "last-organizer";
 
@@ -182,9 +190,15 @@ export type Store = {
   /** Every member's slots in the group, keyed by member id. */
   listGroupSlots(groupId: string): Map<string, Slot[]>;
   // Rehearsals belong to a group; an id from another group behaves as unknown.
-  addRehearsal(groupId: string, input: SlotInput, location: string): Rehearsal;
-  /** Several proposals at once, all at one location: all or none. */
-  addRehearsals(groupId: string, inputs: SlotInput[], location: string): Rehearsal[];
+  /** A proposal from one of the group's requests; another group's request throws. */
+  addRehearsal(groupId: string, requestId: string, input: SlotInput, location: string): Rehearsal;
+  /** Several proposals from one request at once, all at one location: all or none. */
+  addRehearsals(
+    groupId: string,
+    requestId: string,
+    inputs: SlotInput[],
+    location: string,
+  ): Rehearsal[];
   listRehearsals(groupId: string): Rehearsal[];
   findRehearsal(groupId: string, rehearsalId: string): Rehearsal | null;
   confirmRehearsal(groupId: string, rehearsalId: string): boolean;
@@ -513,6 +527,12 @@ export const MIGRATIONS: readonly string[] = [
   ALTER TABLE accounts ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0
     CHECK (email_verified IN (0, 1));
   `,
+  // Version 9 (Phase 17): the request a rehearsal was proposed from. Rehearsals
+  // made earlier keep a null link.
+  `
+  ALTER TABLE rehearsals ADD COLUMN request_id TEXT REFERENCES requests(id);
+  CREATE INDEX rehearsals_by_request ON rehearsals (request_id);
+  `,
 ];
 
 /**
@@ -744,8 +764,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const inGroup = "SELECT id FROM members WHERE group_id = ?";
   const deleteGroupRows = [
     `DELETE FROM calendar_events WHERE member_id IN (${inGroup})`,
-    "DELETE FROM requests WHERE group_id = ?",
+    // Rehearsals before the requests they link to.
     "DELETE FROM rehearsals WHERE group_id = ?",
+    "DELETE FROM requests WHERE group_id = ?",
     `DELETE FROM availability WHERE member_id IN (${inGroup})`,
     "DELETE FROM members WHERE group_id = ?",
     "DELETE FROM groups WHERE id = ?",
@@ -978,11 +999,12 @@ function buildStore(db: DatabaseSync, filename: string): Store {
      ORDER BY availability.start_date, availability.start_minute, availability.created_at`,
   );
 
-  const rehearsalColumns = `${slotColumns}, location, status`;
+  const rehearsalColumns = `${slotColumns}, location, status, request_id`;
   const insertRehearsal = db.prepare(
     `INSERT INTO rehearsals
-     (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?)`,
+     (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
+      created_at, request_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
   );
   const selectRehearsals = db.prepare(
     `SELECT ${rehearsalColumns} FROM rehearsals WHERE group_id = ?
@@ -1035,7 +1057,11 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     };
   }
 
-  type RehearsalRow = SlotRow & { location: string; status: RehearsalStatus };
+  type RehearsalRow = SlotRow & {
+    location: string;
+    status: RehearsalStatus;
+    request_id: string | null;
+  };
 
   function toRehearsal(row: RehearsalRow): Rehearsal {
     return {
@@ -1047,6 +1073,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       endMinute: row.end_minute,
       location: row.location,
       status: row.status,
+      requestId: row.request_id,
       skips: (selectCancellations.all(row.id) as { date: string }[]).map((item) => item.date),
     };
   }
@@ -1143,7 +1170,15 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     return member;
   }
 
-  function addRehearsal(groupId: string, input: SlotInput, location: string): Rehearsal {
+  function addRehearsal(
+    groupId: string,
+    requestId: string,
+    input: SlotInput,
+    location: string,
+  ): Rehearsal {
+    if (!findRequest(groupId, requestId)) {
+      throw new Error("A rehearsal can only be proposed from one of its group's requests.");
+    }
     const id = newToken();
     insertRehearsal.run(
       id,
@@ -1155,8 +1190,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       input.endMinute,
       location,
       new Date().toISOString(),
+      requestId,
     );
-    return { ...input, id, location, status: "proposed", skips: [] };
+    return { ...input, id, location, status: "proposed", requestId, skips: [] };
   }
 
   return {
@@ -1344,8 +1380,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       return slots;
     },
     addRehearsal,
-    addRehearsals(groupId, inputs, location) {
-      return transaction(() => inputs.map((input) => addRehearsal(groupId, input, location)));
+    addRehearsals(groupId, requestId, inputs, location) {
+      return transaction(() =>
+        inputs.map((input) => addRehearsal(groupId, requestId, input, location)),
+      );
     },
     listRehearsals(groupId) {
       return (selectRehearsals.all(groupId) as RehearsalRow[]).map(toRehearsal);
