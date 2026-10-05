@@ -19,7 +19,8 @@ __pycache__/
 # impeccable-ignore-start
 # Impeccable (.claude/skills/impeccable): ephemeral output, runtime state and
 # per-developer overrides. Shared artifacts stay tracked: config.json,
-# design.json, surfaces/*.md, critique/*.md.
+# design.json, surfaces/*.md. Critique snapshots stay local: they record the
+# machine's absolute path (target_identity), which the repo never commits.
 **/.impeccable/config.local.json
 **/.impeccable/hook.cache.json
 **/.impeccable/hook.pending.json
@@ -27,4 +28,5 @@ __pycache__/
 **/.impeccable/review/
 **/.impeccable/questions/
 **/.impeccable/live/
+**/.impeccable/critique/
 # impeccable-ignore-end
