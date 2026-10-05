@@ -4,13 +4,25 @@ import { describe, expect, it } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import GroupPage, { action, loader } from "../app/routes/group";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, thrownBy } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  thrownBy,
+  addressOf,
+  addressFor,
+} from "./routes";
 
 type GroupData = Awaited<ReturnType<typeof loader>>;
 
 function load(groupId: string, cookie?: string) {
-  return loader(routeArgs(`/g/${groupId}`, { groupId }, { cookie })) as Promise<GroupData>;
+  return loader(
+    routeArgs(`/g/${addressFor(groupId)}`, { groupAddress: addressFor(groupId) }, { cookie }),
+  ) as Promise<GroupData>;
 }
 
 function render(loaderData: GroupData): string {
@@ -40,7 +52,7 @@ describe("group route", () => {
     const { group, organizer, cellist } = band();
     const cookie = await deviceCookie(group.id, organizer.deviceToken);
     const post = (form: Record<string, string>) =>
-      action(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie, form }));
+      action(routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie, form }));
 
     expect(await toastOf(await post({ intent: "set-privacy", value: "on" }))).toBe(
       "Members now see who is free",
@@ -84,7 +96,7 @@ describe("group route", () => {
     const loaded = await load(group.id, await deviceCookie(group.id, organizer.deviceToken));
 
     expect(loaded).toEqual({
-      groupId: group.id,
+      groupHref: groupPath(group),
       groupName: "Thursday Quartet",
       timeZone: "Europe/London",
       members: [
@@ -188,7 +200,13 @@ describe("group route", () => {
   });
 
   function post(groupId: string, cookie: string | undefined, form: Record<string, string>) {
-    return action(routeArgs(`/g/${groupId}`, { groupId }, { cookie, form }));
+    return action(
+      routeArgs(
+        `/g/${addressFor(groupId)}`,
+        { groupAddress: addressFor(groupId) },
+        { cookie, form },
+      ),
+    );
   }
 
   function statusOf(value: unknown): number | undefined {
@@ -258,17 +276,18 @@ describe("group route", () => {
     );
 
     expect(statusOf(asMember)).toBe(403);
-    expect((asVisitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((asVisitor as Response).headers.get("Location")).toBe(groupPath(group));
     expect(getStore().findMember(group.id, cellist.id)?.role).toBe("member");
     expect(getStore().findGroup(group.id)?.showNames).toBe(false);
     expect(getStore().findMember(group.id, organizer.id)?.role).toBe("organizer");
   });
 
   it.each([
-    ["unknown", "C".repeat(22)],
-    ["malformed", "nope"],
-  ])("gives a 404 for an %s group id", async (_kind, groupId) => {
-    const thrown = await thrownBy(load(groupId));
+    ["an unknown short id", "quartet-zzzzzzzz"],
+    ["a malformed", "nope"],
+    ["an internal-id-shaped", "C".repeat(22)],
+  ])("gives a 404 for %s address", async (_kind, address) => {
+    const thrown = await thrownBy(loader(routeArgs(`/g/${address}`, { groupAddress: address })));
 
     expect((thrown as { init?: ResponseInit | null }).init?.status).toBe(404);
   });

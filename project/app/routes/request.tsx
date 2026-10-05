@@ -1,5 +1,6 @@
 import { data, Form, Link, redirect } from "react-router";
 
+import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
@@ -22,6 +23,7 @@ import {
   type SlotErrors,
   type SlotFormValues,
 } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes, timeValue } from "~/lib/propose";
 import { answerable, clipToWindows } from "~/lib/requests";
@@ -40,14 +42,13 @@ const LIMIT_MAX = 99;
 /** The group, the member viewing it and the request; visitors go back to the group page. */
 async function load(
   request: Request,
-  groupId: string,
+  address: string,
   requestId: string,
 ): Promise<{ group: Group; viewer: Member; scheduleRequest: ScheduleRequest }> {
   const store = getStore();
-  const group = store.findGroup(groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   const scheduleRequest = store.findRequest(group.id, requestId);
   if (!scheduleRequest) throw data(null, { status: 404 });
   return { group, viewer, scheduleRequest };
@@ -72,7 +73,11 @@ function formatAnsweredAt(instant: string, zone: string): string {
 // A member gets the request, their own times in its span and their own answer
 // only; who else answered, their limits and the overlap are for organizers.
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { group, viewer, scheduleRequest } = await load(request, params.groupId, params.requestId);
+  const { group, viewer, scheduleRequest } = await load(
+    request,
+    params.groupAddress,
+    params.requestId,
+  );
   const store = getStore();
   const isOrganizer = viewer.role === "organizer";
   const today = todayInZone(group.timeZone, new Date());
@@ -114,7 +119,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   return {
-    groupId: group.id,
+    groupHref: groupPath(group),
     groupName: group.name,
     timeZone: group.timeZone,
     requestId: scheduleRequest.id,
@@ -146,11 +151,15 @@ function problem(message: string) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const { group, viewer, scheduleRequest } = await load(request, params.groupId, params.requestId);
+  const { group, viewer, scheduleRequest } = await load(
+    request,
+    params.groupAddress,
+    params.requestId,
+  );
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
-  const here = `/g/${group.id}/requests/${scheduleRequest.id}`;
+  const here = `${groupPath(group)}/requests/${scheduleRequest.id}`;
 
   if (intent === "answer") {
     if (!answerable(scheduleRequest, todayInZone(group.timeZone, new Date()))) {
@@ -230,7 +239,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export default function RequestPage({ loaderData, actionData }: Route.ComponentProps) {
   const {
-    groupId,
+    groupHref,
     groupName,
     timeZone,
     requestId,
@@ -255,7 +264,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   return (
     <main>
       <p className="eyebrow">
-        <Link to={`/g/${groupId}`}>{groupName}</Link>
+        <Link to={groupHref}>{groupName}</Link>
       </p>
       <h1>{name}</h1>
       <p className="request-span">
@@ -276,7 +285,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         <div className="request-actions">
           {open ? (
             <Link
-              to={`/g/${groupId}/requests/new?edit=${requestId}`}
+              to={`${groupHref}/requests/new?edit=${requestId}`}
               className={buttonVariants({ variant: "outline" })}
             >
               Edit
@@ -298,7 +307,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             </Form>
           )}
           <Link
-            to={`/g/${groupId}/requests/new?repeat=${requestId}`}
+            to={`${groupHref}/requests/new?repeat=${requestId}`}
             className={buttonVariants({ variant: "outline" })}
           >
             Repeat request
@@ -326,7 +335,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               <li key={index}>
                 <Link
                   className={buttonVariants({ variant: "outline", size: "sm" })}
-                  to={`/g/${groupId}/availability?request=${requestId}&window=${index}`}
+                  to={`${groupHref}/availability?request=${requestId}&window=${index}`}
                 >
                   Check availability for {timeRange(window.startMinute, window.endMinute)}
                 </Link>

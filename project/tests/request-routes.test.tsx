@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import Availability, {
   action as availabilityAction,
   loader as availabilityLoader,
@@ -14,7 +15,16 @@ import RequestForm, {
   action as formAction,
   loader as formLoader,
 } from "../app/routes/requests.new";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, tempDatabase, thrownBy } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  tempDatabase,
+  thrownBy,
+  addressOf,
+  addressFor,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -71,19 +81,31 @@ const november = {
 
 function newForm(groupId: string, cookie: string | undefined, form: Record<string, string>) {
   return formAction(
-    routeArgs(`/g/${groupId}/requests/new`, { groupId }, { cookie, form }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/requests/new`,
+      { groupAddress: addressFor(groupId) },
+      { cookie, form },
+    ),
   ) as Promise<unknown>;
 }
 
 function loadForm(groupId: string, cookie: string | undefined, search = "") {
   return formLoader(
-    routeArgs(`/g/${groupId}/requests/new${search}`, { groupId }, { cookie }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/requests/new${search}`,
+      { groupAddress: addressFor(groupId) },
+      { cookie },
+    ),
   ) as Promise<FormData_>;
 }
 
 function load(groupId: string, requestId: string, cookie?: string) {
   return loader(
-    routeArgs(`/g/${groupId}/requests/${requestId}`, { groupId, requestId }, { cookie }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/requests/${requestId}`,
+      { groupAddress: addressFor(groupId), requestId },
+      { cookie },
+    ),
   ) as Promise<RequestData>;
 }
 
@@ -94,7 +116,11 @@ function post(
   form: Record<string, string>,
 ) {
   return action(
-    routeArgs(`/g/${groupId}/requests/${requestId}`, { groupId, requestId }, { cookie, form }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/requests/${requestId}`,
+      { groupAddress: addressFor(groupId), requestId },
+      { cookie, form },
+    ),
   ) as Promise<unknown>;
 }
 
@@ -158,7 +184,7 @@ async function created(groupId: string, cookie: string, form = november): Promis
   const response = (await newForm(groupId, cookie, form)) as Response;
   const location = response.headers.get("Location") ?? "";
   const id = location.split("/").at(-1) ?? "";
-  expect(location).toBe(`/g/${groupId}/requests/${id}`);
+  expect(location).toBe(`/g/${addressFor(groupId)}/requests/${id}`);
   return id;
 }
 
@@ -523,7 +549,7 @@ describe("requests on the group page", () => {
     await post(group.id, concert, cellistCookie, { intent: "answer", limit: "any" });
 
     const asCellist = (await groupLoader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: cellistCookie }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: cellistCookie }),
     )) as GroupData;
 
     expect(asCellist.requests?.map((item) => [item.name, item.answered, item.answerCount])).toEqual(
@@ -538,7 +564,7 @@ describe("requests on the group page", () => {
     expect(html).not.toContain("New request");
 
     const asOrganizer = (await groupLoader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: organizerCookie }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: organizerCookie }),
     )) as GroupData;
     expect(renderGroup(asOrganizer)).toContain("1 of 3 answered");
     expect(renderGroup(asOrganizer)).toContain("New request");
@@ -549,7 +575,7 @@ describe("requests on the group page", () => {
     await created(group.id, organizerCookie, november);
 
     const asVisitor = (await groupLoader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }),
     )) as GroupData;
 
     expect(asVisitor.requests).toBeNull();
@@ -563,10 +589,10 @@ describe("requests on the group page", () => {
     await post(group.id, closed, organizerCookie, { intent: "close", confirmed: "1" });
 
     const asOrganizer = (await groupLoader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: organizerCookie }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: organizerCookie }),
     )) as GroupData;
     const asCellist = (await groupLoader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: cellistCookie }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: cellistCookie }),
     )) as GroupData;
 
     expect(renderGroup(asOrganizer)).toContain(`requests/new?repeat=${closed}`);
@@ -578,13 +604,21 @@ describe("requests on the group page", () => {
 describe("adding availability from a request", () => {
   function loadAvailability(groupId: string, cookie: string, search: string) {
     return availabilityLoader(
-      routeArgs(`/g/${groupId}/availability${search}`, { groupId }, { cookie }),
+      routeArgs(
+        `/g/${addressFor(groupId)}/availability${search}`,
+        { groupAddress: addressFor(groupId) },
+        { cookie },
+      ),
     ) as Promise<AvailabilityData>;
   }
 
   function save(groupId: string, cookie: string, form: Record<string, string>) {
     return availabilityAction(
-      routeArgs(`/g/${groupId}/availability`, { groupId }, { cookie, form }),
+      routeArgs(
+        `/g/${addressFor(groupId)}/availability`,
+        { groupAddress: addressFor(groupId) },
+        { cookie, form },
+      ),
     ) as Promise<unknown>;
   }
 
@@ -610,7 +644,7 @@ describe("adding availability from a request", () => {
       request: id,
       ...page.fromRequest!.values,
     })) as Response;
-    expect(saved.headers.get("Location")).toBe(`/g/${group.id}/requests/${id}`);
+    expect(saved.headers.get("Location")).toBe(`${groupPath(group)}/requests/${id}`);
     expect(await toastOf(saved)).toBe("Availability saved");
     expect((await load(group.id, id, pianistCookie)).myTimes).toHaveLength(4);
   });
@@ -640,7 +674,7 @@ describe("adding availability from a request", () => {
         startTime: "19:00",
         endTime: "20:00",
       })) as Response;
-      expect(saved.headers.get("Location")).toBe(`/g/${group.id}/availability`);
+      expect(saved.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
     }
     const open = await created(group.id, organizerCookie, november);
     // A window the request doesn't have: the request's calendar, with no window chosen.
@@ -673,8 +707,8 @@ describe("adding availability from a request", () => {
       request: id,
     })) as Response;
 
-    expect(skipped.headers.get("Location")).toBe(`/g/${group.id}/availability`);
-    expect(unskipped.headers.get("Location")).toBe(`/g/${group.id}/availability`);
-    expect(deleted.headers.get("Location")).toBe(`/g/${group.id}/availability`);
+    expect(skipped.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
+    expect(unskipped.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
+    expect(deleted.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
   });
 });

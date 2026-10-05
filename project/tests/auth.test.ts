@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as callback } from "../app/routes/auth.google.callback";
 import { action as signOut } from "../app/routes/auth.sign-out";
@@ -11,7 +12,15 @@ import { loader as schedulePage } from "../app/routes/schedule";
 import { loader as groupPage } from "../app/routes/group";
 import { loader as homePage } from "../app/routes/home";
 import { fakeGoogle as calendarFake } from "./google-fake";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+  addressOf,
+} from "./routes";
 
 const count = tempDatabase();
 const CLIENT_ID = "client-id.apps.googleusercontent.com";
@@ -138,11 +147,11 @@ describe("Google's callback", () => {
     const device = await deviceCookie(group.id, cellist.deviceToken);
 
     const response = await signInThroughGoogle(cellistProfile, {
-      returnTo: `/g/${group.id}`,
+      returnTo: groupPath(group),
       cookie: device,
     });
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}?notice=linked`);
+    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=linked`);
     const cookies = setCookies(response);
     expect(cookies.mc_oauth).toBe("mc_oauth=");
     expect(cookies.mc_session).toMatch(/^mc_session=.+/);
@@ -159,7 +168,7 @@ describe("Google's callback", () => {
     expect(viewer?.id).toBe(cellist.id);
     const home = await homePage(routeArgs("/", {}, { cookie: elsewhere.cookie }));
     expect(home.groups).toContainEqual({
-      id: group.id,
+      path: groupPath(group),
       name: "Thursday Quartet",
       displayName: "Cellist",
     });
@@ -172,18 +181,22 @@ describe("Google's callback", () => {
     getStore().linkMember(group.id, cellist.id, account.id);
 
     const response = await signInThroughGoogle(cellistProfile, {
-      returnTo: `/g/${group.id}`,
+      returnTo: groupPath(group),
       cookie: await deviceCookie(group.id, pianist.deviceToken),
     });
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}?notice=account-taken`);
+    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=account-taken`);
     expect(getStore().findMember(group.id, pianist.id)?.googleEmail).toBeNull();
     const cookie = [
       await deviceCookie(group.id, pianist.deviceToken),
       setCookies(response).mc_session,
     ].join("; ");
     const page = await groupPage(
-      routeArgs(`/g/${group.id}?notice=account-taken`, { groupId: group.id }, { cookie }),
+      routeArgs(
+        `${groupPath(group)}?notice=account-taken`,
+        { groupAddress: addressOf(group) },
+        { cookie },
+      ),
     );
     expect(page.notice).toBe(
       "This Google account is already Cellist in this group, so Pianist stays name-only.",
@@ -307,10 +320,10 @@ describe("Calendar access with every sign-in", () => {
     calendarFake();
 
     const availability = (await availabilityPage(
-      routeArgs(`/g/${group.id}/availability`, { groupId: group.id }, { cookie }),
+      routeArgs(`${groupPath(group)}/availability`, { groupAddress: addressOf(group) }, { cookie }),
     )) as { clashes: { state: string } };
     const schedule = (await schedulePage(
-      routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie }),
+      routeArgs(`${groupPath(group)}/schedule`, { groupAddress: addressOf(group) }, { cookie }),
     )) as { calendar: { google: { state: string } | null } };
 
     expect(availability.clashes.state).toBe("ready");
@@ -329,7 +342,7 @@ describe("Calendar access with every sign-in", () => {
     const cookie = `${await deviceCookie(group.id, member.deviceToken)}; ${session}`;
 
     const availability = (await availabilityPage(
-      routeArgs(`/g/${group.id}/availability`, { groupId: group.id }, { cookie }),
+      routeArgs(`${groupPath(group)}/availability`, { groupAddress: addressOf(group) }, { cookie }),
     )) as { clashes: { state: string } };
 
     expect(availability.clashes.state).toBe("connect");
@@ -355,7 +368,7 @@ describe("sessions", () => {
     const { account, cookie } = await signedIn(cellistProfile);
     getStore().linkMember(group.id, cellist.id, account.id);
     const asSignedIn = await groupPage(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }),
     );
     expect(asSignedIn.viewer?.displayName).toBe("Cellist");
 
@@ -369,7 +382,9 @@ describe("sessions", () => {
       new Request(ORIGIN, { headers: { Cookie: setCookies(response).mc_toast } }),
     );
     expect(toast.toast?.message).toBe("Signed out");
-    const after = await groupPage(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie }));
+    const after = await groupPage(
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }),
+    );
     expect(after.viewer).toBeNull();
   });
 
@@ -385,7 +400,11 @@ describe("sessions", () => {
     try {
       vi.setSystemTime(start + 89 * DAY);
       await availabilityPage(
-        routeArgs(`/g/${group.id}/availability`, { groupId: group.id }, { cookie: both }),
+        routeArgs(
+          `${groupPath(group)}/availability`,
+          { groupAddress: addressOf(group) },
+          { cookie: both },
+        ),
       );
       vi.setSystemTime(start + 150 * DAY);
       const home = await homePage(routeArgs("/", {}, { cookie }));
@@ -403,12 +422,12 @@ describe("sessions", () => {
     const asPianistDevice = `${await deviceCookie(group.id, pianist.deviceToken)}; ${cookie}`;
 
     const page = await groupPage(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: asPianistDevice }),
+      routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: asPianistDevice }),
     );
     const nameOnly = await groupPage(
       routeArgs(
-        `/g/${group.id}`,
-        { groupId: group.id },
+        groupPath(group),
+        { groupAddress: addressOf(group) },
         { cookie: await deviceCookie(group.id, pianist.deviceToken) },
       ),
     );
@@ -422,7 +441,8 @@ describe("sessions", () => {
     const { group, cellist } = band();
     const { account, cookie } = await signedIn(cellistProfile);
     getStore().linkMember(group.id, cellist.id, account.id);
-    const load = () => groupPage(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie }));
+    const load = () =>
+      groupPage(routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }));
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(Date.now() + 89 * 24 * 60 * 60 * 1000);

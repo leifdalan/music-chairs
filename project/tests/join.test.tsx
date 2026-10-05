@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import Join, { action, loader } from "../app/routes/join";
 import {
   cookieFrom,
@@ -75,7 +76,7 @@ describe("join route", () => {
         routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
       ),
     );
-    expect((again as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((again as Response).headers.get("Location")).toBe(groupPath(group));
   });
 
   it("shows the invited group's name", async () => {
@@ -97,7 +98,7 @@ describe("join route", () => {
 
     expect(statusOf(response)).toBe(302);
     const joined = response as Response;
-    expect(joined.headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(joined.headers.get("Location")).toBe(groupPath(group));
     expect(count("members")).toBe(members + 1);
     expect(
       getStore()
@@ -123,8 +124,8 @@ describe("join route", () => {
     const repost = await joinAs(group.inviteToken, "Cellist again", cookie);
 
     expect(revisit).toBeInstanceOf(Response);
-    expect((revisit as Response).headers.get("Location")).toBe(`/g/${group.id}`);
-    expect((repost as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((revisit as Response).headers.get("Location")).toBe(groupPath(group));
+    expect((repost as Response).headers.get("Location")).toBe(groupPath(group));
     expect(count("members")).toBe(members);
   });
 
@@ -145,7 +146,7 @@ describe("join route", () => {
           ),
         ),
       );
-      expect((revisit as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+      expect((revisit as Response).headers.get("Location")).toBe(groupPath(group));
     }
   });
 

@@ -8,10 +8,20 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { whenSynced } from "../app/.server/calendar-sync";
 import { readMemberships, rememberMembership } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { ConfirmPanel } from "../app/components/confirm-form";
 import { action as groupAction } from "../app/routes/group";
 import Groups, { action, loader } from "../app/routes/groups";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+  addressFor,
+  groupAt,
+} from "./routes";
 
 const count = tempDatabase();
 beforeAll(() => {
@@ -39,7 +49,9 @@ function render(data: PageData, actionData?: unknown): string {
 const load = (cookie?: string) => loader(routeArgs("/groups", {}, { cookie })) as Promise<PageData>;
 
 function post(groupId: string, cookie: string, form: Record<string, string>) {
-  return groupAction(routeArgs(`/g/${groupId}`, { groupId }, { cookie, form }));
+  return groupAction(
+    routeArgs(`/g/${addressFor(groupId)}`, { groupAddress: addressFor(groupId) }, { cookie, form }),
+  );
 }
 
 /** A group where Viola organizes and Pianist is a member. */
@@ -76,7 +88,7 @@ describe("the groups page", () => {
 
     expect(page.groups).toEqual([
       {
-        id: linked.group.id,
+        path: groupPath(linked.group),
         name: "Linked Band",
         timeZone: "Europe/London",
         role: "member",
@@ -84,7 +96,7 @@ describe("the groups page", () => {
         lastOrganizer: false,
       },
       {
-        id: quartet.group.id,
+        path: groupPath(quartet.group),
         name: "Quartet",
         timeZone: "Europe/London",
         role: "member",
@@ -92,7 +104,7 @@ describe("the groups page", () => {
         lastOrganizer: false,
       },
       {
-        id: trio.group.id,
+        path: groupPath(trio.group),
         name: "Trio",
         timeZone: "Europe/London",
         role: "organizer",
@@ -133,8 +145,8 @@ describe("the groups page", () => {
       return html.slice(from, html.indexOf("</li>", html.indexOf("</details>", from)));
     };
 
-    expect(card("Mine")).toContain(`href="/g/${mine.group.id}/schedule"`);
-    expect(card("Mine")).toContain(`href="/g/${mine.group.id}/availability"`);
+    expect(card("Mine")).toContain(`href="${groupPath(mine.group)}/schedule"`);
+    expect(card("Mine")).toContain(`href="${groupPath(mine.group)}/availability"`);
     expect(card("Mine")).toContain('name="intent" value="update-group"');
     expect(card("Mine")).toContain('name="intent" value="delete-group"');
     expect(card("Mine")).toContain("You can&#x27;t leave");
@@ -167,9 +179,7 @@ describe("the groups page", () => {
     );
 
     expect(created.status).toBe(302);
-    expect(getStore().findGroup(created.headers.get("Location")!.replace("/g/", ""))?.name).toBe(
-      "New Band",
-    );
+    expect(groupAt(created.headers.get("Location"))?.name).toBe("New Band");
     const { data } = rejected as unknown as { data: unknown };
     expect(render(await load(), data)).toContain("Group name is required.");
   });
@@ -202,7 +212,7 @@ describe("managing a group from the groups page", () => {
       returnTo: "https://example.test/",
     })) as Response;
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(response.headers.get("Location")).toBe(groupPath(group));
   });
 
   it("lets only organizers rename or delete", async () => {
@@ -238,7 +248,7 @@ describe("managing a group from the groups page", () => {
         (error: unknown) => error,
       )) as Response;
       expect(sent.status).toBe(302);
-      expect(sent.headers.get("Location")).toBe(`/g/${target.group.id}`);
+      expect(sent.headers.get("Location")).toBe(groupPath(target.group));
     }
     expect(count("members")).toBe(members);
     expect(getStore().findGroup(target.group.id)?.name).toBe("Target");

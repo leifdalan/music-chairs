@@ -7,6 +7,7 @@ import { gravatarUrl } from "../app/.server/gravatar";
 import { rememberMembership } from "../app/.server/membership";
 import { headerProfile } from "../app/.server/profile";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { ProfileMenu } from "../app/components/profile-menu";
 import { initials, INSTRUMENT_MAX, sameName, validateInstrument } from "../app/lib/profile";
 import { shouldRevalidate } from "../app/root";
@@ -19,6 +20,7 @@ import {
   signedIn,
   tempDatabase,
   thrownBy,
+  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -124,15 +126,15 @@ describe("the header's profile data", () => {
     const { group, cellistCookie, pianistCookie } = await band();
 
     for (const path of [
-      `/g/${group.id}`,
-      `/g/${group.id}/schedule`,
-      `/g/${group.id}/schedule.data`,
+      groupPath(group),
+      `${groupPath(group)}/schedule`,
+      `${groupPath(group)}/schedule.data`,
       // The group page's own data request.
-      `/g/${group.id}.data`,
+      `${groupPath(group)}.data`,
     ]) {
       const profile = await headerProfile(at(path, pianistCookie));
       expect(profile.member).toEqual({
-        groupId: group.id,
+        groupHref: groupPath(group),
         displayName: "Pianist",
         instrument: "piano",
       });
@@ -141,7 +143,7 @@ describe("the header's profile data", () => {
       expect(JSON.stringify(profile)).not.toContain("Cellist");
       expect(JSON.stringify(profile)).not.toContain("cello");
     }
-    const cellist = await headerProfile(at(`/g/${group.id}`, cellistCookie));
+    const cellist = await headerProfile(at(groupPath(group), cellistCookie));
     expect(cellist.member?.instrument).toBe("cello");
     expect(cellist.gravatar).not.toBeNull();
   });
@@ -150,7 +152,7 @@ describe("the header's profile data", () => {
     const { pianistCookie } = await band();
     const other = getStore().createGroup("Other", "Oboe", "Europe/London").group;
 
-    expect((await headerProfile(at(`/g/${other.id}`, pianistCookie))).member).toBeNull();
+    expect((await headerProfile(at(groupPath(other), pianistCookie))).member).toBeNull();
   });
 
   it("follows the group in the address from one group to the next", async () => {
@@ -168,8 +170,8 @@ describe("the header's profile data", () => {
       )
     ).split(";")[0];
 
-    const first = await headerProfile(at(`/g/${a.group.id}/schedule`, cookie));
-    const second = await headerProfile(at(`/g/${other.id}/schedule`, cookie));
+    const first = await headerProfile(at(`${groupPath(a.group)}/schedule`, cookie));
+    const second = await headerProfile(at(`${groupPath(other)}/schedule`, cookie));
 
     expect(first.member?.displayName).toBe("Pianist");
     expect(second.member?.displayName).toBe("Bassoon");
@@ -180,7 +182,11 @@ describe("the header's profile data", () => {
 describe("saving your profile", () => {
   function save(groupId: string, cookie: string | undefined, form: Record<string, string>) {
     return saveProfile(
-      routeArgs(`/g/${groupId}/profile`, { groupId }, { cookie, form }),
+      routeArgs(
+        `/g/${addressFor(groupId)}/profile`,
+        { groupAddress: addressFor(groupId) },
+        { cookie, form },
+      ),
     ) as Promise<Response>;
   }
 
@@ -196,10 +202,10 @@ describe("saving your profile", () => {
     const response = await save(group.id, pianistCookie, {
       displayName: " Piano Man ",
       instrument: " keys ",
-      returnTo: `/g/${group.id}/schedule`,
+      returnTo: `${groupPath(group)}/schedule`,
     });
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}/schedule`);
+    expect(response.headers.get("Location")).toBe(`${groupPath(group)}/schedule`);
     expect(await toastOf(response)).toBe("Profile saved");
     expect(store.findMember(group.id, pianist.id)).toMatchObject({
       displayName: "Piano Man",
@@ -243,7 +249,7 @@ describe("saving your profile", () => {
       returnTo: "https://evil.example/",
     });
 
-    expect(visitor.headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(visitor.headers.get("Location")).toBe(groupPath(group));
     expect(outside.headers.get("Location")).toBe("/");
   });
 });
@@ -275,7 +281,7 @@ describe("the profile menu", () => {
         gravatar: "https://gravatar.com/avatar/x?s=96&d=blank",
         signedIn: { email: "c@example.test" },
         canSignIn: false,
-        member: { groupId: "abc", displayName: "Cellist", instrument: "cello" },
+        member: { groupHref: "/g/abc", displayName: "Cellist", instrument: "cello" },
       },
     });
 

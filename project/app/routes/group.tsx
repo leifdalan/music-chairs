@@ -7,12 +7,14 @@ import { timeZoneChoices } from "~/.server/create-group";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer, forgetMembership, publicOrigin, readAccount } from "~/.server/membership";
+import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate, todayInZone } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
@@ -44,8 +46,7 @@ async function signInNotice(request: Request, groupId: string, viewerName: strin
 // answered, and for organizers how many have.
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
-  const group = store.findGroup(params.groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, params.groupAddress);
   const viewer = await findViewer(request, group);
   const account = await readAccount(request);
   const isOrganizer = viewer?.role === "organizer";
@@ -72,7 +73,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return {
     requests,
     memberCount: isOrganizer ? memberCount : null,
-    groupId: group.id,
+    groupHref: groupPath(group),
     groupName: group.name,
     timeZone: group.timeZone,
     members: allMembers.map((member) => ({
@@ -111,10 +112,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 export async function action({ request, params }: Route.ActionArgs) {
   const store = getStore();
-  const group = store.findGroup(params.groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, params.groupAddress);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   const form = await request.formData();
   const intent = form.get("intent");
   // The groups page (plan/phase-19.2.md) gets its forms' results back there;
@@ -138,7 +138,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
   const memberId = String(form.get("memberId") ?? "");
   const on = form.get("value") === "on";
-  const back = (message: string) => redirectWithToast(`/g/${group.id}`, message);
+  const back = (message: string) => redirectWithToast(groupPath(group), message);
   if (intent === "set-privacy") {
     store.setShowNames(group.id, on);
     return back(on ? "Members now see who is free" : "Members now see counts only");
@@ -183,7 +183,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.updateGroup(group.id, { name: name.value, timeZone });
     // Events already in members' Google Calendars carry the name and the instants.
     if (name.value !== group.name || timeZone !== group.timeZone) rewriteGroupEvents(group.id);
-    return toGroups ? redirectWithToast("/groups", "Group updated") : back("Group updated");
+    if (toGroups) return redirectWithToast("/groups", "Group updated");
+    // Back to the address under the new name, not the one this request came to.
+    return redirectWithToast(groupPath({ ...group, name: name.value }), "Group updated");
   }
   if (intent === "rename-member") {
     const member = store.findMember(group.id, memberId);
@@ -295,7 +297,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
             <p className="hint">
               <a
                 className={buttonVariants({ variant: "outline", size: "sm" })}
-                href={`/auth/google?returnTo=${encodeURIComponent(`/g/${loaderData.groupId}`)}`}
+                href={`/auth/google?returnTo=${encodeURIComponent(loaderData.groupHref)}`}
               >
                 Sign in with Google
               </a>{" "}

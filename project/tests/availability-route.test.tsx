@@ -4,8 +4,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import Availability, { action, loader } from "../app/routes/availability";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, tempDatabase, thrownBy } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  tempDatabase,
+  thrownBy,
+  addressFor,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -43,12 +52,20 @@ async function band() {
 }
 
 function load(groupId: string, cookie?: string, search = "") {
-  const path = `/g/${groupId}/availability${search}`;
-  return loader(routeArgs(path, { groupId }, { cookie })) as Promise<PageData>;
+  const path = `/g/${addressFor(groupId)}/availability${search}`;
+  return loader(
+    routeArgs(path, { groupAddress: addressFor(groupId) }, { cookie }),
+  ) as Promise<PageData>;
 }
 
 function post(groupId: string, cookie: string | undefined, form: Record<string, string>) {
-  return action(routeArgs(`/g/${groupId}/availability`, { groupId }, { cookie, form }));
+  return action(
+    routeArgs(
+      `/g/${addressFor(groupId)}/availability`,
+      { groupAddress: addressFor(groupId) },
+      { cookie, form },
+    ),
+  );
 }
 
 function statusOf(value: unknown): number | undefined {
@@ -104,9 +121,12 @@ describe("availability route", () => {
     const { group } = await band();
 
     const visitor = await thrownBy(load(group.id));
-    const unknown = await thrownBy(load("A".repeat(22)));
+    // A well-formed address whose short id names no group.
+    const unknown = await thrownBy(
+      loader(routeArgs("/g/quartet-zzzzzzzz/availability", { groupAddress: "quartet-zzzzzzzz" })),
+    );
 
-    expect((visitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((visitor as Response).headers.get("Location")).toBe(groupPath(group));
     expect(statusOf(unknown)).toBe(404);
   });
 
@@ -117,7 +137,7 @@ describe("availability route", () => {
     const page = await load(group.id, cookie);
 
     expect(statusOf(created)).toBe(302);
-    expect((created as Response).headers.get("Location")).toBe(`/g/${group.id}/availability`);
+    expect((created as Response).headers.get("Location")).toBe(`${groupPath(group)}/availability`);
     expect(page).toMatchObject({
       timeZone: "Europe/London",
       today: "2026-10-02",
@@ -253,8 +273,8 @@ describe("availability route", () => {
       post(group.id, forged, { intent: "delete", confirmed: "1", slotId: slot.id }),
     );
 
-    expect((visitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
-    expect((crossGroup as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((visitor as Response).headers.get("Location")).toBe(groupPath(group));
+    expect((crossGroup as Response).headers.get("Location")).toBe(groupPath(group));
     expect(count("availability")).toBe(rows);
   });
 

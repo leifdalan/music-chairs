@@ -1,5 +1,6 @@
 import { data, Form, Link, redirect } from "react-router";
 
+import { groupFromAddress } from "~/.server/group-address";
 import { calendarViewer, googleWriteState, scheduleSync } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
@@ -41,6 +42,7 @@ import {
   missingRequired,
   type OverlapMember,
 } from "~/lib/overlap";
+import { groupPath } from "~/lib/group-address";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
@@ -55,12 +57,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
 /** The group and the member viewing it; visitors go back to the group page. */
 async function groupAndViewer(
   request: Request,
-  groupId: string,
+  address: string,
 ): Promise<{ group: Group; viewer: Member }> {
-  const group = getStore().findGroup(groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   return { group, viewer };
 }
 
@@ -71,7 +72,7 @@ function timeRange(start: number, end: number): string {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { group, viewer } = await groupAndViewer(request, params.groupId);
+  const { group, viewer } = await groupAndViewer(request, params.groupAddress);
   const store = getStore();
   const isOrganizer = viewer.role === "organizer";
   const showNames = isOrganizer || group.showNames;
@@ -128,7 +129,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return {
     timesThatWorked: isOrganizer ? timesThatWorked(rehearsals, today) : null,
     calendar,
-    groupId: group.id,
+    groupHref: groupPath(group),
     progress: requestProgress(group, today),
     groupName: group.name,
     timeZone: group.timeZone,
@@ -287,7 +288,7 @@ async function calendarPanel(request: Request, group: Group, viewer: Member) {
     feedUrl,
     webcalUrl: feedUrl.replace(/^https?:/, "webcal:"),
     google: state ? { state } : null,
-    connectUrl: `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(`/g/${group.id}/schedule`)}`,
+    connectUrl: `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(`${groupPath(group)}/schedule`)}`,
     notice: calendarNotice(request),
   };
 }
@@ -300,13 +301,13 @@ function syncGroup(groupId: string): void {
 export async function action({ request, params }: Route.ActionArgs) {
   // The viewer is resolved before the form is read. Any member may answer for
   // themselves; every other intent is organizer-only.
-  const { group, viewer } = await groupAndViewer(request, params.groupId);
+  const { group, viewer } = await groupAndViewer(request, params.groupAddress);
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
-  const back = (message: string) => redirectWithToast(`/g/${group.id}/schedule`, message);
+  const back = (message: string) => redirectWithToast(`${groupPath(group)}/schedule`, message);
   const syncViewer = () =>
     scheduleSync(store.listSyncingMembers(group.id).filter((m) => m.memberId === viewer.id));
 
@@ -426,7 +427,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     calendar,
     timesThatWorked,
     progress,
-    groupId,
+    groupHref,
   } = loaderData;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
   const freeTimes =
@@ -527,7 +528,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       ) : null}
       <ProgressSection
         progress={progress}
-        groupId={groupId}
+        groupHref={groupHref}
         google={calendar.google?.state ?? null}
         until={until}
       />
@@ -962,12 +963,12 @@ type ProgressItem = Route.ComponentProps["loaderData"]["progress"][number];
 /** How each request is going (plan/phase-17.md), for members and organizers alike. */
 function ProgressSection({
   progress,
-  groupId,
+  groupHref,
   google,
   until,
 }: {
   progress: ProgressItem[];
-  groupId: string;
+  groupHref: string;
   google: GoogleWriteState | null;
   until: string;
 }) {
@@ -986,12 +987,12 @@ function ProgressSection({
               <ProgressFigures item={item} />
               {item.complete ? (
                 <CalendarActions
-                  groupId={groupId}
+                  groupHref={groupHref}
                   requestId={item.requestId}
                   requestName={item.name}
                   google={google}
                   until={until}
-                  returnTo={`/g/${groupId}/schedule`}
+                  returnTo={`${groupHref}/schedule`}
                 />
               ) : null}
             </li>

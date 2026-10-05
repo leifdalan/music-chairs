@@ -3,7 +3,9 @@ import { data, redirect } from "react-router";
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
 import { findViewer } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
+import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
+import { groupPath } from "~/lib/group-address";
 import { addDays, todayInZone, windowEnd } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
 
@@ -27,10 +29,9 @@ function fileName(name: string): string {
  */
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
-  const group = store.findGroup(params.groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, params.groupAddress);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   const scheduleRequest = store.findRequest(group.id, params.requestId);
   if (!scheduleRequest) throw data(null, { status: 404 });
   const now = new Date();

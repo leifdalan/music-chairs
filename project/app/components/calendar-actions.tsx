@@ -16,14 +16,15 @@ export type GoogleWriteState = "unlinked" | "other-account" | "connect" | "off" 
  * it is shown on, where the Google controls come back to.
  */
 export function CalendarActions({
-  groupId,
+  groupHref,
   requestId,
   requestName,
   google,
   until,
   returnTo,
 }: {
-  groupId: string;
+  /** The group's path (`groupPath`). */
+  groupHref: string;
   requestId: string;
   requestName: string;
   google: GoogleWriteState | null;
@@ -31,7 +32,7 @@ export function CalendarActions({
   returnTo: string;
 }) {
   // A plain link: the file is a download, not a page the router can show.
-  const download = `/g/${groupId}/requests/${requestId}/calendar.ics`;
+  const download = `${groupHref}/requests/${requestId}/calendar.ics`;
   const connect = `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(returnTo)}`;
   // Google first (plan/phase-19.1.md): the switch, the connect link, or why
   // there is neither; then the one-time download.
@@ -46,7 +47,7 @@ export function CalendarActions({
   return (
     <div className="calendar-actions">
       {google === "off" ? (
-        <Form method="post" action={`/g/${groupId}/schedule`} replace>
+        <Form method="post" action={`${groupHref}/schedule`} replace>
           <input type="hidden" name="intent" value="set-calendar" />
           <input type="hidden" name="value" value="on" />
           <input type="hidden" name="returnTo" value={returnTo} />

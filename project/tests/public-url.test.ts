@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { routeArgs } from "./routes";
+import { groupPath } from "../app/lib/group-address";
+import { routeArgs, addressOf } from "./routes";
 
 // The cookie flag is fixed when the module loads (the shared test helpers load it
 // early), so each case resets the module cache after setting the variable.
@@ -25,7 +26,11 @@ describe("public URL", () => {
       organizer.deviceToken,
     );
     const page = await loader(
-      routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie: setCookie.split(";")[0] }),
+      routeArgs(
+        groupPath(group),
+        { groupAddress: addressOf(group) },
+        { cookie: setCookie.split(";")[0] },
+      ),
     );
 
     expect(setCookie).toMatch(/; Secure/);

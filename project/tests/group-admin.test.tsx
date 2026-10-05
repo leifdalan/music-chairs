@@ -4,6 +4,7 @@ import { sweepOnce, syncMember, whenSynced } from "../app/.server/calendar-sync"
 import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { zonedInstant } from "../app/lib/zoned-time";
 import { action, inviteMailto, loader } from "../app/routes/group";
@@ -18,6 +19,8 @@ import {
   signedIn,
   tempDatabase,
   thrownBy,
+  addressFor,
+  addressOf,
 } from "./routes";
 
 const count = tempDatabase();
@@ -97,13 +100,15 @@ async function band() {
 }
 
 function post(groupId: string, cookie: string, form: Record<string, string>) {
-  return action(routeArgs(`/g/${groupId}`, { groupId }, { cookie, form })) as Promise<unknown>;
+  return action(
+    routeArgs(`/g/${addressFor(groupId)}`, { groupAddress: addressFor(groupId) }, { cookie, form }),
+  ) as Promise<unknown>;
 }
 
 function load(groupId: string, cookie?: string) {
-  return loader(routeArgs(`/g/${groupId}`, { groupId }, { cookie })) as Promise<
-    Awaited<ReturnType<typeof loader>>
-  >;
+  return loader(
+    routeArgs(`/g/${addressFor(groupId)}`, { groupAddress: addressFor(groupId) }, { cookie }),
+  ) as Promise<Awaited<ReturnType<typeof loader>>>;
 }
 
 function statusOf(value: unknown): number | undefined {
@@ -294,7 +299,7 @@ describe("members", () => {
       confirmed: "1",
     });
 
-    expect((response as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((response as Response).headers.get("Location")).toBe(groupPath(group));
     expect(await toastOf(response)).toBe("You left the group");
     expect((await load(group.id, organizerCookie)).viewer).toBeNull();
   });
@@ -303,6 +308,7 @@ describe("members", () => {
 describe("deleting a group", () => {
   it("deletes everything in it, removes its Google events and goes home with a message", async () => {
     const { store, group, organizerCookie, cellistCookie, session, account } = await band();
+    const address = addressOf(group);
     const other = store.createGroup("Other band", "Oboe", ZONE).group;
     store.createRequest(group.id, {
       name: "Concert",
@@ -327,7 +333,11 @@ describe("deleting a group", () => {
     expect(store.listRequests(group.id)).toEqual([]);
     expect(deletes()).toHaveLength(2);
     expect(store.listEventRemovals()).toEqual([]);
-    expect(statusOf(await thrownBy(load(group.id, cellistCookie)))).toBe(404);
+    // The deleted group's address no longer resolves.
+    const gone = loader(
+      routeArgs(`/g/${address}`, { groupAddress: address }, { cookie: cellistCookie }),
+    );
+    expect(statusOf(await thrownBy(gone))).toBe(404);
     expect(store.findGrant(account.id)).not.toBeNull();
     const home = (await homeLoader(routeArgs("/", {}, { cookie: session }))) as {
       groups: { name: string }[];

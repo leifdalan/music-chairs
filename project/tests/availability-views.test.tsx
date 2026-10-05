@@ -5,9 +5,19 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import Availability, { action, loader } from "../app/routes/availability";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
-import { deviceCookie, ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import {
+  deviceCookie,
+  ORIGIN,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+  addressOf,
+  addressFor,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -77,18 +87,26 @@ function concert(groupId: string, endDate = "2026-11-29") {
 
 function load(groupId: string, cookie: string, search = "") {
   return loader(
-    routeArgs(`/g/${groupId}/availability${search}`, { groupId }, { cookie }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/availability${search}`,
+      { groupAddress: addressFor(groupId) },
+      { cookie },
+    ),
   ) as Promise<PageData>;
 }
 
 function post(groupId: string, cookie: string, fields: [string, string][]) {
   const headers = new Headers({ Cookie: cookie });
-  const request = new Request(new URL(`/g/${groupId}/availability`, ORIGIN), {
+  const request = new Request(new URL(`/g/${addressFor(groupId)}/availability`, ORIGIN), {
     method: "POST",
     headers,
     body: new URLSearchParams(fields),
   });
-  return action({ request, params: { groupId }, context: {} } as never) as Promise<unknown>;
+  return action({
+    request,
+    params: { groupAddress: addressFor(groupId) },
+    context: {},
+  } as never) as Promise<unknown>;
 }
 
 function render(data: PageData, actionData?: unknown, path = "/g/x/availability"): string {
@@ -168,7 +186,7 @@ describe("entering availability in the calendar", () => {
       ["endTime", "21:53"],
     ]);
 
-    expect((response as Response).headers.get("Location")).toBe(`/g/${group.id}/availability`);
+    expect((response as Response).headers.get("Location")).toBe(`${groupPath(group)}/availability`);
     expect(await toastOf(response)).toBe("Added times for 2 dates");
     expect(getStore().listSlots(pianist.id)).toEqual([
       expect.objectContaining({
@@ -199,7 +217,7 @@ describe("entering availability in the calendar", () => {
     ]);
 
     expect((response as Response).headers.get("Location")).toBe(
-      `/g/${group.id}/requests/${request.id}`,
+      `${groupPath(group)}/requests/${request.id}`,
     );
     expect(await toastOf(response)).toBe("Added times for 1 date");
   });
@@ -377,7 +395,7 @@ describe("clashes with Google Calendar", () => {
 
     expect(page.clashes).toEqual({
       state: "connect",
-      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`/g/${group.id}/availability?times=list`)}`,
+      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`${groupPath(group)}/availability?times=list`)}`,
     });
     expect(render(page)).toContain("See clashes from your Google Calendar");
     expect(google.calendarCalls()).toEqual([]);
@@ -398,14 +416,14 @@ describe("clashes with Google Calendar", () => {
     // In-app navigation loads the page's data from <page>.data with _routes.
     const page = (await loader(
       routeArgs(
-        `/g/${group.id}/availability.data?times=list&notice=calendar-declined&_routes=routes%2Favailability`,
-        { groupId: group.id },
+        `${groupPath(group)}/availability.data?times=list&notice=calendar-declined&_routes=routes%2Favailability`,
+        { groupAddress: addressOf(group) },
         { cookie: cellistCookie },
       ),
     )) as PageData;
 
     expect(page.clashes).toMatchObject({
-      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`/g/${group.id}/availability?times=list`)}`,
+      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`${groupPath(group)}/availability?times=list`)}`,
     });
   });
 
@@ -423,7 +441,7 @@ describe("clashes with Google Calendar", () => {
     const page = await load(group.id, cellistCookie, "?notice=calendar-declined");
 
     expect(page.clashes).toMatchObject({
-      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`/g/${group.id}/availability`)}`,
+      connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`${groupPath(group)}/availability`)}`,
     });
     const html = render(page, undefined, "/g/x/availability?notice=calendar-declined");
     expect(html).toContain("Google Calendar access wasn&#x27;t granted, so nothing changed.");

@@ -6,8 +6,16 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll } from "vitest";
 
+import { findGroupByAddress } from "../app/.server/group-address";
 import { rememberMembership, startSession } from "../app/.server/membership";
-import { getStore, type Account, type GoogleProfile, type Store } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
+import {
+  getStore,
+  type Account,
+  type GoogleProfile,
+  type Group,
+  type Store,
+} from "../app/.server/store";
 
 export const ORIGIN = "http://music-chairs.test";
 
@@ -131,4 +139,26 @@ export function requestIn(
     endDate: "2026-12-31",
     windows: [{ startMinute: 0, endMinute: 1440 }],
   }).id;
+}
+
+/** A group's address as the `:groupAddress` route parameter carries it (plan/phase-19.3.md). */
+export function addressOf(group: { name: string; shortId: string }): string {
+  return groupPath(group).slice("/g/".length);
+}
+
+/**
+ * The address of the group with this internal id, for helpers that take a
+ * group by id. An id that names no group throws: a test asking for a missing
+ * group passes its address explicitly, so the 404 it expects is for the
+ * reason it means.
+ */
+export function addressFor(groupId: string): string {
+  const group = getStore().findGroup(groupId);
+  if (!group) throw new Error(`addressFor: no group ${groupId}; pass an explicit address`);
+  return addressOf(group);
+}
+
+/** The group a redirect's `Location` (a group path) points at, or null. */
+export function groupAt(location: string | null): Group | null {
+  return location?.startsWith("/g/") ? findGroupByAddress(location.slice("/g/".length)) : null;
 }

@@ -110,6 +110,18 @@ cookie="$(printf '%s\n' "$headers" | awk -F': ' 'tolower($1) == "set-cookie" && 
 case "$status" in *" 302"*) ;; *) fail "create did not redirect: $status" ;; esac
 [ -n "$cookie" ] || fail "create set no membership cookie"
 echo "  302 to $location"
+# A readable address: the name's slug and an 8-character short id (plan/phase-19.3.md).
+printf '%s' "$location" | grep -Eq '^/g/thursday-quartet-[2-9a-km-np-z]{8}$' \
+  || fail "the new group's address $location is not /g/thursday-quartet-<short id>"
+short_id="${location##*-}"
+stale_headers="$(curl -s -D - -o /dev/null "$origin/g/old-name-$short_id/schedule?times=list" | tr -d '\r')"
+printf '%s\n' "$stale_headers" | head -1 | grep -q ' 301' \
+  || fail "an out-of-date group address did not redirect permanently"
+printf '%s\n' "$stale_headers" | grep -qi "^location: $location/schedule?times=list$" \
+  || fail "an out-of-date group address did not redirect to $location/schedule?times=list"
+printf '%s\n' "$stale_headers" | grep -qi '^cache-control: no-store' \
+  || fail "the out-of-date address redirect may be cached"
+echo "  readable address; an out-of-date name redirects (301, not cached) to it"
 
 invite="$(curl -s -H "Cookie: $cookie" "$origin$location" | grep -o "$origin/join/[A-Za-z0-9_-]\{22\}" | head -1)"
 [ -n "$invite" ] || fail "organizer's group page shows no invite URL"
@@ -203,7 +215,7 @@ printf '%s\n' "$download_headers" | grep -qi '^content-type: text/calendar' \
 grep -q "BEGIN:VEVENT" "$work/request.ics" || fail "the request's calendar download holds no rehearsal"
 echo "  the complete request downloads as a calendar file"
 
-for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope"; do
+for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope" "/g/thursday-quartet-zzzzzzzz"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"
   [ "$code" = 404 ] || fail "$path returned HTTP $code"
   grep -q "Page not found" "$work/not-found.html" || fail "$path did not render the not-found page"

@@ -11,6 +11,7 @@ import {
 import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
+import { groupPath } from "../app/lib/group-address";
 import { zonedInstant } from "../app/lib/zoned-time";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
 import { requestIn } from "./routes";
@@ -151,6 +152,10 @@ describe("writing to Google Calendar", () => {
       end: { timeZone: ZONE },
     });
     expect(body).not.toHaveProperty("attendees");
+    // The schedule link is the group's readable address (plan/phase-19.3.md).
+    const group = store.findGroup(target.groupId)!;
+    expect(String(body.description)).toContain(`${groupPath(group)}/schedule`);
+    expect(String(body.description)).not.toContain(group.id);
     expect(String(body.id)).toMatch(/^[a-v0-9]{5,1024}$/);
     expect(store.listCalendarEvents(cellist.id)).toHaveLength(3);
 
