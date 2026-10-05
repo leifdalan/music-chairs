@@ -19,7 +19,25 @@ informs: []
 - Deferred by the operator until after Phases 8–10: "I'm going to wait on visual feedback until after I've seen these pretty major changes." The operator's list of visual changes is collected at phase start.
 - Renumbered from Phase 11 on 2026-10-03 so that it stays last, after the operator's further feature phases 11–14 (see `plan/INDEX.md`).
 
-Added 2026-10-03: the operator will do a big UI/UX pass first to populate this phase's details, and will shop for a visual framework or theme compatible with React Router 8 (user action `satisfied-turkey`). This phase is planned from that pass and that choice; until both arrive it stays a sketch.
+Added 2026-10-03: the operator will do a big UI/UX pass first to populate this phase's details, and will shop for a visual framework or theme compatible with React Router 8 (user action `satisfied-turkey`). Both arrived on 2026-10-04 (below).
+
+## Operator's UI/UX notes (2026-10-04)
+
+The operator's pass (user action `satisfied-turkey`, closed), verbatim apart from one unfinished line the operator asked to ignore:
+
+- "let's use shadcn for styles"
+- "\"download for you calendar\" should just be the download icon and \".ics\""
+- "add to google calendar should be first of the options"
+- "on my availabilityu, the time picker should be first, and it should default to be scrolled to the evening"
+- "somewhere we should say that you need to pick a time range first to see what conflicts there are in google calendar"
+- "start a group should only be on the homepage if there are no groups"
+- "we need a groups page, so that starting a group isn't always on the homepage. group management and navigation should live there, but your groups can still be on the homepage"
+- "pending proposals should be front and center on the homepage"
+- "from a request, the \"add time - time\" is confusing - maybe \"check availability for proposed time slot\""
+- "shouldn't have to \"add times\", just add them as they are clicked/unclicked"
+- "group URIs should be slugified for readability"
+
+The visual framework is shadcn/ui. These notes go beyond styling (a groups page, home-page layout, availability saving as times are ticked, readable group URLs, which changes persisted data and must keep existing links working); whether to split the phase along those lines is settled at phase start.
 
 ## Acceptance
 
