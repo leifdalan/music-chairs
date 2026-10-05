@@ -42,6 +42,7 @@ import { calendarNotice } from "~/lib/calendar-notices";
 import { monthGrid, WEEKDAY_INITIALS, type CalendarMonth } from "~/lib/calendar-grid";
 import type { TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/availability";
 
@@ -719,12 +720,13 @@ function SlotItem({ slot, today, until }: { slot: Slot; today: string; until: st
     <li className="slot">
       <p className="slot-summary">{describeSlot(slot)}</p>
       <div className="slot-actions">
-        <Link to={`?edit=${slot.id}`} className="button-link secondary">
+        <Link to={`?edit=${slot.id}`} className={buttonVariants({ variant: "outline" })}>
           Edit
         </Link>
         <ConfirmForm
           fields={{ intent: "delete", slotId: slot.id }}
           trigger="Delete"
+          triggerVariant="destructive"
           {...deleteTimePrompt(describeSlot(slot))}
           feedbackKey={`delete-${slot.id}`}
         />
@@ -747,7 +749,7 @@ function SlotItem({ slot, today, until }: { slot: Slot; today: string; until: st
                   />
                   <input type="hidden" name="slotId" value={slot.id} />
                   <input type="hidden" name="date" value={date} />
-                  <SubmitButton feedbackKey={`skip-${slot.id}-${date}`} className="secondary small">
+                  <SubmitButton feedbackKey={`skip-${slot.id}-${date}`} variant="outline" size="sm">
                     {skipped.has(date) ? "I can make it" : "Can't make it"}
                   </SubmitButton>
                 </Form>

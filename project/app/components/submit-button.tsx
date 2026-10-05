@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigation, useRouteLoaderData } from "react-router";
+import { buttonVariants, type ButtonSize, type ButtonVariant } from "~/components/ui/button";
+import { cn } from "~/lib/utils";
 
 /**
  * Feedback for the button that was pressed (plan/phase-8.md, Decisions):
@@ -103,6 +105,8 @@ export function SubmitButton({
   feedbackKey,
   children,
   className,
+  variant = "default",
+  size = "default",
   name,
   value,
   label,
@@ -110,7 +114,10 @@ export function SubmitButton({
 }: {
   feedbackKey: string;
   children: ReactNode;
+  /** Marker classes only; the look comes from `variant` and `size`. */
   className?: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   name?: string;
   value?: string;
   /** Accessible name when the visible text alone doesn't say what it affects. */
@@ -129,11 +136,14 @@ export function SubmitButton({
       type="submit"
       name={name}
       value={value}
-      className={
-        [className, saving ? "is-saving" : null, saved ? "is-saved" : null]
-          .filter(Boolean)
-          .join(" ") || undefined
-      }
+      data-variant={variant}
+      className={cn(
+        buttonVariants({ variant, size }),
+        className,
+        // Utilities, so tailwind-merge replaces the variant's own colours.
+        saving && "is-saving cursor-progress opacity-85",
+        saved && "is-saved bg-success text-success-foreground hover:bg-success",
+      )}
       disabled={busy && !saving}
       aria-disabled={saving || undefined}
       aria-pressed={pressed}

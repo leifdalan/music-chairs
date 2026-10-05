@@ -26,6 +26,7 @@ import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes, timeValue } from "~/lib/propose";
 import { answerable, clipToWindows } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/request";
 
@@ -276,7 +277,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           {open ? (
             <Link
               to={`/g/${groupId}/requests/new?edit=${requestId}`}
-              className="button-link secondary"
+              className={buttonVariants({ variant: "outline" })}
             >
               Edit
             </Link>
@@ -291,14 +292,14 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           ) : (
             <Form method="post" replace>
               <input type="hidden" name="intent" value="reopen" />
-              <SubmitButton feedbackKey={`request-open-${requestId}`} className="secondary">
+              <SubmitButton feedbackKey={`request-open-${requestId}`} variant="outline">
                 Reopen request
               </SubmitButton>
             </Form>
           )}
           <Link
             to={`/g/${groupId}/requests/new?repeat=${requestId}`}
-            className="button-link secondary"
+            className={buttonVariants({ variant: "outline" })}
           >
             Repeat request
           </Link>
@@ -324,7 +325,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             {windows.map((window, index) => (
               <li key={index}>
                 <Link
-                  className="button-link secondary small"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
                   to={`/g/${groupId}/availability?request=${requestId}&window=${index}`}
                 >
                   Add {timeRange(window.startMinute, window.endMinute)}

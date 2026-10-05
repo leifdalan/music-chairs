@@ -44,6 +44,7 @@ import {
 import { calendarNotice } from "~/lib/calendar-notices";
 import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/schedule";
 
@@ -681,6 +682,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
             fields={{ intent: "delete", rehearsalId: item.id }}
             trigger="Delete"
             triggerLabel={`Delete ${item.summary}`}
+            triggerVariant="destructive"
             {...deleteRehearsalPrompt(item.summary)}
             feedbackKey={`delete-${item.id}`}
           />
@@ -705,7 +707,8 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
                       <input type="hidden" name="date" value={date} />
                       <SubmitButton
                         feedbackKey={`date-${item.id}-${date}`}
-                        className="secondary small"
+                        variant="outline"
+                        size="sm"
                         label={`Restore ${formatDate(date)}`}
                       >
                         Restore
@@ -716,7 +719,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
                       fields={{ intent: "cancel-date", rehearsalId: item.id, date }}
                       trigger="Cancel this date"
                       triggerLabel={`Cancel ${formatDate(date)}`}
-                      triggerClassName="secondary small"
+                      triggerSize="sm"
                       {...cancelDatePrompt(item.summary, date)}
                       feedbackKey={`date-${item.id}-${date}`}
                     />
@@ -769,7 +772,8 @@ function AnswerButtons({
           feedbackKey={`${feedbackPrefix}-${answer}`}
           name="answer"
           value={answer}
-          className={current === answer ? "answer chosen" : "answer secondary"}
+          variant={current === answer ? "default" : "outline"}
+          className={current === answer ? "answer chosen" : "answer"}
           // Per-date buttons toggle a current answer; answer-all buttons are plain actions.
           pressed={current === undefined ? undefined : current === answer}
           label={`${ANSWER_LABELS[answer]} for ${label}`}
@@ -820,7 +824,8 @@ function RsvpRow({
             feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
             name="answer"
             value="clear"
-            className="secondary small"
+            variant="outline"
+            size="sm"
             label={`Clear my answer for ${subject}`}
           >
             Clear
@@ -883,7 +888,7 @@ function CalendarPanel({
       ) : null}
       {google?.state === "connect" ? (
         <p>
-          <a className="button-link" href={calendar.connectUrl}>
+          <a className={buttonVariants()} href={calendar.connectUrl}>
             Connect Google Calendar to add rehearsals
           </a>
         </p>
@@ -911,7 +916,7 @@ function CalendarPanel({
         onFocus={(event) => event.currentTarget.select()}
       />
       <p>
-        <a className="button-link secondary" href={calendar.webcalUrl}>
+        <a className={buttonVariants({ variant: "outline" })} href={calendar.webcalUrl}>
           Subscribe in your calendar app
         </a>
       </p>

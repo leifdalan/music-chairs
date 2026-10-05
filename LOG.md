@@ -2615,3 +2615,45 @@ Execution trace: 4e6f5511f4b8439295e8021a059c4258
 - Lessons: filed camouflaged-mosquito (local: read a managed policy's document and simulate the role's own policies); amorphous-cow gained its Phase 18 occurrence; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report under reports/execution/, then the bare ./bin/check all handoff gate, then delivery through pull request #1.
+
+## 2026-10-04 18:35 — START
+Phase 19.1 — The shadcn/ui look, and the calendar buttons
+
+Execution trace: 4debaf98acd9431c84c1bbfd29d0d517
+
+Planned work:
+- shadcn/ui on Tailwind CSS in the deliverable, every dependency pinned exactly, with the neutral palette's design tokens (colours, radius, type scale, spacing) recorded in the repository as the visual system.
+- Every page restyled with it: home, group, availability, request, new request, schedule, add members, profile menu, privacy, join, and the error page; forms, buttons, dialogs, toasts and lists use the shadcn components, primary actions are visually primary and secondary ones quieter, and it works on a phone.
+- The hand-written stylesheet replaced, not kept beside the new one.
+- On a complete request (schedule page and home screen), "Add to Google Calendar" comes first, and the download is a download icon with the label ".ics" (its accessible name still says what it downloads).
+
+Phase 19 was split by the operator into 19.1 (this), 19.2 and 19.3; the parent stays active.
+
+## 2026-10-04 18:52 — PARK
+Phase 19.1 — The shadcn/ui look, and the calendar buttons
+
+Execution trace: 4debaf98acd9431c84c1bbfd29d0d517
+
+Reason: the implementation is complete and green, but this run cannot close. A child phase may close only beside an active parent with another drafted, incomplete child in the captured ledger, and the ledger this run captured held 19.1 alone: Phase 19's split named 19.2 and 19.3, but only 19.1 was drafted at entry, as preflight Step 1a says. Phase 19.2 is now drafted (plan/phase-19.2.md, ⏳ row in plan/INDEX.md), which changes a captured authority, so the run parks before its code critique and continues in a fresh run. An orchestration fault, not a product defect.
+
+State at park:
+- Candidate 769c3f5214fbd42baa8d5273f065a0bb79a1d53a15b51e1c8f84f862c3e55083 (working tree, uncommitted): Tailwind CSS 4.3.3 and shadcn/ui (Button, Badge, neutral tokens), every page restyled through app.css on the tokens, the calendar options with Google first and the ".ics" download.
+- Approved plan: plan-2 (hash 0c35fb3c784c1119758ffdfa5651e394a62c5cbc3fc90a621b19622e717ad2cd) after one independent plan review (12 findings, all adopted). No code critique yet.
+- Focused results: Vitest 510/510, lint, typecheck, format PASS, local smoke PASS with the new same-origin and compiled-stylesheet checks; mutation checks 5 of 6 killed, the survivor equivalent. Visual check: production build screenshotted at phone width in dark and light.
+- Declared deviations (implementation report): no Input/Label/Card/Alert/Separator components (native elements styled once in app.css); semantic classes defined with @apply; two neutral tokens darkened for contrast.
+- No status change: Phase 19 and 19.1 stay 🚧. Nothing committed or pushed.
+
+Resume: a planned continuation under policies/review-lanes.md § Continue an approved plan after preparation — a fresh run with --follow-up-route full-cycle captures the ledger with 19.2, carries plan-2 and its review, and runs the code critique on the complete diff, the gates (including CI on the pull request) and the close.
+
+Lessons:
+- bronze-malamute filed — when a decomposition names the next child, draft it and its row before capture, or the first child cannot close (methodology)
+
+Remaining:
+- Continuation run: code critique, gates, accepted close, handoff gate, delivery through pull request phase-19.1.
+
+## 2026-10-04 18:53 — START (resumed)
+Phase 19.1 — The shadcn/ui look, and the calendar buttons
+
+Execution trace: 88bd863372cd4c3eb82e805dc747a2d2
+
+Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): the ledger now holds the successor child 19.2; the approved plan-2 (0c35fb3c784c1119758ffdfa5651e394a62c5cbc3fc90a621b19622e717ad2cd) and its plan review are carried; the prepared candidate 769c3f5214fbd42baa8d5273f065a0bb79a1d53a15b51e1c8f84f862c3e55083 is unchanged. Remaining: code critique of the complete diff, gates (including CI on the pull request), close and delivery.

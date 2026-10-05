@@ -13,6 +13,7 @@ import { canonicalTimeZone, formatDate } from "~/lib/availability";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/home";
 
@@ -243,7 +244,7 @@ function AccountPanel({
       <section className="account" aria-labelledby="account-heading">
         <h2 id="account-heading">Already in a group?</h2>
         <p className="hint">Sign in to open the groups you linked to your Google account.</p>
-        <a className="button-link secondary" href="/auth/google">
+        <a className={buttonVariants({ variant: "outline" })} href="/auth/google">
           Sign in with Google
         </a>
       </section>
@@ -270,7 +271,7 @@ function AccountPanel({
         </p>
       )}
       <Form method="post" action="/auth/sign-out">
-        <SubmitButton feedbackKey="sign-out" className="secondary small">
+        <SubmitButton feedbackKey="sign-out" variant="outline" size="sm">
           Sign out
         </SubmitButton>
       </Form>

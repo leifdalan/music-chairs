@@ -14,6 +14,7 @@ import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate, todayInZone } from "~/lib/availability";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/group";
 
@@ -284,7 +285,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           {!viewer.email && signInAvailable ? (
             <p className="hint">
               <a
-                className="button-link secondary small"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
                 href={`/auth/google?returnTo=${encodeURIComponent(`/g/${loaderData.groupId}`)}`}
               >
                 Sign in with Google
@@ -293,10 +294,14 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
             </p>
           ) : null}
           <p className="group-links">
-            <Link to="schedule" relative="path" className="button-link">
+            <Link to="schedule" relative="path" className={buttonVariants()}>
               Schedule
             </Link>
-            <Link to="availability" relative="path" className="button-link secondary">
+            <Link
+              to="availability"
+              relative="path"
+              className={buttonVariants({ variant: "outline" })}
+            >
               My availability
             </Link>
           </p>
@@ -334,7 +339,11 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         <h2 id="members-heading">Members ({members.length})</h2>
         {settings ? (
           <p>
-            <Link to="members/add" relative="path" className="button-link secondary">
+            <Link
+              to="members/add"
+              relative="path"
+              className={buttonVariants({ variant: "outline" })}
+            >
               Add members
             </Link>
           </p>
@@ -390,7 +399,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                           member.role === "organizer" ? "Remove organizer" : "Make organizer"
                         }
                         triggerLabel={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
-                        triggerClassName="secondary small"
+                        triggerSize="sm"
                         {...roleChangePrompt(member.displayName, member.role !== "organizer")}
                         feedbackKey={`set-role-${member.manage.id}`}
                       />
@@ -398,7 +407,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                         fields={{ intent: "remove-member", memberId: member.manage.id }}
                         trigger="Remove"
                         triggerLabel={`Remove ${member.displayName}`}
-                        triggerClassName="secondary small"
+                        triggerVariant="destructive"
+                        triggerSize="sm"
                         {...removalPrompt(member.displayName)}
                         feedbackKey={`remove-${member.manage.id}`}
                       />
@@ -417,7 +427,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                     />
                     <SubmitButton
                       feedbackKey={`rename-${member.manage.id}`}
-                      className="secondary small"
+                      variant="outline"
+                      size="sm"
                       label={`Rename ${member.displayName}`}
                     >
                       Rename
@@ -493,7 +504,7 @@ function GroupSettings({
       <ConfirmForm
         fields={{ intent: "delete-group" }}
         trigger="Delete group"
-        triggerClassName="danger"
+        triggerVariant="destructive"
         {...deletionPrompt(groupName)}
         feedbackKey="delete-group"
       />
@@ -549,7 +560,11 @@ function RequestsSection({
       {organizer ? (
         <>
           <p>
-            <Link to="requests/new" relative="path" className="button-link secondary">
+            <Link
+              to="requests/new"
+              relative="path"
+              className={buttonVariants({ variant: "outline" })}
+            >
               New request
             </Link>
           </p>
@@ -566,7 +581,7 @@ function RequestsSection({
                     <Link
                       to={`requests/new?repeat=${item.id}`}
                       relative="path"
-                      className="button-link secondary small"
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
                       aria-label={`Repeat request: ${item.name}`}
                     >
                       Repeat
@@ -604,7 +619,8 @@ function Toggle({
       <input type="hidden" name="value" value={setTo ? "on" : "off"} />
       <SubmitButton
         feedbackKey={`${intent}-${memberId ?? "group"}`}
-        className="secondary small"
+        variant="outline"
+        size="sm"
         label={label}
       >
         {children}
@@ -652,10 +668,13 @@ function InvitePanel({ inviteUrl, groupName }: { inviteUrl: string; groupName: s
         value={inviteUrl}
         onFocus={(event) => event.currentTarget.select()}
       />
-      <button type="button" onClick={copy}>
+      <button type="button" className={buttonVariants()} onClick={copy}>
         Copy link
       </button>
-      <a className="button-link secondary" href={inviteMailto(groupName, inviteUrl)}>
+      <a
+        className={buttonVariants({ variant: "outline" })}
+        href={inviteMailto(groupName, inviteUrl)}
+      >
         Send link by email
       </a>
       <p className="hint" role="status">

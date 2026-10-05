@@ -60,6 +60,7 @@ describe("submit button feedback", () => {
 
     expect(html).toContain(">Save</button>");
     expect(html).toContain('aria-label="Save Thursday"');
-    expect(html).not.toContain("disabled");
+    // The attribute, not the `disabled:` utility variants in the class.
+    expect(html).not.toMatch(/\sdisabled(=|\s|>)/);
   });
 });

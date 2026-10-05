@@ -277,7 +277,8 @@ function RequestFields({
               feedbackKey="add-window"
               name="intent"
               value="add-window"
-              className="secondary small"
+              variant="outline"
+              size="sm"
             >
               Add another time
             </SubmitButton>
