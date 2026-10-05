@@ -320,12 +320,82 @@ describe("requests waiting for your answer", () => {
     );
 
     const html = render({ loaderData: { home: data } });
-    expect(html).toContain("Your requests");
+    expect(html).toContain("Waiting on you");
     expect(html).toContain("Waiting for your answer");
     expect(html).toContain(`href="/g/${mine.group.id}/requests/${mine.open.id}"`);
-    expect(html.indexOf("Your requests")).toBeLessThan(html.indexOf("Start a group"));
+    expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your groups"));
     expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(
-      "Your requests",
+      "Waiting on you",
     );
+  });
+});
+
+describe("everything waiting on you, first", () => {
+  /** A group with a request the member answered and a rehearsal proposed from it. */
+  function proposal(name: string) {
+    const store = getStore();
+    const { group } = store.createGroup(name, "Viola", "Europe/London");
+    const member = store.addMember(group.id, "Pianist", "member");
+    const today = todayInZone("Europe/London", new Date());
+    const request = store.createRequest(group.id, {
+      name: `${name} gig`,
+      startDate: today,
+      endDate: addDays(today, 14),
+      windows: [{ startMinute: 1140, endMinute: 1260 }],
+    });
+    const date = addDays(today, 3);
+    const rehearsal = store.addRehearsal(
+      group.id,
+      request.id,
+      { kind: "once", startDate: date, endDate: null, startMinute: 1140, endMinute: 1260 },
+      "Hall",
+    );
+    return { store, group, member, request, rehearsal, date };
+  }
+
+  const home = async (cookie: string) => loader(routeArgs("/", {}, { cookie }));
+
+  it("puts an unanswered proposal and a waiting request at the top, each linking to where you answer", async () => {
+    const { group, member, request, rehearsal } = proposal("Waiting Band");
+    const data = await home(await deviceCookie(group.id, member.deviceToken));
+    const html = render({ loaderData: { home: data } }).replaceAll("<!-- -->", "");
+
+    expect(data.proposals).toEqual([
+      {
+        groupId: group.id,
+        groupName: "Waiting Band",
+        rehearsalId: rehearsal.id,
+        summary: expect.any(String),
+        requestName: "Waiting Band gig",
+      },
+    ]);
+    const waiting = html.slice(html.indexOf("Waiting on you"), html.indexOf("</section>"));
+    expect(waiting).toContain(`href="/g/${group.id}/schedule"`);
+    expect(waiting).toContain(`href="/g/${group.id}/requests/${request.id}"`);
+    expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your requests"));
+    // The proposal also stays under its request, with the figures.
+    const progress = html.slice(html.indexOf("Your requests"));
+    expect(progress).toContain(`Proposed: ${data.proposals[0].summary}`);
+    expect(progress).toContain(`href="/g/${group.id}/requests/${request.id}"`);
+  });
+
+  it("drops a proposal the member answered on any date", async () => {
+    const { store, group, member, rehearsal, date } = proposal("Answered Band");
+    store.setRsvp(group.id, rehearsal.id, member.id, date, "no");
+
+    expect((await home(await deviceCookie(group.id, member.deviceToken))).proposals).toEqual([]);
+  });
+
+  it("offers Start a group only to a visitor with no groups", async () => {
+    const { group, member } = proposal("Grouped Band");
+    const withGroups = render({
+      loaderData: { home: await home(await deviceCookie(group.id, member.deviceToken)) },
+    });
+    const without = render({ loaderData: { home: zones } });
+
+    expect(withGroups).not.toContain('id="create-heading"');
+    expect(withGroups).toContain(`href="/g/${group.id}"`);
+    expect(withGroups).toContain('href="/groups"');
+    expect(without).toContain('id="create-heading"');
   });
 });

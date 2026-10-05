@@ -1,19 +1,11 @@
-import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Form, useLocation, useNavigation } from "react-router";
 
 import type { ConfirmPrompt } from "~/.server/confirm";
 import { buttonVariants, type ButtonSize, type ButtonVariant } from "~/components/ui/button";
+import { useHydrated } from "~/lib/use-hydrated";
 
 import { SubmitButton } from "./submit-button";
-
-const noSubscription = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(
-    noSubscription,
-    () => true,
-    () => false,
-  );
-}
 
 /**
  * A form for a destructive action (plan/phase-11.md, Decisions). Its button
@@ -126,12 +118,16 @@ export function ConfirmForm({
 /**
  * The confirm page: shown when the server answered a destructive action with
  * a prompt (no JavaScript, or a post without the confirmation). It posts the
- * same fields again with `confirmed=1`; Cancel reloads the page as it was.
+ * same fields again with `confirmed=1`; Cancel reloads the page as it was, or
+ * goes back to the groups page when the form came from there.
  */
 export function ConfirmPanel({ prompt }: { prompt: ConfirmPrompt }) {
   const titleId = useId();
   const location = useLocation();
-  const cancelTo = location.pathname + location.search;
+  const fromGroups = prompt.fields.some(
+    ([name, value]) => name === "returnTo" && value === "/groups",
+  );
+  const cancelTo = fromGroups ? "/groups" : location.pathname + location.search;
   return (
     <section className="confirm-panel" role="alertdialog" aria-labelledby={titleId}>
       <h2 id={titleId}>{prompt.title}</h2>

@@ -122,6 +122,12 @@ echo "  invite URL returns the group's join page"
 same_origin_only "$location" "$cookie"
 echo "  the group page loads nothing from another site"
 
+echo "+ GET /groups"
+groups="$(curl -s -H "Cookie: $cookie" "$origin/groups")"
+printf '%s' "$groups" | grep -q "href=\"$location/schedule\"" || fail "the groups page does not link the new group's schedule"
+printf '%s' "$groups" | grep -q 'href="/groups"' || fail "the header does not link the groups page"
+echo "  the groups page lists the new group; the header links it"
+
 echo "+ POST availability"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/availability" \
   --data-urlencode "intent=create" --data-urlencode "kind=weekly" \

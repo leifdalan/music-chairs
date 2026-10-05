@@ -261,7 +261,7 @@ describe("entering availability in the calendar", () => {
 });
 
 describe("clashes with Google Calendar", () => {
-  it("greys the dates busy during a request's times, and nothing outside the request reaches the page", async () => {
+  it("reads busy times within a request's times only, and greys nothing until a range is picked", async () => {
     const { group, cellistCookie } = await band();
     const request = concert(group.id);
     google.busy = [
@@ -273,7 +273,7 @@ describe("clashes with Google Calendar", () => {
     const page = await load(group.id, cellistCookie, `?request=${request.id}`);
     const html = render(page);
 
-    // No window in the link: none is chosen, so the request's windows decide.
+    // No window in the link: none is chosen, and only the request's windows are read.
     expect(page.fromRequest?.window).toBeNull();
     expect(page.clashes).toEqual({
       state: "ready",
@@ -281,9 +281,17 @@ describe("clashes with Google Calendar", () => {
     });
     expect(JSON.stringify(page)).not.toContain("2026-11-04");
     expect(JSON.stringify(page)).not.toContain("2026-10-20");
-    expect(html).toContain('aria-label="Tue 3 Nov, busy in your Google Calendar"');
-    expect(html).toContain('aria-label="Wed 4 Nov"');
-    expect(html).toContain("Days busy in your Google Calendar are greyed");
+    expect(html).toContain('aria-label="Tue 3 Nov"');
+    expect(html).not.toContain('busy in your Google Calendar"');
+    expect(html).toContain(
+      "Once you pick a time range, days busy in your Google Calendar are greyed",
+    );
+    const evening = {
+      dateErrors: {},
+      dateValues: { dates: [], startTime: "19:00", endTime: "22:00" },
+    };
+    expect(render(page, evening)).toContain('aria-label="Tue 3 Nov, busy in your Google Calendar"');
+    expect(render(page, evening)).toContain('aria-label="Wed 4 Nov"');
   });
 
   it("greys by the chosen times, and a greyed date can still be saved", async () => {

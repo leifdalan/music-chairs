@@ -203,6 +203,14 @@
     @apply text-foreground no-underline;
   }
 
+  .header-nav {
+    @apply flex items-center gap-4;
+  }
+
+  .header-nav > a {
+    @apply inline-flex min-h-11 items-center font-medium text-muted-foreground no-underline hover:text-foreground aria-[current=page]:text-foreground;
+  }
+
   .eyebrow,
   .hint {
     @apply text-muted-foreground;
@@ -374,6 +382,34 @@
     @apply grid grid-cols-2 gap-2;
   }
 
+  .group-cards {
+    @apply m-0 grid list-none gap-4 p-0;
+  }
+
+  .group-card {
+    @apply grid gap-3 rounded-lg border bg-card p-4;
+  }
+
+  .group-card h2 {
+    @apply m-0 text-lg;
+  }
+
+  .group-card p {
+    @apply m-0;
+  }
+
+  .rename-form {
+    @apply flex flex-wrap items-end gap-2;
+  }
+
+  .rename-form .field {
+    @apply min-w-48 flex-1;
+  }
+
+  .group-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
   .member-controls {
     @apply flex w-full flex-wrap gap-2;
   }
@@ -502,6 +538,15 @@
 
   .calendar-entry .day.busy {
     @apply border-dashed bg-muted text-muted-foreground;
+  }
+
+  /* Before a range is picked the dates can't be ticked yet. */
+  .calendar-entry .no-range .day:not(.blank) {
+    @apply opacity-50;
+  }
+
+  .calendar-entry .day input:disabled {
+    @apply cursor-not-allowed;
   }
 
   .day-busy,

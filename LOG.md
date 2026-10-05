@@ -2771,3 +2771,16 @@ Execution trace: 88bd863372cd4c3eb82e805dc747a2d2
 - Lessons: bronze-malamute, red-condor and blazing-eel filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #5.
+
+## 2026-10-04 19:46 — START
+Phase 19.2 — A groups page, a home page led by what needs you, and clearer availability and request screens
+
+Execution trace: 3bdc289f781843b2b22e4a8447eaf60e
+
+Planned work:
+- A groups page listing your groups with quick links (Schedule, My availability, the group page) and "Start a group", where you can also rename a group (organizers), leave a group, and delete a group (organizers), each with the existing confirmation; the home page keeps your groups as a list and shows "Start a group" only when you have none.
+- First on the home page, one section of everything waiting on you: proposed rehearsals you haven't answered and requests waiting for your answer, each linking straight to where you answer.
+- Availability page (calendar view): the time picker first, scrolled to the evening; a note that Google Calendar conflicts show once a time range is picked; dates can be ticked only after a time range is chosen, and each tick saves that date at that time straight away while unticking removes it, with no "Add times" button (a Save button appears only without JavaScript).
+- Request page: the "Add <time>–<time>" links read "Check availability for <time>–<time>".
+
+Phase 19.3 (readable group addresses) is drafted before this capture, as lesson bronze-malamute asks.

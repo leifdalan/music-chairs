@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatMinutes, parseTimeText, timeInputValue } from "~/lib/availability";
 import type { TimeWindow } from "~/lib/requests";
@@ -10,19 +10,9 @@ import {
   tapCell,
   type GridSelection,
 } from "~/lib/time-grid";
+import { useHydrated } from "~/lib/use-hydrated";
 
 import { TimeField } from "./time-field";
-
-// The grid needs JavaScript; the server render and a page without it show only
-// the typed fields, which are the form's real inputs either way.
-const noSubscription = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(
-    noSubscription,
-    () => true,
-    () => false,
-  );
-}
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 /** With nothing chosen yet, the grid opens at the evening. */
@@ -82,6 +72,8 @@ export function TimeRange({
   /** The chosen range (null while there is none) and whether anything is typed. */
   onChange?: (range: TimeWindow | null, typed: boolean) => void;
 }) {
+  // The grid needs JavaScript; the server render and a page without it show only
+  // the typed fields, which are the form's real inputs either way.
   const hydrated = useHydrated();
   const wrapper = useRef<HTMLDivElement>(null);
   const prefix = labelPrefix ? `${labelPrefix}: ` : "";
