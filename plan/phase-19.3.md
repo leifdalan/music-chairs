@@ -28,3 +28,7 @@ From the operator's UI/UX notes in `plan/phase-19.md`: "group URIs should be slu
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints".
+
+## Inherited from Phase 19.2
+
+Pinned by [Phase 19.2](phase-19.2.md): new places build group links from the group's id, and every one must use the readable address: the `/groups` page's cards (group page, Schedule, My availability) and its rename, leave and delete forms (which post to the group page with `returnTo=/groups`), the home page's "Waiting on you" links (a proposal links to the group's schedule, a request to its page) and its groups list, and the request page's "Check availability for <time>" links. `returnTo` accepts exactly `/groups` and nothing else, on the server and in the confirm page's Cancel. Group creation now lives in `project/app/.server/create-group.ts`, shared by the home and groups pages, and redirects to the new group's page.

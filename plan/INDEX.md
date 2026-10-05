@@ -82,8 +82,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 18](phase-18.md) | CI/CD: tests on every change, deploy on merge to main             | ✅     |
 | [Phase 19](phase-19.md) | Visual cleanup                                                    | 🚧     |
 | [Phase 19.1](phase-19.1.md) | The shadcn/ui look, and the calendar buttons                  | ✅     |
-| [Phase 19.2](phase-19.2.md) | A groups page, home led by what needs you, clearer availability and requests | 🚧     |
-| [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ⏳     |
+| [Phase 19.2](phase-19.2.md) | A groups page, home led by what needs you, clearer availability and requests | ✅     |
+| [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ⬅️     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
