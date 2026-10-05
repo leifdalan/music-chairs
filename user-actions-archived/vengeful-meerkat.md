@@ -1,7 +1,8 @@
 ---
 slug: vengeful-meerkat
 title: Sign the repository's GitHub CLI in to your GitHub account
-status: pending
+status: done
+closed: 2026-10-04
 category: access
 urgency: high
 blocks:
@@ -29,3 +30,7 @@ It prints a one-time code and opens https://github.com/login/device; enter the c
 ```
 
 It should say "Logged in to github.com account leifdalan".
+
+## Disposition
+
+The operator signed in on 2026-10-04; the agent verified it with `./bin/gh auth status` (logged in as leifdalan, scopes include repo and workflow) and then used it to set the deploy secret, variable and ruleset and to open and merge pull request #1. No recurring learning.

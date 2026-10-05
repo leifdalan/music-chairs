@@ -1,14 +1,14 @@
 ---
 slug: likable-hamster
 title: Finish Google's app verification — justify the sensitive scopes, record the demo video, submit
-status: pending
+status: deferred
 category: access
 urgency: medium
 blocks:
   - Removing Google's "hasn't verified this app" warning at sign-in
   - Phase 14's manual acceptance (Google accepting the privacy policy and home page)
 filed: 2026-10-03
-needed_at: now
+needed_at: when Google finishes its review (submitted 2026-10-04; Google says a few days to weeks)
 source: operator
 refs:
   - plan/phase-14.md
@@ -63,3 +63,5 @@ Free/busy (greyed-out busy times) is non-sensitive and doesn't need to be shown.
 **4. Submit.** In the **Verification Center**, submit for verification with the justification and the YouTube link. Google replies by email within a few days to a few weeks, sometimes with questions.
 
 Done when the Verification Center shows the app as verified and signing in no longer shows the warning. If the app misbehaves while you record, send a screenshot.
+
+**2026-10-04:** the operator reports the verification was submitted; Google's review takes "a few days or weeks". Close this when Google approves (or follow up on what Google asks for).

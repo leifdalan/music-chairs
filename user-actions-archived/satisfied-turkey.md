@@ -1,7 +1,8 @@
 ---
 slug: satisfied-turkey
 title: Do the UI/UX pass and pick a visual framework or theme for the visual cleanup
-status: pending
+status: done
+closed: 2026-10-04
 category: decision
 urgency: low
 blocks:
@@ -40,3 +41,7 @@ For each screen, note what's confusing, cluttered, too small or missing. Screens
 When comparing, also look at bundle size on a phone, and whether its forms and buttons match what the app uses (checkboxes, time fields, dialogs, menus). One more thing: a theme that loads fonts from Google Fonts or another CDN sends visitors' IP addresses there, so Phase 19 would either self-host the fonts or update the privacy policy.
 
 Bring back the framework's name, and if you have one, a theme or palette link or a screenshot of a look you like. "Like this, but calmer" is a perfectly good brief.
+
+## Disposition
+
+The operator sent the UI/UX notes and chose shadcn/ui on 2026-10-04, directly in the session; they are recorded verbatim in `plan/phase-19.md` ("Operator's UI/UX notes"). No recurring learning.
