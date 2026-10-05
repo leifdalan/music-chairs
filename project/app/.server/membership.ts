@@ -87,6 +87,13 @@ export async function rememberMembership(
   return membershipCookie.serialize({ ...memberships, [groupId]: deviceToken });
 }
 
+/** A `Set-Cookie` value that drops this device's membership of the group and keeps the others. */
+export async function forgetMembership(request: Request, groupId: string): Promise<string> {
+  const memberships = await readMemberships(request);
+  delete memberships[groupId];
+  return membershipCookie.serialize(memberships);
+}
+
 /**
  * The member this visitor is in `group`: the member this device joined as, or
  * else the signed-in Google account's member there; null for anyone else.

@@ -1,15 +1,15 @@
-// The home screen's "Your requests" (plan/phase-15.md, plan/phase-17.md): every
-// request in the viewer's groups that their member can still answer and
-// hasn't, and every request with rehearsals still to show, with its progress.
+// The home screen's lists (plan/phase-15.md, plan/phase-17.md,
+// plan/phase-19.2.md): every request in the viewer's groups that their member
+// can still answer and hasn't, every request with rehearsals still to show,
+// with its progress, and every proposed rehearsal the member hasn't answered.
 
 import type { GoogleWriteState } from "~/components/calendar-actions";
-import { todayInZone, windowEnd } from "~/lib/availability";
+import { describeSlot, offeredDates, todayInZone, windowEnd } from "~/lib/availability";
 import { answerable } from "~/lib/requests";
 
 import { googleWriteState } from "./calendar-sync";
-import { readMemberships } from "./membership";
 import { requestProgress, type RequestProgress } from "./progress";
-import { getStore, type Account, type Member } from "./store";
+import { getStore, type Group, type Member } from "./store";
 
 export type HomeRequest = {
   groupId: string;
@@ -25,34 +25,28 @@ export type HomeRequest = {
   until: string;
 };
 
+export type WaitingProposal = {
+  groupId: string;
+  groupName: string;
+  rehearsalId: string;
+  summary: string;
+  /** The request it was proposed from. */
+  requestName: string | null;
+};
+
 /**
- * The viewer's requests across the groups joined on this device and, when
- * signed in, the account's groups. Each group's member is found as on its
- * pages: this device's member if its token still resolves, otherwise the
- * account's; a group with neither (deleted, or the member removed) is skipped.
- * Waiting requests come first by answer-by date, then the rest by group name,
- * newest request first.
+ * The viewer's requests across their groups (`visitorGroups`). Waiting
+ * requests come first by answer-by date, then the rest by group name, newest
+ * request first.
  */
 export async function homeRequests(
   request: Request,
-  account: Account | null,
+  memberships: { group: Group; member: Member }[],
 ): Promise<HomeRequest[]> {
   const store = getStore();
-  const devices = await readMemberships(request);
-  const linked = new Map<string, Member>(
-    account
-      ? store.listAccountMemberships(account.id).map(({ group, member }) => [group.id, member])
-      : [],
-  );
   const waiting: HomeRequest[] = [];
   const rest: HomeRequest[] = [];
-  for (const groupId of new Set([...Object.keys(devices), ...linked.keys()])) {
-    const group = store.findGroup(groupId);
-    if (!group) continue;
-    const token = devices[groupId];
-    const member =
-      (token ? store.findMemberByDevice(group.id, token) : null) ?? linked.get(groupId);
-    if (!member) continue;
+  for (const { group, member } of memberships) {
     const today = todayInZone(group.timeZone, new Date());
     const progress = new Map(requestProgress(group, today).map((item) => [item.requestId, item]));
     const google = [...progress.values()].some((item) => item.complete)
@@ -82,4 +76,42 @@ export async function homeRequests(
   // Stable: within a group the store's newest-first order stays.
   rest.sort((a, b) => a.groupName.localeCompare(b.groupName));
   return [...waiting, ...rest];
+}
+
+/**
+ * Proposed rehearsals the member hasn't answered: no RSVP from them on the
+ * rehearsal (the rule the progress figures count by) and a date still to
+ * answer for, from today to the end of the answer window. By group name, then
+ * as the schedule lists them.
+ */
+export function waitingProposals(
+  memberships: { group: Group; member: Member }[],
+): WaitingProposal[] {
+  const store = getStore();
+  const proposals: WaitingProposal[] = [];
+  for (const { group, member } of [...memberships].sort((a, b) =>
+    a.group.name.localeCompare(b.group.name),
+  )) {
+    const today = todayInZone(group.timeZone, new Date());
+    const answered = new Set(
+      store
+        .listRsvps(group.id)
+        .filter((rsvp) => rsvp.memberId === member.id)
+        .map((rsvp) => rsvp.rehearsalId),
+    );
+    for (const rehearsal of store.listRehearsals(group.id)) {
+      if (rehearsal.status !== "proposed" || answered.has(rehearsal.id)) continue;
+      if (offeredDates(rehearsal, today, windowEnd(today)).length === 0) continue;
+      proposals.push({
+        groupId: group.id,
+        groupName: group.name,
+        rehearsalId: rehearsal.id,
+        summary: describeSlot(rehearsal),
+        requestName: rehearsal.requestId
+          ? (store.findRequest(group.id, rehearsal.requestId)?.name ?? null)
+          : null,
+      });
+    }
+  }
+  return proposals;
 }

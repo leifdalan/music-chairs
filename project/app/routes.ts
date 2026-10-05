@@ -4,6 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("healthz", "routes/healthz.ts"),
   route("privacy", "routes/privacy.tsx"),
+  route("groups", "routes/groups.tsx"),
   route("g/:groupId", "routes/group.tsx"),
   route("g/:groupId/availability", "routes/availability.tsx"),
   route("g/:groupId/schedule", "routes/schedule.tsx"),

@@ -47,10 +47,11 @@ graph TD
     P19[Phase 19<br/>Visual cleanup]
     P19_1[Phase 19.1<br/>shadcn/ui look, calendar buttons]
     P19_2[Phase 19.2<br/>Groups page, home, availability and requests]
+    P19_3[Phase 19.3<br/>Readable group addresses]
     P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
     P3 --> P7
     P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P13 --> P14 --> P15 --> P16 --> P17 --> P18 --> P19
-    P19 --> P19_1 --> P19_2
+    P19 --> P19_1 --> P19_2 --> P19_3
 ```
 
 Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last. Phase 14 comes from Google's refusal to verify the app (2026-10-03): the operator placed a privacy policy and home page next, moving proposing several times to Phase 15 and visual cleanup to Phase 16. Phase 16 comes from the operator's request on 2026-10-03 to define the infrastructure in Terraform rather than CloudFormation; the operator placed it before the visual cleanup, which moves to Phase 17 and waits for the operator's UI/UX pass and choice of visual framework. Phase 17 comes from the operator's request on 2026-10-04 to group rehearsals by request with completion status on the schedule and home screen; it goes before the visual cleanup, which becomes Phase 18. Phase 18 comes from the operator's request on 2026-10-04 for a CI/CD pipeline that runs the test suite and deploys on merge to main, without paying for compute; the operator placed it before the visual cleanup, which becomes Phase 19. Phases 10–19 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split.
@@ -81,7 +82,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 18](phase-18.md) | CI/CD: tests on every change, deploy on merge to main             | ✅     |
 | [Phase 19](phase-19.md) | Visual cleanup                                                    | 🚧     |
 | [Phase 19.1](phase-19.1.md) | The shadcn/ui look, and the calendar buttons                  | ✅     |
-| [Phase 19.2](phase-19.2.md) | A groups page, home led by what needs you, clearer availability and requests | ⬅️     |
+| [Phase 19.2](phase-19.2.md) | A groups page, home led by what needs you, clearer availability and requests | ✅     |
+| [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ⬅️     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { data, Form, Link, redirect, useLocation } from "react-router";
+import { useEffect, useState } from "react";
+import { data, Form, Link, redirect, useFetcher, useFetchers, useLocation } from "react-router";
 
 import { calendarViewer } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
@@ -38,10 +38,12 @@ import {
   type SlotFormValues,
 } from "~/lib/availability";
 import { busyQueries, busyRanges, clashes, clipRanges } from "~/lib/busy";
+import { dateTicked, type OneOff } from "~/lib/date-toggle";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { monthGrid, WEEKDAY_INITIALS, type CalendarMonth } from "~/lib/calendar-grid";
 import type { TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { useHydrated } from "~/lib/use-hydrated";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/availability";
@@ -164,6 +166,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     until,
     slots,
     occurrences: expandOccurrences(slots, today, until),
+    // The one-off times on offer, which the calendar's dates show as ticked.
+    oneOffs: slots
+      .filter(
+        (slot) =>
+          slot.kind === "once" && slot.startDate >= range.from && slot.startDate <= range.to,
+      )
+      .map((slot) => ({
+        date: slot.startDate,
+        startMinute: slot.startMinute,
+        endMinute: slot.endMinute,
+      })),
     editing,
     fromRequest: scheduleRequest
       ? {
@@ -206,14 +219,13 @@ function problem(message: string) {
 type DateErrors = { dates?: string; startTime?: string; endTime?: string };
 type DateValues = { dates: string[]; startTime: string; endTime: string };
 
-/** The calendar's "Add times": one one-off time per picked date, all or none. */
-function addDates(
-  form: FormData,
-  group: Group,
-  viewer: Member,
-):
-  | { ok: true; count: number; request: ScheduleRequest | null }
-  | { ok: false; errors: DateErrors; values: DateValues } {
+const DATE_GONE = "One of the dates isn't on offer any more. Reload the page and try again.";
+
+/**
+ * What the calendar posts: its dates, checked against the dates on offer, and
+ * one range of times. `start` and `end` are set only when there are no errors.
+ */
+function readDates(form: FormData, group: Group) {
   const today = todayInZone(group.timeZone, new Date());
   const scheduleRequest = openRequest(group, form.get("request"), today);
   const range = offeredRange(scheduleRequest, today);
@@ -222,11 +234,11 @@ function addDates(
     return typeof value === "string" ? value.trim() : "";
   };
   const dates = [...new Set(form.getAll("date").filter((value) => typeof value === "string"))];
-  const values = { dates, startTime: text("startTime"), endTime: text("endTime") };
+  const values: DateValues = { dates, startTime: text("startTime"), endTime: text("endTime") };
   const errors: DateErrors = {};
   if (dates.length === 0) errors.dates = "Pick at least one date.";
   else if (dates.some((date) => !isDate(date) || date < range.from || date > range.to)) {
-    errors.dates = "One of the dates isn't on offer any more. Reload the page and try again.";
+    errors.dates = DATE_GONE;
   }
   const start = parseTime(values.startTime, "Start time", false);
   const end = parseTime(values.endTime, "End time", true);
@@ -235,20 +247,74 @@ function addDates(
   if (typeof start === "number" && typeof end === "number" && end <= start) {
     errors.endTime = "End time must be after the start time.";
   }
-  if (Object.keys(errors).length > 0 || typeof start !== "number" || typeof end !== "number") {
-    return { ok: false, errors, values };
-  }
+  const valid =
+    Object.keys(errors).length === 0 && typeof start === "number" && typeof end === "number";
+  return valid
+    ? { ok: true as const, dates, start, end, request: scheduleRequest }
+    : { ok: false as const, errors, values };
+}
+
+/** The calendar's "Add times" without JavaScript: one one-off time per picked date, all or none. */
+function addDates(
+  form: FormData,
+  group: Group,
+  viewer: Member,
+):
+  | { ok: true; count: number; request: ScheduleRequest | null }
+  | { ok: false; errors: DateErrors; values: DateValues } {
+  const read = readDates(form, group);
+  if (!read.ok) return read;
   getStore().addSlots(
     viewer.id,
-    dates.sort().map((date) => ({
+    read.dates.sort().map((date) => ({
       kind: "once" as const,
       startDate: date,
       endDate: null,
-      startMinute: start,
-      endMinute: end,
+      startMinute: read.start,
+      endMinute: read.end,
     })),
   );
-  return { ok: true, count: dates.length, request: scheduleRequest };
+  return { ok: true, count: read.dates.length, request: read.request };
+}
+
+/**
+ * One date ticked or unticked on the calendar (plan/phase-19.2.md): on adds a
+ * one-off time at the range unless one is there already; off deletes the
+ * member's one-off times on that date at exactly that range, leaving weekly
+ * times and other ranges alone.
+ */
+function setDate(form: FormData, group: Group, viewer: Member): string | null {
+  const read = readDates(form, group);
+  if (!read.ok) {
+    const { dates, startTime, endTime } = read.errors;
+    return dates ?? startTime ?? endTime ?? DATE_GONE;
+  }
+  if (read.dates.length !== 1) return DATE_GONE;
+  const [date] = read.dates;
+  const store = getStore();
+  const matching = store
+    .listSlots(viewer.id)
+    .filter(
+      (slot) =>
+        slot.kind === "once" &&
+        slot.startDate === date &&
+        slot.startMinute === read.start &&
+        slot.endMinute === read.end,
+    );
+  if (form.get("on") === "1") {
+    if (matching.length === 0) {
+      store.addSlot(viewer.id, {
+        kind: "once",
+        startDate: date,
+        endDate: null,
+        startMinute: read.start,
+        endMinute: read.end,
+      });
+    }
+  } else {
+    for (const slot of matching) store.deleteSlot(viewer.id, slot.id);
+  }
+  return null;
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -266,6 +332,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       ? redirectWithToast(`/g/${group.id}/requests/${scheduleRequest.id}`, message)
       : back(message);
 
+  if (intent === "set-date") {
+    const refused = setDate(form, group, viewer);
+    return refused ? data({ dateProblem: refused }, { status: 400 }) : { saved: true };
+  }
   if (intent === "add-dates") {
     const result = addDates(form, group, viewer);
     if (!result.ok) {
@@ -363,6 +433,7 @@ export default function Availability({ loaderData, actionData }: Route.Component
     until,
     slots,
     occurrences,
+    oneOffs,
     editing,
     fromRequest,
     offered,
@@ -413,11 +484,14 @@ export default function Availability({ loaderData, actionData }: Route.Component
           />
         )}
         {view === "calendar" ? (
+          // Keyed by the request and window it came for only: saving a date
+          // revalidates the page, and the chosen range must survive that.
           <CalendarEntry
-            key={`${fromRequest?.id ?? ""}-${fromRequest?.window?.startMinute ?? ""}-${slots.length}`}
+            key={`${fromRequest?.id ?? ""}-${fromRequest?.window?.startMinute ?? ""}`}
             months={monthGrid(offered.from, offered.to)}
             fromRequest={fromRequest}
             clashes={clashState}
+            oneOffs={oneOffs}
             result={dateResult}
           />
         ) : (
@@ -494,30 +568,39 @@ function chosenRange(start: string, end: string): TimeWindow | null {
 }
 
 /**
- * Pick dates, mark one range of times, add one one-off time per date. Dates
- * busy in the member's Google Calendar during the chosen times (or, before
- * any are chosen, during the request's times of day) are greyed but can
- * still be picked.
+ * Pick one range of times, then tick the dates you're free (plan/phase-19.2.md):
+ * each tick saves that date at that range straight away and unticking removes
+ * it. Without JavaScript the ticks post together with a Save button. Dates
+ * busy in the member's Google Calendar during the chosen range are greyed but
+ * can still be ticked.
  */
 function CalendarEntry({
   months,
   fromRequest,
   clashes: clashState,
+  oneOffs,
   result,
 }: {
   months: CalendarMonth[];
   fromRequest: LoaderData["fromRequest"];
   clashes: Clashes;
+  oneOffs: OneOff[];
   result: { dateErrors: DateErrors; dateValues: DateValues } | undefined;
 }) {
+  const hydrated = useHydrated();
   const window = fromRequest?.window ?? null;
   const startValue =
     result?.dateValues.startTime ?? (window ? timeInputValue(window.startMinute) : "");
   const endValue = result?.dateValues.endTime ?? (window ? timeInputValue(window.endMinute) : "");
   const [chosen, setChosen] = useState(() => chosenRange(startValue, endValue));
+  const [saveProblem, setSaveProblem] = useState<string | null>(null);
+  // The last save's outcome, for the status line; a failure also shows in the dates' alert.
+  const [lastSave, setLastSave] = useState<"saved" | "failed" | null>(null);
+  const saving = useFetchers().some(
+    (fetcher) => fetcher.key.startsWith(SET_DATE) && fetcher.state !== "idle",
+  );
   const picked = new Set(result?.dateValues.dates ?? []);
   const busy = clashState.state === "ready" ? clashState.busy : {};
-  const against = chosen ? [chosen] : (fromRequest?.windows ?? []);
   const outsideWindows =
     fromRequest !== null &&
     chosen !== null &&
@@ -525,13 +608,33 @@ function CalendarEntry({
       (window) => window.startMinute < chosen.endMinute && window.endMinute > chosen.startMinute,
     );
   const errors = result?.dateErrors ?? {};
+  const datesError = errors.dates ?? saveProblem;
   return (
-    <Form method="post" className="stack calendar-entry" replace>
+    <Form
+      method="post"
+      className="stack calendar-entry"
+      replace
+      // Once interactive, each tick saves itself; nothing posts the whole form.
+      onSubmit={hydrated ? (event) => event.preventDefault() : undefined}
+    >
       <input type="hidden" name="intent" value="add-dates" />
       {fromRequest ? <input type="hidden" name="request" value={fromRequest.id} /> : null}
+      <p className="hint">Pick a time range first, then tick the dates you're free.</p>
+      <TimeRange
+        startName="startTime"
+        endName="endTime"
+        startValue={startValue}
+        endValue={endValue}
+        presets={fromRequest?.windows ?? []}
+        startError={errors.startTime}
+        endError={errors.endTime}
+        required
+        onChange={(range) => setChosen(range)}
+      />
       {clashState.state === "ready" ? (
         <p className="hint">
-          Days busy in your Google Calendar are greyed; you can still pick them.
+          Once you pick a time range, days busy in your Google Calendar are greyed; you can still
+          tick them.
         </p>
       ) : null}
       {clashState.state === "connect" ? (
@@ -547,7 +650,10 @@ function CalendarEntry({
       {outsideWindows ? (
         <p className="hint">Clashes are shown only within the request's times.</p>
       ) : null}
-      <fieldset className="dates" aria-describedby={errors.dates ? "dates-error" : undefined}>
+      <fieldset
+        className={hydrated && chosen === null ? "dates no-range" : "dates"}
+        aria-describedby={datesError ? "dates-error" : undefined}
+      >
         <legend>Dates</legend>
         {months.map((month) => (
           <div className="month" key={month.label}>
@@ -560,16 +666,31 @@ function CalendarEntry({
               ))}
               {month.weeks.flat().map((date, index) => {
                 if (!date) return <span className="day blank" key={`blank-${index}`} />;
-                const isBusy = clashes(busy[date], against);
+                const isBusy = chosen !== null && clashes(busy[date], [chosen]);
+                const label = `${formatDate(date)}${isBusy ? ", busy in your Google Calendar" : ""}`;
                 return (
                   <label className={isBusy ? "day busy" : "day"} key={date}>
-                    <input
-                      type="checkbox"
-                      name="date"
-                      value={date}
-                      defaultChecked={picked.has(date)}
-                      aria-label={`${formatDate(date)}${isBusy ? ", busy in your Google Calendar" : ""}`}
-                    />
+                    {hydrated ? (
+                      <DateToggle
+                        date={date}
+                        label={label}
+                        chosen={chosen}
+                        oneOffs={oneOffs}
+                        requestId={fromRequest?.id ?? null}
+                        onResult={(problem) => {
+                          setSaveProblem(problem);
+                          setLastSave(problem ? "failed" : "saved");
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        name="date"
+                        value={date}
+                        defaultChecked={picked.has(date)}
+                        aria-label={label}
+                      />
+                    )}
                     <span className="day-number">{Number(date.slice(8))}</span>
                     {isBusy ? <span className="day-busy">busy</span> : null}
                   </label>
@@ -578,25 +699,96 @@ function CalendarEntry({
             </div>
           </div>
         ))}
-        {errors.dates ? (
+        {datesError ? (
           <p className="field-error" id="dates-error" role="alert">
-            {errors.dates}
+            {datesError}
           </p>
         ) : null}
       </fieldset>
-      <TimeRange
-        startName="startTime"
-        endName="endTime"
-        startValue={startValue}
-        endValue={endValue}
-        presets={fromRequest?.windows ?? []}
-        startError={errors.startTime}
-        endError={errors.endTime}
-        required
-        onChange={setChosen}
-      />
-      <SubmitButton feedbackKey="availability-add-dates">Add times</SubmitButton>
+      {hydrated ? (
+        <p className="hint save-status" aria-live="polite">
+          {saving
+            ? "Saving…"
+            : lastSave === "saved"
+              ? "Saved"
+              : lastSave === "failed"
+                ? "Not saved"
+                : ""}
+        </p>
+      ) : (
+        <SubmitButton feedbackKey="availability-add-dates">Save</SubmitButton>
+      )}
+      {fromRequest ? (
+        <p>
+          <Link to={`../requests/${fromRequest.id}`} relative="path">
+            Back to {fromRequest.name} to send your answer
+          </Link>
+        </p>
+      ) : null}
     </Form>
+  );
+}
+
+const SET_DATE = "set-date-";
+
+/**
+ * One date's checkbox once the page is interactive: ticking or unticking it
+ * saves through its own fetcher, so dates save independently and each date's
+ * saves run one at a time.
+ */
+function DateToggle({
+  date,
+  label,
+  chosen,
+  oneOffs,
+  requestId,
+  onResult,
+}: {
+  date: string;
+  label: string;
+  chosen: TimeWindow | null;
+  oneOffs: OneOff[];
+  requestId: string | null;
+  onResult: (problem: string | null) => void;
+}) {
+  const fetcher = useFetcher<typeof action>({ key: `${SET_DATE}${date}` });
+  const pending = fetcher.formData
+    ? {
+        on: fetcher.formData.get("on") === "1",
+        range: chosenRange(
+          String(fetcher.formData.get("startTime")),
+          String(fetcher.formData.get("endTime")),
+        ),
+      }
+    : null;
+  const result = fetcher.data;
+  useEffect(() => {
+    if (result === undefined) return;
+    onResult(result && "dateProblem" in result ? result.dateProblem : null);
+    // Report each save's outcome once, when it arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+  return (
+    <input
+      type="checkbox"
+      checked={dateTicked(date, chosen, oneOffs, pending)}
+      // Each date's saves run one at a time. A saving date stays focusable and
+      // ticked; only the missing range disables the dates.
+      disabled={chosen === null}
+      aria-busy={fetcher.state !== "idle"}
+      aria-label={label}
+      onChange={(event) => {
+        if (!chosen || fetcher.state !== "idle") return;
+        const form = new FormData();
+        form.set("intent", "set-date");
+        form.set("date", date);
+        form.set("startTime", timeInputValue(chosen.startMinute));
+        form.set("endTime", timeInputValue(chosen.endMinute));
+        form.set("on", event.currentTarget.checked ? "1" : "0");
+        if (requestId) form.set("request", requestId);
+        void fetcher.submit(form, { method: "post" });
+      }}
+    />
   );
 }
 

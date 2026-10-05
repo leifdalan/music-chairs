@@ -328,7 +328,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                   to={`/g/${groupId}/availability?request=${requestId}&window=${index}`}
                 >
-                  Add {timeRange(window.startMinute, window.endMinute)}
+                  Check availability for {timeRange(window.startMinute, window.endMinute)}
                 </Link>
               </li>
             ))}

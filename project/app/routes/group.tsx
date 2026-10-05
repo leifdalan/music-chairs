@@ -3,15 +3,17 @@ import { data, Form, Link, redirect } from "react-router";
 
 import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
+import { timeZoneChoices } from "~/.server/create-group";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
-import { findViewer, publicOrigin, readAccount } from "~/.server/membership";
+import { findViewer, forgetMembership, publicOrigin, readAccount } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate, todayInZone } from "~/lib/availability";
+import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
@@ -113,9 +115,27 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (!group) throw data(null, { status: 404 });
   const viewer = await findViewer(request, group);
   if (!viewer) throw redirect(`/g/${group.id}`);
-  if (viewer.role !== "organizer") throw data(null, { status: 403 });
   const form = await request.formData();
   const intent = form.get("intent");
+  // The groups page (plan/phase-19.2.md) gets its forms' results back there;
+  // only that exact page, never a path taken from the form.
+  const toGroups = form.get("returnTo") === "/groups";
+  // Any member may leave: refuse the last organizer, confirm, then act.
+  if (intent === "leave") {
+    if (viewer.role === "organizer" && organizerCount(group.id) <= 1) {
+      return problem(LAST_ORGANIZER);
+    }
+    const prompt = confirmationNeeded(form, leavePrompt(group.name));
+    if (prompt) return prompt;
+    const result = store.removeMember(group.id, viewer.id);
+    if (result === "unknown") throw data(null, { status: 404 });
+    if (result === "last-organizer") return problem(LAST_ORGANIZER);
+    scheduleRemovals();
+    return redirectWithToast("/groups", `You left ${group.name}`, {
+      headers: { "Set-Cookie": await forgetMembership(request, group.id) },
+    });
+  }
+  if (viewer.role !== "organizer") throw data(null, { status: 403 });
   const memberId = String(form.get("memberId") ?? "");
   const on = form.get("value") === "on";
   const back = (message: string) => redirectWithToast(`/g/${group.id}`, message);
@@ -163,7 +183,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.updateGroup(group.id, { name: name.value, timeZone });
     // Events already in members' Google Calendars carry the name and the instants.
     if (name.value !== group.name || timeZone !== group.timeZone) rewriteGroupEvents(group.id);
-    return back("Group updated");
+    return toGroups ? redirectWithToast("/groups", "Group updated") : back("Group updated");
   }
   if (intent === "rename-member") {
     const member = store.findMember(group.id, memberId);
@@ -192,7 +212,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (prompt) return prompt;
     store.deleteGroup(group.id);
     scheduleRemovals();
-    return redirectWithToast("/", `Group ${group.name} deleted`);
+    return redirectWithToast(toGroups ? "/groups" : "/", `Group ${group.name} deleted`);
   }
   return problem("Something went wrong with that request.");
 }
@@ -203,12 +223,9 @@ export async function action({ request, params }: Route.ActionArgs) {
  * otherwise leave the menu on its first entry, and saving would move the group.
  */
 function zoneChoices(current: string): string[] {
-  const zones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+  const zones = timeZoneChoices();
   return zones.includes(current) ? zones : [current, ...zones];
 }
-
-const LAST_ORGANIZER =
-  "A group needs at least one organizer. Make someone else an organizer first.";
 
 function problem(message: string) {
   return data({ problem: message }, { status: 400 });
@@ -240,14 +257,6 @@ function removalPrompt(name: string) {
     title: `Remove ${name}?`,
     body: "Their availability, request answers and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
     label: "Remove member",
-  };
-}
-
-function deletionPrompt(groupName: string) {
-  return {
-    title: `Delete ${groupName}?`,
-    body: "Everything in the group goes now: its members, availability, requests and rehearsals. Rehearsal events this app added to members' Google Calendars are removed and calendar feed links stop working. This can't be undone.",
-    label: "Delete group",
   };
 }
 

@@ -5,6 +5,7 @@ import {
   Link,
   Links,
   Meta,
+  NavLink,
   Outlet,
   Scripts,
   ScrollRestoration,
@@ -53,7 +54,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <FeedbackProvider>
           <header className="site-header">
             <Link to="/">{siteName}</Link>
-            <ProfileMenu />
+            <nav className="header-nav" aria-label="Site">
+              <NavLink to="/groups">Groups</NavLink>
+              <ProfileMenu />
+            </nav>
           </header>
           {children}
           <footer className="site-footer">
