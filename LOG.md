@@ -2946,3 +2946,181 @@ Planned work:
 - Group addresses as `<name-slug>-<short id>`, used by every link the app makes, including Google Calendar events written from now on.
 - An address whose name part is out of date (after a rename) redirects permanently to the current one; an unknown short id is not found.
 - A database change (forward-only migration) giving every group, existing ones included, a unique short id; the live data migrates with row counts unchanged.
+
+## 2026-10-04 21:46 — END
+Phase 19 — Visual cleanup
+
+Phase 19 is accepted on its own gates, as the parent of 19.1, 19.2 and 19.3, which together deliver it. 19.1 gave the app one recorded visual system (shadcn/ui's neutral look: type scale, spacing, colours and button hierarchy, defined once in project/app/app.css and components/ui) applied to every page with one primary action per form. 19.2 made each page's purpose clearer: a groups page, a home page led by what is waiting on you, availability saved as you tick dates, and clearer request wording. 19.3 made group addresses readable. How it all looks and feels is yours to judge through the User Demo below.
+
+Execution trace: c583c83edf584728a50128389e03ee2f (parent acceptance; the child 19.3 closes in its own run alongside)
+
+Files changed:
+- None in this run; the children's changes are recorded in their own END blocks (19.1, 19.2, 19.3).
+
+Build status:
+- ci.check: OK — CI/CD run 37264306454, check success for 76f2eb6 (pytest 180, CHECK ALL PASS)
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 567/567, pytest 180/180)
+- Handoff gate: the final bare `./bin/check all` runs once after all bookkeeping, for the child and parent together
+
+Review lane (per `policies/review-lanes.md`):
+- light (parent acceptance: no implementation of its own; every child had its own plan review and code critique)
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- recorded as direct-fix, the only route with no role work in primary mode; this run is the parent's acceptance, not a fix (lesson jumping-lionfish)
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only; the 19.3 run's receipt)
+- No roles dispatched in this run
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This run: makespan 185.936 s; intelligence 0 s; gates 140.032 s; orchestration 175.861 s; wait 0 s; retry 0 s; failed 0 s; unattributed 10.076 s (category totals are interval unions and may overlap).
+- Awaiting user input: none recorded.
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: 0599e1a3ca97a9aded4d378922303bf52e6d89bac910f946d964a22659b58bdd (the same product and ledger as 19.3's accepted candidate)
+- Evidence validation: EVIDENCE VALID (acceptance level)
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective: Deliverable 1 — the visual system recorded and applied (19.1's look tests and the smoke's compiled-stylesheet checks); Deliverable 2 — each page's purpose and primary action (19.1's one-primary-per-form tests, 19.2's page changes and tests); ./bin/test project/tests and ./bin/check all pass.
+- Parked for the user: the User Demo below, and the judgement that the look is calm and consistent.
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: none — Phase 19 is the last phase in plan/INDEX.md
+- DECIDE: None
+
+Lessons:
+- filed: jumping-lionfish — a parent's acceptance run has no named follow-up route (methodology)
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, then on a laptop, open:
+
+https://rehearse.dalan.dev
+
+- **Suggested inputs.**
+  1. The home page, signed in; then the Groups page.
+  2. A group's page, its schedule, your availability and a request.
+  3. The profile menu, the privacy page, and an invite link in a private window.
+- **What to look for.**
+  - One consistent, calm look on every page; each page's main action stands out and secondary ones are quieter.
+  - What is waiting on you comes first on the home page.
+  - Addresses read like /g/your-group-name-xxxxxxxx.
+- **Variations to explore.** Dark mode; landscape on the phone; a long group name.
+
+Remaining:
+- None in Phase 19. Every phase in plan/INDEX.md is complete once 19.3 closes; new work starts from a new phase.
+
+## 2026-10-04 21:47 — END
+Phase 19.3 — Readable group addresses
+
+Phase 19.3 is accepted on its gates, and with it Phase 19 (accepted separately, END above). A group's pages now live at an address made of its name and an 8-character id, for example /g/thursday-quartet-k3x9m2pq, and every link the app makes uses it: the home and groups pages, the group's own pages, sign-in returns, downloads and the Google Calendar events written from now on. After a rename, the address with the old name still reaches the group: it redirects permanently, and browsers don't cache that redirect, so renaming back and forth can't loop. The old 22-character addresses no longer work, as you ruled ("We're still testing, don't worry about past things"). Invite links are unchanged. The merge's deploy migrates the live database, giving each existing group its own id; the row counts are checked and reported after the deploy.
+
+Execution trace: d826874818684040986432cc92d11a2e (parent Phase 19 accepted in trace c583c83edf584728a50128389e03ee2f)
+
+Files changed:
+- plan/phase-19.3.md, plan/INDEX.md — the operator's rulings and the User Demo, recorded at entry
+- project/app/lib/group-address.ts (new) — slugify, groupPath, shortIdOf and the 32-character alphabet
+- project/app/.server/group-address.ts (new) — groupFromAddress: 404 for unknown and old ids; 301 with Cache-Control: no-store for out-of-date names on GET/HEAD, keeping the sub-path and query, data requests redirected to the page
+- project/app/.server/store.ts — migration 10 (groups.short_id, unique, filled for existing groups), Group.shortId, createGroup draws one, findGroupByShortId; the account-memberships query now selects short_id
+- project/app/routes.ts and every group route — :groupAddress replaces :groupId; lookups through groupFromAddress; links and redirects through groupPath; the group page's rename returns to the new name's address
+- project/app/routes/home.tsx, groups.tsx, project/app/.server/pending.ts, profile.ts, create-group.ts, calendar-sync.ts, project/app/components/calendar-actions.tsx, profile-menu.tsx, project/app/routes/join.tsx, auth.google.callback.ts — paths instead of internal ids
+- project/tests (19 files, plus group-address.test.tsx new) — addressOf, addressFor and groupAt helpers; address format, redirects, 404s, migration 10, links free of the internal id
+- project/scripts/smoke.sh — the new address form, the uncached stale-name redirect and a wrong-id 404
+- lessons/jumping-lionfish.md — filed with the parent's END
+
+Build status:
+- project/scripts/smoke.sh: OK
+- ci.check: OK — CI/CD run 37264306454, check success for 76f2eb6 (pytest 180, CHECK ALL PASS, SMOKE PASS)
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 567/567, pytest 180/180)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- initial
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 245.730 s; first event 0.586 s; longest idle 35.897 s; success
+- Coder: inline (no role span)
+- Critic (code review): 183.651 s; first event 0.591 s; longest idle 32.200 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This run: makespan 1881.349 s; intelligence 429.381 s; gates 144.073 s; orchestration 1880.630 s; wait 428.450 s; retry 0 s; failed 0 s; unattributed 0.719 s (category totals are interval unions and may overlap).
+- Awaiting user input: the short-id question at entry, answered before capture (not inside this trace).
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: reviewed=0ea4a064b853148e937ec788f1bd06fae380afb5259b034d5188e71906b51cb5 final=0599e1a3ca97a9aded4d378922303bf52e6d89bac910f946d964a22659b58bdd
+- Advisory passes: plan review 1 (8 findings, all adopted), code critique 1 (6 findings, all adopted); revision packets 0
+- Gates: implementation-final=3 on the final candidate; product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level); parent run accepted and validated
+- Mutation checks: 13 of 13 killed, run before the critique and after its corrections (none after the trace finalized, per lesson rugged-buzzard)
+
+Wall-clock observations:
+- On a production build, a data request to an out-of-date address gets React Router's redirect to the page path, uncached.
+- Converting the tests mechanically first made a lenient helper that let three 404 tests pass for the wrong reason; the critique found it and the helper now refuses unknown ids.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): the address format and slug rules; redirects (status, header, sub-path, query, encoding, data requests, GET only); 404 for unknown and old ids; migration 10 on a version-9 database; every rendered link and loader free of the internal id; the full suites and CI on GitHub.
+- After the merge: the live database's row counts and short ids, reported with the deploy.
+- Parked for the user: the User Demo below.
+
+Delivery:
+- pull request #7 from branch phase-19.3, merged by the orchestrator when its check is green (policies/human-in-the-loop.md § Delivery routes); the merge deploys and migrates
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: none — no incomplete phase remains
+- DECIDE: None
+
+Lessons:
+- none new from this child; jumping-lionfish was filed with the parent; rugged-buzzard's remedy was applied (mutation checks before the gates)
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, open:
+
+https://rehearse.dalan.dev
+
+- **Suggested inputs.**
+  1. Open the Groups page and tap one of your groups; look at the address bar.
+  2. Tap Schedule, My availability and a request; look at each address.
+  3. On the Groups page, rename a test group, then open the group's address you had before the rename.
+  4. Start a group named "Café Trío" from the Groups page.
+- **What to look for.**
+  - Every group address reads /g/<group-name>-<8 characters>, and the group's other pages extend it.
+  - The address from before the rename lands on the group under its new name.
+  - "Café Trío" gets /g/cafe-trio-….
+- **Variations to explore.** Change one character of the 8-character id (not found); open an invite link in a private window (it still works and joins the group).
+- Notes: bookmarks and links you saved before this deploy (the long 22-character addresses) no longer open; open the group from the Groups page instead.
+
+Remaining:
+- None: every phase in plan/INDEX.md is complete. New work begins as a new phase.
+
+## 2026-10-04 21:47 — Close bookkeeping outcomes
+
+Phase 19.3 — Readable group addresses
+
+Execution trace: d826874818684040986432cc92d11a2e
+
+- Status: applied and verified — Phase 19.3 ✅ and Phase 19 ✅ (parent accepted separately) in plan/INDEX.md ("close ledger verified"); no ⬅️ remains, as no phase is left.
+- Ripple AUTO: none (no incomplete phase). Ripple DECIDE: none.
+- Lessons: jumping-lionfish filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #7 and the post-deploy database check.
