@@ -3135,3 +3135,120 @@ Planned work:
 - Tapping a date on that calendar opens a popup listing that day's free times and who is free at each.
 - Proposing works from either view: dates and times ticked in the calendar's popups or in the list are proposed together, as "Propose selected" does today.
 - On the schedule page, a proposed rehearsal's organizer controls (confirm, delete) sit apart from the viewer's own Yes / No / Maybe, and the confirm button says it confirms the rehearsal for everyone; a tapped answer shows that it was saved.
+
+## 2026-10-05 11:57 — END
+Phase 20 — A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming
+
+Phase 20 is accepted on its gates. On a request's page, organizers now see "When people are free" as a calendar: each date is shaded green, stronger the more people are free together for at least an hour within the request's times, with the count (for example 3/4) on the date. Tapping a date opens a panel (a sheet from the bottom on a phone, a card on a laptop) listing each free time and who is free then; tick times on as many dates as you like and press "Propose selected" to propose them together. The old list is still there as the List view. On the schedule, a proposed rehearsal now shows your own Yes / No / Maybe under "Your answer" (they save as you tap), and the organizer's controls sit apart under "For organizers", with the button renamed "Confirm for everyone". How it looks and feels on your phone is yours to judge through the User Demo below.
+
+Execution trace: 22205170456b47e19a89c513fe149767
+
+Files changed:
+- plan/phase-20.md (new), plan/INDEX.md — the operator's request, the readings recorded at phase start, and the User Demo; the new row
+- project/app/components/free-calendar.tsx (new) — the heat-map calendar: shaded dates with counts, one panel open at a time (shared details name), Done and Escape returning focus to the date
+- project/app/lib/heat.ts (new) — heatLevel (5 shades) and dayHeat (most people free together for a whole hour within the request's times, from the overlap cells)
+- project/app/components/view-switch.tsx (new) — the Calendar / List switch, moved from My availability and shared
+- project/app/components/propose-times.tsx — FreeStretch, the tickable free-time row used by both the list and the calendar's panels
+- project/app/routes/request.tsx — the per-date heat in the loader, the switch, the calendar or list, and proposals returning to the List view when made there
+- project/app/routes/schedule.tsx — "Your answer" and "For organizers" areas on each rehearsal; "Confirm for everyone" with a one-line explanation
+- project/app/routes/availability.tsx, project/app/lib/availability.ts — the shared switch; timeRange in one place (it was copied in three routes)
+- project/app/app.css — the green shades (mixed in OKLab), the date panel, the two rehearsal-card areas
+- project/tests/free-calendar.test.tsx (new) — shades, the hour rule (including the critique's counterexample and a window-end case), the calendar's dates and panels, identical tick boxes in both views, organizers only, proposing from either view, the rehearsal card's order and labels
+- lessons/hypersonic-labrador.md (new)
+
+Build status:
+- project/scripts/smoke.sh: OK
+- ci.check: OK — CI/CD run 37358920934, check success for cd81b91 (pytest 180, CHECK ALL PASS, SMOKE PASS)
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 584/584, pytest 180/180)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- initial
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review): requested model=opus effort=default venue=claude; attempt 1 failed (the provider returned errors on nine retries, then a terminal error; no review produced); attempt 2, registered with that cause on the same venue, model and effort, succeeded — the second and last permitted pass
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): attempt 1 256.391 s, first event 0.568 s, longest idle 70.019 s, error; attempt 2 175.440 s, first event 0.769 s, longest idle 32.547 s, success
+- Coder: inline (no role span)
+- Critic (code review): 161.441 s; first event 0.669 s; longest idle 27.082 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This run: makespan 7518.269 s; intelligence 593.272 s; gates 161.609 s; orchestration 7517.590 s; wait 591.657 s; retry 175.440 s; failed 256.391 s; unattributed 0.679 s (category totals are interval unions and may overlap). The makespan includes the time between the failed review and the operator's "continue", which was not recorded as an operator-input park.
+- Awaiting user input: not recorded as a park (see above).
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: reviewed=717164ac (first capture) final=cb3300cf711112777d4a764973ca0acb4a154213db5db8320b28b497b8900b2c
+- Advisory passes: plan review 1 successful pass of 2 attempts (8 findings: 7 adopted, 1 declined), code critique 1 (6 findings: 5 adopted, 1 deferred); revision packets 0
+- Gates: implementation-final=3 on the final candidate; product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level)
+- Mutation checks: 10 of 10 killed, all before the trace finalized (two found weak assertions, which were strengthened)
+
+Wall-clock observations:
+- A production build was driven in headless Chrome at 390 px and 1280 px, dark and light: the bottom sheet and centred card, one panel open at a time, Done and Escape returning focus to the date, ticked dates outlined, the rehearsal card's two areas.
+- The first dark-mode screenshot showed brown and olive shades from OKLCH colour mixing (lesson hypersonic-labrador).
+- The critique found that the first heat measure read overlap stretches, which split whenever anyone's availability changes, so two people free together for an hour could read as "under an hour"; the measure now looks at whole hours directly.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): the shading rule and levels; the calendar's dates, counts and panels; the same tick boxes in both views and proposals from either; names and counts for organizers only; the rehearsal card's "Your answer" before "For organizers" and the renamed confirm; the full suites and CI on GitHub.
+- Parked for the user: the User Demo below (how the calendar and the card look and feel on a phone).
+
+Delivery:
+- pull request #8 from branch phase-20, merged by the orchestrator when its check is green (policies/human-in-the-loop.md § Delivery routes); the merge deploys
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: none — no incomplete phase remains
+- DECIDE: None
+
+Lessons:
+- filed: hypersonic-labrador — mix a colour toward a neutral background in OKLab, not OKLCH; check tints in both themes (local)
+- the reviewer's provider failure was handled by the existing registered second attempt; no new lesson
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, as an organizer, open:
+
+https://rehearse.dalan.dev
+
+- **Suggested inputs.**
+  1. Open a group with at least two members who have entered availability, and open one of its open requests.
+  2. Look at the calendar under "When people are free"; tap a date with stronger green, then a fainter one.
+  3. In the panels, tick two times on different dates, then press "Propose selected".
+  4. Switch to List and back.
+  5. Open the group's Schedule; on a proposed rehearsal tap Yes, then look at the organizer controls.
+- **What to look for.**
+  - Stronger green dates are the ones more people can make together for an hour; each date shows its count; the panel lists each free time with who is free.
+  - Both ticked times appear as proposed rehearsals.
+  - On the schedule, your Yes shows as saved straight away under "Your answer", and "Confirm for everyone" sits apart under "For organizers".
+- **Variations to explore.** A date nobody can make (plain, nothing to tap); a member who isn't an organizer sees no calendar of who is free and no "For organizers" area; dark mode.
+- Notes: the phase file's demo said "darker date"; the calendar uses stronger and fainter green (in dark mode stronger green is lighter), corrected here (CODE-F005). Switching between Calendar and List clears ticks you haven't proposed. Without JavaScript, a panel that covers lower dates closes only by tapping its own date (CODE-F006).
+
+Remaining:
+- None in Phase 20. Every phase in plan/INDEX.md is complete; new work begins as a new phase.
+
+## 2026-10-05 11:57 — Close bookkeeping outcomes
+
+Phase 20 — A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming
+
+Execution trace: 22205170456b47e19a89c513fe149767
+
+- Status: applied and verified — Phase 20 ✅ in plan/INDEX.md ("close ledger verified"); no ⬅️ remains, as no phase is left.
+- Ripple AUTO: none (no incomplete phase). Ripple DECIDE: none.
+- Lessons: hypersonic-labrador filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #8.
