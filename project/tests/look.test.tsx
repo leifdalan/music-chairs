@@ -112,7 +112,7 @@ describe("buttons", () => {
     return (form.match(/data-variant="default"/g) ?? []).length;
   }
 
-  function stub(id: string, path: string, Component: React.ComponentType, data: unknown) {
+  function stub(id: string, path: string, Component: unknown, data: unknown) {
     const Stub = createRoutesStub([{ id, path, Component: Component as never }]);
     return renderToString(
       <Stub
