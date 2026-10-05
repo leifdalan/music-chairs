@@ -39,6 +39,8 @@ React Router 8.4 framework mode, the latest major, as the brief specifies. Loade
 
 Use `./bin/setup`, `./bin/test [args...]`, `./bin/check all`, `./bin/python`, `./bin/node`, `./bin/gh`.
 
+UX/UI audits use the vendored third-party `impeccable` skill ([provenance](.claude/skills/impeccable/UPSTREAM.md)), on demand only (its `critique` and `audit` commands): no hooks, never reinstalled with `npx`; its reports go to `.impeccable/critique/`.
+
 Delivery route: **pull request**. `main` accepts only pull requests whose CI/CD `check` job is green (ruleset `main`); merging deploys through the `deploy` job, which refuses infrastructure changes, so a phase that changes infrastructure applies it with `./bin/deploy infra` before merging. See `project/deploy/README.md`. `./bin/test project/<path>` runs Vitest and `./bin/test tests/<path>` runs pytest; one call never names both. Real-dependency probes fail closed. `TOOLCHAIN_PYTHON` and `TOOLCHAIN_NODE` are authoritative absolute-path test overrides; no PATH inference or fallback. Entry points run on macOS's stock bash 3.2.
 
 ## Model & review venue
