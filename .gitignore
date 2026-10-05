@@ -16,3 +16,15 @@
 __pycache__/
 .pytest_cache/
 
+# impeccable-ignore-start
+# Impeccable (.claude/skills/impeccable): ephemeral output, runtime state and
+# per-developer overrides. Shared artifacts stay tracked: config.json,
+# design.json, surfaces/*.md, critique/*.md.
+**/.impeccable/config.local.json
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+**/.impeccable/*.png
+**/.impeccable/review/
+**/.impeccable/questions/
+**/.impeccable/live/
+# impeccable-ignore-end
