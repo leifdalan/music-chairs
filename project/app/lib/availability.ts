@@ -95,6 +95,11 @@ export function formatMinutes(minutes: number): string {
   return `${hours}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+/** "19:00–22:00". */
+export function timeRange(start: number, end: number): string {
+  return `${formatMinutes(start)}–${formatMinutes(end)}`;
+}
+
 /** The value for an `<input type="time">`; the end of the day is "00:00". */
 export function timeInputValue(minutes: number): string {
   return formatMinutes(minutes % DAY_MINUTES);

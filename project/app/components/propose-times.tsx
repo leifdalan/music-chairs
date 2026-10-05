@@ -1,7 +1,8 @@
 import { useId, type ReactNode } from "react";
 import { Form } from "react-router";
 
-import { DEFAULT_PROPOSE_LENGTH, lengthLabel, PROPOSE_LENGTHS } from "~/lib/propose";
+import { formatDate, timeRange } from "~/lib/availability";
+import { DEFAULT_PROPOSE_LENGTH, lengthLabel, PROPOSE_LENGTHS, timeValue } from "~/lib/propose";
 
 import { SubmitButton } from "./submit-button";
 
@@ -94,5 +95,44 @@ export function FreeTime({
         {children}
       </span>
     </label>
+  );
+}
+
+/** A free time on a request's page (plan/phase-15.md): how many and who are free. */
+export type FreeStretchData = {
+  startMinute: number;
+  endMinute: number;
+  freeCount: number;
+  freeNames: string[];
+};
+
+/**
+ * One free time as an organizer's tickable row, the same in the request
+ * page's list and in its calendar's date panels (plan/phase-20.md).
+ */
+export function FreeStretch({
+  date,
+  stretch,
+  total,
+}: {
+  date: string;
+  stretch: FreeStretchData;
+  total: number;
+}) {
+  const range = timeRange(stretch.startMinute, stretch.endMinute);
+  return (
+    <FreeTime
+      tickable
+      value={timeValue(date, stretch.startMinute, stretch.endMinute)}
+      label={`Propose ${formatDate(date)}, ${range}`}
+    >
+      <span className="stretch-time">
+        {range}
+        <span className="stretch-count">
+          {stretch.freeCount} of {total} free
+        </span>
+      </span>
+      <span className="hint stretch-line">Free: {stretch.freeNames.join(", ")}</span>
+    </FreeTime>
   );
 }
