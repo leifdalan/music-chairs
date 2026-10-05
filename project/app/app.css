@@ -1,603 +1,813 @@
-/* Mobile-first: one centered column that reads at phone width and on a laptop. */
+/*
+ * music-chairs' visual system (plan/phase-19.1.md): shadcn/ui on Tailwind CSS,
+ * neutral palette, light and dark following the system setting.
+ *
+ * - Tokens: shadcn's neutral colours below, with two accessibility changes: hint
+ *   text (--muted-foreground) is darker so it reads at 4.5:1 on muted panels,
+ *   and the focus ring (--ring) is opaque and darker so it reads at 3:1.
+ *   --success is added for the saved state and "Answered".
+ * - Type: system fonts only (nothing loads from another site); body text-base,
+ *   hints and secondary text text-sm, h3 text-base, h2 text-lg, h1 text-2xl.
+ * - Spacing: Tailwind's 4px scale; one centred column, max-w-2xl, 1rem gutters.
+ * - Buttons (components/ui/button.tsx): one `default` (primary) per form or
+ *   section, `outline` for secondary actions, `destructive` for deletes,
+ *   `ghost`/`link` for tertiary ones. Every control is at least 44px tall and
+ *   inputs use 16px text (iOS does not zoom).
+ * - Native elements keep working without JavaScript (forms, <details>, <dialog>,
+ *   checkboxes); they are styled here, once, rather than wrapped in components.
+ * - Class names that tests and the smoke assert (hint, rehearsal, slot-summary,
+ *   occurrences, chip, time-cell, …) are styled through their selectors here.
+ */
+
+@import "tailwindcss";
 
 :root {
   color-scheme: light dark;
-  --text: #1d1d1f;
-  --muted: #5f5f66;
-  --surface: #ffffff;
-  --panel: #f3f3f6;
-  --border: #c9c9d1;
-  --accent: #2f5bd3;
-  --accent-text: #ffffff;
-  --error: #b3261e;
-  --success: #1f7a3f;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-  line-height: 1.5;
-  color: var(--text);
-  background: var(--surface);
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.52 0.13 150);
+  --success-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.87 0 0);
+  --ring: oklch(0.42 0 0);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #f2f2f5;
-    --muted: #a8a8b3;
-    --surface: #16161a;
-    --panel: #24242b;
-    --border: #4a4a55;
-    --accent: #7c9dff;
-    --accent-text: #0d0d12;
-    --error: #ff8a80;
-    --success: #6fcf8f;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.76 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --success: oklch(0.72 0.15 150);
+    --success-foreground: oklch(0.145 0 0);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 22%);
+    --ring: oklch(0.8 0 0);
   }
 }
 
-* {
-  box-sizing: border-box;
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-body {
-  margin: 0;
-}
+@layer base {
+  * {
+    @apply border-border;
+  }
 
-.site-header,
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 1rem;
-}
+  body {
+    @apply bg-background font-sans text-base leading-normal text-foreground antialiased;
+  }
 
-.site-header {
-  border-bottom: 1px solid var(--border);
-  font-weight: 600;
-}
-
-.site-header a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Long unbroken names wrap rather than widening the page at phone width. */
-main {
-  overflow-wrap: anywhere;
-}
-
-h1 {
-  font-size: 1.75rem;
-  line-height: 1.2;
-}
-
-h2 {
-  font-size: 1.25rem;
-}
-
-.eyebrow,
-.hint {
-  color: var(--muted);
-}
-
-.eyebrow {
-  margin-bottom: 0;
-}
-
-.stack {
-  display: grid;
-  gap: 1rem;
-}
-
-.field {
-  display: grid;
-  gap: 0.25rem;
-}
-
-label {
-  font-weight: 600;
-}
-
-/* 16px controls keep iOS Safari from zooming on focus. Radios keep their
-   native size; only text-like controls stretch to the column. */
-input:not([type="radio"]),
-select,
-button,
-.button-link {
-  font: inherit;
-  font-size: 1rem;
-  width: 100%;
-  min-height: 2.75rem;
-  border-radius: 0.5rem;
-}
-
-input:not([type="radio"]),
-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-
-input[aria-invalid="true"],
-select[aria-invalid="true"] {
-  border-color: var(--error);
-}
-
-button,
-.button-link {
-  border: none;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.button-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 1rem;
-  text-decoration: none;
-}
-
-button.secondary,
-.button-link.secondary {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-button.small,
-.button-link.small {
-  min-height: 2.25rem;
-  width: auto;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-}
-
-.field-error {
-  margin: 0;
-  color: var(--error);
-}
-
-.notice,
-.invite {
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: var(--panel);
-}
-
-.invite {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.invite h2,
-.invite p {
-  margin: 0;
-}
-
-.members {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.members li {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.role {
-  flex: none;
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-
-.role-organizer {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-@media (min-width: 48rem) {
-  .site-header,
+  /* Long unbroken names wrap rather than widening the page at phone width. */
   main {
-    padding: 1.5rem 0;
+    overflow-wrap: anywhere;
+  }
+
+  h1 {
+    @apply mt-2 mb-4 text-2xl leading-tight font-semibold tracking-tight;
+  }
+
+  h2 {
+    @apply mt-8 mb-3 text-lg font-semibold;
+  }
+
+  h3 {
+    @apply mt-4 mb-2 text-base font-semibold;
+  }
+
+  p {
+    @apply my-3;
+  }
+
+  main ul:not([class]),
+  main ol:not([class]) {
+    @apply my-3 pl-6;
+  }
+
+  main ul:not([class]) {
+    list-style: disc;
+  }
+
+  main ol:not([class]) {
+    list-style: decimal;
+  }
+
+  a {
+    @apply text-foreground underline decoration-muted-foreground/60 underline-offset-4 hover:decoration-foreground;
+  }
+
+  label,
+  legend {
+    @apply text-sm font-medium;
+  }
+
+  /* 16px controls keep iOS Safari from zooming on focus; 44px targets. */
+  input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+  select,
+  textarea {
+    @apply min-h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs dark:bg-input/30;
+  }
+
+  input[aria-invalid="true"],
+  select[aria-invalid="true"] {
+    @apply border-destructive;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply size-5 accent-primary;
   }
 
   button {
-    width: auto;
-    padding: 0 1.5rem;
+    cursor: pointer;
+  }
+
+  /* Every disclosure keeps its marker and a 44px target (the profile menu's
+     avatar is the one exception, below). */
+  summary {
+    @apply min-h-11 cursor-pointer py-2.5;
+    display: list-item;
+  }
+
+  hr {
+    @apply my-6 border-t border-border;
+  }
+
+  /* One focus style for every interactive element, opaque so it reads at 3:1. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
   }
 }
 
-/* Availability */
+@layer components {
+  .site-header,
+  main {
+    @apply mx-auto max-w-2xl px-4 py-4 md:py-6;
+  }
 
-.kind {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  border: none;
-  margin: 0;
-  padding: 0;
-}
+  .site-header {
+    @apply flex items-center justify-between gap-4 border-b font-semibold;
+  }
 
-.kind legend {
-  font-weight: 600;
-  padding: 0;
-  margin-bottom: 0.25rem;
-}
+  .site-header > a {
+    @apply text-foreground no-underline;
+  }
 
-.kind label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  font-weight: normal;
-}
+  .eyebrow,
+  .hint {
+    @apply text-muted-foreground;
+  }
 
-.kind input {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0;
-}
+  .hint {
+    @apply text-sm;
+  }
 
-/* One-off times have no last date. */
-.slot-form:has(input[name="kind"][value="once"]:checked) .weekly-only {
-  display: none;
-}
+  .eyebrow {
+    @apply mb-0 text-sm;
+  }
 
-.time-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
+  .stack {
+    @apply grid gap-4;
+  }
 
-.field .hint {
-  margin: 0;
-  font-size: 0.875rem;
-}
+  .field {
+    @apply grid gap-1.5;
+  }
 
-.cancel {
-  text-align: center;
-}
+  .field .hint,
+  .field-error {
+    @apply m-0;
+  }
 
-.slots,
-.weeks,
-.occurrences {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+  .field-error {
+    @apply text-sm text-destructive;
+  }
 
-.slot {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
+  .visually-hidden {
+    @apply sr-only;
+  }
 
-.slot-summary {
-  margin: 0 0 0.5rem;
-  font-weight: 600;
-}
+  /* Panels: shadcn's card look for notices, the invite, the account and calendar panels. */
+  .notice,
+  .invite,
+  .account,
+  .calendar-panel,
+  .confirm-panel {
+    @apply rounded-xl border bg-card p-4 text-card-foreground shadow-sm;
+  }
 
-.slot-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
+  .invite,
+  .account,
+  .calendar-panel {
+    @apply mt-6 grid gap-2;
+  }
 
-.slot details {
-  margin-top: 0.5rem;
-}
+  .invite h2,
+  .invite p,
+  .account h2,
+  .account p,
+  .calendar-panel h2,
+  .calendar-panel h3,
+  .calendar-panel p {
+    @apply m-0;
+  }
 
-.slot summary {
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--accent);
-}
+  .account > a {
+    @apply justify-self-start;
+  }
 
-.weeks li,
-.occurrences li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.375rem 0;
-}
+  .confirm-panel {
+    @apply my-4 border-2 border-destructive;
+  }
 
-.weeks .skipped {
-  color: var(--muted);
-}
+  /* Tailwind's reset zeroes margins; a modal dialog centres itself with margin: auto. */
+  .confirm-dialog {
+    @apply m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border bg-popover p-5 text-popover-foreground shadow-lg;
+  }
 
-.occurrences li {
-  border-bottom: 1px solid var(--border);
-}
+  .confirm-dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
 
-/* Group page */
+  .confirm-dialog h2,
+  .confirm-panel h2 {
+    @apply mt-0 text-lg;
+  }
 
-.group-links {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
+  .confirm-actions {
+    @apply grid grid-cols-2 gap-2;
+  }
 
-.members li {
-  flex-wrap: wrap;
-}
+  /* A confirmed form's controls sit where the trigger did. */
+  .confirm-form {
+    display: contents;
+  }
 
-.member-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  width: 100%;
-}
+  .end-form,
+  .end-form.confirm-form {
+    @apply mt-3 grid gap-2;
+  }
 
-/* Schedule */
+  /* Feedback: the toast and the spinner (the saving/saved states are utilities in SubmitButton). */
+  .spinner {
+    @apply size-4 rounded-full border-2 border-current border-r-transparent;
+    animation: spin 0.7s linear infinite;
+  }
 
-.days,
-.stretches,
-.rehearsals,
-.warnings {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+  .toast-region {
+    @apply fixed left-1/2 z-10 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 
-.days > li {
-  border-bottom: 1px solid var(--border);
-  padding: 0.5rem 0;
-}
+  .toast {
+    @apply flex items-center justify-between gap-3 rounded-xl bg-foreground px-4 py-3 text-background shadow-lg;
+    animation: toast-in 0.2s ease-out;
+  }
 
-.days h3 {
-  font-size: 1rem;
-  margin: 0.25rem 0;
-}
+  .toast-dismiss {
+    @apply min-h-11 min-w-11 text-xl leading-none text-inherit;
+  }
 
-.stretch {
-  padding: 0.5rem 0.75rem;
-  margin: 0.25rem 0;
-  border-left: 4px solid var(--border);
-  border-radius: 0.25rem;
-  background: var(--panel);
-}
+  /* The toast is dark on light (and light on dark): its focus ring uses the page colour. */
+  .toast :focus-visible {
+    @apply outline-background;
+  }
 
-.stretch.everyone {
-  border-left-color: var(--accent);
-}
+  .problem-alert {
+    @apply flex items-start justify-between gap-3 rounded-lg border border-destructive/50 px-4 py-3 text-sm text-destructive;
+  }
 
-.stretch p {
-  margin: 0;
-}
+  /* Lists of rows. */
+  .members,
+  .slots,
+  .weeks,
+  .occurrences,
+  .days,
+  .stretches,
+  .rehearsals,
+  .warnings,
+  .rsvp-dates,
+  .requests,
+  .request-answers,
+  .add-windows,
+  .times-worked,
+  .choices,
+  .pending-requests,
+  .request-progress,
+  .proposed-list {
+    @apply m-0 list-none p-0;
+  }
 
-.stretch-time {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  font-weight: 600;
-}
+  .members li,
+  .requests li,
+  .request-answers li,
+  .times-worked li {
+    @apply flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-3;
+  }
 
-.stretch-count {
-  font-weight: normal;
-  color: var(--muted);
-}
+  .role,
+  .member-instrument,
+  .google-mark,
+  .member-email {
+    @apply text-sm font-normal text-muted-foreground;
+  }
 
-.rehearsal {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
+  .role {
+    @apply flex-none;
+  }
 
-.rehearsal.proposed .slot-summary::after {
-  content: " (proposed)";
-  font-weight: normal;
-  color: var(--muted);
-}
+  .role-organizer {
+    @apply font-semibold text-foreground;
+  }
 
-.rehearsal .hint {
-  margin: 0 0 0.5rem;
-}
+  .group-links {
+    @apply grid grid-cols-2 gap-2;
+  }
 
-.warnings {
-  margin: 0 0 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--error);
-  color: var(--error);
-}
+  .member-controls {
+    @apply flex w-full flex-wrap gap-2;
+  }
 
-.end-form {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
+  .rename-form {
+    @apply flex w-full gap-2;
+  }
 
-/* RSVP */
+  .rename-form input {
+    @apply flex-1;
+  }
 
-.rsvp-dates {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 0.5rem;
-}
+  .group-settings {
+    @apply grid gap-4;
+  }
 
-.rsvp-date {
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--border);
-}
+  .your-groups {
+    @apply m-0 grid gap-1 pl-5;
+    list-style: disc;
+  }
 
-.rsvp-heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 0 0.375rem;
-}
+  /* Availability. */
+  .kind {
+    @apply m-0 flex flex-wrap gap-x-6 gap-y-2 border-0 p-0;
+  }
 
-.rsvp-form,
-.rsvp-all {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
+  .kind legend {
+    @apply mb-1 p-0;
+  }
 
-.rsvp-all {
-  margin: 0.5rem 0;
-}
+  .kind label,
+  .limit label {
+    @apply flex min-h-11 items-center gap-2 font-normal;
+  }
 
-.answers {
-  display: flex;
-  gap: 0.375rem;
-  flex: 1 1 14rem;
-}
+  /* One-off times have no last date. */
+  .slot-form:has(input[name="kind"][value="once"]:checked) .weekly-only {
+    display: none;
+  }
 
-.answers .answer {
-  flex: 1;
-  width: auto;
-  min-height: 2.5rem;
-  padding: 0 0.5rem;
-}
+  .time-pair,
+  .field-pair {
+    @apply grid grid-cols-2 gap-3;
+  }
 
-.answer.chosen {
-  background: var(--accent);
-  color: var(--accent-text);
-}
+  .cancel {
+    @apply text-center;
+  }
 
-.rsvp-names {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
-}
+  .slot,
+  .rehearsal {
+    @apply border-b py-3;
+  }
 
-/* Google sign-in: the start page's account panel and marks in the member list. */
-.account {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: var(--panel);
-}
+  .slot-summary {
+    @apply mt-0 mb-2 font-semibold;
+  }
 
-.account h2,
-.account p {
-  margin: 0;
-}
+  .slot-actions {
+    @apply grid grid-cols-2 gap-2;
+  }
 
-.account .button-link {
-  justify-self: start;
-}
+  .slot details {
+    @apply mt-2;
+  }
 
-.your-groups {
-  margin: 0;
-  padding-left: 1.25rem;
-  display: grid;
-  gap: 0.25rem;
-}
+  .weeks li,
+  .occurrences li {
+    @apply flex items-center justify-between gap-4 py-1.5;
+  }
 
-.google-mark,
-.member-email {
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: normal;
-}
+  .occurrences li {
+    @apply border-b;
+  }
 
-.member-email {
-  overflow-wrap: anywhere;
-}
+  .weeks .skipped,
+  .day-busy,
+  .day-skipped {
+    @apply text-muted-foreground;
+  }
 
-/* Google Calendar: the schedule's calendar panel. */
-.calendar-panel {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: var(--panel);
-}
+  .view-switch {
+    @apply mb-3 inline-flex gap-1 rounded-lg bg-muted p-1;
+  }
 
-.calendar-panel h2,
-.calendar-panel h3,
-.calendar-panel p {
-  margin: 0;
-}
+  .view-switch a {
+    @apply flex min-h-11 items-center rounded-md px-3.5 py-1.5 text-sm text-muted-foreground no-underline;
+  }
 
-/* Feedback: the pressed button's saving and saved states, and the toast. */
-button.is-saving,
-button.is-saved {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
+  .view-switch a.current {
+    @apply bg-background font-medium text-foreground shadow-xs;
+  }
 
-button.is-saving {
-  cursor: progress;
-  opacity: 0.85;
-}
+  .month h3 {
+    @apply mt-3 mb-1;
+  }
 
-button.is-saved {
-  background: var(--success);
-  border-color: var(--success);
-  color: var(--accent-text);
-}
+  .month-grid {
+    @apply grid grid-cols-7 gap-1;
+  }
 
-.spinner {
-  width: 1em;
-  height: 1em;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  .weekday {
+    @apply text-center text-xs text-muted-foreground;
+  }
+
+  .month-grid .day {
+    @apply relative flex min-h-11 flex-col items-center justify-center rounded-md border text-sm;
+  }
+
+  .month-grid .day.blank {
+    @apply border-0;
+  }
+
+  /* The whole date is the tap target; the checkbox covers it, unseen. */
+  .calendar-entry .day input {
+    @apply absolute inset-0 m-0 size-full min-h-0 cursor-pointer opacity-0;
+  }
+
+  .calendar-entry .day:focus-within {
+    @apply outline-2 outline-offset-1 outline-ring;
+  }
+
+  .calendar-entry .day:has(input:checked) {
+    @apply border-primary bg-primary text-primary-foreground;
+  }
+
+  .calendar-entry .day.busy {
+    @apply border-dashed bg-muted text-muted-foreground;
+  }
+
+  .day-busy,
+  .day-skipped {
+    @apply text-[0.6875rem] leading-none;
+  }
+
+  .times-calendar .day {
+    @apply min-h-13 justify-start px-0.5 py-1;
+  }
+
+  .times-calendar .day.has-times {
+    @apply border-primary;
+  }
+
+  .day-time {
+    @apply text-center text-[0.6875rem] leading-tight;
+  }
+
+  .dates {
+    @apply m-0 border-0 p-0;
+  }
+
+  .time-chips {
+    @apply mb-2 flex flex-wrap gap-2;
+  }
+
+  .chip {
+    @apply inline-flex min-h-11 items-center rounded-full border bg-background px-3.5 text-sm font-medium;
+  }
+
+  .chip.on {
+    @apply border-primary bg-primary text-primary-foreground;
+  }
+
+  /* The grid scrolls inside a bounded box so the dates and the button stay in reach.
+     A swipe scrolls it (pan-y); taps choose cells; a mouse or pen can drag. */
+  .time-grid {
+    @apply overflow-y-auto rounded-lg border p-1 select-none;
+    max-height: max(16rem, 50vh);
+    touch-action: pan-y;
+  }
+
+  .time-row {
+    @apply mb-0.5 grid grid-cols-[3.25rem_repeat(4,minmax(0,1fr))] gap-0.5;
+  }
+
+  .time-hour {
+    @apply flex items-center text-xs text-muted-foreground tabular-nums;
+  }
+
+  .time-cell {
+    @apply min-h-11 rounded-sm bg-muted p-0 text-xs text-muted-foreground;
+    touch-action: pan-y;
+  }
+
+  .time-cell.on {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .time-cell.anchor {
+    @apply outline-2 -outline-offset-2 outline-foreground;
+  }
+
+  .time-summary {
+    @apply mt-1 mb-2 font-semibold;
+  }
+
+  /* Schedule. */
+  .days > li {
+    @apply border-b py-2;
+  }
+
+  .days h3 {
+    @apply my-1;
+  }
+
+  .stretch {
+    @apply my-1 rounded-md border-l-4 bg-muted px-3 py-2;
+  }
+
+  .stretch.everyone {
+    @apply border-l-primary;
+  }
+
+  .stretch:has(input:checked) {
+    @apply border-l-primary outline-2 outline-primary;
+  }
+
+  .stretch p {
+    @apply m-0;
+  }
+
+  .stretch-time {
+    @apply flex justify-between gap-4 font-semibold;
+  }
+
+  .stretch-count {
+    @apply font-normal text-muted-foreground;
+  }
+
+  .stretch-line {
+    @apply block;
+  }
+
+  .free-time.tickable {
+    @apply flex min-h-11 cursor-pointer items-start gap-3;
+  }
+
+  .free-time.tickable input {
+    @apply mt-0.5 flex-none;
+  }
+
+  .free-time-body {
+    @apply flex-1;
+  }
+
+  .propose-times-controls {
+    @apply mt-4;
+  }
+
+  .custom-proposal {
+    @apply mt-8 border-t pt-4;
+  }
+
+  .custom-proposal > summary {
+    @apply font-semibold;
+  }
+
+  .rehearsal.proposed .slot-summary::after {
+    content: " (proposed)";
+    @apply font-normal text-muted-foreground;
+  }
+
+  .rehearsal .hint {
+    @apply mt-0 mb-2;
+  }
+
+  .warnings {
+    @apply mb-2 rounded-lg border border-destructive px-3 py-2 text-sm text-destructive;
+  }
+
+  .rsvp-dates {
+    @apply mb-2;
+  }
+
+  .rsvp-date {
+    @apply border-t py-2;
+  }
+
+  .rsvp-heading {
+    @apply mt-0 mb-1.5 flex flex-wrap justify-between gap-2;
+  }
+
+  .rsvp-form,
+  .rsvp-all {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .rsvp-all {
+    @apply my-2;
+  }
+
+  .answers {
+    @apply flex flex-[1_1_14rem] gap-1.5;
+  }
+
+  .answers .answer {
+    @apply flex-1;
+  }
+
+  .rsvp-names {
+    @apply mt-1 mb-0 text-sm;
+  }
+
+  /* Scheduling requests. */
+  .request-name,
+  .pending-name,
+  .request-span {
+    @apply font-semibold;
+  }
+
+  .request-span {
+    @apply m-0;
+  }
+
+  .request-answered {
+    @apply text-success;
+  }
+
+  .request-unanswered,
+  .request-status {
+    @apply text-muted-foreground;
+  }
+
+  .request-actions,
+  .add-windows {
+    @apply my-3 flex flex-wrap gap-2;
+  }
+
+  .windows {
+    @apply grid gap-2;
+  }
+
+  .window-row {
+    @apply rounded-lg border px-3 py-1;
+  }
+
+  .limit-most input[type="number"] {
+    @apply w-18;
+  }
+
+  .request-banner a {
+    @apply font-semibold;
+  }
+
+  .pending-requests > li > a {
+    @apply my-1 flex min-h-11 flex-col rounded-lg border bg-card px-3 py-2 text-card-foreground no-underline shadow-xs hover:bg-accent;
+  }
+
+  .request-group h3 {
+    @apply mt-4 mb-1;
+  }
+
+  .request-progress > li {
+    @apply flex flex-col gap-1 border-b py-2;
+  }
+
+  .progress-figures {
+    @apply block;
+  }
+
+  .request-rehearsals {
+    @apply px-3 pb-2;
+  }
+
+  .proposed-list a {
+    @apply inline-block min-h-11 py-2;
+  }
+
+  .calendar-actions {
+    @apply mt-2 flex flex-wrap items-center gap-2;
+  }
+
+  .calendar-actions .hint {
+    @apply m-0 basis-full;
+  }
+
+  /* Profile menu. */
+  .profile-menu {
+    @apply relative;
+  }
+
+  .profile-menu summary {
+    @apply flex min-h-11 min-w-11 list-none items-center justify-center py-0;
+  }
+
+  .profile-menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .avatar {
+    @apply relative inline-flex size-9 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-primary-foreground;
+  }
+
+  .avatar img {
+    @apply absolute inset-0 size-full object-cover;
+  }
+
+  .profile-panel {
+    @apply absolute top-[calc(100%+0.25rem)] right-0 z-10 grid w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl border bg-popover p-4 font-normal text-popover-foreground shadow-lg;
+  }
+
+  .profile-panel a {
+    @apply flex min-h-11 items-center;
+  }
+
+  /* Privacy policy and footer. */
+  .site-footer {
+    @apply mx-auto mt-8 max-w-2xl border-t px-4 py-4 text-sm;
+  }
+
+  .site-footer a {
+    @apply text-muted-foreground;
+  }
+
+  .policy-scopes {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .policy-scopes th,
+  .policy-scopes td {
+    @apply border-b p-2 text-left align-top;
+  }
+
+  /* Scope addresses are long; let them wrap on a phone. */
+  .policy-scopes code {
+    @apply text-xs text-muted-foreground;
+    overflow-wrap: anywhere;
+  }
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.toast-region {
-  position: fixed;
-  left: 50%;
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(28rem, calc(100% - 2rem));
-  z-index: 10;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: var(--text);
-  color: var(--surface);
-  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.2);
-  animation: toast-in 0.2s ease-out;
-}
-
-.toast-dismiss {
-  width: auto;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font-size: 1.25rem;
-  line-height: 1;
 }
 
 @keyframes toast-in {
@@ -612,620 +822,4 @@ button.is-saved {
   .toast {
     animation: none;
   }
-}
-
-.problem-alert {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-/* Scheduling requests */
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.requests,
-.request-answers,
-.add-windows,
-.times-worked {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.requests li,
-.request-answers li,
-.times-worked li {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.25rem 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.request-name {
-  font-weight: 600;
-}
-
-.request-answered {
-  color: var(--success);
-}
-
-.request-unanswered,
-.request-status {
-  color: var(--muted);
-}
-
-.request-span {
-  margin: 0;
-  font-weight: 600;
-}
-
-.request-actions,
-.add-windows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-
-.field-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.windows {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.window-row {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 0.25rem 0.75rem;
-}
-
-.window-row summary {
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.limit label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-}
-
-.limit-most input[type="number"] {
-  width: 4.5rem;
-}
-
-/* Availability views (Phase 10) */
-
-.view-switch {
-  display: inline-flex;
-  gap: 0.25rem;
-  margin: 0 0 0.75rem;
-  padding: 0.25rem;
-  border-radius: 0.75rem;
-  background: var(--panel);
-}
-
-.view-switch a {
-  display: flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0.375rem 0.875rem;
-  border-radius: 0.5rem;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.view-switch a.current {
-  background: var(--surface);
-  font-weight: 600;
-}
-
-.month h3 {
-  margin: 0.75rem 0 0.25rem;
-  font-size: 1rem;
-}
-
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.25rem;
-}
-
-.weekday {
-  text-align: center;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.month-grid .day {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border);
-  font-size: 0.9375rem;
-}
-
-.month-grid .day.blank {
-  border: none;
-}
-
-/* The whole date is the tap target; the checkbox covers it, unseen. */
-.calendar-entry .day input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.calendar-entry .day:focus-within {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.calendar-entry .day:has(input:checked) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
-.calendar-entry .day.busy {
-  background: var(--panel);
-  color: var(--muted);
-  border-style: dashed;
-}
-
-.day-busy,
-.day-skipped {
-  font-size: 0.6875rem;
-  line-height: 1;
-}
-
-.times-calendar .day {
-  justify-content: flex-start;
-  padding: 0.25rem 0.125rem;
-  min-height: 3.25rem;
-}
-
-.times-calendar .day.has-times {
-  border-color: var(--accent);
-}
-
-.day-time {
-  font-size: 0.6875rem;
-  line-height: 1.2;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-.dates {
-  border: none;
-  padding: 0;
-  margin: 0;
-}
-
-.time-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-button.chip {
-  width: auto;
-  padding: 0.375rem 0.875rem;
-  background: var(--panel);
-  color: var(--text);
-  font-weight: 500;
-}
-
-button.chip.on {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-/* The grid scrolls inside a bounded box so the dates and the button stay in reach.
-   A swipe scrolls it (pan-y); taps choose cells; a mouse or pen can drag. */
-.time-grid {
-  max-height: max(16rem, 50vh);
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 0.25rem;
-  touch-action: pan-y;
-  user-select: none;
-}
-
-.time-row {
-  display: grid;
-  grid-template-columns: 3.25rem repeat(4, minmax(0, 1fr));
-  gap: 0.125rem;
-  margin-bottom: 0.125rem;
-}
-
-.time-hour {
-  display: flex;
-  align-items: center;
-  font-size: 0.8125rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-button.time-cell {
-  min-height: 2.75rem;
-  padding: 0;
-  border-radius: 0.375rem;
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 400;
-  touch-action: pan-y;
-}
-
-button.time-cell.on {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-button.time-cell.anchor {
-  outline: 2px solid var(--text);
-  outline-offset: -2px;
-}
-
-.time-summary {
-  margin: 0.25rem 0 0.5rem;
-  font-weight: 600;
-}
-
-.request-banner a {
-  font-weight: 600;
-}
-
-/* Confirmations and group settings (Phase 11) */
-
-button.danger,
-.button-link.danger {
-  background: var(--error);
-  color: var(--accent-text);
-}
-
-.confirm-dialog {
-  width: min(28rem, calc(100vw - 2rem));
-  padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface);
-  color: var(--text);
-}
-
-.confirm-dialog::backdrop {
-  background: rgb(0 0 0 / 45%);
-}
-
-.confirm-dialog h2,
-.confirm-panel h2 {
-  margin-top: 0;
-  font-size: 1.125rem;
-}
-
-.confirm-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.confirm-panel {
-  margin: 1rem 0;
-  padding: 1rem;
-  border: 2px solid var(--error);
-  border-radius: 0.75rem;
-  background: var(--panel);
-}
-
-.confirm-form {
-  display: contents;
-}
-
-.end-form.confirm-form {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.rename-form {
-  display: flex;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.rename-form input {
-  flex: 1;
-  min-width: 0;
-}
-
-.rename-form button {
-  width: auto;
-}
-
-.group-settings {
-  display: grid;
-  gap: 1rem;
-}
-
-/* Profile menu (Phase 12) */
-
-.site-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.profile-menu {
-  position: relative;
-}
-
-.profile-menu summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-}
-
-.profile-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.avatar {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.avatar img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.profile-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.25rem);
-  z-index: 10;
-  display: grid;
-  gap: 0.75rem;
-  width: min(20rem, calc(100vw - 2rem));
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface);
-  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 15%);
-}
-
-.profile-panel a {
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-}
-
-.member-instrument {
-  color: var(--muted);
-}
-
-.choices {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-/* The header's brand-link style must not reach the profile panel. */
-.profile-panel {
-  font-weight: 400;
-}
-
-.profile-panel a:not(.button-link) {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Privacy policy and footer (Phase 14) */
-
-.site-footer {
-  max-width: 40rem;
-  margin: 2rem auto 0;
-  padding: 1rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.875rem;
-}
-
-.site-footer a {
-  color: var(--muted);
-}
-
-.policy-scopes {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9375rem;
-}
-
-.policy-scopes th,
-.policy-scopes td {
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  vertical-align: top;
-}
-
-/* Scope addresses are long; let them wrap on a phone. */
-.policy-scopes code {
-  font-size: 0.75rem;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-/* Proposing several free times, and pending requests (Phase 15) */
-
-.free-time.tickable {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  min-height: 2.75rem;
-  cursor: pointer;
-}
-
-.free-time.tickable input {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0.125rem 0 0;
-  flex: none;
-}
-
-.free-time-body {
-  flex: 1;
-}
-
-.stretch-line {
-  display: block;
-}
-
-.stretch:has(input:checked) {
-  border-left-color: var(--accent);
-  outline: 2px solid var(--accent);
-}
-
-.propose-times-controls {
-  margin-top: 1rem;
-}
-
-.custom-proposal {
-  margin-top: 2rem;
-  border-top: 1px solid var(--border);
-  padding-top: 1rem;
-}
-
-.custom-proposal > summary {
-  cursor: pointer;
-  font-weight: 600;
-  min-height: 2.75rem;
-}
-
-.pending-requests {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.pending-requests > li > a {
-  display: flex;
-  flex-direction: column;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.75rem;
-  margin: 0.25rem 0;
-  border-left: 4px solid var(--accent);
-  border-radius: 0.25rem;
-  background: var(--panel);
-  text-decoration: none;
-}
-
-.pending-name {
-  font-weight: 600;
-}
-
-/* Rehearsals by request, completion and add to calendar (Phase 17) */
-
-.request-group h3 {
-  margin: 1rem 0 0.25rem;
-  font-size: 1rem;
-}
-
-.request-progress {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.request-progress > li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.progress-figures {
-  display: block;
-}
-
-.request-rehearsals {
-  padding: 0 0.75rem 0.5rem;
-}
-
-.proposed-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.25rem 0;
-}
-
-.proposed-list a {
-  display: inline-block;
-  min-height: 2.75rem;
-  padding: 0.5rem 0;
-}
-
-.calendar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.calendar-actions .hint {
-  flex-basis: 100%;
-  margin: 0;
 }

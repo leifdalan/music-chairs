@@ -63,6 +63,35 @@ echo "+ GET /"
 curl -s "$origin/" | grep -q 'name="groupName"' || fail "home page lacks the create-group form"
 echo "  server-rendered create-group form"
 
+# Everything a page loads is the site's own (plan/phase-19.1.md): stylesheets,
+# scripts and images, apart from Gravatar pictures the privacy policy names.
+# Links to other sites are not loads and are not checked.
+same_origin_only() {
+  curl -s -H "Cookie: ${2:-}" "$origin$1" >"$work/page.html"
+  grep -oE '<(link|script|img)[^>]*>' "$work/page.html" | grep -oE ' (href|src)="[^"]*"' |
+    cut -d'"' -f2 >"$work/loads.txt" || true
+  while IFS= read -r url; do
+    case "$url" in
+      //*) fail "$1 loads $url from another site" ;;
+      /* | "$origin"/* | https://www.gravatar.com/avatar/*) ;;
+      *://*) fail "$1 loads $url from another site" ;;
+    esac
+  done <"$work/loads.txt"
+}
+
+echo "+ the built stylesheet and what the home page loads"
+same_origin_only /
+stylesheet="$(grep -oE '<link[^>]*rel="stylesheet"[^>]*>' "$work/page.html" | grep -oE 'href="[^"]*"' | cut -d'"' -f2 | head -1)"
+[ -n "$stylesheet" ] || fail "the home page links no stylesheet"
+curl -s "$origin$stylesheet" >"$work/app.css"
+grep -qE '@theme|@apply' "$work/app.css" && fail "the stylesheet $stylesheet was not compiled by Tailwind"
+# Tailwind inlines its own imports, so any @import left would load something else.
+grep -q '@import' "$work/app.css" && fail "the stylesheet $stylesheet still imports something"
+grep -q -- '--primary:' "$work/app.css" || fail "the stylesheet lacks the theme's --primary token"
+grep -q '\.min-h-11' "$work/app.css" || fail "the stylesheet lacks the min-h-11 utility the buttons use"
+grep -oE 'url\([^)]*\)' "$work/app.css" | grep -E '://' && fail "the stylesheet loads something from another site"
+echo "  compiled stylesheet $stylesheet; nothing loaded from another site"
+
 echo "+ GET /privacy"
 privacy="$(curl -s "$origin/privacy")"
 printf '%s' "$privacy" | grep -q 'including the Limited Use requirements' \
@@ -90,6 +119,8 @@ join_page="$(curl -s "$invite")"
 printf '%s' "$join_page" | grep -q "Thursday Quartet" || fail "invite URL does not show the group name"
 printf '%s' "$join_page" | grep -q 'name="displayName"' || fail "invite URL shows no name field"
 echo "  invite URL returns the group's join page"
+same_origin_only "$location" "$cookie"
+echo "  the group page loads nothing from another site"
 
 echo "+ POST availability"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/availability" \

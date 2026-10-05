@@ -9,6 +9,7 @@ import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { sameName } from "~/lib/profile";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/join";
 
@@ -156,7 +157,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
       <h1>{loaderData.groupName}</h1>
       {loaderData.signInUrl ? (
         <p>
-          <a className="button-link secondary" href={loaderData.signInUrl}>
+          <a className={buttonVariants({ variant: "outline" })} href={loaderData.signInUrl}>
             Sign in with Google
           </a>
         </p>
@@ -176,7 +177,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
                   <input type="hidden" name="intent" value="pick" />
                   <input type="hidden" name="memberId" value={choice.id} />
                   <input type="hidden" name="displayName" value={actionData?.value ?? ""} />
-                  <SubmitButton feedbackKey={`pick-${choice.id}`} className="secondary">
+                  <SubmitButton feedbackKey={`pick-${choice.id}`} variant="outline">
                     {choice.displayName}
                     {choice.instrument ? ` · ${choice.instrument}` : ""}
                   </SubmitButton>

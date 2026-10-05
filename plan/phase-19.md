@@ -39,6 +39,10 @@ The operator's pass (user action `satisfied-turkey`, closed), verbatim apart fro
 
 The visual framework is shadcn/ui. These notes go beyond styling (a groups page, home-page layout, availability saving as times are ticked, readable group URLs, which changes persisted data and must keep existing links working); whether to split the phase along those lines is settled at phase start.
 
+## Decomposition (operator, 2026-10-04)
+
+At phase start the operator split this phase into three children, each shipped and deployed on its own: **19.1** the shadcn/ui look (neutral palette) and the calendar-button changes; **19.2** the groups page, the home page (pending proposals first, "Start a group" only with no groups) and the availability and request changes (time picker first and scrolled to the evening, the note about picking a time range before Google Calendar conflicts show, "check availability for proposed time slot", times saved as they are ticked); **19.3** readable group URLs as the group's name plus a short id (for example `/g/thursday-quartet-k3x9`), with existing links still working. Only 19.1 is drafted now; each next child is drafted when its predecessor closes.
+
 ## Acceptance
 
 - `./bin/test project/tests` and `./bin/check all` pass.

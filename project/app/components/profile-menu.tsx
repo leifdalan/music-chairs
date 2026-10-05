@@ -4,6 +4,7 @@ import { Form, useLocation, useRouteLoaderData } from "react-router";
 import type { HeaderProfile } from "~/.server/profile";
 import { DISCONNECT_PROMPT } from "~/lib/privacy";
 import { INSTRUMENT_MAX } from "~/lib/profile";
+import { buttonVariants } from "~/components/ui/button";
 
 import { ConfirmForm } from "./confirm-form";
 import { SubmitButton } from "./submit-button";
@@ -75,7 +76,7 @@ export function ProfileMenu() {
               Change picture on gravatar.com
             </a>
             <Form method="post" action="/auth/sign-out">
-              <SubmitButton feedbackKey="profile-sign-out" className="secondary">
+              <SubmitButton feedbackKey="profile-sign-out" variant="outline">
                 Sign out
               </SubmitButton>
             </Form>
@@ -87,12 +88,12 @@ export function ProfileMenu() {
               body={DISCONNECT_PROMPT.body}
               label={DISCONNECT_PROMPT.label}
               feedbackKey="profile-disconnect"
-              triggerClassName="secondary small"
+              triggerSize="sm"
             />
           </>
         ) : profile.canSignIn ? (
           <a
-            className="button-link secondary"
+            className={buttonVariants({ variant: "outline" })}
             href={`/auth/google?returnTo=${encodeURIComponent(here)}`}
           >
             Sign in with Google

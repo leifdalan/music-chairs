@@ -81,7 +81,8 @@ describe("home route", () => {
     expect(html).toContain('name="timeZone"');
     expect(html).toContain('<option value="Europe/London">Europe/London</option>');
     // The submit button is disabled only while a submission is in flight.
-    expect(html).not.toContain("disabled");
+    // The attribute, not the `disabled:` utility variants in the class.
+    expect(html).not.toMatch(/\sdisabled(=|\s|>)/);
   });
 
   it("offers UTC and every zone the runtime knows, with no zone preselected on the server", () => {

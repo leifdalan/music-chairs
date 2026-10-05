@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "
 import { Form, useLocation, useNavigation } from "react-router";
 
 import type { ConfirmPrompt } from "~/.server/confirm";
+import { buttonVariants, type ButtonSize, type ButtonVariant } from "~/components/ui/button";
 
 import { SubmitButton } from "./submit-button";
 
@@ -28,7 +29,8 @@ export function ConfirmForm({
   body,
   label,
   feedbackKey,
-  triggerClassName = "secondary",
+  triggerVariant = "outline",
+  triggerSize = "default",
   triggerLabel,
   className,
   action,
@@ -41,7 +43,8 @@ export function ConfirmForm({
   body: string;
   label: string;
   feedbackKey: string;
-  triggerClassName?: string;
+  triggerVariant?: ButtonVariant;
+  triggerSize?: ButtonSize;
   /** Accessible name when the trigger's text alone doesn't say what it affects. */
   triggerLabel?: string;
   /** Visible fields the action also needs (for example a last date). */
@@ -78,7 +81,8 @@ export function ConfirmForm({
       {children}
       <button
         type="submit"
-        className={triggerClassName}
+        data-variant={triggerVariant}
+        className={buttonVariants({ variant: triggerVariant, size: triggerSize })}
         aria-label={triggerLabel}
         disabled={busy}
         onClick={(event) => {
@@ -98,13 +102,18 @@ export function ConfirmForm({
           <div className="confirm-actions">
             <button
               type="button"
-              className="secondary"
+              className={buttonVariants({ variant: "outline" })}
               autoFocus
               onClick={() => dialog.current?.close()}
             >
               Cancel
             </button>
-            <SubmitButton feedbackKey={feedbackKey} className="danger" name="confirmed" value="1">
+            <SubmitButton
+              feedbackKey={feedbackKey}
+              variant="destructive"
+              name="confirmed"
+              value="1"
+            >
               {label}
             </SubmitButton>
           </div>
@@ -131,10 +140,10 @@ export function ConfirmPanel({ prompt }: { prompt: ConfirmPrompt }) {
         {prompt.fields.map(([name, value], index) => (
           <input key={`${name}-${index}`} type="hidden" name={name} value={value} />
         ))}
-        <a className="button-link secondary" href={cancelTo}>
+        <a className={buttonVariants({ variant: "outline" })} href={cancelTo}>
           Cancel
         </a>
-        <SubmitButton feedbackKey="confirm-panel" className="danger" name="confirmed" value="1">
+        <SubmitButton feedbackKey="confirm-panel" variant="destructive" name="confirmed" value="1">
           {prompt.label}
         </SubmitButton>
       </Form>

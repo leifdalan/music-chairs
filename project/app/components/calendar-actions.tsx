@@ -1,6 +1,9 @@
+import { Download } from "lucide-react";
 import { Form } from "react-router";
 
 import { formatDate } from "~/lib/availability";
+import { Badge } from "~/components/ui/badge";
+import { buttonVariants } from "~/components/ui/button";
 
 import { SubmitButton } from "./submit-button";
 
@@ -30,16 +33,18 @@ export function CalendarActions({
   // A plain link: the file is a download, not a page the router can show.
   const download = `/g/${groupId}/requests/${requestId}/calendar.ics`;
   const connect = `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(returnTo)}`;
+  // Google first (plan/phase-19.1.md): the switch, the connect link, or why
+  // there is neither; then the one-time download.
+  const googleHint =
+    google === "on"
+      ? "Already in your Google Calendar."
+      : google === "unlinked"
+        ? "To add them to Google Calendar, sign in with Google from the group page."
+        : google === "other-account"
+          ? "To add them to Google Calendar, sign in with Google as this member."
+          : null;
   return (
     <div className="calendar-actions">
-      <a
-        className="button-link secondary small"
-        href={download}
-        download
-        aria-label={`Download ${requestName} for your calendar`}
-      >
-        Download for your calendar
-      </a>
       {google === "off" ? (
         <Form method="post" action={`/g/${groupId}/schedule`} replace>
           <input type="hidden" name="intent" value="set-calendar" />
@@ -47,7 +52,8 @@ export function CalendarActions({
           <input type="hidden" name="returnTo" value={returnTo} />
           <SubmitButton
             feedbackKey={`set-calendar-${requestId}`}
-            className="secondary small"
+            variant="outline"
+            size="sm"
             label={`Add ${requestName} to Google Calendar`}
           >
             Add to Google Calendar
@@ -55,20 +61,23 @@ export function CalendarActions({
         </Form>
       ) : null}
       {google === "connect" ? (
-        <a className="button-link secondary small" href={connect}>
+        <a className={buttonVariants({ variant: "outline", size: "sm" })} href={connect}>
           Connect Google Calendar
         </a>
       ) : null}
+      {googleHint ? <p className="hint">{googleHint}</p> : null}
+      <a
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+        href={download}
+        download
+        aria-label={`Download ${requestName} for your calendar (.ics)`}
+      >
+        <Download aria-hidden="true" />
+        .ics
+      </a>
       <p className="hint">
         The download is a one-time copy of dates through {formatDate(until)}; the calendar feed or
         Google Calendar keeps them up to date.
-        {google === "on" ? " Already in your Google Calendar." : null}
-        {google === "unlinked"
-          ? " To add them to Google Calendar, sign in with Google from the group page."
-          : null}
-        {google === "other-account"
-          ? " To add them to Google Calendar, sign in with Google as this member."
-          : null}
       </p>
     </div>
   );
@@ -90,7 +99,14 @@ export function ProgressFigures({
     <span className="hint progress-figures">
       {item.confirmed} of {item.total} confirmed
       {item.answered !== null ? ` · ${item.answered} of ${item.memberCount} answered` : ""}
-      {item.complete ? <strong className="request-complete"> · Complete</strong> : null}
+      {item.complete ? (
+        <>
+          {" "}
+          <Badge variant="success" className="request-complete">
+            Complete
+          </Badge>
+        </>
+      ) : null}
     </span>
   );
 }

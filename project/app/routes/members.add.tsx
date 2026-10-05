@@ -17,6 +17,7 @@ import { parsePerson } from "~/lib/contacts";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { sameName } from "~/lib/profile";
 import { pageMeta } from "~/lib/site";
+import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/members.add";
 
@@ -131,7 +132,7 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
       </p>
       {offered?.state === "connect" ? (
         <p>
-          <a className="button-link secondary" href={offered.connectUrl}>
+          <a className={buttonVariants({ variant: "outline" })} href={offered.connectUrl}>
             Use your Google contacts
           </a>
         </p>
