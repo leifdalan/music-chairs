@@ -32,4 +32,4 @@ From the operator's UI/UX notes in `plan/phase-19.md` (verbatim there): the grou
 
 ## Inherited from Phase 19.1
 
-Pinned by [Phase 19.1](phase-19.1.md): the shadcn/ui look (neutral tokens in `project/app/app.css`, `Button`/`buttonVariants` and `Badge` in `project/app/components/ui/`, native controls styled once in app.css's base layer, the app's semantic classes defined there with `@apply`), and the calendar options with Google first and the ".ics" download.
+Pinned by [Phase 19.1](phase-19.1.md): the shadcn/ui look (neutral tokens in `project/app/app.css`, `Button`/`buttonVariants` and `Badge` in `project/app/components/ui/`, native controls styled once in app.css's base layer, the app's semantic classes defined there with `@apply`), the calendar options with Google first and the ".ics" download, lucide-react 1.51.0 for icons, `SubmitButton`'s `variant`/`size` props and `ConfirmForm`'s `triggerVariant`/`triggerSize` (deletes and removals `destructive`), and every `<summary>` keeping its disclosure marker with a 44px target. Changes reach `main` through a pull request whose CI `check` must pass; merging deploys.

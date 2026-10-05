@@ -2657,3 +2657,117 @@ Phase 19.1 — The shadcn/ui look, and the calendar buttons
 Execution trace: 88bd863372cd4c3eb82e805dc747a2d2
 
 Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): the ledger now holds the successor child 19.2; the approved plan-2 (0c35fb3c784c1119758ffdfa5651e394a62c5cbc3fc90a621b19622e717ad2cd) and its plan review are carried; the prepared candidate 769c3f5214fbd42baa8d5273f065a0bb79a1d53a15b51e1c8f84f862c3e55083 is unchanged. Remaining: code critique of the complete diff, gates (including CI on the pull request), close and delivery.
+
+## 2026-10-04 19:08 — END
+Phase 19.1 — The shadcn/ui look, and the calendar buttons
+
+Phase 19.1 is accepted on its gates. Every page now uses shadcn/ui's neutral look on Tailwind CSS: one calm type scale and spacing, cards for panels, one primary (dark) button per form with quieter outline buttons for everything else and red for deletes, light and dark following the system, 44px targets and 16px inputs throughout, and nothing loaded from another site. The hand-written stylesheet is gone; the app's own class names are defined once in app.css on shadcn's tokens. On a complete request, "Add to Google Calendar" (or its connect link or explanation) now comes first, then a download icon labelled ".ics", and "Complete" is a green badge. How it looks and feels on your phone and laptop is yours to judge through the User Demo below; the pull request's merge deploys it.
+
+Execution trace: 88bd863372cd4c3eb82e805dc747a2d2 (continuation; the first run, 4debaf98acd9431c84c1bbfd29d0d517, parked before its critique because the successor child 19.2 was not yet in the captured ledger)
+
+Files changed:
+- plan/phase-19.md, plan/phase-19.1.md, plan/phase-19.2.md, plan/INDEX.md — the operator's split of Phase 19 into 19.1–19.3 with this child's rulings and User Demo; 19.2 drafted
+- project/package.json, project/pnpm-lock.yaml, project/vite.config.ts — tailwindcss and @tailwindcss/vite 4.3.3; class-variance-authority 0.7.1, clsx 2.1.1, tailwind-merge 3.7.0, lucide-react 1.51.0 (no release-age exclusion)
+- project/app/app.css — rewritten: shadcn's neutral tokens (hint text and focus ring darkened for contrast), base layer for native elements, the app's classes on the tokens, the functional rules carried over, and a header recording the visual system
+- project/app/components/ui/button.tsx, badge.tsx, project/app/lib/utils.ts — new: adapted shadcn Button (44px sizes, data-variant) and Badge, and cn
+- project/app/components/submit-button.tsx, confirm-form.tsx, calendar-actions.tsx, profile-menu.tsx and the eight routes that render — shadcn button variants everywhere; Google first and the .ics download; deletes destructive
+- project/tests/look.test.tsx (new), project/tests/home.test.tsx, project/tests/submit-button.test.tsx — the calendar options in every Google state, the .ics link, one primary per form on four forms, 44px sizes; two "not disabled" checks now read the attribute
+- project/scripts/smoke.sh — every resource the home and group pages load is the site's own (Gravatar avatars excepted), and the stylesheet is compiled with no @import left
+- lessons/bronze-malamute.md, lessons/red-condor.md, lessons/blazing-eel.md — new lessons
+
+Build status:
+- project/scripts/smoke.sh: OK (attempt 2)
+- ci.check: OK — CI/CD run 37253691864, check success for c3a7d3b on ubuntu-24.04 (attempt 1's commit failed lint-typecheck on a test helper's type, fixed directly)
+- ./bin/test --changed-from '@{upstream}': OK (widened to full: Vitest 511/511, pytest 180/180)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- full-cycle continuation of the parked preparation (approved plan carried, per § Continue an approved plan after preparation); the CI type error was a direct fix within it
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review, first run): requested model=opus effort=default venue=claude
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 243.755 s; first event 0.560 s; longest idle 57.851 s; success (first run)
+- Coder: inline (no role span)
+- Critic (code review): 158.805 s; first event 0.619 s; longest idle 31.300 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This run: makespan 894.370 s; intelligence 158.805 s; gates 149.066 s; orchestration 893.844 s; wait 158.365 s; retry 145.860 s; failed 0 s; unattributed 0.526 s (category totals are interval unions and may overlap). The first, parked run is reported under its own trace.
+- Awaiting user input: none recorded.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: prepared=769c3f5214fbd42baa8d5273f065a0bb79a1d53a15b51e1c8f84f862c3e55083 final=31519e7751394304e88dcd91cecd0396035982b3fdd90706008a3f26db6fa98e
+- Advisory passes: plan review 1 (12 findings, all adopted, carried); code critique 1 (7 findings, all adopted); revision packets 0
+- Gates: implementation-final=3 on the final candidate (attempt 2, superseding attempt 1 after the CI type error); product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level)
+- Mutation checks: 8 of 9 killed; the survivor (aria-hidden on the Download icon) is equivalent, lucide sets it itself
+
+Wall-clock observations:
+- A production build was screenshotted at phone width in light and dark with headless Chrome (a small DevTools-protocol script, outside the tree) before the critique, and the critic read the images; it found nothing visual the tests could not.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): the calendar options' order and .ics link; one primary per form on four forms; 44px controls; the compiled stylesheet with nothing loaded from another site; the full test suites and CI on GitHub; existing behaviour unchanged.
+- Parked for the user: the User Demo below (the look itself, on a phone and a laptop).
+
+Delivery:
+- pull request #5 from branch phase-19.1, merged by the orchestrator when its check is green (policies/human-in-the-loop.md § Delivery routes); the merge deploys
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-19.2.md — its "Inherited from Phase 19.1" gains the pinned specifics (lucide-react 1.51.0, deletes destructive, ConfirmForm's triggerVariant, SubmitButton's variant/size, the summary treatment) — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- filed: bronze-malamute — when a decomposition names the next child, draft it and its row before capture (methodology; filed at the PARK)
+- filed: red-condor — after a package install, diff every config file it may touch; pnpm 11 can silently add a release-age exclusion (local)
+- filed: blazing-eel — undo an agent's own uncommitted edit by editing the file, never with git checkout -- (methodology). In this run `git checkout -- project/pnpm-workspace.yaml` was used to drop pnpm's auto-added line; it changed nothing else, but the command belongs to the operator's destructive-git surface.
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, then on a laptop, open:
+
+https://rehearse.dalan.dev
+
+- **Suggested inputs.**
+  1. The home screen, signed in, then a group's page and its member list.
+  2. Your availability page (calendar and list views), a request's page, and the schedule page.
+  3. The profile menu, the privacy page, and an invite link in a private window.
+  4. A request whose rehearsals are all settled (confirm one proposal and delete the rest if none is complete yet), on the schedule page and the home screen.
+- **What to look for.**
+  - One consistent look on every page: the same type, spacing, colours, buttons and cards; each page's main action stands out and secondary ones are quieter.
+  - Forms, confirmation dialogs and toasts look and behave as before.
+  - Next to a complete request, "Add to Google Calendar" (or its connect/hint state) comes first, then a download icon with ".ics".
+  - Nothing is cramped or overflowing on the phone.
+- **Variations to explore.** Turn your phone to landscape; try a long group or member name.
+- Notes: deletes (a rehearsal, an availability time, a member, the group) are now red buttons that still ask before acting; try your phone in dark mode as well as light.
+
+Remaining:
+- Phase 19.2 (groups page, home page, availability and request screens) is next, then 19.3 (readable group URLs).
+
+## 2026-10-04 19:08 — Close bookkeeping outcomes
+
+Phase 19.1 — The shadcn/ui look, and the calendar buttons
+
+Execution trace: 88bd863372cd4c3eb82e805dc747a2d2
+
+- Status: applied and verified — Phase 19.1 ✅, Phase 19.2 ⬅️, Phase 19 stays 🚧 in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-19.2.md's "Inherited from Phase 19.1" names the pinned specifics.
+- Ripple DECIDE: none.
+- Lessons: bronze-malamute, red-condor and blazing-eel filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon (5), gentle-pug (6) and lively-salamander (5) are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #5.
