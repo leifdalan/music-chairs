@@ -2784,3 +2784,33 @@ Planned work:
 - Request page: the "Add <time>–<time>" links read "Check availability for <time>–<time>".
 
 Phase 19.3 (readable group addresses) is drafted before this capture, as lesson bronze-malamute asks.
+
+## 2026-10-04 20:29 — PARK
+Phase 19.2 — A groups page, a home page led by what needs you, and clearer availability and request screens
+
+Execution trace: 3bdc289f781843b2b22e4a8447eaf60e
+
+Reason: the implementation passed its code critique and all three gates (local smoke, CI on pull request #6, the changed-path tests), and this run's timing trace was finalized for close. A mutation check run just before close then found one surviving mutant: unticking a date that ignored the start of the time range went undetected, because the test's other-range time differed in both start and end. The test was strengthened (test-only; the mutant is now killed), which moves the candidate. Gates on the new candidate can no longer record their timing in this finalized trace, and acceptance requires timed gates, so the run parks and continues in a fresh run. An orchestration ordering fault (mutation checks belong before the trace finalizes), not a product defect.
+
+State at park:
+- Candidate d49cfc7c1b54740582f16a9351b3dfe092081ba2dd875118413fe94776649106, committed on main as a5f080f and pushed to branch phase-19.2 (draft pull request #6): the groups page, the home page led by what is waiting, availability saved as dates are ticked, the request wording, and the strengthened untick test.
+- Approved plan: plan-2 (hash ade7aaa676fd6df875b3b03933e8322b6a254960a0956e2052bb2502678f496a) after one independent plan review (10 findings: 9 adopted, 1 partly). One code critique on candidate 590461d0… (7 findings: 5 adopted, 1 deferred, 1 declined), corrections on f073c986…, which passed every gate.
+- Focused results on the new candidate: Vitest 541/541, lint, typecheck, format PASS; mutation checks 8 of 8 killed; local smoke PASS (recorded without timing); CI for a5f080f running.
+- No status change: Phase 19 and 19.2 stay 🚧. Pushed to the pull request branch only; nothing merged.
+
+Resume: a planned continuation under policies/review-lanes.md § Continue an approved plan after preparation: a fresh run with --follow-up-route full-cycle carries plan-2, its review and the code critique, records the test-only delta, and reruns the gates (including CI on the pull request), the close and delivery.
+
+Lessons:
+- inscrutable-grebe filed: check who owns a local port before screenshotting a build (local)
+- gentle-pug recurrence: the demo's last-organizer variation no longer matched after a declared deviation
+- the ordering fault above is a new observation, filed in the continuation's END
+
+Remaining:
+- Continuation run: gates on candidate d49cfc7c…, accepted close, handoff gate, delivery through pull request #6.
+
+## 2026-10-04 20:30 — START (resumed)
+Phase 19.2 — A groups page, a home page led by what needs you, and clearer availability and request screens
+
+Execution trace: 2f9beba697b641509f4bc18b348c17e6
+
+Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): the approved plan-2 (ade7aaa676fd6df875b3b03933e8322b6a254960a0956e2052bb2502678f496a), its plan review and the code critique are carried; the candidate d49cfc7c1b54740582f16a9351b3dfe092081ba2dd875118413fe94776649106 is unchanged since the park (the reviewed, corrected candidate plus a test-only strengthening). Remaining: gates on this candidate (including CI on pull request #6), close and delivery.
