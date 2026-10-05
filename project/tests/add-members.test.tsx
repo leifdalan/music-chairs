@@ -6,6 +6,7 @@ import { readToast } from "../app/.server/flash";
 import { CONTACTS_SCOPES, forgetAccessToken } from "../app/.server/google";
 import { findViewer } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { loader as groupLoader } from "../app/routes/group";
 import { action as joinAction, loader as joinLoader } from "../app/routes/join";
 import { action, loader } from "../app/routes/members.add";
@@ -18,6 +19,8 @@ import {
   signedIn,
   tempDatabase,
   thrownBy,
+  addressOf,
+  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -64,12 +67,22 @@ async function band(scopes: string[] = [CONTACTS_SCOPES.saved, CONTACTS_SCOPES.o
 }
 
 function load(groupId: string, cookie?: string, query = "") {
-  return loader(routeArgs(`/g/${groupId}/members/add${query}`, { groupId }, { cookie }));
+  return loader(
+    routeArgs(
+      `/g/${addressFor(groupId)}/members/add${query}`,
+      { groupAddress: addressFor(groupId) },
+      { cookie },
+    ),
+  );
 }
 
 function add(groupId: string, cookie: string, person: string) {
   return action(
-    routeArgs(`/g/${groupId}/members/add`, { groupId }, { cookie, form: { person } }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/members/add`,
+      { groupAddress: addressFor(groupId) },
+      { cookie, form: { person } },
+    ),
   ) as Promise<unknown>;
 }
 
@@ -162,7 +175,7 @@ describe("adding members", () => {
     expect(statusOf(await thrownBy(load(group.id, memberCookie)))).toBe(403);
     expect(statusOf(await thrownBy(add(group.id, memberCookie, "Intruder")))).toBe(403);
     const visitor = (await thrownBy(load(group.id))) as Response;
-    expect(visitor.headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(visitor.headers.get("Location")).toBe(groupPath(group));
     expect(store.listMembers(group.id)).toHaveLength(before);
   });
 });
@@ -187,7 +200,7 @@ describe("contact suggestions", () => {
 
     expect((await load(group.id, organizerCookie)).suggestions).toEqual({
       state: "connect",
-      connectUrl: `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`/g/${group.id}/members/add`)}`,
+      connectUrl: `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`${groupPath(group)}/members/add`)}`,
     });
     expect(google.peopleCalls()).toHaveLength(0);
     const token = store.deviceTokenFor(group.id, organizer.id)!;
@@ -237,7 +250,7 @@ describe("contact suggestions", () => {
 
     for (const cookie of [organizerCookie, memberCookie, undefined]) {
       const page = await groupLoader(
-        routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie }),
+        routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }),
       );
       expect(JSON.stringify(page)).not.toContain("private.test");
     }
@@ -250,7 +263,9 @@ describe("contact suggestions", () => {
     // The kept email is shown to organizers only.
     const pageFor = async (cookie?: string) =>
       JSON.stringify(
-        await groupLoader(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie })),
+        await groupLoader(
+          routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }),
+        ),
       );
     expect(await pageFor(organizerCookie)).toContain("saved-only@private.test");
     expect(await pageFor(memberCookie)).not.toContain("private.test");
@@ -277,7 +292,7 @@ describe("claiming a place added from contacts", () => {
 
     const response = (await thrownBy(openInvite(group.inviteToken, cookie))) as Response;
 
-    expect(response.headers.get("Location")).toBe(`/g/${group.id}`);
+    expect(response.headers.get("Location")).toBe(groupPath(group));
     expect(await toastOf(response)).toBe("Welcome, Amy Adams");
     expect(store.findMember(group.id, member.id)).toMatchObject({
       googleEmail: "Amy@Contacts.test",

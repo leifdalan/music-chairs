@@ -5,6 +5,7 @@
 
 import type { GoogleWriteState } from "~/components/calendar-actions";
 import { describeSlot, offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { answerable } from "~/lib/requests";
 
 import { googleWriteState } from "./calendar-sync";
@@ -12,7 +13,8 @@ import { requestProgress, type RequestProgress } from "./progress";
 import { getStore, type Group, type Member } from "./store";
 
 export type HomeRequest = {
-  groupId: string;
+  /** The group's path (`groupPath`). */
+  groupHref: string;
   groupName: string;
   requestId: string;
   name: string;
@@ -26,7 +28,8 @@ export type HomeRequest = {
 };
 
 export type WaitingProposal = {
-  groupId: string;
+  /** The group's path (`groupPath`). */
+  groupHref: string;
   groupName: string;
   rehearsalId: string;
   summary: string;
@@ -61,7 +64,7 @@ export async function homeRequests(
       const shown = progress.get(scheduleRequest.id) ?? null;
       if (!pending && !shown) continue;
       (pending ? waiting : rest).push({
-        groupId: group.id,
+        groupHref: groupPath(group),
         groupName: group.name,
         requestId: scheduleRequest.id,
         name: scheduleRequest.name,
@@ -103,7 +106,7 @@ export function waitingProposals(
       if (rehearsal.status !== "proposed" || answered.has(rehearsal.id)) continue;
       if (offeredDates(rehearsal, today, windowEnd(today)).length === 0) continue;
       proposals.push({
-        groupId: group.id,
+        groupHref: groupPath(group),
         groupName: group.name,
         rehearsalId: rehearsal.id,
         summary: describeSlot(rehearsal),

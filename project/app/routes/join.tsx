@@ -3,6 +3,7 @@ import { data, Form, redirect } from "react-router";
 import { googleConfig } from "~/.server/google";
 import { findViewer, readAccount, rememberMembership } from "~/.server/membership";
 import { redirectWithToast } from "~/.server/flash";
+import { groupPath } from "~/lib/group-address";
 import { getStore, type Group, type Member } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
@@ -31,7 +32,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const group = invitedGroup(params.inviteToken);
-  if (await alreadyJoined(request, group)) throw redirect(`/g/${group.id}`);
+  if (await alreadyJoined(request, group)) throw redirect(groupPath(group));
   const account = await readAccount(request);
   // Signed in with the Google account an organizer added from their contacts:
   // that place is theirs (plan/phase-13.md). Only a Google-verified email claims.
@@ -61,14 +62,14 @@ async function welcomeBack(
 ) {
   const token = getStore().deviceTokenFor(group.id, member.id);
   if (!token) throw data(null, { status: 404 });
-  return redirectWithToast(`/g/${group.id}`, message, {
+  return redirectWithToast(groupPath(group), message, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, token) },
   });
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
   const group = invitedGroup(params.inviteToken);
-  if (await alreadyJoined(request, group)) return redirect(`/g/${group.id}`);
+  if (await alreadyJoined(request, group)) return redirect(groupPath(group));
   const store = getStore();
   const form = await request.formData();
   const displayName = validateName(form.get("displayName"), "Your name", DISPLAY_NAME_MAX);
@@ -136,11 +137,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     // A second submission from the same signed-in browser lost the race to the
     // one-member-per-group rule: that account is already in the group.
     if (account && store.findMemberByAccount(group.id, account.id)) {
-      return redirect(`/g/${group.id}`);
+      return redirect(groupPath(group));
     }
     throw error;
   }
-  return redirectWithToast(`/g/${group.id}`, `You joined ${group.name}`, {
+  return redirectWithToast(groupPath(group), `You joined ${group.name}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
 }

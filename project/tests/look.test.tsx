@@ -8,11 +8,12 @@ import { CalendarActions, type GoogleWriteState } from "../app/components/calend
 import { SubmitButton } from "../app/components/submit-button";
 import { Button } from "../app/components/ui/button";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { deviceCookie, requestIn, routeArgs, tempDatabase } from "./routes";
+import { deviceCookie, requestIn, routeArgs, tempDatabase, addressOf } from "./routes";
 
 tempDatabase();
 beforeAll(() => {
@@ -27,7 +28,7 @@ function renderAt(Component: () => React.ReactNode): string {
 function actions(google: GoogleWriteState | null): string {
   return renderAt(() => (
     <CalendarActions
-      groupId="g"
+      groupHref="/g/g"
       requestId="r"
       requestName="Gig"
       google={google}
@@ -138,7 +139,9 @@ describe("buttons", () => {
       "group",
       "/g/:groupId",
       GroupPage,
-      await groupLoader(routeArgs(`/g/${group.id}`, { groupId: group.id }, { cookie })),
+      await groupLoader(
+        routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie }),
+      ),
     );
     const requestHtml = stub(
       "request",
@@ -146,8 +149,8 @@ describe("buttons", () => {
       RequestPage,
       await requestLoader(
         routeArgs(
-          `/g/${group.id}/requests/${requestId}`,
-          { groupId: group.id, requestId },
+          `${groupPath(group)}/requests/${requestId}`,
+          { groupAddress: addressOf(group), requestId },
           { cookie },
         ),
       ),
@@ -156,7 +159,9 @@ describe("buttons", () => {
       "schedule",
       "/g/:groupId/schedule",
       Schedule,
-      await scheduleLoader(routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie })),
+      await scheduleLoader(
+        routeArgs(`${groupPath(group)}/schedule`, { groupAddress: addressOf(group) }, { cookie }),
+      ),
     );
 
     expect(primaries(groupHtml, 'id="settings-heading"')).toBe(1);

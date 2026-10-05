@@ -8,6 +8,7 @@ import { ConfirmForm } from "~/components/confirm-form";
 import { CreateGroupForm } from "~/components/create-group-form";
 import { SubmitButton } from "~/components/submit-button";
 import { buttonVariants } from "~/components/ui/button";
+import { groupPath } from "~/lib/group-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { GROUP_NAME_MAX } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
@@ -19,8 +20,8 @@ export function meta() {
 }
 
 // The visitor's groups (plan/phase-19.2.md): this device's and the signed-in
-// account's. Only what the page shows leaves the server: no member ids,
-// device tokens, emails or invite links.
+// account's. Only what the page shows leaves the server: no group or member
+// ids, device tokens, emails or invite links; each group is known by its path.
 export async function loader({ request }: Route.LoaderArgs) {
   const store = getStore();
   const memberships = await visitorGroups(request, await readAccount(request));
@@ -28,7 +29,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     timeZones: timeZoneChoices(),
     groups: memberships
       .map(({ group, member }) => ({
-        id: group.id,
+        path: groupPath(group),
         name: group.name,
         timeZone: group.timeZone,
         role: member.role,
@@ -59,7 +60,7 @@ export default function Groups({ loaderData, actionData }: Route.ComponentProps)
       ) : (
         <ul className="group-cards">
           {groups.map((group) => (
-            <GroupCard key={group.id} group={group} />
+            <GroupCard key={group.path} group={group} />
           ))}
         </ul>
       )}
@@ -74,22 +75,22 @@ function GroupCard({ group }: { group: GroupItem }) {
   return (
     <li className="group-card">
       <h2>
-        <Link to={`/g/${group.id}`}>{group.name}</Link>
+        <Link to={group.path}>{group.name}</Link>
       </h2>
       <p className="hint">
         You are {group.displayName} ({group.role}).
       </p>
       <p className="group-links">
-        <Link to={`/g/${group.id}/schedule`} className={buttonVariants({ size: "sm" })}>
+        <Link to={`${group.path}/schedule`} className={buttonVariants({ size: "sm" })}>
           Schedule
         </Link>
         <Link
-          to={`/g/${group.id}/availability`}
+          to={`${group.path}/availability`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           My availability
         </Link>
-        <Link to={`/g/${group.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+        <Link to={group.path} className={buttonVariants({ variant: "outline", size: "sm" })}>
           Group page
         </Link>
       </p>
@@ -97,14 +98,14 @@ function GroupCard({ group }: { group: GroupItem }) {
         <summary>Manage this group</summary>
         <div className="stack">
           {organizer ? (
-            <Form method="post" action={`/g/${group.id}`} className="rename-form">
+            <Form method="post" action={group.path} className="rename-form">
               <input type="hidden" name="intent" value="update-group" />
               <input type="hidden" name="timeZone" value={group.timeZone} />
               <input type="hidden" name="returnTo" value="/groups" />
               <div className="field">
-                <label htmlFor={`rename-${group.id}`}>Group name</label>
+                <label htmlFor={`rename-${group.path.slice(3)}`}>Group name</label>
                 <input
-                  id={`rename-${group.id}`}
+                  id={`rename-${group.path.slice(3)}`}
                   name="name"
                   type="text"
                   required
@@ -113,7 +114,11 @@ function GroupCard({ group }: { group: GroupItem }) {
                   defaultValue={group.name}
                 />
               </div>
-              <SubmitButton feedbackKey={`rename-${group.id}`} variant="outline" size="sm">
+              <SubmitButton
+                feedbackKey={`rename-${group.path.slice(3)}`}
+                variant="outline"
+                size="sm"
+              >
                 Rename
               </SubmitButton>
             </Form>
@@ -123,23 +128,23 @@ function GroupCard({ group }: { group: GroupItem }) {
               <p className="hint">You can't leave: {LAST_ORGANIZER}</p>
             ) : (
               <ConfirmForm
-                action={`/g/${group.id}`}
+                action={group.path}
                 fields={{ intent: "leave", returnTo: "/groups" }}
                 trigger="Leave group"
                 triggerSize="sm"
                 {...leavePrompt(group.name)}
-                feedbackKey={`leave-${group.id}`}
+                feedbackKey={`leave-${group.path.slice(3)}`}
               />
             )}
             {organizer ? (
               <ConfirmForm
-                action={`/g/${group.id}`}
+                action={group.path}
                 fields={{ intent: "delete-group", returnTo: "/groups" }}
                 trigger="Delete group"
                 triggerVariant="destructive"
                 triggerSize="sm"
                 {...deletionPrompt(group.name)}
-                feedbackKey={`delete-${group.id}`}
+                feedbackKey={`delete-${group.path.slice(3)}`}
               />
             ) : null}
           </div>

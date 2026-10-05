@@ -1,5 +1,6 @@
 import { data, Form, Link, redirect } from "react-router";
 
+import { groupFromAddress } from "~/.server/group-address";
 import { redirectWithToast } from "~/.server/flash";
 import {
   CONTACTS_SCOPES,
@@ -12,6 +13,7 @@ import {
 import { findViewer, readAccount } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
+import { groupPath } from "~/lib/group-address";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { parsePerson } from "~/lib/contacts";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
@@ -26,11 +28,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** The group, for its organizers only: visitors go to the group page, members get 403. */
-async function organizerGroup(request: Request, groupId: string): Promise<Group> {
-  const group = getStore().findGroup(groupId);
-  if (!group) throw data(null, { status: 404 });
+async function organizerGroup(request: Request, address: string): Promise<Group> {
+  const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
   return group;
 }
@@ -49,7 +50,7 @@ async function suggestions(request: Request, group: Group): Promise<Suggestions 
   if (googleConfig() === null) return null;
   const account = await readAccount(request);
   if (!account) return { state: "sign-in" };
-  const connectUrl = `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`/g/${group.id}/members/add`)}`;
+  const connectUrl = `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`${groupPath(group)}/members/add`)}`;
   if (!getStore().findGrant(account.id)?.scopes.includes(CONTACTS_SCOPES.saved)) {
     return { state: "connect", connectUrl };
   }
@@ -64,9 +65,9 @@ async function suggestions(request: Request, group: Group): Promise<Suggestions 
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const group = await organizerGroup(request, params.groupId);
+  const group = await organizerGroup(request, params.groupAddress);
   return {
-    groupId: group.id,
+    groupHref: groupPath(group),
     groupName: group.name,
     notice: calendarNotice(request),
     suggestions: await suggestions(request, group),
@@ -74,7 +75,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const group = await organizerGroup(request, params.groupId);
+  const group = await organizerGroup(request, params.groupAddress);
   const store = getStore();
   const form = await request.formData();
   const value = String(form.get("person") ?? "");
@@ -109,16 +110,16 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (person.email && invited) return refuse("Someone with that email is already in the group.");
     throw error;
   }
-  return redirectWithToast(`/g/${group.id}/members/add`, `Added ${name.value}`);
+  return redirectWithToast(`${groupPath(group)}/members/add`, `Added ${name.value}`);
 }
 
 export default function AddMembers({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupId, groupName, notice, suggestions: offered } = loaderData;
+  const { groupHref, groupName, notice, suggestions: offered } = loaderData;
   const contacts = offered?.state === "ready" ? offered.contacts : [];
   return (
     <main>
       <p className="eyebrow">
-        <Link to={`/g/${groupId}`}>{groupName}</Link>
+        <Link to={groupHref}>{groupName}</Link>
       </p>
       <h1>Add members</h1>
       {notice ? (
@@ -179,7 +180,7 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         <SubmitButton feedbackKey="add-member">Add</SubmitButton>
       </Form>
       <p>
-        <Link to={`/g/${groupId}`}>Back to the group</Link>
+        <Link to={groupHref}>Back to the group</Link>
       </p>
     </main>
   );

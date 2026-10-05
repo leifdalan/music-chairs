@@ -1257,6 +1257,40 @@ describe("schema migrations", () => {
     db.close();
   });
 
+  it("upgrades a version-9 database to short ids, giving every group a distinct one", () => {
+    const filename = fileDatabase();
+    const raw = new DatabaseSync(filename);
+    migrate(raw, MIGRATIONS.slice(0, 9));
+    const insert = raw.prepare(
+      "INSERT INTO groups VALUES (?, ?, 'Quartet', 'Europe/London', 0, '2026-10-01')",
+    );
+    for (let index = 0; index < 200; index++) {
+      insert.run(`g${String(index).padStart(21, "0")}`, `i${String(index).padStart(21, "0")}`);
+    }
+    raw.exec(`
+      INSERT INTO members (id, group_id, display_name, role, optional, device_token, joined_at)
+        VALUES ('m', 'g000000000000000000000', 'Cellist', 'member', 0, 'device', '2026-10-01');
+    `);
+    expect(version(raw)).toBe(9);
+    raw.close();
+
+    const store = openStore(filename);
+    opened.push(store);
+    const db = new DatabaseSync(filename);
+    const rows = db.prepare("SELECT short_id FROM groups").all() as { short_id: string | null }[];
+
+    expect(version(db)).toBe(MIGRATIONS.length);
+    expect(rows).toHaveLength(200);
+    expect(
+      rows.every((row) => /^[23456789abcdefghijkmnpqrstuvwxyz]{8}$/.test(row.short_id ?? "")),
+    ).toBe(true);
+    expect(new Set(rows.map((row) => row.short_id)).size).toBe(200);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM members").get()).toEqual({ n: 1 });
+    const first = store.findGroup("g000000000000000000000");
+    expect(first && store.findGroupByShortId(first.shortId)?.id).toBe(first?.id);
+    db.close();
+  });
+
   it("refuses a database from a newer version, even in development", () => {
     const filename = fileDatabase();
     openStore(filename).close();

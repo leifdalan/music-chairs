@@ -5,12 +5,21 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { confirmationNeeded } from "../app/.server/confirm";
 import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { ConfirmForm, ConfirmPanel } from "../app/components/confirm-form";
 import { action as availabilityAction } from "../app/routes/availability";
 import { action as groupAction } from "../app/routes/group";
 import { action as requestAction } from "../app/routes/request";
 import { action as scheduleAction } from "../app/routes/schedule";
-import { deviceCookie, requestIn, routeArgs, signedIn, tempDatabase, thrownBy } from "./routes";
+import {
+  deviceCookie,
+  requestIn,
+  routeArgs,
+  signedIn,
+  tempDatabase,
+  thrownBy,
+  addressOf,
+} from "./routes";
 
 const count = tempDatabase();
 
@@ -92,8 +101,8 @@ const destructive: {
     run: (b, form) =>
       availabilityAction(
         routeArgs(
-          `/g/${b.group.id}/availability`,
-          { groupId: b.group.id },
+          `${groupPath(b.group)}/availability`,
+          { groupAddress: addressOf(b.group) },
           { cookie: b.cellistCookie, form },
         ),
       ),
@@ -106,8 +115,8 @@ const destructive: {
     run: (b, form) =>
       requestAction(
         routeArgs(
-          `/g/${b.group.id}/requests/${b.request.id}`,
-          { groupId: b.group.id, requestId: b.request.id },
+          `${groupPath(b.group)}/requests/${b.request.id}`,
+          { groupAddress: addressOf(b.group), requestId: b.request.id },
           { cookie: b.organizerCookie, form },
         ),
       ),
@@ -139,8 +148,8 @@ const destructive: {
     run: (b: Band, fields: Record<string, string>) =>
       scheduleAction(
         routeArgs(
-          `/g/${b.group.id}/schedule`,
-          { groupId: b.group.id },
+          `${groupPath(b.group)}/schedule`,
+          { groupAddress: addressOf(b.group) },
           { cookie: b.organizerCookie, form: fields },
         ),
       ),
@@ -153,8 +162,8 @@ const destructive: {
     run: (b, form) =>
       scheduleAction(
         routeArgs(
-          `/g/${b.group.id}/schedule`,
-          { groupId: b.group.id },
+          `${groupPath(b.group)}/schedule`,
+          { groupAddress: addressOf(b.group) },
           { cookie: b.cellistCookie, form },
         ),
       ),
@@ -185,8 +194,8 @@ const destructive: {
     run: (b: Band, fields: Record<string, string>) =>
       groupAction(
         routeArgs(
-          `/g/${b.group.id}`,
-          { groupId: b.group.id },
+          groupPath(b.group),
+          { groupAddress: addressOf(b.group) },
           { cookie: b.organizerCookie, form: fields },
         ),
       ),
@@ -233,8 +242,8 @@ describe("are you sure", () => {
     const schedule = (form: Record<string, string>) =>
       scheduleAction(
         routeArgs(
-          `/g/${b.group.id}/schedule`,
-          { groupId: b.group.id },
+          `${groupPath(b.group)}/schedule`,
+          { groupAddress: addressOf(b.group) },
           { cookie: b.organizerCookie, form },
         ),
       );

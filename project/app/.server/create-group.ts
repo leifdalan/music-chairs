@@ -5,6 +5,7 @@
 import { data } from "react-router";
 
 import { canonicalTimeZone } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 
 import { redirectWithToast } from "./flash";
@@ -40,7 +41,7 @@ export async function createGroupAction(request: Request, form: FormData) {
     timeZone,
     account?.id ?? null,
   );
-  return redirectWithToast(`/g/${group.id}`, "Group created", {
+  return redirectWithToast(groupPath(group), "Group created", {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, organizer.deviceToken) },
   });
 }

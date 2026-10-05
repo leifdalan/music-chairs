@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { data, Form, Link, redirect } from "react-router";
 
+import { groupFromAddress } from "~/.server/group-address";
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TimeRange } from "~/components/time-range";
 import { QuarterHours } from "~/components/time-field";
+import { groupPath } from "~/lib/group-address";
 import { addDays, formatMinutes, timeInputValue, todayInZone } from "~/lib/availability";
 import {
   MAX_WINDOWS,
@@ -28,11 +30,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** The group, for its organizers only: visitors go to the group page, members get 403. */
-async function organizerGroup(request: Request, groupId: string): Promise<Group> {
-  const group = getStore().findGroup(groupId);
-  if (!group) throw data(null, { status: 404 });
+async function organizerGroup(request: Request, address: string): Promise<Group> {
+  const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
   return group;
 }
@@ -56,7 +57,7 @@ function formValues(request: ScheduleRequest, span: { startDate: string; endDate
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const group = await organizerGroup(request, params.groupId);
+  const group = await organizerGroup(request, params.groupAddress);
   const today = todayInZone(group.timeZone, new Date());
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
@@ -77,7 +78,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     values = formValues(stored, repeatSpan(stored.startDate, stored.endDate, today));
   }
   return {
-    groupId: group.id,
+    groupHref: groupPath(group),
     groupName: group.name,
     timeZone: group.timeZone,
     today,
@@ -87,7 +88,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const group = await organizerGroup(request, params.groupId);
+  const group = await organizerGroup(request, params.groupAddress);
   const store = getStore();
   const form = await request.formData();
   const requestId = form.get("requestId");
@@ -114,14 +115,14 @@ export async function action({ request, params }: Route.ActionArgs) {
         { status: 400 },
       );
     }
-    return redirectWithToast(`/g/${group.id}/requests/${stored.id}`, "Request updated");
+    return redirectWithToast(`${groupPath(group)}/requests/${stored.id}`, "Request updated");
   }
   const created = store.createRequest(group.id, parsed.value);
-  return redirectWithToast(`/g/${group.id}/requests/${created.id}`, "Request created");
+  return redirectWithToast(`${groupPath(group)}/requests/${created.id}`, "Request created");
 }
 
 export default function RequestForm({ loaderData, actionData }: Route.ComponentProps) {
-  const { groupId, groupName, timeZone, editing } = loaderData;
+  const { groupHref, groupName, timeZone, editing } = loaderData;
   const result = actionData && "values" in actionData ? actionData : undefined;
   const problem = actionData && "problem" in actionData ? actionData.problem : null;
   const values = result?.values ?? loaderData.values;
@@ -131,12 +132,12 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
   // lost), plus one after "Add another time". At least two, up to the limit.
   const sent = result ? values.windows.length + (result.extraRow ? 1 : 0) : null;
   const rowCount = Math.min(MAX_WINDOWS, Math.max(2, sent ?? values.windows.length + 1));
-  const backTo = editing ? `/g/${groupId}/requests/${editing.id}` : `/g/${groupId}`;
+  const backTo = editing ? `${groupHref}/requests/${editing.id}` : groupHref;
 
   return (
     <main>
       <p className="eyebrow">
-        <Link to={`/g/${groupId}`}>{groupName}</Link>
+        <Link to={groupHref}>{groupName}</Link>
       </p>
       <h1>{editing ? "Edit request" : "New request"}</h1>
       <p className="hint">

@@ -6,6 +6,7 @@ import { whenSynced } from "../app/.server/calendar-sync";
 import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { action as requestAction } from "../app/routes/request";
 import Schedule, { action, loader } from "../app/routes/schedule";
 import { fakeGoogle } from "./google-fake";
@@ -18,6 +19,7 @@ import {
   signedIn,
   tempDatabase,
   thrownBy,
+  addressFor,
 } from "./routes";
 
 const count = tempDatabase();
@@ -61,12 +63,20 @@ async function band() {
 }
 
 function load(groupId: string, cookie?: string, search = "") {
-  const path = `/g/${groupId}/schedule${search}`;
-  return loader(routeArgs(path, { groupId }, { cookie })) as Promise<ScheduleData>;
+  const path = `/g/${addressFor(groupId)}/schedule${search}`;
+  return loader(
+    routeArgs(path, { groupAddress: addressFor(groupId) }, { cookie }),
+  ) as Promise<ScheduleData>;
 }
 
 function post(groupId: string, cookie: string | undefined, form: Record<string, string>) {
-  return action(routeArgs(`/g/${groupId}/schedule`, { groupId }, { cookie, form }));
+  return action(
+    routeArgs(
+      `/g/${addressFor(groupId)}/schedule`,
+      { groupAddress: addressFor(groupId) },
+      { cookie, form },
+    ),
+  );
 }
 
 const requests = new Map<string, string>();
@@ -76,7 +86,11 @@ function propose(groupId: string, cookie: string | undefined, form: Record<strin
   const requestId = requests.get(groupId) ?? requestIn(groupId);
   requests.set(groupId, requestId);
   return requestAction(
-    routeArgs(`/g/${groupId}/requests/${requestId}`, { groupId, requestId }, { cookie, form }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/requests/${requestId}`,
+      { groupAddress: addressFor(groupId), requestId },
+      { cookie, form },
+    ),
   );
 }
 
@@ -144,9 +158,12 @@ describe("schedule route", () => {
     const { group } = await band();
 
     const visitor = await thrownBy(load(group.id));
-    const unknown = await thrownBy(load("A".repeat(22)));
+    // A well-formed address whose short id names no group.
+    const unknown = await thrownBy(
+      loader(routeArgs("/g/quartet-zzzzzzzz/schedule", { groupAddress: "quartet-zzzzzzzz" })),
+    );
 
-    expect((visitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+    expect((visitor as Response).headers.get("Location")).toBe(groupPath(group));
     expect(statusOf(unknown)).toBe(404);
   });
 
@@ -701,7 +718,7 @@ describe("schedule route", () => {
         answer(group.id, undefined, rehearsal.id, "yes", "2026-10-08"),
       );
 
-      expect((visitor as Response).headers.get("Location")).toBe(`/g/${group.id}`);
+      expect((visitor as Response).headers.get("Location")).toBe(groupPath(group));
       expect(count("rsvps")).toBe(before);
     });
 

@@ -5,10 +5,11 @@ import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { dateTicked } from "../app/lib/date-toggle";
 import Availability, { action, loader } from "../app/routes/availability";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
-import { deviceCookie, ORIGIN, routeArgs, tempDatabase } from "./routes";
+import { deviceCookie, ORIGIN, routeArgs, tempDatabase, addressOf, addressFor } from "./routes";
 
 const count = tempDatabase();
 
@@ -33,17 +34,25 @@ async function member() {
 
 function load(groupId: string, cookie: string, search = "") {
   return loader(
-    routeArgs(`/g/${groupId}/availability${search}`, { groupId }, { cookie }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/availability${search}`,
+      { groupAddress: addressFor(groupId) },
+      { cookie },
+    ),
   ) as Promise<PageData>;
 }
 
 function setDate(groupId: string, cookie: string, fields: Record<string, string>) {
-  const request = new Request(new URL(`/g/${groupId}/availability`, ORIGIN), {
+  const request = new Request(new URL(`/g/${addressFor(groupId)}/availability`, ORIGIN), {
     method: "POST",
     headers: { Cookie: cookie },
     body: new URLSearchParams({ intent: "set-date", ...fields }),
   });
-  return action({ request, params: { groupId }, context: {} } as never) as Promise<unknown>;
+  return action({
+    request,
+    params: { groupAddress: addressFor(groupId) },
+    context: {},
+  } as never) as Promise<unknown>;
 }
 
 function render(data: PageData): string {
@@ -177,7 +186,7 @@ describe("saving one date", () => {
   it("refuses more than one date at once", async () => {
     const { group, cookie } = await member();
     const before = count("availability");
-    const request = new Request(new URL(`/g/${group.id}/availability`, ORIGIN), {
+    const request = new Request(new URL(`${groupPath(group)}/availability`, ORIGIN), {
       method: "POST",
       headers: { Cookie: cookie },
       body: new URLSearchParams([
@@ -192,7 +201,7 @@ describe("saving one date", () => {
 
     const result = (await action({
       request,
-      params: { groupId: group.id },
+      params: { groupAddress: addressOf(group) },
       context: {},
     } as never)) as {
       init: ResponseInit;
@@ -261,8 +270,8 @@ describe("the request page", () => {
     });
     const data = await requestLoader(
       routeArgs(
-        `/g/${group.id}/requests/${request.id}`,
-        { groupId: group.id, requestId: request.id },
+        `${groupPath(group)}/requests/${request.id}`,
+        { groupAddress: addressOf(group), requestId: request.id },
         { cookie },
       ),
     );
@@ -277,7 +286,7 @@ describe("the request page", () => {
     ).replaceAll("<!-- -->", "");
 
     expect(html).toContain(
-      `href="/g/${group.id}/availability?request=${request.id}&amp;window=0" data-discover="true">Check availability for 19:00–22:00</a>`,
+      `href="${groupPath(group)}/availability?request=${request.id}&amp;window=0" data-discover="true">Check availability for 19:00–22:00</a>`,
     );
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { data, Form, Link, redirect, useFetcher, useFetchers, useLocation } from "react-router";
 
+import { groupFromAddress } from "~/.server/group-address";
 import { calendarViewer } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
@@ -37,6 +38,7 @@ import {
   type SlotErrors,
   type SlotFormValues,
 } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { busyQueries, busyRanges, clashes, clipRanges } from "~/lib/busy";
 import { dateTicked, type OneOff } from "~/lib/date-toggle";
 import { calendarNotice } from "~/lib/calendar-notices";
@@ -65,12 +67,11 @@ function openRequest(group: Group, id: unknown, today: string): ScheduleRequest 
 /** The group and the member viewing it; visitors go back to the group page. */
 async function groupAndViewer(
   request: Request,
-  groupId: string,
+  address: string,
 ): Promise<{ group: Group; viewer: Member }> {
-  const group = getStore().findGroup(groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   return { group, viewer };
 }
 
@@ -138,7 +139,7 @@ async function googleClashes(
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const { group, viewer } = await groupAndViewer(request, params.groupId);
+  const { group, viewer } = await groupAndViewer(request, params.groupAddress);
   const slots = getStore().listSlots(viewer.id);
   const today = todayInZone(group.timeZone, new Date());
   const until = addDays(today, UPCOMING_WEEKS * 7 - 1);
@@ -320,16 +321,16 @@ function setDate(form: FormData, group: Group, viewer: Member): string | null {
 export async function action({ request, params }: Route.ActionArgs) {
   // Resolve the viewer before reading the form: every write is scoped to the
   // member this device is in this group, never to an id taken from the form.
-  const { group, viewer } = await groupAndViewer(request, params.groupId);
+  const { group, viewer } = await groupAndViewer(request, params.groupAddress);
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
   const slotId = String(form.get("slotId") ?? "");
-  const back = (message: string) => redirectWithToast(`/g/${group.id}/availability`, message);
+  const back = (message: string) => redirectWithToast(`${groupPath(group)}/availability`, message);
   // Back to the request the form came from, by its stored id, never a path from the form.
   const backToRequest = (scheduleRequest: ScheduleRequest | null, message: string) =>
     scheduleRequest
-      ? redirectWithToast(`/g/${group.id}/requests/${scheduleRequest.id}`, message)
+      ? redirectWithToast(`${groupPath(group)}/requests/${scheduleRequest.id}`, message)
       : back(message);
 
   if (intent === "set-date") {

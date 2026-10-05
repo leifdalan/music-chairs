@@ -1,8 +1,10 @@
-import { data, redirect } from "react-router";
+import { redirect } from "react-router";
 
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer, safeReturnTo } from "~/.server/membership";
+import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
+import { groupPath } from "~/lib/group-address";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { validateInstrument } from "~/lib/profile";
 
@@ -15,10 +17,9 @@ import type { Route } from "./+types/profile";
  */
 export async function action({ request, params }: Route.ActionArgs) {
   const store = getStore();
-  const group = store.findGroup(params.groupId);
-  if (!group) throw data(null, { status: 404 });
+  const group = groupFromAddress(request, params.groupAddress);
   const viewer = await findViewer(request, group);
-  if (!viewer) throw redirect(`/g/${group.id}`);
+  if (!viewer) throw redirect(groupPath(group));
   const form = await request.formData();
   const back = safeReturnTo(form.get("returnTo"), request);
   const name = validateName(form.get("displayName"), "Your name", DISPLAY_NAME_MAX);
@@ -29,6 +30,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirectWithToast(back, "Profile saved");
 }
 
-export function loader({ params }: Route.LoaderArgs) {
-  return redirect(`/g/${params.groupId}`);
+export function loader({ request, params }: Route.LoaderArgs) {
+  return redirect(groupPath(groupFromAddress(request, params.groupAddress)));
 }

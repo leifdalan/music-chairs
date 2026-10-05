@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { isOccurrence, type Slot, type SlotInput } from "~/lib/availability";
+import { SHORT_ID_ALPHABET, SHORT_ID_LENGTH } from "~/lib/group-address";
 import { sameName } from "~/lib/profile";
 import type { TimeWindow } from "~/lib/requests";
 
@@ -11,6 +12,8 @@ export type Role = "organizer" | "member";
 
 export type Group = {
   id: string;
+  /** The 8 characters that identify the group in its address (plan/phase-19.3.md). */
+  shortId: string;
   inviteToken: string;
   name: string;
   timeZone: string;
@@ -130,6 +133,8 @@ export type Store = {
     accountId?: string | null,
   ): { group: Group; organizer: NewMember };
   findGroup(id: string): Group | null;
+  /** The group whose address ends with this short id (plan/phase-19.3.md). */
+  findGroupByShortId(shortId: string): Group | null;
   findGroupByInviteToken(token: string): Group | null;
   setShowNames(groupId: string, showNames: boolean): void;
   /** Renames the group and sets its time zone; false for an unknown group. */
@@ -533,6 +538,24 @@ export const MIGRATIONS: readonly string[] = [
   ALTER TABLE rehearsals ADD COLUMN request_id TEXT REFERENCES requests(id);
   CREATE INDEX rehearsals_by_request ON rehearsals (request_id);
   `,
+  // Version 10 (Phase 19.3): each group's short id for its readable address,
+  // 8 characters from the 32-character SHORT_ID_ALPHABET (hence `& 31`).
+  // Existing groups draw one at random; a collision fails the unique index and
+  // rolls the whole migration back. Nullable in SQL (adding NOT NULL needs a
+  // rebuild); the store always writes it and refuses to read a group without one.
+  `
+  ALTER TABLE groups ADD COLUMN short_id TEXT;
+  UPDATE groups SET short_id =
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1);
+  CREATE UNIQUE INDEX groups_by_short_id ON groups (short_id);
+  `,
 ];
 
 /**
@@ -587,6 +610,14 @@ function newToken(): string {
   return randomBytes(16).toString("base64url");
 }
 
+/** A new short id for a group's address: 8 characters from the 32-letter alphabet. */
+function newShortId(): string {
+  return Array.from(
+    { length: SHORT_ID_LENGTH },
+    () => SHORT_ID_ALPHABET[randomInt(SHORT_ID_ALPHABET.length)],
+  ).join("");
+}
+
 /** Whether a value has the shape of an identifier this store issues. */
 export function isToken(value: unknown): value is string {
   return typeof value === "string" && TOKEN_PATTERN.test(value);
@@ -594,6 +625,7 @@ export function isToken(value: unknown): value is string {
 
 type GroupRow = {
   id: string;
+  short_id: string | null;
   invite_token: string;
   name: string;
   time_zone: string;
@@ -620,8 +652,11 @@ type SlotRow = {
 };
 
 function toGroup(row: GroupRow): Group {
+  // A query that forgot the column would read undefined here, not null.
+  if (!row.short_id) throw new Error(`Group ${row.id} has no short id.`);
   return {
     id: row.id,
+    shortId: row.short_id,
     inviteToken: row.invite_token,
     name: row.name,
     timeZone: row.time_zone,
@@ -706,16 +741,17 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   db.exec("PRAGMA foreign_keys = ON;");
 
   const insertGroup = db.prepare(
-    `INSERT INTO groups (id, invite_token, name, time_zone, show_names, created_at)
-     VALUES (?, ?, ?, ?, 0, ?)`,
+    `INSERT INTO groups (id, short_id, invite_token, name, time_zone, show_names, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`,
   );
   const insertMember = db.prepare(
     `INSERT INTO members
      (id, group_id, display_name, role, optional, device_token, joined_at, account_id)
      VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
   );
-  const groupColumns = "id, invite_token, name, time_zone, show_names";
+  const groupColumns = "id, short_id, invite_token, name, time_zone, show_names";
   const selectGroup = db.prepare(`SELECT ${groupColumns} FROM groups WHERE id = ?`);
+  const selectGroupByShortId = db.prepare(`SELECT ${groupColumns} FROM groups WHERE short_id = ?`);
   const selectGroupByInvite = db.prepare(
     `SELECT ${groupColumns} FROM groups WHERE invite_token = ?`,
   );
@@ -805,7 +841,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     "UPDATE members SET account_id = ? WHERE group_id = ? AND id = ?",
   );
   const selectAccountMemberships = db.prepare(
-    `SELECT groups.id AS g_id, groups.invite_token, groups.name, groups.time_zone,
+    `SELECT groups.id AS g_id, groups.short_id, groups.invite_token, groups.name, groups.time_zone,
        groups.show_names, members.id, members.group_id, members.display_name, members.role,
        members.optional, members.calendar_sync, members.instrument, members.invited_email,
        accounts.email AS google_email
@@ -1197,15 +1233,26 @@ function buildStore(db: DatabaseSync, filename: string): Store {
 
   return {
     createGroup(name, organizerName, timeZone, accountId = null) {
-      const group: Group = {
-        id: newToken(),
-        inviteToken: newToken(),
-        name,
-        timeZone,
-        showNames: false,
-      };
       return transaction(() => {
-        insertGroup.run(group.id, group.inviteToken, name, timeZone, new Date().toISOString());
+        let shortId = newShortId();
+        // About one chance in 10^12 per existing group; draw again rather than fail.
+        while (selectGroupByShortId.get(shortId)) shortId = newShortId();
+        const group: Group = {
+          id: newToken(),
+          shortId,
+          inviteToken: newToken(),
+          name,
+          timeZone,
+          showNames: false,
+        };
+        insertGroup.run(
+          group.id,
+          group.shortId,
+          group.inviteToken,
+          name,
+          timeZone,
+          new Date().toISOString(),
+        );
         const organizer = addMember(group.id, organizerName, "organizer", accountId);
         return { group, organizer };
       });
@@ -1213,6 +1260,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     findGroup(id) {
       if (!isToken(id)) return null;
       const row = selectGroup.get(id) as GroupRow | undefined;
+      return row ? toGroup(row) : null;
+    },
+    findGroupByShortId(shortId) {
+      const row = selectGroupByShortId.get(shortId) as GroupRow | undefined;
       return row ? toGroup(row) : null;
     },
     findGroupByInviteToken(token) {

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { parseProposedTimes, PROPOSE_MAX } from "../app/lib/propose";
 import RequestPage, {
   action as requestAction,
@@ -18,6 +19,8 @@ import {
   setCookies,
   tempDatabase,
   thrownBy,
+  addressOf,
+  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -221,14 +224,14 @@ function requestPost(
   cookie: string | undefined,
   fields: [string, string][],
 ) {
-  const request = new Request(new URL(`/g/${groupId}/requests/${requestId}`, ORIGIN), {
+  const request = new Request(new URL(`/g/${addressFor(groupId)}/requests/${requestId}`, ORIGIN), {
     method: "POST",
     headers: cookie ? { Cookie: cookie } : {},
     body: new URLSearchParams(fields),
   });
   return requestAction({
     request,
-    params: { groupId, requestId },
+    params: { groupAddress: addressFor(groupId), requestId },
     context: {},
   } as never) as Promise<unknown>;
 }
@@ -258,7 +261,7 @@ describe("free times on the schedule page", () => {
     const html = async (cookie: string) =>
       renderSchedule(
         (await scheduleLoader(
-          routeArgs(`/g/${group.id}/schedule`, { groupId: group.id }, { cookie }),
+          routeArgs(`${groupPath(group)}/schedule`, { groupAddress: addressOf(group) }, { cookie }),
         )) as ScheduleData,
       );
 
@@ -293,7 +296,11 @@ describe("proposing ticked times on a request's page", () => {
   async function page(groupId: string, requestId: string, cookie: string) {
     return renderRequest(
       (await requestLoader(
-        routeArgs(`/g/${groupId}/requests/${requestId}`, { groupId, requestId }, { cookie }),
+        routeArgs(
+          `/g/${addressFor(groupId)}/requests/${requestId}`,
+          { groupAddress: addressFor(groupId), requestId },
+          { cookie },
+        ),
       )) as RequestData,
     );
   }
@@ -310,7 +317,7 @@ describe("proposing ticked times on a request's page", () => {
     ]);
 
     expect((response as Response).headers.get("Location")).toBe(
-      `/g/${group.id}/requests/${requestId}`,
+      `${groupPath(group)}/requests/${requestId}`,
     );
     expect(await toastOf(response)).toBe("Rehearsal proposed");
     expect(times(store, group.id)).toEqual(["once 2026-10-05 1140-1260  proposed"]);
@@ -322,8 +329,8 @@ describe("proposing ticked times on a request's page", () => {
     const data = () =>
       requestLoader(
         routeArgs(
-          `/g/${group.id}/requests/${requestId}`,
-          { groupId: group.id, requestId },
+          `${groupPath(group)}/requests/${requestId}`,
+          { groupAddress: addressOf(group), requestId },
           { cookie: organizerCookie },
         ),
       ) as Promise<RequestData>;
@@ -370,7 +377,7 @@ describe("proposing ticked times on a request's page", () => {
       custom("10:00", "12:00", "Hall"),
     );
     expect((response as Response).headers.get("Location")).toBe(
-      `/g/${group.id}/requests/${requestId}`,
+      `${groupPath(group)}/requests/${requestId}`,
     );
     expect(await toastOf(response)).toBe("Rehearsal proposed");
     expect(times(store, group.id)).toEqual(["weekly 2026-10-06 600-720 Hall proposed"]);
@@ -382,8 +389,8 @@ describe("proposing ticked times on a request's page", () => {
     const data = (cookie: string) =>
       requestLoader(
         routeArgs(
-          `/g/${group.id}/requests/${requestId}`,
-          { groupId: group.id, requestId },
+          `${groupPath(group)}/requests/${requestId}`,
+          { groupAddress: addressOf(group), requestId },
           { cookie },
         ),
       ) as Promise<RequestData>;

@@ -38,9 +38,9 @@ export function ProfileMenu() {
         {profile.member ? (
           <Form
             method="post"
-            action={`/g/${profile.member.groupId}/profile`}
+            action={`${profile.member.groupHref}/profile`}
             className="stack"
-            key={`${profile.member.groupId}-${profile.member.displayName}-${profile.member.instrument}`}
+            key={`${profile.member.groupHref}-${profile.member.displayName}-${profile.member.instrument}`}
           >
             <input type="hidden" name="returnTo" value={here} />
             <div className="field">

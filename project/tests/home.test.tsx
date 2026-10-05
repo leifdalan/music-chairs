@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { readToast } from "../app/.server/flash";
 import { readMemberships } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import { GROUP_NAME_MAX } from "../app/lib/names";
 import Home, { action, loader } from "../app/routes/home";
 import { addDays, todayInZone } from "../app/lib/availability";
@@ -16,6 +17,7 @@ import {
   setCookies,
   signedIn,
   tempDatabase,
+  groupAt,
 } from "./routes";
 
 const count = tempDatabase();
@@ -60,10 +62,12 @@ describe("home route", () => {
     });
     const home = await loader(routeArgs("/", {}, { cookie: elsewhere.cookie }));
 
-    const groupId = response.headers.get("Location")!.replace("/g/", "");
+    const groupId = groupAt(response.headers.get("Location"))!.id;
     expect(getStore().findMemberByAccount(groupId, account.id)?.role).toBe("organizer");
     expect(home.account).toEqual({ name: "Olga", email: "organizer@example.test" });
-    expect(home.groups).toEqual([{ id: groupId, name: "Wind Trio", displayName: "Oboe" }]);
+    expect(home.groups).toEqual([
+      { path: response.headers.get("Location"), name: "Wind Trio", displayName: "Oboe" },
+    ]);
   });
 
   it("offers Google sign-in only when it is configured", async () => {
@@ -103,7 +107,7 @@ describe("home route", () => {
     expect(response).toBeInstanceOf(Response);
     const created = response as Response;
     expect(created.status).toBe(302);
-    const groupId = created.headers.get("Location")!.replace("/g/", "");
+    const groupId = groupAt(created.headers.get("Location"))!.id;
     expect(getStore().findGroup(groupId)).toMatchObject({
       name: "Thursday Quartet",
       timeZone: "Europe/London",
@@ -133,7 +137,7 @@ describe("home route", () => {
       timeZone: alias,
     })) as Response;
 
-    const groupId = response.headers.get("Location")!.replace("/g/", "");
+    const groupId = groupAt(response.headers.get("Location"))!.id;
     expect(getStore().findGroup(groupId)?.timeZone).toBe(canonical);
   });
 
@@ -245,7 +249,7 @@ describe("requests waiting for your answer", () => {
 
     expect(pending).toEqual([
       {
-        groupId: mine.group.id,
+        groupHref: groupPath(mine.group),
         groupName: "Quartet",
         requestId: mine.open.id,
         name: "Quartet gig",
@@ -322,7 +326,7 @@ describe("requests waiting for your answer", () => {
     const html = render({ loaderData: { home: data } });
     expect(html).toContain("Waiting on you");
     expect(html).toContain("Waiting for your answer");
-    expect(html).toContain(`href="/g/${mine.group.id}/requests/${mine.open.id}"`);
+    expect(html).toContain(`href="${groupPath(mine.group)}/requests/${mine.open.id}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your groups"));
     expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(
       "Waiting on you",
@@ -362,7 +366,7 @@ describe("everything waiting on you, first", () => {
 
     expect(data.proposals).toEqual([
       {
-        groupId: group.id,
+        groupHref: groupPath(group),
         groupName: "Waiting Band",
         rehearsalId: rehearsal.id,
         summary: expect.any(String),
@@ -370,13 +374,13 @@ describe("everything waiting on you, first", () => {
       },
     ]);
     const waiting = html.slice(html.indexOf("Waiting on you"), html.indexOf("</section>"));
-    expect(waiting).toContain(`href="/g/${group.id}/schedule"`);
-    expect(waiting).toContain(`href="/g/${group.id}/requests/${request.id}"`);
+    expect(waiting).toContain(`href="${groupPath(group)}/schedule"`);
+    expect(waiting).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your requests"));
     // The proposal also stays under its request, with the figures.
     const progress = html.slice(html.indexOf("Your requests"));
     expect(progress).toContain(`Proposed: ${data.proposals[0].summary}`);
-    expect(progress).toContain(`href="/g/${group.id}/requests/${request.id}"`);
+    expect(progress).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
   });
 
   it("drops a proposal the member answered on any date", async () => {
@@ -394,7 +398,7 @@ describe("everything waiting on you, first", () => {
     const without = render({ loaderData: { home: zones } });
 
     expect(withGroups).not.toContain('id="create-heading"');
-    expect(withGroups).toContain(`href="/g/${group.id}"`);
+    expect(withGroups).toContain(`href="${groupPath(group)}"`);
     expect(withGroups).toContain('href="/groups"');
     expect(without).toContain('id="create-heading"');
   });

@@ -11,6 +11,7 @@ import { CALENDAR_SCOPES } from "../app/.server/google";
 import { rememberMembership } from "../app/.server/membership";
 import { requestProgress } from "../app/.server/progress";
 import { getStore } from "../app/.server/store";
+import { groupPath } from "../app/lib/group-address";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import { loader as downloadLoader } from "../app/routes/request-calendar";
 import Schedule, {
@@ -26,6 +27,8 @@ import {
   signedIn,
   tempDatabase,
   thrownBy,
+  addressOf,
+  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -76,7 +79,11 @@ type HomeData = Awaited<ReturnType<typeof homeLoader>>;
 
 function loadSchedule(groupId: string, cookie: string) {
   return scheduleLoader(
-    routeArgs(`/g/${groupId}/schedule`, { groupId }, { cookie }),
+    routeArgs(
+      `/g/${addressFor(groupId)}/schedule`,
+      { groupAddress: addressFor(groupId) },
+      { cookie },
+    ),
   ) as Promise<ScheduleData>;
 }
 
@@ -99,8 +106,8 @@ function renderHome(data: HomeData): string {
 function download(groupId: string, requestId: string, cookie?: string) {
   return downloadLoader(
     routeArgs(
-      `/g/${groupId}/requests/${requestId}/calendar.ics`,
-      { groupId, requestId },
+      `/g/${addressFor(groupId)}/requests/${requestId}/calendar.ics`,
+      { groupAddress: addressFor(groupId), requestId },
       { cookie },
     ),
   );
@@ -232,7 +239,9 @@ describe("the schedule page by request", () => {
       expect(progress).toContain("1 of 2 confirmed · 0 of 3 answered");
       expect(progress).toContain("Complete");
       // The download only for the complete request, as a plain link.
-      expect(progress).toContain(`href="/g/${group.id}/requests/${gig}/calendar.ics" download=""`);
+      expect(progress).toContain(
+        `href="${groupPath(group)}/requests/${gig}/calendar.ics" download=""`,
+      );
       expect(progress).not.toContain(`/requests/${concert}/calendar.ics`);
     }
   });
@@ -314,10 +323,10 @@ describe("your requests on the home screen", () => {
     const html = renderHome(data);
     expect(html).toContain("Your requests");
     expect(html).toContain(`Proposed: Thu 8 Oct, 19:00–21:00`);
-    expect(html).toContain(`href="/g/${group.id}/schedule"`);
+    expect(html).toContain(`href="${groupPath(group)}/schedule"`);
     expect(html).toContain("0 of 1 confirmed · 0 of 3 answered");
     expect(html).toContain("1 of 1 confirmed");
-    expect(html).toContain(`href="/g/${group.id}/requests/${gig}/calendar.ics" download=""`);
+    expect(html).toContain(`href="${groupPath(group)}/requests/${gig}/calendar.ics" download=""`);
     expect(html).not.toContain(`/requests/${concert}/calendar.ics`);
     expect(JSON.stringify(data.requests)).not.toContain(organizer.id);
     expect(JSON.stringify(data.requests)).not.toContain("Viola");
@@ -386,13 +395,13 @@ describe("your requests on the home screen", () => {
       store.saveGrant(account.id, "refresh-1", [CALENDAR_SCOPES.write]);
       expect(await google(signedInCellist)).toBe("off");
       const offHtml = renderHome(await loadHome(signedInCellist));
-      expect(offHtml).toContain(`action="/g/${group.id}/schedule"`);
+      expect(offHtml).toContain(`action="${groupPath(group)}/schedule"`);
       expect(offHtml).toContain('name="returnTo" value="/"');
 
       const turnedOn = await scheduleAction(
         routeArgs(
-          `/g/${group.id}/schedule`,
-          { groupId: group.id },
+          `${groupPath(group)}/schedule`,
+          { groupAddress: addressOf(group) },
           { cookie: signedInCellist, form: { intent: "set-calendar", value: "on", returnTo: "/" } },
         ),
       );
@@ -434,15 +443,15 @@ describe("your requests on the home screen", () => {
       // Any other return address goes back to the schedule.
       const elsewhere = await scheduleAction(
         routeArgs(
-          `/g/${group.id}/schedule`,
-          { groupId: group.id },
+          `${groupPath(group)}/schedule`,
+          { groupAddress: addressOf(group) },
           {
             cookie: signedInCellist,
             form: { intent: "set-calendar", value: "on", returnTo: "https://example.test/" },
           },
         ),
       );
-      expect((elsewhere as Response).headers.get("Location")).toBe(`/g/${group.id}/schedule`);
+      expect((elsewhere as Response).headers.get("Location")).toBe(`${groupPath(group)}/schedule`);
     } finally {
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
@@ -505,6 +514,6 @@ describe("downloading a complete request", () => {
       expect(statusOf(await thrownBy(download(group.id, requestId, cellistCookie)))).toBe(404);
     }
     const visitor = await thrownBy(download(theirs.group.id, foreign));
-    expect((visitor as Response).headers.get("Location")).toBe(`/g/${theirs.group.id}`);
+    expect((visitor as Response).headers.get("Location")).toBe(groupPath(theirs.group));
   });
 });

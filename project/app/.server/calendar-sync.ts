@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 
 import type { GoogleWriteState } from "~/components/calendar-actions";
 import { offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import type { FeedEvent } from "~/lib/ics";
 import { zonedInstant } from "~/lib/zoned-time";
 
@@ -156,7 +157,7 @@ export async function syncMember(
       await putEvent(target.accountId, id, {
         summary: `${group.name} rehearsal`,
         location: rehearsal.location,
-        description: `Rehearsal for ${group.name}. Answer or see the schedule: ${origin}/g/${group.id}/schedule`,
+        description: `Rehearsal for ${group.name}. Answer or see the schedule: ${origin}${groupPath(group)}/schedule`,
         start: zonedInstant(date, rehearsal.startMinute, group.timeZone, {
           skipped: "forward",
         }) as Date,

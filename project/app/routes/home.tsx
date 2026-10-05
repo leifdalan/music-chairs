@@ -9,6 +9,7 @@ import { CalendarActions, ProgressFigures } from "~/components/calendar-actions"
 import { CreateGroupForm } from "~/components/create-group-form";
 import { SubmitButton } from "~/components/submit-button";
 import { formatDate } from "~/lib/availability";
+import { groupPath } from "~/lib/group-address";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
@@ -36,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     signInAvailable: googleConfig() !== null,
     account: account ? { name: account.name, email: account.email } : null,
     groups: memberships.map(({ group, member }) => ({
-      id: group.id,
+      path: groupPath(group),
       name: group.name,
       displayName: member.displayName,
     })),
@@ -70,7 +71,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <ul className="pending-requests">
             {proposals.map((item) => (
               <li key={item.rehearsalId}>
-                <Link to={`/g/${item.groupId}/schedule`}>
+                <Link to={`${item.groupHref}/schedule`}>
                   <span className="pending-name">Proposed: {item.summary}</span>
                   <span className="hint">
                     {item.groupName}
@@ -81,7 +82,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             ))}
             {waiting.map((item) => (
               <li key={item.requestId}>
-                <Link to={`/g/${item.groupId}/requests/${item.requestId}`}>
+                <Link to={`${item.groupHref}/requests/${item.requestId}`}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">
                     {item.groupName} · Waiting for your answer · answer by{" "}
@@ -99,7 +100,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <ul className="pending-requests">
             {inProgress.map((item) => (
               <li key={item.requestId}>
-                <Link to={`/g/${item.groupId}/requests/${item.requestId}`}>
+                <Link to={`${item.groupHref}/requests/${item.requestId}`}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">{item.groupName}</span>
                 </Link>
@@ -110,7 +111,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                       <ul className="proposed-list">
                         {item.progress.proposed.map((rehearsal) => (
                           <li key={rehearsal.id}>
-                            <Link to={`/g/${item.groupId}/schedule`}>
+                            <Link to={`${item.groupHref}/schedule`}>
                               Proposed: {rehearsal.summary}
                             </Link>
                           </li>
@@ -119,7 +120,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                     ) : null}
                     {item.progress.complete ? (
                       <CalendarActions
-                        groupId={item.groupId}
+                        groupHref={item.groupHref}
                         requestId={item.requestId}
                         requestName={item.name}
                         google={item.google}
@@ -139,8 +140,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <h2 id="groups-heading">Your groups</h2>
           <ul className="your-groups">
             {groups.map((group) => (
-              <li key={group.id}>
-                <Link to={`/g/${group.id}`}>{group.name}</Link>{" "}
+              <li key={group.path}>
+                <Link to={group.path}>{group.name}</Link>{" "}
                 <span className="hint">as {group.displayName}</span>
               </li>
             ))}

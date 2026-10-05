@@ -2936,3 +2936,13 @@ Execution trace: 2f9beba697b641509f4bc18b348c17e6
 - Lessons: inscrutable-grebe and rugged-buzzard filed; gentle-pug recurred; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #6.
+
+## 2026-10-04 21:15 — START
+Phase 19.3 — Readable group addresses
+
+Execution trace: d826874818684040986432cc92d11a2e
+
+Planned work:
+- Group addresses as `<name-slug>-<short id>`, used by every link the app makes, including Google Calendar events written from now on.
+- An address whose name part is out of date (after a rename) redirects permanently to the current one; an unknown short id is not found.
+- A database change (forward-only migration) giving every group, existing ones included, a unique short id; the live data migrates with row counts unchanged.

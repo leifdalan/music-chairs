@@ -18,6 +18,7 @@ import {
   startSession,
   type OAuthState,
 } from "~/.server/membership";
+import { findGroupByAddress } from "~/.server/group-address";
 import { getStore, type GoogleProfile } from "~/.server/store";
 
 import type { Route } from "./+types/auth.google.callback";
@@ -81,9 +82,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 /** Links this device's member of the group sign-in started from; adds the outcome as a notice. */
 async function linkReturnGroup(request: Request, returnTo: string, accountId: string) {
-  const groupId = /^\/g\/([^/?]+)/.exec(returnTo)?.[1];
+  const address = /^\/g\/([^/?]+)/.exec(returnTo)?.[1];
   const store = getStore();
-  const group = groupId ? store.findGroup(groupId) : null;
+  const group = address ? findGroupByAddress(address) : null;
   if (!group) return returnTo;
   const member = await findDeviceMember(request, group);
   if (!member || member.googleEmail !== null) return returnTo;
