@@ -3124,3 +3124,14 @@ Execution trace: d826874818684040986432cc92d11a2e
 - Lessons: jumping-lionfish filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #7 and the post-deploy database check.
+
+## 2026-10-05 09:51 — START
+Phase 20 — A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming
+
+Execution trace: 22205170456b47e19a89c513fe149767
+
+Planned work:
+- On a request's page, organizers get a calendar of the request's dates shaded by how many people are free (a heat map), alongside today's list; a Calendar / List switch chooses between them.
+- Tapping a date on that calendar opens a popup listing that day's free times and who is free at each.
+- Proposing works from either view: dates and times ticked in the calendar's popups or in the list are proposed together, as "Propose selected" does today.
+- On the schedule page, a proposed rehearsal's organizer controls (confirm, delete) sit apart from the viewer's own Yes / No / Maybe, and the confirm button says it confirms the rehearsal for everyone; a tapped answer shows that it was saved.

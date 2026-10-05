@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { data, Form, Link, redirect, useFetcher, useFetchers, useLocation } from "react-router";
+import { data, Form, Link, redirect, useFetcher, useFetchers } from "react-router";
 
 import { groupFromAddress } from "~/.server/group-address";
 import { calendarViewer } from "~/.server/calendar-sync";
@@ -24,13 +24,13 @@ import {
   describeSlot,
   expandOccurrences,
   formatDate,
-  formatMinutes,
   isDate,
   isOccurrence,
   parseSlotInput,
   parseTime,
   parseTimeText,
   timeInputValue,
+  timeRange,
   todayInZone,
   UPCOMING_WEEKS,
   weekdayName,
@@ -46,6 +46,7 @@ import { monthGrid, WEEKDAY_INITIALS, type CalendarMonth } from "~/lib/calendar-
 import type { TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { useHydrated } from "~/lib/use-hydrated";
+import { Switch, useSwitch } from "~/components/view-switch";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/availability";
@@ -379,50 +380,6 @@ export async function action({ request, params }: Route.ActionArgs) {
   return problem("Something went wrong with that request. Please try again.");
 }
 
-function timeRange(start: number, end: number): string {
-  return `${formatMinutes(start)}–${formatMinutes(end)}`;
-}
-
-/** A link to this page with one search parameter changed, keeping the others. */
-function useSwitch(): (name: string, value: string | null) => string {
-  const location = useLocation();
-  return (name, value) => {
-    const search = new URLSearchParams(location.search);
-    // An edit and a consent notice belong to the visit they came with.
-    search.delete("edit");
-    search.delete("notice");
-    if (value === null) search.delete(name);
-    else search.set(name, value);
-    const query = search.toString();
-    return query ? `?${query}` : ".";
-  };
-}
-
-function Switch({
-  label,
-  options,
-}: {
-  label: string;
-  options: { text: string; to: string; current: boolean }[];
-}) {
-  return (
-    <nav className="view-switch" aria-label={label}>
-      {options.map((option) => (
-        <Link
-          key={option.text}
-          to={option.to}
-          replace
-          preventScrollReset
-          className={option.current ? "current" : undefined}
-          aria-current={option.current ? "page" : undefined}
-        >
-          {option.text}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
 export default function Availability({ loaderData, actionData }: Route.ComponentProps) {
   const {
     groupName,
@@ -444,7 +401,8 @@ export default function Availability({ loaderData, actionData }: Route.Component
   const dateResult = actionData && "dateErrors" in actionData ? actionData : undefined;
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
   const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
-  const link = useSwitch();
+  // An edit and a consent notice belong to the visit they came with.
+  const link = useSwitch(["edit", "notice"]);
   return (
     <main>
       <p className="eyebrow">

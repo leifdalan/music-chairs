@@ -27,10 +27,10 @@ import {
   describeSlot,
   expandOccurrences,
   formatDate,
-  formatMinutes,
   isDate,
   isOccurrence,
   offeredDates,
+  timeRange,
   todayInZone,
   weekdayName,
   windowEnd,
@@ -66,10 +66,6 @@ async function groupAndViewer(
 }
 
 const ANSWERS: RsvpAnswer[] = ["yes", "no", "maybe"];
-
-function timeRange(start: number, end: number): string {
-  return `${formatMinutes(start)}–${formatMinutes(end)}`;
-}
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { group, viewer } = await groupAndViewer(request, params.groupAddress);
@@ -622,130 +618,150 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
       {item.status === "confirmed" && item.requestName ? (
         <p className="hint">From {item.requestName}</p>
       ) : null}
-      {item.dates.length === 0 ? (
-        <p className="hint">No dates in the coming weeks.</p>
-      ) : (
-        <ul className="rsvp-dates">
-          {shown.map((date) => (
-            <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
-          ))}
-        </ul>
-      )}
-      {more.length > 0 ? (
-        <details>
-          <summary>More dates ({more.length})</summary>
+      {/* The viewer's own answers, which save on each tap (plan/phase-20.md). */}
+      <div className="your-answer" role="group" aria-labelledby={`answer-${item.id}`}>
+        <p className="area-label" id={`answer-${item.id}`}>
+          Your answer
+        </p>
+        {item.dates.length === 0 ? (
+          <p className="hint">No dates in the coming weeks.</p>
+        ) : (
           <ul className="rsvp-dates">
-            {more.map((date) => (
+            {shown.map((date) => (
               <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
             ))}
           </ul>
-        </details>
-      ) : null}
-      {item.kind === "weekly" && item.dates.length > 1 ? (
-        <Form method="post" replace className="rsvp-all">
-          <input type="hidden" name="intent" value="rsvp-all" />
-          <input type="hidden" name="rehearsalId" value={item.id} />
-          <span>Answer every date until {formatDate(item.dates[item.dates.length - 1].date)}:</span>
-          <AnswerButtons
-            label={`every date of ${item.summary}`}
-            current={undefined}
-            feedbackPrefix={`rsvp-all-${item.id}`}
-          />
-        </Form>
-      ) : null}
-      {organizer && organizer.warnings.length > 0 ? (
-        <ul className="warnings" aria-label="Warnings">
-          {organizer.warnings.map((warning) => (
-            <li key={warning.date} role="status">
-              {formatDate(warning.date)}: {warning.missing.join(", ")}{" "}
-              {warning.missing.length === 1 ? "isn't" : "aren't"} free
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {organizer?.uncheckedAfter ? (
-        <p className="hint">
-          Dates after {formatDate(organizer.uncheckedAfter)} aren't checked yet.
-        </p>
-      ) : null}
-      {organizer ? (
-        <div className="slot-actions">
-          {item.status === "proposed" ? (
-            <Form method="post" replace>
-              <input type="hidden" name="intent" value="confirm" />
-              <input type="hidden" name="rehearsalId" value={item.id} />
-              <SubmitButton feedbackKey={`confirm-${item.id}`} label={`Confirm ${item.summary}`}>
-                Confirm
-              </SubmitButton>
-            </Form>
-          ) : null}
-          <ConfirmForm
-            fields={{ intent: "delete", rehearsalId: item.id }}
-            trigger="Delete"
-            triggerLabel={`Delete ${item.summary}`}
-            triggerVariant="destructive"
-            {...deleteRehearsalPrompt(item.summary)}
-            feedbackKey={`delete-${item.id}`}
-          />
-        </div>
-      ) : null}
-      {organizer && item.kind === "weekly" ? (
-        <details>
-          <summary>Cancel a date or set a last date</summary>
-          <ul className="weeks">
-            {organizer.weeks.map((date) => {
-              const cancelled = organizer.cancelled.includes(date);
-              return (
-                <li key={date}>
-                  <span className={cancelled ? "skipped" : undefined}>
-                    {formatDate(date)}
-                    {cancelled ? " — cancelled" : ""}
-                  </span>
-                  {cancelled ? (
-                    <Form method="post" replace>
-                      <input type="hidden" name="intent" value="restore-date" />
-                      <input type="hidden" name="rehearsalId" value={item.id} />
-                      <input type="hidden" name="date" value={date} />
-                      <SubmitButton
-                        feedbackKey={`date-${item.id}-${date}`}
-                        variant="outline"
-                        size="sm"
-                        label={`Restore ${formatDate(date)}`}
-                      >
-                        Restore
-                      </SubmitButton>
-                    </Form>
-                  ) : (
-                    <ConfirmForm
-                      fields={{ intent: "cancel-date", rehearsalId: item.id, date }}
-                      trigger="Cancel this date"
-                      triggerLabel={`Cancel ${formatDate(date)}`}
-                      triggerSize="sm"
-                      {...cancelDatePrompt(item.summary, date)}
-                      feedbackKey={`date-${item.id}-${date}`}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <ConfirmForm
-            className="end-form"
-            fields={{ intent: "end", rehearsalId: item.id }}
-            trigger="Set last date"
-            {...endPrompt(item.summary)}
-            feedbackKey={`end-${item.id}`}
-          >
-            <label htmlFor={`end-${item.id}`}>Last date</label>
-            <input
-              id={`end-${item.id}`}
-              name="endDate"
-              type="date"
-              required
-              defaultValue={organizer.endDate ?? ""}
+        )}
+        {more.length > 0 ? (
+          <details>
+            <summary>More dates ({more.length})</summary>
+            <ul className="rsvp-dates">
+              {more.map((date) => (
+                <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
+              ))}
+            </ul>
+          </details>
+        ) : null}
+        {item.kind === "weekly" && item.dates.length > 1 ? (
+          <Form method="post" replace className="rsvp-all">
+            <input type="hidden" name="intent" value="rsvp-all" />
+            <input type="hidden" name="rehearsalId" value={item.id} />
+            <span>
+              Answer every date until {formatDate(item.dates[item.dates.length - 1].date)}:
+            </span>
+            <AnswerButtons
+              label={`every date of ${item.summary}`}
+              current={undefined}
+              feedbackPrefix={`rsvp-all-${item.id}`}
             />
-          </ConfirmForm>
-        </details>
+          </Form>
+        ) : null}
+      </div>
+      {/* Changes for the whole group, apart from the viewer's own answer. */}
+      {organizer ? (
+        <div className="organizer-controls" role="group" aria-labelledby={`organize-${item.id}`}>
+          <p className="area-label" id={`organize-${item.id}`}>
+            For organizers
+          </p>
+          {organizer.warnings.length > 0 ? (
+            <ul className="warnings" aria-label="Warnings">
+              {organizer.warnings.map((warning) => (
+                <li key={warning.date} role="status">
+                  {formatDate(warning.date)}: {warning.missing.join(", ")}{" "}
+                  {warning.missing.length === 1 ? "isn't" : "aren't"} free
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {organizer.uncheckedAfter ? (
+            <p className="hint">
+              Dates after {formatDate(organizer.uncheckedAfter)} aren't checked yet.
+            </p>
+          ) : null}
+          {item.status === "proposed" ? (
+            <p className="hint">Confirming makes it a rehearsal on everyone's schedule.</p>
+          ) : null}
+          <div className="slot-actions">
+            {item.status === "proposed" ? (
+              <Form method="post" replace>
+                <input type="hidden" name="intent" value="confirm" />
+                <input type="hidden" name="rehearsalId" value={item.id} />
+                <SubmitButton
+                  feedbackKey={`confirm-${item.id}`}
+                  label={`Confirm ${item.summary} for everyone`}
+                >
+                  Confirm for everyone
+                </SubmitButton>
+              </Form>
+            ) : null}
+            <ConfirmForm
+              fields={{ intent: "delete", rehearsalId: item.id }}
+              trigger="Delete"
+              triggerLabel={`Delete ${item.summary}`}
+              triggerVariant="destructive"
+              {...deleteRehearsalPrompt(item.summary)}
+              feedbackKey={`delete-${item.id}`}
+            />
+          </div>
+          {item.kind === "weekly" ? (
+            <details>
+              <summary>Cancel a date or set a last date</summary>
+              <ul className="weeks">
+                {organizer.weeks.map((date) => {
+                  const cancelled = organizer.cancelled.includes(date);
+                  return (
+                    <li key={date}>
+                      <span className={cancelled ? "skipped" : undefined}>
+                        {formatDate(date)}
+                        {cancelled ? " — cancelled" : ""}
+                      </span>
+                      {cancelled ? (
+                        <Form method="post" replace>
+                          <input type="hidden" name="intent" value="restore-date" />
+                          <input type="hidden" name="rehearsalId" value={item.id} />
+                          <input type="hidden" name="date" value={date} />
+                          <SubmitButton
+                            feedbackKey={`date-${item.id}-${date}`}
+                            variant="outline"
+                            size="sm"
+                            label={`Restore ${formatDate(date)}`}
+                          >
+                            Restore
+                          </SubmitButton>
+                        </Form>
+                      ) : (
+                        <ConfirmForm
+                          fields={{ intent: "cancel-date", rehearsalId: item.id, date }}
+                          trigger="Cancel this date"
+                          triggerLabel={`Cancel ${formatDate(date)}`}
+                          triggerSize="sm"
+                          {...cancelDatePrompt(item.summary, date)}
+                          feedbackKey={`date-${item.id}-${date}`}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <ConfirmForm
+                className="end-form"
+                fields={{ intent: "end", rehearsalId: item.id }}
+                trigger="Set last date"
+                {...endPrompt(item.summary)}
+                feedbackKey={`end-${item.id}`}
+              >
+                <label htmlFor={`end-${item.id}`}>Last date</label>
+                <input
+                  id={`end-${item.id}`}
+                  name="endDate"
+                  type="date"
+                  required
+                  defaultValue={organizer.endDate ?? ""}
+                />
+              </ConfirmForm>
+            </details>
+          ) : null}
+        </div>
       ) : null}
     </li>
   );

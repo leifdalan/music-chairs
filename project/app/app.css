@@ -468,6 +468,21 @@
     @apply mt-0 mb-2 font-semibold;
   }
 
+  /* A rehearsal card's two areas (plan/phase-20.md): the viewer's own answer,
+     then what organizers change for everyone. */
+  .area-label {
+    @apply m-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase;
+  }
+
+  .your-answer,
+  .organizer-controls {
+    @apply grid gap-2;
+  }
+
+  .organizer-controls {
+    @apply mt-3 border-t pt-3;
+  }
+
   .slot-actions {
     @apply grid grid-cols-2 gap-2;
   }
@@ -521,6 +536,81 @@
 
   .month-grid .day.blank {
     @apply border-0;
+  }
+
+  /* The organizer's calendar of who is free (plan/phase-20.md): green deepens
+     as more people are free together; the count is always shown too. */
+  .heat-1 {
+    background: color-mix(in oklab, var(--success) 18%, var(--background));
+  }
+
+  .heat-2 {
+    background: color-mix(in oklab, var(--success) 38%, var(--background));
+  }
+
+  .heat-3 {
+    background: color-mix(in oklab, var(--success) 62%, var(--background));
+  }
+
+  .heat-4 {
+    background: var(--success);
+    color: var(--success-foreground);
+  }
+
+  /* The count is small text, so on any shade it takes the cell's full colour. */
+  .heat-1 .day-free,
+  .heat-2 .day-free,
+  .heat-3 .day-free,
+  .heat-4 .day-free {
+    color: inherit;
+  }
+
+  .heat-swatch {
+    @apply inline-block size-3 rounded-sm border align-middle;
+  }
+
+  .free-calendar .day.heat-0:not(.free-day) {
+    @apply text-muted-foreground;
+  }
+
+  /* A date with free time: its whole cell is the summary, without a marker
+     (the calendar cell is the affordance, like the profile menu's avatar). */
+  .free-day > summary {
+    @apply flex size-full min-h-11 flex-col items-center justify-center py-0;
+    display: flex;
+    list-style: none;
+  }
+
+  .free-day > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .day-free {
+    @apply text-[0.6875rem] leading-none text-muted-foreground;
+  }
+
+  .free-day[open] {
+    @apply outline-2 outline-offset-1 outline-ring;
+  }
+
+  /* A ticked time stays visible on its date after the panel closes. */
+  .free-day:has(input:checked) {
+    @apply outline-2 outline-offset-1 outline-primary;
+  }
+
+  /* One panel open at a time: a bottom sheet on phones, a centred card on wider screens. */
+  .day-panel {
+    @apply fixed inset-x-0 bottom-0 z-40 grid max-h-[70vh] gap-3 overflow-y-auto rounded-t-xl border bg-card p-4 text-card-foreground shadow-lg;
+  }
+
+  @media (min-width: 40rem) {
+    .day-panel {
+      @apply inset-x-auto top-1/2 bottom-auto left-1/2 w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl;
+    }
+  }
+
+  .day-panel h4 {
+    @apply m-0 text-base font-semibold;
   }
 
   /* The whole date is the tap target; the checkbox covers it, unseen. */

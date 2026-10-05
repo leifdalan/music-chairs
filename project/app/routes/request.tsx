@@ -7,25 +7,28 @@ import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
-import { FreeTime, ProposeTimes } from "~/components/propose-times";
+import { FreeCalendar } from "~/components/free-calendar";
+import { FreeStretch, ProposeTimes } from "~/components/propose-times";
 import { SlotFields } from "~/components/slot-fields";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
+import { Switch, useSwitch } from "~/components/view-switch";
 import {
   addDays,
   expandOccurrences,
   formatDate,
-  formatMinutes,
   parseSlotInput,
   timeInputValue,
+  timeRange,
   todayInZone,
   validateLocation,
   type SlotErrors,
   type SlotFormValues,
 } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
+import { dayHeat } from "~/lib/heat";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
-import { parseProposedTimes, timeValue } from "~/lib/propose";
+import { parseProposedTimes } from "~/lib/propose";
 import { answerable, clipToWindows } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
@@ -52,10 +55,6 @@ async function load(
   const scheduleRequest = store.findRequest(group.id, requestId);
   if (!scheduleRequest) throw data(null, { status: 404 });
   return { group, viewer, scheduleRequest };
-}
-
-function timeRange(start: number, end: number): string {
-  return `${formatMinutes(start)}–${formatMinutes(end)}`;
 }
 
 /** "Sat 3 Oct, 14:05" in the group's zone. */
@@ -108,6 +107,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       if (stretches.length === 0) continue;
       overlap.push({
         date,
+        // How the calendar shades the date (plan/phase-20.md).
+        heat: dayHeat(cells, date, scheduleRequest.windows),
         stretches: stretches.map((stretch) => ({
           startMinute: stretch.startMinute,
           endMinute: stretch.endMinute,
@@ -140,6 +141,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         })
       : null,
     overlap,
+    // The calendar of who is free covers the dates the free times do (plan/phase-20.md).
+    freeRange: overlap ? { from, to } : null,
+    freeView: new URL(request.url).searchParams.get("free") === "list" ? "list" : "calendar",
     // Changes when a proposal is made, so the picker starts afresh.
     rehearsalCount: isOrganizer ? store.listRehearsals(group.id).length : null,
   };
@@ -182,6 +186,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     return redirectWithToast(here, before ? "Answer updated" : "Answer sent");
   }
   // Proposing from the request's free times, whether it is open, closed or over.
+  // Back to the List view when the proposal came from it (plan/phase-20.md).
+  const proposedFrom = form.get("free") === "list" ? `${here}?free=list` : here;
   if (intent === "propose-times") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
     const location = validateLocation(form.get("location"));
@@ -191,7 +197,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.addRehearsals(group.id, scheduleRequest.id, times.inputs, location.value);
     const count = times.inputs.length;
     return redirectWithToast(
-      here,
+      proposedFrom,
       count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`,
     );
   }
@@ -221,7 +227,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
     store.addRehearsal(group.id, scheduleRequest.id, parsed.value, location.value);
-    return redirectWithToast(here, "Rehearsal proposed");
+    return redirectWithToast(proposedFrom, "Rehearsal proposed");
   }
   if (intent === "close" || intent === "reopen") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
@@ -255,12 +261,15 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     mine,
     answers,
     overlap,
+    freeRange,
+    freeView,
     rehearsalCount,
   } = loaderData;
   const status = !open ? "Closed" : expired ? "Ended" : null;
   const pickProblem =
     actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
+  const link = useSwitch();
   return (
     <main>
       <p className="eyebrow">
@@ -389,13 +398,29 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         <section aria-labelledby="overlap-heading">
           <h2 id="overlap-heading">When people are free</h2>
           <p className="hint">Within this request's dates and times of day.</p>
+          <Switch
+            label="How to show when people are free"
+            options={[
+              { text: "Calendar", to: link("free", null), current: freeView === "calendar" },
+              { text: "List", to: link("free", "list"), current: freeView === "list" },
+            ]}
+          />
+          <p className="hint">Switching views clears ticks you haven't proposed.</p>
           <ProposeTimes
             hasTimes={overlap.length > 0}
             problem={pickProblem}
             resetKey={rehearsalCount ?? 0}
           >
+            {freeView === "list" ? <input type="hidden" name="free" value="list" /> : null}
             {overlap.length === 0 ? (
               <p className="hint">Nobody is free at these times yet.</p>
+            ) : freeView === "calendar" && freeRange ? (
+              <FreeCalendar
+                from={freeRange.from}
+                to={freeRange.to}
+                days={overlap}
+                total={answers?.length ?? 0}
+              />
             ) : (
               <ul className="days">
                 {overlap.map((day) => (
@@ -404,21 +429,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                     <ul className="stretches">
                       {day.stretches.map((stretch) => (
                         <li key={stretch.startMinute} className="stretch">
-                          <FreeTime
-                            tickable
-                            value={timeValue(day.date, stretch.startMinute, stretch.endMinute)}
-                            label={`Propose ${formatDate(day.date)}, ${timeRange(stretch.startMinute, stretch.endMinute)}`}
-                          >
-                            <span className="stretch-time">
-                              {timeRange(stretch.startMinute, stretch.endMinute)}
-                              <span className="stretch-count">
-                                {stretch.freeCount} of {answers?.length ?? 0} free
-                              </span>
-                            </span>
-                            <span className="hint stretch-line">
-                              Free: {stretch.freeNames.join(", ")}
-                            </span>
-                          </FreeTime>
+                          <FreeStretch
+                            date={day.date}
+                            stretch={stretch}
+                            total={answers?.length ?? 0}
+                          />
                         </li>
                       ))}
                     </ul>
@@ -429,7 +444,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           </ProposeTimes>
           <details className="custom-proposal" open={formResult !== undefined}>
             <summary>Propose a different time</summary>
-            <ProposeForm key={rehearsalCount ?? 0} result={formResult} />
+            <ProposeForm
+              key={rehearsalCount ?? 0}
+              result={formResult}
+              fromList={freeView === "list"}
+            />
           </details>
         </section>
       ) : null}
@@ -442,8 +461,11 @@ type ProposeErrors = SlotErrors & { location?: string };
 
 function ProposeForm({
   result,
+  fromList,
 }: {
   result: { errors: ProposeErrors; values: ProposeValues } | undefined;
+  /** Shown in the List view, so the proposal returns there. */
+  fromList: boolean;
 }) {
   const values: ProposeValues = result?.values ?? {
     kind: "once",
@@ -458,6 +480,7 @@ function ProposeForm({
   return (
     <Form method="post" className="stack slot-form" replace>
       <input type="hidden" name="intent" value="propose" />
+      {fromList ? <input type="hidden" name="free" value="list" /> : null}
       <SlotFields values={values} errors={errors} />
       <TextField
         name="location"
