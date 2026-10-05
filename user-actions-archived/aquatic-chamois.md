@@ -1,7 +1,8 @@
 ---
 slug: aquatic-chamois
 title: Confirm the music-chairs alert subscription email
-status: pending
+status: done
+closed: 2026-10-05
 category: access
 urgency: high
 blocks:
@@ -21,3 +22,7 @@ The first subscription, created in Phase 5, was never confirmed, and AWS removes
 The cost budget (alert above $10 actual, warning above $9.50 forecast) emails you directly and needs no confirmation.
 
 Check your inbox (and spam) for the confirmation email and click the link. To verify afterwards: in the AWS console, **SNS → Subscriptions** (region us-east-1) should list your address as **Confirmed**, and `./bin/deploy infra --dry-run --profile music-chairs` should report "plan: no changes".
+
+## Disposition
+
+The first two subscriptions expired unconfirmed. On 2026-10-05 the merge of pull request #3 failed its automatic deploy because Terraform wanted to recreate the expired subscription, and the CI deploy refuses infrastructure changes. The agent applied it by hand (`./bin/deploy infra`), the operator confirmed the new email, and the agent verified `PendingConfirmation` is false with `aws sns get-subscription-attributes`; the rerun deploy then planned no changes. No recurring learning: once confirmed the subscription stays, and the README already states the 48-hour window; the CI deploy's refusal surfaced the lapse safely.
