@@ -128,6 +128,14 @@ describe("saving one date", () => {
       startMinute: 600,
       endMinute: 720,
     });
+    // Same end, later start: a different range all the same.
+    store.addSlot(pianist.id, {
+      kind: "once",
+      startDate: "2026-10-06",
+      endDate: null,
+      startMinute: 1200,
+      endMinute: 1320,
+    });
     await setDate(group.id, cookie, { date: "2026-10-06", on: "1", ...EVENING });
     await setDate(group.id, cookie, { date: "2026-10-07", on: "1", ...EVENING });
 
@@ -139,6 +147,7 @@ describe("saving one date", () => {
         .map((slot) => [slot.kind, slot.startDate, slot.startMinute])
         .sort(),
     ).toEqual([
+      ["once", "2026-10-06", 1200],
       ["once", "2026-10-06", 600],
       ["once", "2026-10-07", 1140],
       ["weekly", "2026-10-06", 1140],

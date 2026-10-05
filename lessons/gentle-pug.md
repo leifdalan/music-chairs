@@ -19,6 +19,8 @@ occurrences:
     ref: "Phase 12 END"
   - date: 2026-10-03
     ref: "Phase 13 END"
+  - date: 2026-10-04
+    ref: "Phase 19.2 END"
 ---
 
 The Phase 4 User Demo was tightened in the phase file at entry, as the phase asked, and the phase file was then hashed as an authority for the run. The code critique found that one "what to look for" item (answers carry over from proposed to confirmed) could not be reached from the suggested inputs, which confirmed the rehearsal before anyone answered. Fixing the phase file mid-run would have broken authority integrity, so the corrected order could only be carried in the END block and the operator report.
@@ -34,3 +36,5 @@ Phase 11 recurrence: the demo was walked for reachability before capture, but a 
 Phase 12 recurrence: the demo was written before planning settled how returning by name and Calendar consent behave, and two steps became unreachable: the two-Spares step reuses a private window that already holds Spare's membership, and the decline variation has nothing to untick while an earlier grant exists. A planning-time operator ruling (members only) also had to go to the END block. The corrections are in the END block's notes.
 
 Phase 13 recurrence: a plan-review disposition (PLAN-F002) moved Add members from a section of the group page to its own page, after the demo describing "the group page's Add members section" and new members appearing "in the member list at once" was captured. The code critique found it (CODE-F003); the corrected wording is in the END block.
+
+Phase 19.2 recurrence: the demo's variation "Leave a group you're the only organizer of (it refuses)" stopped matching once the groups page showed the only organizer the reason in place of a Leave button, a deviation declared during implementation. The code critique found it (CODE-F007). The corrected wording goes to the END block because the phase file is captured.
