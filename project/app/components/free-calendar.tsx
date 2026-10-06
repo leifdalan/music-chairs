@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { buttonVariants } from "~/components/ui/button";
 import { formatDate } from "~/lib/availability";
@@ -6,25 +6,30 @@ import { monthGrid, WEEKDAY_INITIALS } from "~/lib/calendar-grid";
 import { heatLevel } from "~/lib/heat";
 import { useHydrated } from "~/lib/use-hydrated";
 
-import { FreeStretch, type FreeStretchData } from "./propose-times";
-
 /**
- * The organizer's calendar of who is free (plan/phase-20.md): the request's
- * dates shaded by how many people are free together, each date with free time
- * opening a panel of its free times to tick. Every date's disclosure shares one
- * name, so one panel is open at a time, with or without JavaScript.
+ * A calendar of who is free (plan/phase-20.md): the dates shaded by how many
+ * people are free together, each date with free time opening a panel of its
+ * free times. The request page's panels tick times to propose; the schedule's
+ * only show them (plan/phase-24.md). Every date's disclosure shares one name,
+ * so one panel is open at a time, with or without JavaScript.
  */
-export function FreeCalendar({
+export function FreeCalendar<S extends { startMinute: number }>({
   from,
   to,
   days,
   total,
+  legend,
+  renderStretch,
 }: {
   from: string;
   to: string;
   /** Dates with free time: `heat` is the most people free together for an hour (`dayHeat`). */
-  days: { date: string; heat: number; stretches: FreeStretchData[] }[];
+  days: { date: string; heat: number; stretches: S[] }[];
   total: number;
+  /** What tapping a date does, after the shading key. */
+  legend: string;
+  /** One free stretch in a date's panel, as an `<li>`. */
+  renderStretch: (date: string, stretch: S) => ReactNode;
 }) {
   const hydrated = useHydrated();
   const byDate = new Map(days.map((day) => [day.date, day]));
@@ -32,8 +37,8 @@ export function FreeCalendar({
     <div className="free-calendar">
       <p className="hint heat-legend">
         <span className="heat-swatch heat-1" aria-hidden="true" /> Fainter green: fewer free ·{" "}
-        <span className="heat-swatch heat-4" aria-hidden="true" /> Stronger green: more free. Tap a
-        date to see who is free and tick times to propose.
+        <span className="heat-swatch heat-4" aria-hidden="true" /> Stronger green: more free.{" "}
+        {legend}
       </p>
       {monthGrid(from, to).map((month) => (
         <div className="month" key={month.label}>
@@ -72,6 +77,7 @@ export function FreeCalendar({
                   total={total}
                   stretches={stretches}
                   hydrated={hydrated}
+                  renderStretch={renderStretch}
                 />
               );
             })}
@@ -82,7 +88,7 @@ export function FreeCalendar({
   );
 }
 
-function DateDetails({
+function DateDetails<S extends { startMinute: number }>({
   date,
   day,
   level,
@@ -90,14 +96,16 @@ function DateDetails({
   total,
   stretches,
   hydrated,
+  renderStretch,
 }: {
   date: string;
   day: number;
   level: number;
   free: number;
   total: number;
-  stretches: FreeStretchData[];
+  stretches: S[];
   hydrated: boolean;
+  renderStretch: (date: string, stretch: S) => ReactNode;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
   // Closing hides the focused Done button, so focus goes back to the date.
@@ -127,13 +135,7 @@ function DateDetails({
         }}
       >
         <h4>{formatDate(date)}</h4>
-        <ul className="stretches">
-          {stretches.map((stretch) => (
-            <li key={stretch.startMinute} className="stretch">
-              <FreeStretch date={date} stretch={stretch} total={total} />
-            </li>
-          ))}
-        </ul>
+        <ul className="stretches">{stretches.map((stretch) => renderStretch(date, stretch))}</ul>
         {hydrated ? (
           <button type="button" className={buttonVariants({ variant: "outline" })} onClick={close}>
             Done

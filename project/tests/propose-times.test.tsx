@@ -21,6 +21,7 @@ import {
   thrownBy,
   addressOf,
   addressFor,
+  addSlots,
 } from "./routes";
 
 tempDatabase();
@@ -133,7 +134,7 @@ async function band() {
   const cellist = store.addMember(group.id, "Cellist", "member");
   store.addMember(group.id, "Pianist", "member");
   for (const member of [organizer, cellist]) {
-    store.addSlots(member.id, [
+    addSlots(store, member.id, [
       {
         kind: "weekly",
         startDate: "2026-10-01",
@@ -275,7 +276,7 @@ describe("free times on the schedule page", () => {
       expect(page).not.toContain("Propose selected");
       expect(page).not.toContain("custom-proposal");
     }
-    expect(organizer).toContain("To propose times, open a request on the");
+    expect(organizer).toContain("To propose rehearsals, open an availability request on the");
     expect(member).not.toContain("To propose times");
   });
 });

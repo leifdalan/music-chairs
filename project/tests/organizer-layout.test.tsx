@@ -11,7 +11,7 @@ import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import Groups, { loader as groupsLoader } from "../app/routes/groups";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase } from "./routes";
+import { addressOf, deviceCookie, routeArgs, tempDatabase, addSlots } from "./routes";
 
 tempDatabase();
 
@@ -37,9 +37,9 @@ const once = (date: string, startMinute: number, endMinute: number) => ({
 async function band(name: string, alone = false) {
   const store = getStore();
   const { group, organizer } = store.createGroup(name, "Viola", "Europe/London");
-  store.addSlots(organizer.id, [once("2026-10-05", 1140, 1320), once("2026-10-06", 1140, 1260)]);
+  addSlots(store, organizer.id, [once("2026-10-05", 1140, 1320), once("2026-10-06", 1140, 1260)]);
   const cellist = alone ? null : store.addMember(group.id, "Cellist", "member");
-  if (cellist) store.addSlots(cellist.id, [once("2026-10-05", 1140, 1320)]);
+  if (cellist) addSlots(store, cellist.id, [once("2026-10-05", 1140, 1320)]);
   const request = store.createRequest(group.id, {
     name: `${name} concert`,
     startDate: "2026-10-05",
@@ -135,10 +135,10 @@ describe("the request page", () => {
       html.indexOf("</details>", html.indexOf('class="request-menu"')),
     );
 
-    expect(menu).toContain("<summary>Request options</summary>");
+    expect(menu).toContain("<summary>Options</summary>");
     expect(menu).toContain(">Edit<");
-    expect(menu).toContain(">Close request<");
-    expect(menu).toContain(">Repeat request<");
+    expect(menu).toContain(">Close<");
+    expect(menu).toContain(">Repeat<");
     expect(html).not.toContain('class="request-actions"');
   });
 
@@ -267,19 +267,32 @@ describe("the group page", () => {
 });
 
 describe("the schedule and groups pages", () => {
-  it("folds the schedule's free list behind a disclosure", async () => {
+  it("shows when people are free as a calendar by default, with a List view", async () => {
     const b = await band("Free Quartet");
     const path = `${groupPath(b.group)}/schedule`;
     const data = await scheduleLoader(
       routeArgs(path, { groupAddress: addressOf(b.group) }, { cookie: b.organizerCookie }),
     );
     const html = render("schedule", "/g/:groupAddress/schedule", Schedule, data, path);
-    const free = detailsAfter(html, 'id="overlap-heading"');
+    const free = html.slice(html.indexOf('id="overlap-heading"'));
 
-    expect(free).toMatch(
-      /^<details class="free-times"><summary>Show free times until [^<]+<\/summary>/,
-    );
+    expect(free).not.toContain('class="free-times"');
+    expect(free).toContain('<div class="free-calendar">');
+    expect(free).toContain("Tap a date to see who is free.");
     expect(free).toContain("7–10 PM");
+    const listPath = `${path}?free=list`;
+    const listed = render(
+      "schedule",
+      "/g/:groupAddress/schedule",
+      Schedule,
+      await scheduleLoader(
+        routeArgs(listPath, { groupAddress: addressOf(b.group) }, { cookie: b.organizerCookie }),
+      ),
+      listPath,
+    );
+    const listFree = listed.slice(listed.indexOf('id="overlap-heading"'));
+    expect(listFree).not.toContain("free-calendar");
+    expect(listFree).toContain('<ul class="days">');
   });
 
   it("offers each group once, with Schedule and no My availability", async () => {

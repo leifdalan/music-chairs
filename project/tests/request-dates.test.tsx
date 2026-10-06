@@ -230,7 +230,7 @@ describe("a member's page", () => {
     const html = render(page);
 
     expect(page.dates).toEqual({ from: "2026-11-02", to: "2026-11-29" });
-    expect(html).toContain("This request is no longer taking times.");
+    expect(html).toContain("This availability request is no longer taking times.");
     expect(box(html, "Tue 3 Nov, 7–10 PM")).toMatch(/disabled=""/);
     expect(box(html, "Tue 3 Nov, 7–10 PM")).toMatch(/checked=""/);
     expect(html).not.toContain('name="startTime"');
@@ -346,7 +346,9 @@ describe("saving one date", () => {
     ]);
 
     expect(statusOf(refused)).toBe(400);
-    expect(bodyOf(refused).dateProblem).toBe("Pick a time within this request's times of day.");
+    expect(bodyOf(refused).dateProblem).toBe(
+      "Pick a time within this availability request's times of day.",
+    );
     expect(statusOf(noJs)).toBe(400);
     expect(times(pianist.id)).toEqual(["2026-11-03 1140-1320"]);
   });
@@ -407,7 +409,9 @@ describe("saving one date", () => {
     ]);
 
     expect(statusOf(refused)).toBe(400);
-    expect(bodyOf(refused).dateProblem).toBe("This request is no longer taking times.");
+    expect(bodyOf(refused).dateProblem).toBe(
+      "This availability request is no longer taking times.",
+    );
     expect(times(pianist.id)).toEqual([]);
   });
 });

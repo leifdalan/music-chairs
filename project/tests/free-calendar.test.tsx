@@ -14,7 +14,7 @@ import RequestPage, {
   loader as requestLoader,
 } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, ORIGIN, routeArgs, tempDatabase } from "./routes";
+import { addressOf, deviceCookie, ORIGIN, routeArgs, tempDatabase, addSlots } from "./routes";
 
 tempDatabase();
 
@@ -116,9 +116,9 @@ async function band() {
   const { group, organizer } = store.createGroup("Heat Trio", "Viola", "Europe/London");
   const cellist = store.addMember(group.id, "Cellist", "member");
   const pianist = store.addMember(group.id, "Pianist", "member");
-  store.addSlots(organizer.id, [once("2026-10-05", 1080, 1380), once("2026-10-06", 1140, 1320)]);
-  store.addSlots(cellist.id, [once("2026-10-05", 1080, 1380)]);
-  store.addSlots(pianist.id, [once("2026-10-05", 1140, 1170)]);
+  addSlots(store, organizer.id, [once("2026-10-05", 1080, 1380), once("2026-10-06", 1140, 1320)]);
+  addSlots(store, cellist.id, [once("2026-10-05", 1080, 1380)]);
+  addSlots(store, pianist.id, [once("2026-10-05", 1140, 1170)]);
   const request = store.createRequest(group.id, {
     name: "Heat concert",
     startDate: "2026-10-05",

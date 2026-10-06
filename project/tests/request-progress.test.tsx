@@ -236,7 +236,7 @@ describe("the schedule page by request", () => {
         ["Concert", 1, 2, false],
       ]);
       const progress = html.slice(html.indexOf('id="progress-heading"'));
-      expect(progress).toContain("1 of 2 confirmed · 0 of 3 answered");
+      expect(progress).toContain("1 of 2 confirmed · 0 of 3 answered all");
       expect(progress).toContain("Complete");
       // The download only for the complete request, as a plain link.
       expect(progress).toContain(
@@ -277,7 +277,7 @@ describe("the schedule page by request", () => {
     expect(confirmed).toContain("Nothing confirmed yet.");
     expect(
       html.slice(html.indexOf('id="proposed-heading"'), html.indexOf('id="earlier-heading"')),
-    ).toContain("No proposed times.");
+    ).toContain("No proposed rehearsals.");
   });
 
   it("shows a member figures only, never another member's id", async () => {
@@ -321,10 +321,10 @@ describe("your requests on the home screen", () => {
     ]);
     expect(data.requests[0].requestId).toBe(tour.id);
     const html = renderHome(data);
-    expect(html).toContain("Your requests");
-    expect(html).toContain(`Proposed: Thu 8 Oct, 7–9 PM`);
-    expect(html).toContain(`href="${groupPath(group)}/schedule"`);
-    expect(html).toContain("0 of 1 confirmed · 0 of 3 answered");
+    expect(html).toContain("Your availability requests");
+    expect(html).toContain(`Proposed rehearsal: Thu 8 Oct, 7–9 PM`);
+    expect(html).toContain(`href="${groupPath(group)}/schedule#rehearsal-${proposed.id}"`);
+    expect(html).toContain("0 of 1 confirmed · 0 of 3 answered all");
     expect(html).toContain("1 of 1 confirmed");
     expect(html).toContain(`href="${groupPath(group)}/requests/${gig}/calendar.ics" download=""`);
     expect(html).not.toContain(`/requests/${concert}/calendar.ics`);

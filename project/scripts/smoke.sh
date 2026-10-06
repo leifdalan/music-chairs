@@ -196,7 +196,7 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$or
 [ "$code" = 302 ] || fail "answering yes returned HTTP $code"
 schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
-  grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
+  grep -q "<li class=\"rehearsal confirmed\" id=\"rehearsal-$rehearsal\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
     grep -q "At Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&
     grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html" &&

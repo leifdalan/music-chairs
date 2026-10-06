@@ -59,7 +59,7 @@ describe("parseRequestForm", () => {
   it("requires a name of at most the limit", () => {
     expect(parseRequestForm(form({ ...valid, name: " " }), { today: TODAY })).toMatchObject({
       ok: false,
-      errors: { name: "Give the request a name." },
+      errors: { name: "Give the availability request a name." },
     });
     const long = "a".repeat(REQUEST_NAME_MAX + 1);
     expect(parseRequestForm(form({ ...valid, name: long }), { today: TODAY })).toMatchObject({
@@ -82,7 +82,10 @@ describe("parseRequestForm", () => {
       parseRequestForm(form({ ...valid, startDate: "2026-11-02", endDate: "2027-05-03" }), {
         today: TODAY,
       }),
-    ).toMatchObject({ ok: false, errors: { endDate: "A request can cover at most 26 weeks." } });
+    ).toMatchObject({
+      ok: false,
+      errors: { endDate: "An availability request can cover at most 26 weeks." },
+    });
     expect(
       parseRequestForm(form({ ...valid, startDate: "2026-11-02", endDate: "2027-05-02" }), {
         today: TODAY,

@@ -374,12 +374,12 @@ describe("everything waiting on you, first", () => {
       },
     ]);
     const waiting = html.slice(html.indexOf("Waiting on you"), html.indexOf("</section>"));
-    expect(waiting).toContain(`href="${groupPath(group)}/schedule"`);
+    expect(waiting).toContain(`href="${groupPath(group)}/schedule#rehearsal-${rehearsal.id}"`);
     expect(waiting).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
-    expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your requests"));
+    expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your availability requests"));
     // The proposal also stays under its request, with the figures.
-    const progress = html.slice(html.indexOf("Your requests"));
-    expect(progress).toContain(`Proposed: ${data.proposals[0].summary}`);
+    const progress = html.slice(html.indexOf("Your availability requests"));
+    expect(progress).toContain(`Proposed rehearsal: ${data.proposals[0].summary}`);
     expect(progress).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
   });
 

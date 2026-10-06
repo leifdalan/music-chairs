@@ -99,7 +99,7 @@ export function parseRequestForm(
 ): RequestParse {
   const values = readRequestFormValues(form);
   const errors: RequestErrors = {};
-  if (values.name === "") errors.name = "Give the request a name.";
+  if (values.name === "") errors.name = "Give the availability request a name.";
   else if (Array.from(values.name).length > REQUEST_NAME_MAX) {
     errors.name = `The name must be at most ${REQUEST_NAME_MAX} characters.`;
   }
@@ -114,7 +114,7 @@ export function parseRequestForm(
   } else if (startOk && values.endDate < values.startDate) {
     errors.endDate = "The last date can't be before the first date.";
   } else if (startOk && daysBetween(values.startDate, values.endDate) >= MAX_SPAN_WEEKS * 7) {
-    errors.endDate = `A request can cover at most ${MAX_SPAN_WEEKS} weeks.`;
+    errors.endDate = `An availability request can cover at most ${MAX_SPAN_WEEKS} weeks.`;
   }
 
   const windows: TimeWindow[] = [];

@@ -184,10 +184,7 @@ export type Store = {
   // Availability is always read and written through its owner: a slot id of
   // another member behaves exactly like an unknown one.
   listSlots(memberId: string): Slot[];
-  findSlot(memberId: string, slotId: string): Slot | null;
   addSlot(memberId: string, input: SlotInput): Slot;
-  /** Several times at once, all or none. */
-  addSlots(memberId: string, inputs: SlotInput[]): Slot[];
   deleteSlot(memberId: string, slotId: string): boolean;
   /** Every member's slots in the group, keyed by member id. */
   listGroupSlots(groupId: string): Map<string, Slot[]>;
@@ -1049,9 +1046,6 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     `SELECT ${slotColumns} FROM availability WHERE member_id = ?
      ORDER BY start_date, start_minute, created_at, rowid`,
   );
-  const selectSlot = db.prepare(
-    `SELECT ${slotColumns} FROM availability WHERE member_id = ? AND id = ?`,
-  );
   const insertSlot = db.prepare(
     `INSERT INTO availability
      (id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at)
@@ -1152,12 +1146,6 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     if (!isToken(rehearsalId)) return null;
     const row = selectRehearsal.get(groupId, rehearsalId) as RehearsalRow | undefined;
     return row ? toRehearsal(row) : null;
-  }
-
-  function findSlot(memberId: string, slotId: string): Slot | null {
-    if (!isToken(slotId)) return null;
-    const row = selectSlot.get(memberId, slotId) as SlotRow | undefined;
-    return row ? toSlot(row) : null;
   }
 
   function addSlot(memberId: string, input: SlotInput): Slot {
@@ -1419,11 +1407,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     listSlots(memberId) {
       return (selectSlots.all(memberId) as SlotRow[]).map(toSlot);
     },
-    findSlot,
     addSlot,
-    addSlots(memberId, inputs) {
-      return transaction(() => inputs.map((input) => addSlot(memberId, input)));
-    },
     deleteSlot(memberId, slotId) {
       if (!isToken(slotId)) return false;
       return Number(removeSlot.run(memberId, slotId).changes) > 0;

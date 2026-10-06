@@ -9,7 +9,7 @@ import { groupPath } from "../app/lib/group-address";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase } from "./routes";
+import { addressOf, deviceCookie, routeArgs, tempDatabase, addSlots } from "./routes";
 
 tempDatabase();
 
@@ -43,7 +43,7 @@ describe("12-hour times on every page (plan/phase-22.md)", () => {
     const { group, organizer } = store.createGroup("Clock Band", "Viola", "Europe/London");
     const cellist = store.addMember(group.id, "Cellist", "member");
     for (const member of [organizer, cellist]) {
-      store.addSlots(member.id, [
+      addSlots(store, member.id, [
         {
           kind: "weekly",
           startDate: "2026-10-01",

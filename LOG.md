@@ -3663,3 +3663,14 @@ Phase 23 — close bookkeeping outcomes
 - Ripple AUTO applied: plan/phase-24.md gained "Inherited from Phase 23" (where times are given, the response wording, no My availability, and the deferred test-only store cleanup).
 - Lessons: imperious-bug now has 2 occurrences (Phase 23 PARK added); ./bin/lessons validate OK.
 - Correction to the END block above: the primary dispositions were 20 adopted (one of them in part) and 2 deferred (plan review F013, code critique F005), not 19 and 3.
+
+## 2026-10-06 14:47 — START
+Phase 24 — Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule
+
+Execution trace: ebf21e5397244930bd4beb9f0e84b066
+
+Planned work:
+- Names, everywhere: "Requests" become "Availability requests" and "proposals" / "proposed times" become "Proposed rehearsals", in headings, buttons, toasts, the home page and the calendar feed's descriptions.
+- Proposed rehearsals sit visibly and functionally under the availability request they came from: on the request page, on the group page and on the schedule (each card names its request).
+- Group page: upcoming confirmed rehearsals as a list (future dates only); the group's availability requests with their proposed rehearsals nested; a Schedule link that does not look already selected; no My availability button.
+- Schedule page: "When people are free" becomes a Calendar / List toggle, Calendar by default, showing the heat map; a summary of how many members have given availability and how many have answered each proposed rehearsal; "Rehearsals in your calendar" (the subscription link and the Google Calendar switch) moves to the bottom. Otherwise the page stays as it is.

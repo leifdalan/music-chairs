@@ -70,10 +70,24 @@ export function calendarDates(
     );
 }
 
+/**
+ * What a rehearsal's calendar event says (plan/phase-24.md): the group, the
+ * availability request it came from, and where to answer.
+ */
+function eventDescription(group: Group, rehearsal: Rehearsal, origin: string): string {
+  const request = rehearsal.requestId
+    ? getStore().findRequest(group.id, rehearsal.requestId)
+    : null;
+  const from = request ? `, from the availability request "${request.name}"` : "";
+  const where = origin ? ` Answer or see the schedule: ${origin}${groupPath(group)}/schedule` : "";
+  return `Rehearsal for ${group.name}${from}.${where}`;
+}
+
 /** Calendar-file events for `calendarDates` output: the feed's and a request's download. */
 export function feedEvents(
   group: Group,
   dates: { rehearsal: Rehearsal; date: string }[],
+  origin: string,
 ): FeedEvent[] {
   const zone = group.timeZone;
   return dates.map(({ rehearsal, date }) => ({
@@ -82,6 +96,7 @@ export function feedEvents(
     end: zonedInstant(date, rehearsal.endMinute, zone, { skipped: "forward" }) as Date,
     summary: `${group.name} rehearsal`,
     location: rehearsal.location,
+    description: eventDescription(group, rehearsal, origin),
   }));
 }
 
@@ -157,7 +172,7 @@ export async function syncMember(
       await putEvent(target.accountId, id, {
         summary: `${group.name} rehearsal`,
         location: rehearsal.location,
-        description: `Rehearsal for ${group.name}. Answer or see the schedule: ${origin}${groupPath(group)}/schedule`,
+        description: eventDescription(group, rehearsal, origin),
         start: zonedInstant(date, rehearsal.startMinute, group.timeZone, {
           skipped: "forward",
         }) as Date,

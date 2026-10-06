@@ -2,11 +2,13 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { data, Form, Link, redirect, useFetcher, useLocation } from "react-router";
 
 import { googleClashes } from "~/.server/clashes";
+import { requestRehearsals } from "~/.server/upcoming";
 import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
+import { ProposedList } from "~/components/proposed-list";
 import { RequestDates, type DateErrors, type DateValues } from "~/components/request-dates";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
@@ -66,7 +68,7 @@ async function load(
 }
 
 const DATE_GONE = "One of the dates isn't on offer any more. Reload the page and try again.";
-const NOT_TAKING = "This request is no longer taking times.";
+const NOT_TAKING = "This availability request is no longer taking times.";
 
 /** Whether a stretch overlaps one of the request's windows. */
 function overlapsWindows(range: TimeWindow, windows: TimeWindow[]): boolean {
@@ -138,7 +140,7 @@ function isStretch(value: TimeWindow | DateErrors): value is TimeWindow {
   return "startMinute" in value;
 }
 
-const OUTSIDE_WINDOWS = "Pick a time within this request's times of day.";
+const OUTSIDE_WINDOWS = "Pick a time within this availability request's times of day.";
 
 /** The posted stretch if it falls within one of the request's windows, else why not. */
 function readRequestStretch(form: FormData, windows: TimeWindow[]): TimeWindow | DateErrors {
@@ -257,7 +259,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // The calendar of who is free covers the dates the free times do (plan/phase-20.md).
     freeRange: overlap ? { from, to } : null,
     freeView: search.get("free") === "list" ? "list" : "calendar",
-    // Changes when a proposal is made, so the picker starts afresh.
+    // Its proposed rehearsals and confirmed ones still to come (plan/phase-24.md).
+    rehearsals: requestRehearsals(group, today).get(scheduleRequest.id) ?? [],
+    // Changes when a rehearsal is proposed, so the picker starts afresh.
     rehearsalCount: isOrganizer ? store.listRehearsals(group.id).length : null,
   };
 }
@@ -420,9 +424,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!store.setRequestOpen(group.id, scheduleRequest.id, intent === "reopen")) {
       throw data(null, { status: 404 });
     }
-    return redirectWithToast(here, intent === "reopen" ? "Request reopened" : "Request closed");
+    return redirectWithToast(
+      here,
+      intent === "reopen" ? "Availability request reopened" : "Availability request closed",
+    );
   }
-  return problem("Something went wrong with that request. Please try again.");
+  return problem("Something went wrong. Please try again.");
 }
 
 export default function RequestPage({ loaderData, actionData }: Route.ComponentProps) {
@@ -450,6 +457,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     freeRange,
     freeView,
     rehearsalCount,
+    rehearsals,
   } = loaderData;
   const status = !open ? "Closed" : expired ? "Ended" : null;
   const pickProblem =
@@ -471,6 +479,16 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       notice={notice}
       result={datesResult}
     />
+  );
+  const proposedSection = (
+    <section aria-labelledby="proposed-heading">
+      <h2 id="proposed-heading">Proposed rehearsals</h2>
+      <ProposedList
+        items={rehearsals}
+        scheduleHref={`${groupHref}/schedule`}
+        empty="No proposed rehearsals yet."
+      />
+    </section>
   );
   const capSection = (
     <section aria-labelledby="cap-heading">
@@ -501,6 +519,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               <Link
                 to={`${groupHref}/requests/new?edit=${requestId}`}
                 className={buttonVariants({ variant: "outline" })}
+                aria-label={`Edit availability request: ${name}`}
               >
                 Edit
               </Link>
@@ -508,23 +527,29 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             {open ? (
               <ConfirmForm
                 fields={{ intent: "close" }}
-                trigger="Close request"
+                trigger="Close"
+                triggerLabel={`Close availability request: ${name}`}
                 {...closePrompt(name)}
                 feedbackKey={`request-open-${requestId}`}
               />
             ) : (
               <Form method="post" replace>
                 <input type="hidden" name="intent" value="reopen" />
-                <SubmitButton feedbackKey={`request-open-${requestId}`} variant="outline">
-                  Reopen request
+                <SubmitButton
+                  feedbackKey={`request-open-${requestId}`}
+                  variant="outline"
+                  label={`Reopen availability request: ${name}`}
+                >
+                  Reopen
                 </SubmitButton>
               </Form>
             )}
             <Link
               to={`${groupHref}/requests/new?repeat=${requestId}`}
               className={buttonVariants({ variant: "outline" })}
+              aria-label={`Repeat availability request: ${name}`}
             >
-              Repeat request
+              Repeat
             </Link>
           </RequestMenu>
         ) : null}
@@ -549,7 +574,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           {overlap ? (
             <section aria-labelledby="overlap-heading">
               <h2 id="overlap-heading">When people are free</h2>
-              <p className="hint">Within this request's dates and times of day.</p>
+              <p className="hint">Within this availability request's dates and times of day.</p>
               <Switch
                 label="How to show when people are free"
                 options={[
@@ -572,6 +597,12 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                     to={freeRange.to}
                     days={overlap}
                     total={answers?.length ?? 0}
+                    legend="Tap a date to see who is free and tick times to propose."
+                    renderStretch={(date, stretch) => (
+                      <li key={stretch.startMinute} className="stretch">
+                        <FreeStretch date={date} stretch={stretch} total={answers?.length ?? 0} />
+                      </li>
+                    )}
                   />
                 ) : (
                   <ul className="days">
@@ -604,6 +635,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               </details>
             </section>
           ) : null}
+          {proposedSection}
           <section aria-labelledby="your-times-heading">
             <h2 id="your-times-heading">Your times</h2>
             <details
@@ -659,6 +691,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             {yourTimes}
           </section>
           {capSection}
+          {proposedSection}
         </>
       )}
     </main>
@@ -820,7 +853,7 @@ function closePrompt(name: string) {
   return {
     title: `Close ${name}?`,
     body: "Members can no longer add times to it. You can reopen it later.",
-    label: "Close request",
+    label: "Close availability request",
   };
 }
 
@@ -852,7 +885,7 @@ function RequestMenu({ children }: { children: ReactNode }) {
         if (!event.currentTarget.contains(event.relatedTarget)) focusInside.current = false;
       }}
     >
-      <summary>Request options</summary>
+      <summary>Options</summary>
       <div className="request-menu-panel">{children}</div>
     </details>
   );
