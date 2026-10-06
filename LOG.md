@@ -3798,3 +3798,110 @@ Planned work:
 - Delete on a proposed rehearsal is a quieter destructive control set apart from "Confirm for everyone", using the `outline-destructive` variant Phase 21 introduced.
 - (Dropped at phase start by the operator: dates and calendars stay as they are.)
 - The signed-in home page drops the product pitch (kept for visitors).
+
+## 2026-10-06 16:15 — END
+Phase 25 — The confirm moment: one calm warning, a quieter delete, and local date formats
+
+On the schedule, a proposed rehearsal no longer shows a red line for every date someone can't make. It says it once per set of people, in calm amber, for example "Oboe and Harpist aren't free on 8 dates, Tue 13 Oct to Tue 1 Dec." Screen readers get one status region named "Who isn't free" instead of one per date. Delete is now an outlined red button set apart at the end of the row, so "Confirm for everyone" reads as the decision; confirming is still one tap. The home page's "What music-chairs does" pitch now shows only to newcomers (no group and no Google account); its first line now matches how times are given. As you ruled at phase start, dates and calendars stay as they are, so the date-format item in this phase's title was dropped. How it reads is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 92b3a3f18c9d4c88a1cc479ee1cc350f
+
+Files changed:
+- project/app/lib/warnings.ts (new) — one summary per set of missing people, and its sentence
+- project/app/routes/schedule.tsx — the organizer's area renders the summaries in one labelled status region; Delete uses the outline-destructive variant
+- project/app/app.css — --warning tokens (light and dark) and the amber .warnings style; the actions row wraps and pushes Delete to the end
+- project/app/routes/home.tsx — the pitch for newcomers only; its first line updated
+- project/tests/confirm-moment.test.tsx (new); project/tests/schedule.test.tsx updated for the grouped shape
+- plan/phase-25.md — the phase-start ruling (date formats dropped) and User Demo, before capture
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 37544932148, check success for c2e8e97 (CHECK ALL PASS, SMOKE PASS)
+- test.changed (./bin/test --changed-from '@{upstream}'): OK — Vitest 625/625, pytest 180/180
+- Focused before the gates: lint, typecheck, format OK; 6 hand mutations all caught
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic); astra CLI unavailable, so the configured alternative opus
+- Planner: inline primary (opus)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline primary (opus)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Planner: inline
+- Reviewer (plan review): 209.936 s; first event 0.885 s; longest idle 34.398 s; success
+- Coder: inline
+- Critic (code review): 95.238 s; first event 0.608 s; longest idle 24.874 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Active makespan: 967.677 s; intelligence 305.175 s; gates 169.186 s; wait 304.114 s (interval unions, overlapping)
+- Failed work: 0 s; retry work: 0 s; unattributed 0.664 s
+- Awaiting user input: none in this trace (the phase-start question was answered before it began)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued 2e96d558…, final 5fcdc25fb44c483501071b0bc2f2362e74888ba89254462a9792a8ac43678a00
+- Advisory reports: plan-1 (8 findings) and code-1 (5 findings); primary dispositions: 12 adopted, 1 deferred
+- Gates: implementation-final=3 (smoke.local, ci.check, test.changed), all against the final candidate; tree ids unchanged across the gates
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Declined or deferred advice and notes:
+- Code critique CC-F003 (deferred): "N dates, first to last" spans the whole range even when another set of people is missing on dates in between; listing the dates on request is a later choice.
+- Members with a group no longer see the home page's "Signing in with Google is optional…" paragraph; the privacy policy stays linked from every page's footer.
+- After "Confirm for everyone", a screen reader may announce the summary once as the card moves under Confirmed rehearsals; that is expected.
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (independently reviewed, gate-proved, candidate-bound): ./bin/test project/tests covers the grouping and sentences, the single labelled status region, the amber token rule in the stylesheet, Delete's quieter variant and its place after Confirm (alone on confirmed rehearsals), members seeing no warnings, and the home pitch for newcomers only; ./bin/check all passed in CI on the phase's pull request.
+- Parked for the user: how the calm summary and the quieter Delete read on your phone in light and dark, and the User Demo below.
+
+Delivery:
+- default — commit and pull request #16 merged when green after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-26.md — add "Inherited from Phase 25": the --warning token (amber for who isn't free), red reserved for destructive actions, Delete's outline-destructive variant at the end of the actions row, the home pitch for newcomers only (pending)
+- DECIDE: None
+
+Lessons:
+- none new this phase (no failure, correction or surprise beyond the reviews' ordinary findings)
+- graduation DECIDE (standing): camouflaged-dragon → test; gentle-pug → kickoff skill; lively-salamander → CLAUDE.md conventions
+- recalibration: insufficient samples (no group has 30 successful samples)
+
+User demo (per policies/user-demo-protocols.md):
+- Entry point. On your phone, signed in as an organizer of a group with a proposed rehearsal that some required member isn't free for on one or more dates, open the group's schedule from:
+
+https://rehearse.dalan.dev
+
+- Suggested inputs.
+  1. Find the proposed rehearsal on the schedule and read its "For organizers" area.
+  2. Tap "Confirm for everyone".
+  3. Open the home page; then open it in a private window.
+- What to look for.
+  - The missing members read as one calm (amber, not red) summary per set of people, such as "Oboe and Harpist aren't free on 8 dates, Tue 6 Oct to Tue 24 Nov", not one red line per date.
+  - Delete is an outlined red button set apart from "Confirm for everyone"; confirming is still one tap.
+  - The home page you use has no "What music-chairs does" pitch; the private window (a newcomer) still shows it.
+- Variations to explore. Different people missing on different dates (one summary for each set); a screen reader reading the warnings once, not once per date.
+
+Remaining:
+- None beyond the parked User Demo.
+
+## 2026-10-06 16:15 — NOTE
+Phase 25 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 25 ✅ and Phase 26 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-26.md gained "Inherited from Phase 25" (the warning token, red for destructive actions only, the quieter Delete, the newcomer-only pitch).
+- Lessons: none new; ./bin/lessons validate not needed (no lesson writes).
