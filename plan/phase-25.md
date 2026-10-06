@@ -29,3 +29,7 @@ From the Impeccable critique's P2 "Confirming happens under a red wall" and the 
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints".
+
+## Inherited from Phase 24
+
+Pinned by [Phase 24](phase-24.md): user-facing names are "availability request(s)" and "proposed rehearsal(s)" (never "proposal"); new copy follows them. Each proposed card on the schedule (`RehearsalCard` in `project/app/routes/schedule.tsx`) now starts with its summary, place, "From {request}" and "{n} of {m} answered", carries `id="rehearsal-{id}"` (linked from the request page, group page and home), and keeps "Your answer" and the organizers' warnings, Confirm and Delete below — the area this phase reworks. The group page leads with "Upcoming rehearsals" (confirmed dates from today), and the schedule ends with "Rehearsals in your calendar".

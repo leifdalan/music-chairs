@@ -21,6 +21,8 @@ occurrences:
     ref: "Phase 21 END"
   - date: 2026-10-06
     ref: "Phase 22 END"
+  - date: 2026-10-06
+    ref: "Phase 24 END"
 ---
 
 Two Phase 3 checks looked like evidence but were not. A route test asserted that loading a schedule with a 2062 rehearsal took under one second, meant to prove cells are built only for the dates read; mutating the code to build every day up to 2062 still ran in well under a second, so the assertion could never fail. It was replaced by a unit test that asserts exactly which dates `buildCells` produces. Separately, the production smoke proposed a rehearsal on the fixed date 2027-01-07, which the app refuses once that date is past, so every gate would have started failing three months later for no product reason; the smoke now computes a Thursday about ten weeks ahead.
@@ -38,3 +40,5 @@ Phase 10 recurrence: a test that the calendar offers to connect Google Calendar 
 Phase 21 recurrence: the governance suite's per-test time ceilings failed real gates for no product reason. The handoff `./bin/check all` failed once on a pytest over its 2 s ceiling and once on eight Vitest 5 s timeouts while the machine was loaded, and the post-merge CI run failed `test_deploy.py` at 2.56 s against 2 s, skipping the deploy until a rerun. A wall-clock ceiling measures the machine as much as the code.
 
 Phase 22 recurrence: of seven hand mutations, one (dropping the off-half-hour check on a stored start) survived until a test with a 7:15 PM start was added. Separately, a privacy test asserted that a member's page never contains the digit 7 (another member's limit); once times read "7–10 PM" that check would fail for an innocent reason, so it now uses a limit of 37.
+
+Phase 24 recurrence: a mutant that counted every rehearsal's answers on each schedule card survived twice. The fixture answered only one rehearsal, so the count could not differ. Once a second rehearsal had an answer, the assertion still passed, because it searched the rest of the page rather than the card's own header. A second answer and an assertion scoped to the card's header killed it.

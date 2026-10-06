@@ -3674,3 +3674,116 @@ Planned work:
 - Proposed rehearsals sit visibly and functionally under the availability request they came from: on the request page, on the group page and on the schedule (each card names its request).
 - Group page: upcoming confirmed rehearsals as a list (future dates only); the group's availability requests with their proposed rehearsals nested; a Schedule link that does not look already selected; no My availability button.
 - Schedule page: "When people are free" becomes a Calendar / List toggle, Calendar by default, showing the heat map; a summary of how many members have given availability and how many have answered each proposed rehearsal; "Rehearsals in your calendar" (the subscription link and the Google Calendar switch) moves to the bottom. Otherwise the page stays as it is.
+
+## 2026-10-06 15:16 — END
+Phase 24 — Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule
+
+Requests are now called "availability requests" and proposals "proposed rehearsals" in every page, button, message and calendar event. A proposed rehearsal visibly sits under the availability request it came from. The request page lists its proposed rehearsals, each with "Answer on the schedule" jumping to that card. On the group page they are nested under their request, including a closed request that still has some, marked "Closed". On the schedule each card says which request it came from and how many have answered. The group page now opens with "Upcoming rehearsals": confirmed dates from today only, with cancelled and past dates left out. Its Schedule button no longer looks selected. On the schedule, "When people are free" opens as the heat-map calendar with a List option. Above it is a summary of how many members have given times and how many have responded to each open availability request. "Rehearsals in your calendar" is now the last section. Calendar events say which availability request they came from. How it reads on your phone is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: ebf21e5397244930bd4beb9f0e84b066
+
+Files changed:
+- project/app/routes/group.tsx — Upcoming rehearsals (members only); availability requests with proposed rehearsals nested, closed ones kept and marked; outline Schedule link; renames
+- project/app/routes/schedule.tsx — section order (calendar panel last); proposed cards name their request, count answers and carry anchors; free times as a heat-map calendar or list with a summary; renames
+- project/app/routes/request.tsx — the Proposed rehearsals list; Options menu with named aria-labels; renames
+- project/app/.server/upcoming.ts, project/app/components/proposed-list.tsx (new) — upcoming dates and each request's rehearsals; the compact list
+- project/app/components/free-calendar.tsx — generic over its stretch rows, with a legend, shared by the request page and the schedule
+- project/app/.server/calendar-sync.ts, project/app/lib/ics.ts, project/app/routes/calendar-feed.ts, project/app/routes/request-calendar.ts — event descriptions name the availability request (feed DESCRIPTION, Google description)
+- project/app/routes/home.tsx, project/app/routes/requests.new.tsx, project/app/routes/privacy.tsx, project/app/lib/requests.ts, project/app/lib/group-prompts.ts, project/app/components/calendar-actions.tsx — renames; "answered all"; anchored home links
+- project/app/.server/store.ts — addSlots, findSlot and selectSlot removed (Phase 23's deferred tidy-up)
+- project/app/app.css, project/scripts/smoke.sh — list styles; the smoke's confirmed-card grep includes the anchor id
+- project/tests: availability-requests.test.tsx (new); routes.ts gains an addSlots helper; wording and markup updates in 17 test files
+- plan/phase-24.md — the phase-start ruling and User Demo (before capture)
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 37538715383, check success for 4515970 (CHECK ALL PASS, SMOKE PASS)
+- test.changed (./bin/test --changed-from '@{upstream}'): OK — Vitest 614/614, pytest 180/180
+- Focused before the gates: lint, typecheck, format OK; 13 hand mutations all caught (one survivor fixed by a stronger fixture and a scoped assertion)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic); astra CLI unavailable, so the configured alternative opus
+- Planner: inline primary (opus)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline primary (opus)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Planner: inline
+- Reviewer (plan review): 255.526 s; first event 0.569 s; longest idle 50.711 s; success
+- Coder: inline
+- Critic (code review): 171.998 s; first event 0.687 s; longest idle 26.222 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Active makespan: 1700.837 s; intelligence 427.524 s; gates 164.033 s; wait 426.449 s (interval unions, overlapping)
+- Failed work: 0 s; retry work: 0 s; unattributed 0.765 s
+- Awaiting user input: none in this trace (the phase-start question was answered before it began)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued 3eb3adbc…, final 71ac7d58b49e12b0a29dbc1469d3f8acdcf2476555c5297bc291c0799697ef67
+- Advisory reports: plan-1 (12 findings) and code-1 (7 findings); primary dispositions: 18 adopted, 1 declined
+- Gates: implementation-final=3 (smoke.local, ci.check, test.changed), all against the final candidate; tree ids unchanged across the gates
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Declined or deferred advice:
+- Code critique F007 (declined): each proposed card on the schedule says "From {request}" even under its request's heading; the phase asks that each card name its request. The privacy page keeps the ordinary phrase "requests to see or delete your data".
+- Code critique F002 (in part): "Earlier rehearsals" isn't in the order test; it needs a rehearsal without a request, which the app can no longer create.
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (independently reviewed, gate-proved, candidate-bound): ./bin/test project/tests covers the names on every rendered page (home, group, request, request form, schedule; organizer and member), the nesting on the request page, group page and schedule, the group page's upcoming list (confirmed, future, members only; cancelled, past and proposed excluded), the schedule's section order, calendar default and list view, summary and per-card counts, the calendar descriptions; ./bin/check all passed in CI on the phase's pull request.
+- Parked for the user: how the new pages read and feel on your phone, and the User Demo below.
+
+Delivery:
+- default — commit and pull request #15 merged when green after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-25.md — add "Inherited from Phase 24": the names (availability request, proposed rehearsal), the proposed card's layout (From, answered count, anchor) where Phase 25 reworks warnings and Delete, and the group page's Upcoming list (pending)
+- DECIDE: None
+
+Lessons:
+- occurrence added (pending): camouflaged-dragon (8 total) — Phase 24 END: a mutant on the schedule card's answered count survived because the fixture answered only one rehearsal and the assertion searched the rest of the page; fixed with a second rehearsal's answer and a scoped assertion
+- graduation DECIDE (standing): camouflaged-dragon → test; gentle-pug → kickoff skill; lively-salamander → CLAUDE.md conventions
+- recalibration: insufficient samples (no group has 30 successful samples)
+
+User demo (per policies/user-demo-protocols.md):
+- Entry point. On your phone, signed in as an organizer of a group with an availability request that has at least one proposed rehearsal (propose one from the request's calendar first if needed), open:
+
+https://rehearse.dalan.dev
+
+- Suggested inputs.
+  1. Open the group page.
+  2. Open the availability request from it, then follow a proposed rehearsal's "Answer on the schedule".
+  3. On the schedule, confirm one proposed rehearsal, then go back to the group page.
+  4. On the schedule, switch "When people are free" between Calendar and List, and scroll to the bottom.
+- What to look for.
+  - The group page lists "Upcoming rehearsals" (confirmed, future dates only) and "Availability requests", each with its proposed rehearsals under it; the Schedule button doesn't look already selected; there is no My availability.
+  - Pages say "Availability request(s)" and "Proposed rehearsal(s)", never "proposal" or a bare "Requests".
+  - The request page lists its proposed rehearsals, and the link lands on that rehearsal on the schedule; after confirming, the rehearsal appears under "Upcoming rehearsals" on the group page.
+  - The schedule's "When people are free" opens as the heat map calendar with a List option, shows how many members have given times and how many have answered each proposed rehearsal, and "Rehearsals in your calendar" is the last section.
+- Variations to explore. A member (not an organizer) viewing the group page and schedule; a group whose only confirmed rehearsal is in the past (it isn't listed as upcoming).
+
+Remaining:
+- None beyond the parked User Demo.
+
+## 2026-10-06 15:16 — NOTE
+Phase 24 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 24 ✅ and Phase 25 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-25.md gained "Inherited from Phase 24" (the names, the proposed card's layout and anchor, the group page's upcoming list).
+- Lessons: camouflaged-dragon now has 8 occurrences (Phase 24 END added); ./bin/lessons validate OK.
