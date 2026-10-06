@@ -50,18 +50,20 @@ graph TD
     P19_3[Phase 19.3<br/>Readable group addresses]
     P20[Phase 20<br/>Visual organizer view]
     P21[Phase 21<br/>Organizer layout]
-    P22[Phase 22<br/>Members give availability]
-    P23[Phase 23<br/>The confirm moment]
-    P24[Phase 24<br/>Identity]
-    P25[Phase 25<br/>Fit, finish, measure]
+    P22[Phase 22<br/>AM/PM and the hour bar]
+    P23[Phase 23<br/>Answering on the calendar]
+    P24[Phase 24<br/>Availability requests own rehearsals]
+    P25[Phase 25<br/>The confirm moment]
+    P26[Phase 26<br/>Identity]
+    P27[Phase 27<br/>Fit, finish, measure]
     P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
     P3 --> P7
     P7 --> P8 --> P9 --> P10 --> P11 --> P12 --> P13 --> P14 --> P15 --> P16 --> P17 --> P18 --> P19
     P19 --> P19_1 --> P19_2 --> P19_3
-    P19 --> P20 --> P21 --> P22 --> P23 --> P24 --> P25
+    P19 --> P20 --> P21 --> P22 --> P23 --> P24 --> P25 --> P26 --> P27
 ```
 
-Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last. Phase 14 comes from Google's refusal to verify the app (2026-10-03): the operator placed a privacy policy and home page next, moving proposing several times to Phase 15 and visual cleanup to Phase 16. Phase 16 comes from the operator's request on 2026-10-03 to define the infrastructure in Terraform rather than CloudFormation; the operator placed it before the visual cleanup, which moves to Phase 17 and waits for the operator's UI/UX pass and choice of visual framework. Phase 17 comes from the operator's request on 2026-10-04 to group rehearsals by request with completion status on the schedule and home screen; it goes before the visual cleanup, which becomes Phase 18. Phase 18 comes from the operator's request on 2026-10-04 for a CI/CD pipeline that runs the test suite and deploys on merge to main, without paying for compute; the operator placed it before the visual cleanup, which becomes Phase 19. Phases 10–19 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split. Phase 20 comes from the operator's request on 2026-10-05 for a more visual organizer view (a heat map of who is free, a popup per date, picking dates on a calendar or list) and for confirming not to read as a save step. Phases 21–25 come from the operator's Impeccable site-wide critique and audit on 2026-10-05 and their answers: organizer layout first, then members giving availability, the confirm moment, identity, and fit and finish with a second critique and audit.
+Phases 1–4 build the complete scheduling loop for name-only members; Phase 5 puts it in front of the band on AWS before the Google work, because Google OAuth needs a stable public URL; Phases 6–7 add Google sign-in and Calendar. Email notifications are outside v1 (brief, "Notifications") and have no phase. Phases 8–11 come from the operator's UX review after Phase 7 (2026-10-03): feedback and time entry first, then scheduling requests, then the availability views that depend on them, and the visual cleanup last. Phases 11–14 come from the operator's further list after Phase 9 (2026-10-03), placed by the operator after Phase 10: managing groups and members with confirmations, then profiles and simpler sign-in, then adding members from contacts (which builds on claiming a place by name or Google account), then proposing several times at once and pending requests on the home screen; visual cleanup stays last. Phase 14 comes from Google's refusal to verify the app (2026-10-03): the operator placed a privacy policy and home page next, moving proposing several times to Phase 15 and visual cleanup to Phase 16. Phase 16 comes from the operator's request on 2026-10-03 to define the infrastructure in Terraform rather than CloudFormation; the operator placed it before the visual cleanup, which moves to Phase 17 and waits for the operator's UI/UX pass and choice of visual framework. Phase 17 comes from the operator's request on 2026-10-04 to group rehearsals by request with completion status on the schedule and home screen; it goes before the visual cleanup, which becomes Phase 18. Phase 18 comes from the operator's request on 2026-10-04 for a CI/CD pipeline that runs the test suite and deploys on merge to main, without paying for compute; the operator placed it before the visual cleanup, which becomes Phase 19. Phases 10–19 are sketches, tightened by ripple at each upstream close per [`../policies/phase-ripple.md`](../policies/phase-ripple.md) and elaborated when their row becomes `⬅️`. Children are drafted just in time, only when a consequential boundary justifies a split. Phase 20 comes from the operator's request on 2026-10-05 for a more visual organizer view (a heat map of who is free, a popup per date, picking dates on a calendar or list) and for confirming not to read as a save step. Phases 21–25 come from the operator's Impeccable site-wide critique and audit on 2026-10-05 and their answers: organizer layout first, then members giving availability, the confirm moment, identity, and fit and finish with a second critique and audit. Phases 22–24 come from the operator's notes after Phase 21 (2026-10-06): 12-hour times and an hour-bar time picker first, then members giving availability on an availability request's own calendar (the standalone My availability page goes), then naming requests "Availability requests" with their "Proposed rehearsals" nested under them and a simpler group page and schedule; the earlier members-availability sketch folds into Phase 23, and the confirm moment, identity, and fit and finish move to Phases 25–27.
 
 ## Phase Table
 
@@ -93,10 +95,12 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ✅     |
 | [Phase 20](phase-20.md) | A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming | ✅     |
 | [Phase 21](phase-21.md) | Organizer layout: the request, group, schedule and groups pages put the main job first | ✅     |
-| [Phase 22](phase-22.md) | Members give availability: one meaning for answer, and the next step after joining | ⬅️     |
-| [Phase 23](phase-23.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ⏳     |
-| [Phase 24](phase-24.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⏳     |
-| [Phase 25](phase-25.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ⏳     |
+| [Phase 22](phase-22.md) | Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight | ⬅️     |
+| [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ⏳     |
+| [Phase 24](phase-24.md) | Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule | ⏳     |
+| [Phase 25](phase-25.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ⏳     |
+| [Phase 26](phase-26.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⏳     |
+| [Phase 27](phase-27.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 
