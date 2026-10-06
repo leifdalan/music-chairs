@@ -95,8 +95,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ✅     |
 | [Phase 20](phase-20.md) | A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming | ✅     |
 | [Phase 21](phase-21.md) | Organizer layout: the request, group, schedule and groups pages put the main job first | ✅     |
-| [Phase 22](phase-22.md) | Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight | 🚧     |
-| [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ⏳     |
+| [Phase 22](phase-22.md) | Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight | ✅     |
+| [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ⬅️     |
 | [Phase 24](phase-24.md) | Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule | ⏳     |
 | [Phase 25](phase-25.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ⏳     |
 | [Phase 26](phase-26.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⏳     |
