@@ -3252,3 +3252,127 @@ Execution trace: 22205170456b47e19a89c513fe149767
 - Lessons: hypersonic-labrador filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #8.
+
+## 2026-10-05 17:19 — START
+Phase 21 — Organizer layout: the request, group, schedule and groups pages put the main job first
+
+Execution trace: 6aa89adafafd45eda5006e79f786784c
+
+Planned work:
+- Request page, for organizers: "When people are free" (calendar or list) comes first after the request's title and dates; a running count of ticked times ("2 times ticked") sits beside "Propose selected", with the rehearsal length and location next to it; the organizer's own times in the span collapse to one line with a disclosure; everyone's answers collapse to "N of M answered" with a disclosure; Edit, Close and Repeat move into one request menu.
+- Group page: each member row shows the name, instrumentation and badges (organizer, optional); a member's actions (rename, required/optional, organizer, remove) open from that row, with Remove as a quieter destructive button; the group's settings and Delete group sit in a collapsed "Group settings" disclosure; the invite card comes first while the group has fewer than two members, after the members otherwise.
+- Schedule page: the day-by-day "When people are free" list no longer repeats in full under the rehearsals; it collapses behind a disclosure.
+- Groups page: each group card offers the group (its name), Schedule and My availability, and "Manage this group"; the separate "Group page" button goes.
+
+## 2026-10-05 17:47 — END
+Phase 21 — Organizer layout: the request, group, schedule and groups pages put the main job first
+
+Phase 21 is accepted on its gates. On a request's page an organizer now sees the calendar of who is free straight under the title and dates, with Edit, Close and Repeat in a "Request options" menu on the dates line and a live count of ticked times ("2 times ticked") just above "Propose selected"; your own answer follows, and your own times and everyone's answers fold to one line each. Members' request pages keep their order. The group page shows each member as a calm row (name, instrument, badges) with a "Manage …" line that opens rename, required/optional, organizer and a quieter outlined Remove; Group settings (name and time zone, what members see, Delete group) is folded and last; the invite card comes first while you are the only member. The schedule's long list of free times folds behind "Show free times until …", and each group on the Groups page has one link to the group. How it feels is yours to judge through the User Demo below.
+
+Execution trace: 6aa89adafafd45eda5006e79f786784c
+
+Files changed:
+- plan/phase-21.md to plan/phase-25.md (new), plan/INDEX.md — the five phases from the Impeccable critique and audit (2026-10-05) and the operator's answers; this phase's rulings and User Demo
+- project/app/routes/request.tsx — organizers' order, the request menu (focus returns to it after Close or Reopen), folded own times and answers, one shared answer section
+- project/app/components/propose-times.tsx — the live ticked count, read from each form's own tick boxes (a fresh form after each proposal)
+- project/app/routes/group.tsx — member rows with badges and per-member "Manage" disclosures (one open at a time), Group settings folded and last (opened after a rejected change, and kept open), the invite card's position by group size
+- project/app/components/ui/button.tsx — an outline-destructive variant (4.77:1 light, 6.01:1 dark, no hover tint), used for Remove and Delete group
+- project/app/routes/schedule.tsx — the free list folded; project/app/routes/groups.tsx — the card's links; Delete group quieter
+- project/app/app.css — member rows, the request menu, the ticked count
+- project/tests/organizer-layout.test.tsx (new)
+
+Build status:
+- project/scripts/smoke.sh: OK
+- ci.check: OK — CI/CD run 37395109653, check success for 982551d (CHECK ALL PASS)
+- ./bin/test --changed-from '@{upstream}': OK (Vitest 596/596, pytest 180/180)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare `./bin/check all`
+
+Review lane (per `policies/review-lanes.md`):
+- full
+
+Evidence lane (per `policies/review-lanes.md`):
+- full
+
+Follow-up route (per `policies/review-lanes.md`):
+- initial
+
+Role model/venue (per `policies/role-models.md`) — orchestrated by claude:
+- Preflight: OK (claude opus, read-only)
+- Planner: primary mode, inline (no role dispatched)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: primary mode, inline (no role dispatched)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer and critic: harness_version=2.1.289, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per `policies/role-timeouts.md`):
+- Planner: inline (no role span)
+- Reviewer (plan review): 211.352 s; first event 0.585 s; longest idle 37.128 s; success
+- Coder: inline (no role span)
+- Critic (code review): 217.199 s; first event 0.678 s; longest idle 30.852 s; success
+
+Execution timing (per `policies/execution-telemetry.md`):
+- This run: makespan 1526.695 s; intelligence 428.551 s; gates 149.420 s; orchestration 1525.986 s; wait 427.585 s; retry 0 s; failed 0 s; unattributed 0.710 s (category totals are interval unions and may overlap).
+- Awaiting user input: none recorded.
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per `policies/orchestration-evidence.md`):
+- Candidate: reviewed=118ec912f5f2ad688eb47078cf62674072ec7a9f5e1db4198b3ac32b64017aab final=413d759ea22d6f1cccf29fdba4e3d5479b01b22db0e43c91264b11c3ed821521
+- Advisory passes: plan review 1 (9 findings, all adopted), code critique 1 (7 findings, all adopted; the availability page's solid Delete deferred to Phase 23); revision packets 0
+- Gates: implementation-final=3 on the final candidate; product and full-tree ids unchanged by the sequence
+- Evidence validation: EVIDENCE VALID (acceptance level)
+- Mutation checks: 8 of 9 killed; the survivor (Group settings staying open after a later action) is client re-render behaviour the server-rendering tests cannot reach, checked by reading and left to the User Demo
+
+Wall-clock observations:
+- Checked in Chrome on a production build at 390 px: the ticked count through two panel ticks, a switch to List and one list tick; focus on "Request options" after Close and after Reopen; the menu panel on screen (118–374 of 390 px) for a closed request; the quieter Remove's contrast in light and dark.
+
+Acceptance (per `policies/human-in-the-loop.md`):
+- Objective (independently reviewed, gate-proved, candidate-bound): organizers' and members' request-page order; the request menu; the folded sections; the ticked count's wording and absence before hydration; member rows, badges, per-member actions and the quieter Remove; Group settings folded, last and open after an error; the invite's position by group size; the schedule's folded free list; the Groups card; the full suites and CI on GitHub.
+- Parked for the user: the User Demo below.
+
+Delivery:
+- pull request #11 from branch phase-21, merged by the orchestrator when its check is green (policies/human-in-the-loop.md § Delivery routes); the merge deploys
+
+Ripple (per `policies/phase-ripple.md`):
+- AUTO: plan/phase-22.md — gains "Inherited from Phase 21" (the member order on the request page is unchanged and is Phase 22's to rework; the own-times section and its "Check availability" links; the shared answer section); plan/phase-23.md — gains the availability page's per-time Delete (still solid) for its quieter-destructive work — pending, applied after this block
+- DECIDE: None
+
+Lessons:
+- none new: the one survivor repeats a known limit (browser-only behaviour belongs to the User Demo, as CLAUDE.md says); mutation checks ran before the gates per rugged-buzzard, and new tints were measured in both themes per hypersonic-labrador
+- graduation DECIDE: camouflaged-dragon → test policy; gentle-pug → policy; lively-salamander → bin; all awaiting the operator
+- recalibration: insufficient samples
+
+User demo (per `policies/user-demo-protocols.md`):
+- **Entry point.** On your phone, as an organizer, open:
+
+https://rehearse.dalan.dev
+
+- **Suggested inputs.**
+  1. Open one of your group's open requests.
+  2. Tick two times in the calendar's date panels.
+  3. Open the request menu.
+  4. Open the group page and open one member's actions.
+  5. Open the group's Schedule and scroll to the end.
+  6. Open the Groups page.
+- **What to look for.**
+  - The calendar of who is free is the first thing under the request's title; the count beside "Propose selected" reads "2 times ticked"; your own times and the answers are one line each until opened; Edit, Close and Repeat are in the menu.
+  - Member rows are calm (name, instrument, badges); a member's actions appear only after opening that member; Delete group is inside "Group settings".
+  - The schedule ends soon after the rehearsals.
+  - Each group on the Groups page has one link to the group, plus Schedule, My availability and "Manage this group".
+- **Variations to explore.** A member who isn't an organizer opening the same request (their own answer and times still come first for them); a group with one member (the invite card leads); switching Calendar/List after ticking (the count resets with the ticks); reloading after ticking.
+
+Remaining:
+- Phase 22 (members give availability) is next, then 23, 24 and 25.
+
+## 2026-10-05 17:49 — Close bookkeeping outcomes
+
+Phase 21 — Organizer layout: the request, group, schedule and groups pages put the main job first
+
+Execution trace: 6aa89adafafd45eda5006e79f786784c
+
+- Status: applied and verified — Phase 21 ✅, Phase 22 ⬅️ in plan/INDEX.md ("close ledger verified").
+- Ripple AUTO: applied — plan/phase-22.md gains "Inherited from Phase 21"; plan/phase-23.md's quieter-destructive deliverable names My availability's per-time Delete too.
+- Ripple DECIDE: none.
+- Lessons: none new; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
+- Recalibration: insufficient samples.
+- Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #11.
