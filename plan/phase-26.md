@@ -28,3 +28,7 @@ From the operator's answer to the critique's tone question: "give it some identi
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints".
+
+## Inherited from Phase 25
+
+Pinned by [Phase 25](phase-25.md): an amber `--warning` token (light `oklch(0.47 0.12 72)`, dark `oklch(0.82 0.14 80)`, in `project/app/app.css` beside `--success`) is used for the schedule's "who isn't free" summaries; red is reserved for destructive actions, and Delete uses the `outline-destructive` variant at the end of the actions row. Any accent colour this phase chooses must stay distinguishable from both. The home page's "What music-chairs does" pitch now shows only to newcomers (no group and no Google account).

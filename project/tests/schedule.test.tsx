@@ -233,18 +233,18 @@ describe("schedule route", () => {
     expect(beforeConfirm.rehearsals[0]).toMatchObject({
       status: "proposed",
       location: "Studio B",
-      organizer: { warnings: [{ date: "2026-10-08", missing: ["Pianist"] }] },
+      organizer: { missing: [{ missing: ["Pianist"], dates: ["2026-10-08"] }] },
     });
     expect(statusOf(confirmed)).toBe(302);
     expect(afterConfirm.rehearsals[0]).toMatchObject({
       status: "confirmed",
-      organizer: { warnings: [{ date: "2026-10-08", missing: ["Pianist"] }] },
+      organizer: { missing: [{ missing: ["Pianist"], dates: ["2026-10-08"] }] },
     });
-    expect(render(afterConfirm)).toContain("Thu 8 Oct: Pianist isn&#x27;t free");
+    expect(render(afterConfirm)).toContain("Pianist isn&#x27;t free on Thu 8 Oct.");
 
     getStore().setOptional(group.id, pianist.id, true);
     const optional = await load(group.id, organizerCookie);
-    expect(optional.rehearsals[0].organizer?.warnings).toEqual([]);
+    expect(optional.rehearsals[0].organizer?.missing).toEqual([]);
   });
 
   it("shows members proposed and confirmed rehearsals without warnings or member ids", async () => {
@@ -283,8 +283,8 @@ describe("schedule route", () => {
     await propose(group.id, organizerCookie, { ...nextThursday, startDate: "2026-12-31" });
     const page = await load(group.id, organizerCookie);
 
-    expect(page.rehearsals[0].organizer?.warnings).toEqual([
-      { date: "2026-12-31", missing: ["Pianist"] },
+    expect(page.rehearsals[0].organizer?.missing).toEqual([
+      { missing: ["Pianist"], dates: ["2026-12-31"] },
     ]);
   });
 
@@ -405,8 +405,8 @@ describe("schedule route", () => {
 
     const page = await load(group.id, organizerCookie);
 
-    expect(page.rehearsals[0].organizer?.warnings).toEqual([
-      { date: "2062-10-05", missing: ["Pianist"] },
+    expect(page.rehearsals[0].organizer?.missing).toEqual([
+      { missing: ["Pianist"], dates: ["2062-10-05"] },
     ]);
   });
 
