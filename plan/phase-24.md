@@ -29,3 +29,7 @@ From the operator's notes after Phase 21: "I think we should only surface confir
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Choosing rehearsal times", "Success criteria".
+
+## Inherited from Phase 23
+
+Pinned by [Phase 23](phase-23.md): members (organizers too, in a folded "Your times" section below the heat map) give their times on the request page through `RequestDates` (`project/app/components/request-dates.tsx`) and the request route's `set-date`, `save-dates` and `answer` intents (`project/app/routes/request.tsx`); a date's ticks and clears touch only times within that request's windows, and times are shared across requests. A request's per-member record is a "response" ("Responded", "N of M responded"); "answer" means Yes/No/Maybe only. There is no My availability page. Left for this phase's tidy-up (code critique F005 of Phase 23): store methods only tests use (`addSlots`, `findSlot`) and weekly availability fixtures in older tests.

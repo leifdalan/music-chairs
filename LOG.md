@@ -3544,3 +3544,122 @@ Phase 23 — Members answer an availability request on its calendar: dates, time
 Execution trace: 9a1989a7ebfb4ed9af4facca1bc38be7
 
 Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): the approved plan-2 (710d9ca0fb1b3a05725b4c13358885c0ec065ec91c96da8d9a6e88c26d42bb70), its plan review and the code critique are carried; the product candidate 21ce370dc3d25940e74fc59cb31d06c3c4abf82552522e9aaabb476d68ba40af is unchanged since the park. plan/INDEX.md's Critical-Files Map row now links project/app/.server/clashes.ts and project/app/routes/request.tsx instead of the deleted route. Remaining: gates on this candidate (including CI on pull request #14), close and delivery.
+
+## 2026-10-06 11:30 — END
+Phase 23 — Members answer an availability request on its calendar: dates, times and a cap that save as they go
+
+Members now give their times on the request itself. Opening a request shows its dates as a calendar, with a List view that works as a multi-select. You pick a stretch of the day on the hour bar, then tick dates; each tick saves straight away ("Saving…", then "Saved"), each date shows its time, and unticking clears it. Ticks and clears touch only times within that request's times of day, so a time given for another request is left alone, and a date given on one request shows on any other that covers it. "How many rehearsals can you make in this span" also saves as you change it, and "Send my answer" and the "My times" list are gone. Organizers give their own times the same way, in a folded "Your times" section below the heat map. The My availability page, its weekly ("every Thursday") times and every link to it are gone; Google Calendar clashes show on the request page. When this deploys, migration 11 turns every saved weekly time into its dates for the next 8 weeks. After joining a group, people land on its open request. A request's per-member record is now called a response ("Responded", "N of M responded"); "answer" means only Yes/No/Maybe. How it feels on your phone is yours to judge through the User Demo below; the pull request's merge deploys it and runs the migration.
+
+Execution trace: 9a1989a7ebfb4ed9af4facca1bc38be7 (continuation; the first run, 332420b0f362468cb82180c31e0fc79e, parked after its gates because plan/INDEX.md still linked the deleted route, which the accepted close refuses)
+
+Files changed:
+- project/app/routes/request.tsx — set-date, save-dates and the auto-saving cap (via=fetcher); stretches must fall within the request's windows; the page order for members and organizers; Responses wording
+- project/app/components/request-dates.tsx (new) — the request's dates as a calendar or list with the hour bar, auto-saving ticks, Google clash hints, read-only once the request stops taking times
+- project/app/.server/clashes.ts (new), project/app/lib/busy.ts — Google clashes moved from the deleted route; their shared type
+- project/app/lib/date-toggle.ts — a date is ticked when it has a time within the request's windows; its times as text
+- project/app/.server/store.ts — migration 11 (weekly times become dates, weekly rows and skips go); touchResponse; setSkip, updateSlot and the skip statements removed
+- project/app/routes/availability.tsx (deleted), project/app/routes.ts — the My availability page and its route
+- project/app/routes/group.tsx, project/app/routes/groups.tsx, project/app/routes/home.tsx, project/app/lib/group-prompts.ts — no My availability links; "Responded", "request responses", "Add your free times by"
+- project/app/routes/join.tsx — every post-join path lands on the open request that ends soonest
+- project/app/app.css, project/README.md, project/scripts/smoke.sh — date list and time labels; the clash paragraph; the smoke saves a date on the request
+- project/tests: request-dates.test.tsx, migration-11.test.ts, weekly-dates.ts (new); three availability test files deleted; store, auth, join, join-by-name, group, groups, home, look, confirm, group-address, calendar-consent, organizer-layout, request-routes, twelve-hour and routes.ts updated
+- plan/phase-23.md — rulings and User Demo recorded at phase start; plan/INDEX.md — the Critical-Files Map row links clashes.ts and request.tsx (between the runs)
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 37510904239, check success for d07a349 (CHECK ALL PASS, SMOKE PASS)
+- test.changed (./bin/test --changed-from '@{upstream}'): OK — Vitest 607/607, pytest 180/180
+- Focused before the gates: lint, typecheck, format OK; 19 hand mutations across both rounds all caught (one survivor fixed by a new test first)
+- First run: CI on its first commit failed on the dead INDEX link (check-catalogs); its gate list was superseded once to drop the CI gate before it parked. This run restored all three gates.
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- full cycle — planned continuation of the parked run (approved plan, plan review and code critique carried; product candidate unchanged)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic); astra CLI unavailable, so the configured alternative opus
+- Planner: inline primary (opus)
+- Reviewer (plan review): requested model=opus effort=default venue=claude (first run)
+- Coder: inline primary (opus)
+- Critic (code review): requested model=opus effort=default venue=claude (first run)
+
+Reviewer: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Planner: inline
+- Reviewer (plan review): 288.314 s; first event 0.702 s; longest idle 59.533 s; success
+- Coder: inline
+- Critic (code review): 283.238 s; first event 0.799 s; longest idle 45.526 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- This run: active makespan 450.834 s; gates 167.699 s; intelligence 0 s (carried reviews); failed work 0 s; retry 0 s; unattributed 0.751 s
+- The parked run (332420b0f362468cb82180c31e0fc79e): its trace is finalized; a timing summary is unavailable for a parked run (no accepted close), so its duration is not reported here
+- Awaiting user input: none in either trace (the phase-start questions were answered before the first trace began)
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued 5b556829…, final 21ce370dc3d25940e74fc59cb31d06c3c4abf82552522e9aaabb476d68ba40af (unchanged across the park)
+- Advisory reports carried: plan-1 (13 findings) and code-1 (9 findings); primary dispositions: 19 adopted, 3 deferred
+- Gates: implementation-final=3 (smoke.local, ci.check, test.changed), all against the final candidate; tree ids unchanged across the gates
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Declined or deferred advice:
+- Plan review F013 (deferred): the User Demo's weekly-to-dates variation needs a weekly time on production when the merge deploys migration 11; otherwise its evidence is migration-11.test.ts.
+- Code critique F005 (deferred to Phase 24): store methods only tests use (addSlots, findSlot) and weekly availability fixtures in older tests; no user effect.
+- Code critique F009 (in part): the Google free/busy read repeats on every saved tick's revalidation, and the no-JavaScript Save is not one transaction; both correct, left as is.
+- User Demo corrections: none needed; every step is reachable as written.
+
+Wall-clock observations:
+- The park and continuation cost about 15 minutes and a second CI run; a pre-capture check of plan/INDEX.md links against the plan's deleted paths would have avoided it (lesson imperious-bug).
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (independently reviewed, gate-proved, candidate-bound): ./bin/test project/tests covers saving, replacing and clearing dates within a request's windows (and leaving other requests' times), the shared dates, refusals (outside the span, before today, outside the windows, closed requests), the no-JavaScript Save, the cap through a fetcher and without JavaScript, the organizer's folded section, read-only closed requests, Google clashes, the retired route and links, migration 11, the post-join landing and the wording; ./bin/check all passed in CI on the phase's pull request.
+- Parked for the user: how giving times on a request feels on your phone, and the User Demo below; whether production had weekly times for migration 11 to convert.
+
+Delivery:
+- default — commit and pull request #14 merged when green after the handoff gate; merging deploys and runs migration 11
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-24.md — add "Inherited from Phase 23": times are given on the request page (RequestDates in project/app/components/request-dates.tsx, intents set-date/save-dates/answer in project/app/routes/request.tsx), "Responded"/"responses" wording, no My availability, the organizer's folded Your times; the deferred cleanup of test-only store methods and weekly availability fixtures (pending)
+- DECIDE: None
+
+Lessons:
+- occurrence added (pending): imperious-bug (2 total) — Phase 23 PARK: the phase deleted a route linked from plan/INDEX.md's Critical-Files Map; CI and the accepted close refused the dead link and the run parked
+- graduation DECIDE (standing, from Phase 22): camouflaged-dragon → test; gentle-pug → kickoff skill; lively-salamander → CLAUDE.md conventions
+- recalibration: insufficient samples (no group has 30 successful samples)
+
+User demo (per policies/user-demo-protocols.md):
+- Entry point. On your phone, signed in as a member (not an organizer) of a group with an open request, open:
+
+https://rehearse.dalan.dev
+
+- Suggested inputs.
+  1. Open the group and then its open request.
+  2. On the request's calendar, drag 7–10 PM on the hour bar, then tick two dates.
+  3. Switch to List, tick a third date there, and untick one of the first two.
+  4. Change "How many rehearsals can you make in this span".
+  5. Reload the page.
+  6. As the organizer, open the same request and the folded "Your times" below the heat map; tick one of your own dates.
+- What to look for.
+  - The calendar of the request's dates is the first thing a member sees; each tick and the rehearsal count show "Saving…" then "Saved", and there is no "Send my answer" or "My times".
+  - After the reload, the dates and the count are as you left them, each date showing its time.
+  - The group page, the Groups page and the home page have no "My availability" link.
+  - The organizer's heat map counts the member's dates; the organizer's own tick saves the same way.
+- Variations to explore. A member who had a weekly time before this phase now sees it as separate dates; a second request covering the same dates shows the times already given; joining a group through an invite lands on its open request.
+
+Remaining:
+- None beyond the parked User Demo and the Phase 24 cleanup noted above.
+
+## 2026-10-06 11:31 — NOTE
+Phase 23 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 23 ✅ and Phase 24 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-24.md gained "Inherited from Phase 23" (where times are given, the response wording, no My availability, and the deferred test-only store cleanup).
+- Lessons: imperious-bug now has 2 occurrences (Phase 23 PARK added); ./bin/lessons validate OK.
+- Correction to the END block above: the primary dispositions were 20 adopted (one of them in part) and 2 deferred (plan review F013, code critique F005), not 19 and 3.
