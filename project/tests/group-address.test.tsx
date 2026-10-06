@@ -8,7 +8,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { getStore } from "../app/.server/store";
 import { MIGRATIONS } from "../app/.server/store";
 import { groupPath, SHORT_ID_ALPHABET, shortIdOf, slugify } from "../app/lib/group-address";
-import Availability, { loader as availabilityLoader } from "../app/routes/availability";
 import { loader as profileLoader } from "../app/routes/profile";
 import GroupPage, { action as groupAction, loader as groupLoader } from "../app/routes/group";
 import Groups, { loader as groupsLoader } from "../app/routes/groups";
@@ -259,13 +258,6 @@ describe("links", () => {
           { cookie },
         ),
       ),
-      availability: await availabilityLoader(
-        routeArgs(
-          `${path}/availability?request=${requestId}`,
-          { groupAddress: address },
-          { cookie },
-        ),
-      ),
     };
     const pages = [
       stub("home", "/", Home, loaded.home),
@@ -278,13 +270,6 @@ describe("links", () => {
         RequestPage,
         loaded.request,
         `${path}/requests/${requestId}`,
-      ),
-      stub(
-        "availability",
-        "/g/:groupAddress/availability",
-        Availability,
-        loaded.availability,
-        `${path}/availability`,
       ),
     ];
 

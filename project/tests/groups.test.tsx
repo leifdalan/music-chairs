@@ -146,7 +146,7 @@ describe("the groups page", () => {
     };
 
     expect(card("Mine")).toContain(`href="${groupPath(mine.group)}/schedule"`);
-    expect(card("Mine")).toContain(`href="${groupPath(mine.group)}/availability"`);
+    expect(card("Mine")).not.toContain("/availability");
     expect(card("Mine")).toContain('name="intent" value="update-group"');
     expect(card("Mine")).toContain('name="intent" value="delete-group"');
     expect(card("Mine")).toContain("You can&#x27;t leave");

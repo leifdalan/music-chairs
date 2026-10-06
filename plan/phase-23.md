@@ -21,13 +21,34 @@ informs: ["24"]
 
 From the operator's notes after Phase 21: "'My availability' from the group page doesn't make sense - what am I filling my availability out for? There's no proposal it is attached to; this is a pointless form submission"; "When clicking on a request as a member, it should always show the calendar view, with the list toggle. It shouldn't have a 'send my answer'; instead the how many rehearsals can you make in this span should be auto saving like the other stuff (with saving ui)"; "My times is redundant, but that being said, keep the calendar/list toggle for the pickable dates within the timespan. list should be a multiselect". Answer to the follow-up question on weekly patterns: dates only, no weekly shortcut (2B). This phase absorbs the earlier "Members give availability" sketch (from the Impeccable critique's P1 "Members can 'answer' a request without giving any availability").
 
-Open at phase start: how an organizer gives their own times on a request whose page leads with the heat map; whether the schedule page's free-times view keeps counting availability given for other requests (Phase 24 reshapes that view).
+Rulings at phase start (operator, 2026-10-06, answering the phase's open questions):
+
+- An organizer gives their own times on the same date calendar, in a folded "Your times" section below the heat map on the request page (not a separate view switch).
+- Weekly times already saved become one-off dates: each weekly time turns into its individual dates over the next 8 weeks from the day the migration runs (in the group's zone), keeping its end date and leaving out dates marked "can't make it"; the weekly rows then go.
+- Times are shared, not per request: a date given on one request counts for every other request covering that date and for the schedule's "When people are free".
 
 ## Acceptance
 
 - `./bin/test project/tests` covers saving and clearing dates, the cap's save, the absence of the send button and "My times", the retired My availability route and links, the migration, the post-join destination and the wording.
 - `./bin/check all` passes and CI is green on the pull request; merging deploys.
-- User Demo: to be tightened at phase start.
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, signed in as a member (not an organizer) of a group with an open request, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Open the group and then its open request.
+    2. On the request's calendar, drag 7–10 PM on the hour bar, then tick two dates.
+    3. Switch to List, tick a third date there, and untick one of the first two.
+    4. Change "How many rehearsals can you make in this span".
+    5. Reload the page.
+    6. As the organizer, open the same request and the folded "Your times" below the heat map; tick one of your own dates.
+  - **What to look for.**
+    - The calendar of the request's dates is the first thing a member sees; each tick and the rehearsal count show "Saving…" then "Saved", and there is no "Send my answer" or "My times".
+    - After the reload, the dates and the count are as you left them, each date showing its time.
+    - The group page, the Groups page and the home page have no "My availability" link.
+    - The organizer's heat map counts the member's dates; the organizer's own tick saves the same way.
+  - **Variations to explore.** A member who had a weekly time before this phase now sees it as separate dates; a second request covering the same dates shows the times already given; joining a group through an invite lands on its open request.
 
 ## Brief refs
 

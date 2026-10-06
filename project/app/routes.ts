@@ -6,7 +6,6 @@ export default [
   route("privacy", "routes/privacy.tsx"),
   route("groups", "routes/groups.tsx"),
   route("g/:groupAddress", "routes/group.tsx"),
-  route("g/:groupAddress/availability", "routes/availability.tsx"),
   route("g/:groupAddress/schedule", "routes/schedule.tsx"),
   route("g/:groupAddress/profile", "routes/profile.ts"),
   route("g/:groupAddress/members/add", "routes/members.add.tsx"),

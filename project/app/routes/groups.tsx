@@ -84,12 +84,6 @@ function GroupCard({ group }: { group: GroupItem }) {
         <Link to={`${group.path}/schedule`} className={buttonVariants({ size: "sm" })}>
           Schedule
         </Link>
-        <Link
-          to={`${group.path}/availability`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          My availability
-        </Link>
       </p>
       <details>
         <summary>Manage this group</summary>

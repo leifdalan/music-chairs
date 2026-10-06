@@ -99,26 +99,32 @@ function detailsAfter(html: string, marker: string): string {
 }
 
 describe("the request page", () => {
-  it("leads with when people are free for organizers, then their answer, then folded times and answers", async () => {
+  it("leads with when people are free for organizers, then their folded times and cap, then responses", async () => {
     const b = await band("Order Quartet");
     const html = await requestPage(b, b.organizerCookie);
     const at = (id: string) => html.indexOf(`id="${id}"`);
 
     expect(at("overlap-heading")).toBeGreaterThan(-1);
-    expect(at("overlap-heading")).toBeLessThan(at("answer-heading"));
-    expect(at("answer-heading")).toBeLessThan(at("my-times-heading"));
-    expect(at("my-times-heading")).toBeLessThan(at("answers-heading"));
+    expect(at("overlap-heading")).toBeLessThan(at("your-times-heading"));
+    expect(at("your-times-heading")).toBeLessThan(at("cap-heading"));
+    expect(at("cap-heading")).toBeLessThan(at("answers-heading"));
     // Nothing but the header comes before the calendar: the menu sits on the dates line.
     expect(html.indexOf('class="request-menu"')).toBeLessThan(at("overlap-heading"));
     expect(html.indexOf('class="request-span"')).toBeLessThan(html.indexOf('class="request-menu"'));
 
-    const own = detailsAfter(html, 'id="my-times-heading"');
-    expect(own).toContain("<summary>2 times in this span</summary>");
-    expect(own).toContain("Check availability for 7–10 PM");
+    // Their own times and cap fold below the calendar (plan/phase-23.md).
+    const ownStart = html.indexOf('<details class="your-times"');
+    expect(ownStart).toBeGreaterThan(at("your-times-heading"));
+    expect(ownStart).toBeLessThan(at("cap-heading"));
+    expect(html.slice(ownStart, at("cap-heading"))).toContain(
+      "<summary>2 dates in this span</summary>",
+    );
+    expect(html.slice(ownStart, at("cap-heading"))).toContain("7–10 PM");
+    expect(html).not.toContain("Check availability for");
     const answers = detailsAfter(html, 'id="answers-heading"');
-    expect(answers).toContain("<summary>Show who has answered</summary>");
+    expect(answers).toContain("<summary>Show who has responded</summary>");
     expect(answers).toContain("Cellist");
-    expect(html).toContain("Answers (0 of 2)");
+    expect(html).toContain("Responses (0 of 2)");
   });
 
   it("keeps Edit, Close and Repeat in the request menu", async () => {
@@ -136,17 +142,18 @@ describe("the request page", () => {
     expect(html).not.toContain('class="request-actions"');
   });
 
-  it("keeps a member's own times and answer first, with no menu, calendar or answers list", async () => {
+  it("keeps a member's own times and cap first, with no menu, heat map or responses list", async () => {
     const b = await band("Member Quartet");
     const html = await requestPage(b, b.cellistCookie);
 
-    expect(html.indexOf('id="my-times-heading"')).toBeLessThan(html.indexOf('id="answer-heading"'));
+    expect(html.indexOf('id="your-times-heading"')).toBeGreaterThan(-1);
+    expect(html.indexOf('id="your-times-heading"')).toBeLessThan(html.indexOf('id="cap-heading"'));
     expect(html).not.toContain("request-menu");
     expect(html).not.toContain('id="overlap-heading"');
     expect(html).not.toContain('id="answers-heading"');
     // A member's own times are not folded away.
     expect(
-      html.slice(html.indexOf('id="my-times-heading"'), html.indexOf('id="answer-heading"')),
+      html.slice(html.indexOf('id="your-times-heading"'), html.indexOf('id="cap-heading"')),
     ).not.toContain("<details");
   });
 
@@ -275,7 +282,7 @@ describe("the schedule and groups pages", () => {
     expect(free).toContain("7–10 PM");
   });
 
-  it("offers each group once, with Schedule and My availability", async () => {
+  it("offers each group once, with Schedule and no My availability", async () => {
     const b = await band("Cards Quartet");
     const data = await groupsLoader(routeArgs("/groups", {}, { cookie: b.organizerCookie }));
     const html = render("groups", "/groups", Groups, data, "/groups");
@@ -283,6 +290,7 @@ describe("the schedule and groups pages", () => {
     expect(html).not.toContain(">Group page<");
     expect(html).toContain(`href="${groupPath(b.group)}"`);
     expect(html).toContain(">Schedule<");
-    expect(html).toContain(">My availability<");
+    expect(html).not.toContain("My availability");
+    expect(html).not.toContain("/availability");
   });
 });

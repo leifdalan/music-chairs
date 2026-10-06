@@ -109,3 +109,10 @@ export function clashes(ranges: TimeWindow[] | undefined, chosen: TimeWindow[]):
     ),
   );
 }
+
+/** The member's Google Calendar clashes as a page offers them (`~/.server/clashes`). */
+export type Clashes =
+  | { state: "none" }
+  | { state: "connect"; connectUrl: string }
+  | { state: "error" }
+  | { state: "ready"; busy: Record<string, TimeWindow[]> };

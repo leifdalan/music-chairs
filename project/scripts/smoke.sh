@@ -140,22 +140,6 @@ printf '%s' "$groups" | grep -q "href=\"$location/schedule\"" || fail "the group
 printf '%s' "$groups" | grep -q 'href="/groups"' || fail "the header does not link the groups page"
 echo "  the groups page lists the new group; the header links it"
 
-echo "+ POST availability"
-code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/availability" \
-  --data-urlencode "intent=create" --data-urlencode "kind=weekly" \
-  --data-urlencode "startDate=2026-01-01" --data-urlencode "startTime=19:00" \
-  --data-urlencode "endTime=22:00")"
-[ "$code" = 302 ] || fail "adding availability returned HTTP $code"
-availability_ok() {
-  curl -s -H "Cookie: $cookie" "$origin$location/availability?times=list" | sed 's/<!-- -->//g' >"$work/availability.html"
-  grep -q "Every Thursday from 1 Jan, 7–10 PM" "$work/availability.html" &&
-    grep -q "All times are in Europe/London" "$work/availability.html" &&
-    grep -q '<ul class="occurrences"><li><span>Thu ' "$work/availability.html" &&
-    ! grep -q "No upcoming times" "$work/availability.html"
-}
-availability_ok || fail "availability page does not list the weekly time"
-echo "  weekly time listed on the availability page"
-
 echo "+ propose from a request and confirm a rehearsal"
 # The first Thursday at least a week ahead: never in the past, and inside the
 # eight-week window where its dates can be answered. Node does the date
@@ -176,6 +160,19 @@ request_path="$(curl -s -D - -o /dev/null -X POST -H "Cookie: $cookie" "$origin$
   --data-urlencode "windowEnd-0=22:00" | tr -d '\r' |
   awk -F': ' 'tolower($1) == "location" { print $2 }')"
 case "$request_path" in "$location/requests/"*) ;; *) fail "creating a request did not redirect to it: $request_path" ;; esac
+# Times are given on the request's own page (plan/phase-23.md); this is its Save without JavaScript.
+code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$request_path" \
+  --data-urlencode "intent=save-dates" --data-urlencode "date=$rehearsal_date" \
+  --data-urlencode "startTime=19:00" --data-urlencode "endTime=22:00")"
+[ "$code" = 302 ] || fail "saving a date on the request returned HTTP $code"
+availability_ok() {
+  curl -s -H "Cookie: $cookie" "$origin$request_path" | sed 's/<!-- -->//g' >"$work/request.html"
+  grep -q "aria-label=\"Thu $rehearsal_label, 7–10 PM\"" "$work/request.html" &&
+    grep -q "Europe/London" "$work/request.html" &&
+    ! grep -q "$location/availability" "$work/request.html"
+}
+availability_ok || fail "the request page does not show the date saved on it"
+echo "  a date saved on the request shows there with its time"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
   --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \

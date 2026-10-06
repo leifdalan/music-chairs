@@ -316,7 +316,10 @@ describe("group route", () => {
     const visitorHtml = render(await load(group.id));
 
     expect(memberHtml).not.toContain("Copy link");
-    expect(memberHtml).toContain("My availability");
+    // Times are given on requests now (plan/phase-23.md): no My availability page.
+    expect(memberHtml).not.toContain("My availability");
+    expect(memberHtml).not.toContain("/availability");
+    expect(memberHtml).toContain(">Schedule<");
     expect(memberHtml).toContain("Times in Europe/London");
     expect(memberHtml).toMatch(/Cellist.*\(you\)/s);
     expect(visitorHtml).not.toContain("Copy link");

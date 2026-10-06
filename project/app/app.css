@@ -337,9 +337,7 @@
 
   /* Lists of rows. */
   .members,
-  .slots,
   .weeks,
-  .occurrences,
   .days,
   .stretches,
   .rehearsals,
@@ -347,7 +345,7 @@
   .rsvp-dates,
   .requests,
   .request-answers,
-  .add-windows,
+  .date-list,
   .times-worked,
   .choices,
   .pending-requests,
@@ -503,18 +501,12 @@
     @apply mt-2;
   }
 
-  .weeks li,
-  .occurrences li {
+  .weeks li {
     @apply flex items-center justify-between gap-4 py-1.5;
   }
 
-  .occurrences li {
-    @apply border-b;
-  }
-
   .weeks .skipped,
-  .day-busy,
-  .day-skipped {
+  .day-busy {
     @apply text-muted-foreground;
   }
 
@@ -651,21 +643,30 @@
     @apply cursor-not-allowed;
   }
 
-  .day-busy,
-  .day-skipped {
+  .day-busy {
     @apply text-[0.6875rem] leading-none;
   }
 
-  .times-calendar .day {
+  /* A date's saved time under its number (plan/phase-23.md). */
+  .day-time {
+    @apply text-center text-[0.6875rem] leading-tight;
+  }
+
+  .calendar-entry .month-grid .day {
     @apply min-h-13 justify-start px-0.5 py-1;
   }
 
-  .times-calendar .day.has-times {
-    @apply border-primary;
+  /* The List view: one tickable row per date, the same tap target and states. */
+  .date-list li + li {
+    @apply mt-1.5;
   }
 
-  .day-time {
-    @apply text-center text-[0.6875rem] leading-tight;
+  .calendar-entry .date-list .day {
+    @apply relative flex min-h-11 items-center gap-3 rounded-md border px-3;
+  }
+
+  .date-list .day-time {
+    @apply ml-auto text-sm;
   }
 
   .dates {
@@ -875,10 +876,6 @@
   .request-unanswered,
   .request-status {
     @apply text-muted-foreground;
-  }
-
-  .add-windows {
-    @apply my-3 flex flex-wrap gap-2;
   }
 
   .windows {

@@ -122,8 +122,8 @@ describe("where consent returns to", () => {
     const request = new Request("https://music-chairs.test/auth/google/calendar");
     const back = (value: string) => safeReturnTo(value, request);
 
-    expect(back("/g/abc/availability.data?request=r&window=0&_routes=routes%2Favailability")).toBe(
-      "/g/abc/availability?request=r&window=0",
+    expect(back("/g/abc/requests/r.data?times=list&_routes=routes%2Frequest")).toBe(
+      "/g/abc/requests/r?times=list",
     );
     expect(back("/_root.data?_routes=root")).toBe("/");
     expect(back("/g/abc/schedule?x=1")).toBe("/g/abc/schedule?x=1");

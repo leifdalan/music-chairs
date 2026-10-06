@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { addDays, todayInZone } from "../app/lib/availability";
 import { groupPath } from "../app/lib/group-address";
 import Join, { action, loader } from "../app/routes/join";
 import {
@@ -77,6 +78,34 @@ describe("join route", () => {
       ),
     );
     expect((again as Response).headers.get("Location")).toBe(groupPath(group));
+  });
+
+  it("lands a new or returning member on the open request that ends soonest", async () => {
+    const group = newGroup();
+    const store = getStore();
+    const today = todayInZone(group.timeZone, new Date());
+    const request = (name: string, start: number, end: number) =>
+      store.createRequest(group.id, {
+        name,
+        startDate: addDays(today, start),
+        endDate: addDays(today, end),
+        windows: [{ startMinute: 1140, endMinute: 1320 }],
+      });
+    request("Later", 0, 40);
+    const soonest = request("Sooner", 0, 20);
+    const closed = request("Closed", 0, 10);
+    store.setRequestOpen(group.id, closed.id, false);
+    request("Ended", -20, -1);
+    store.addMember(group.id, "Spare", "member");
+
+    const joined = (await joinAs(group.inviteToken, "Oboe")) as Response;
+    const returning = (await joinAs(group.inviteToken, "Spare")) as Response;
+
+    const target = `${groupPath(group)}/requests/${soonest.id}`;
+    expect(joined.headers.get("Location")).toBe(target);
+    expect(await toastOf(joined)).toBe("You joined Thursday Quartet");
+    expect(returning.headers.get("Location")).toBe(target);
+    expect(await toastOf(returning)).toBe("Welcome back, Spare");
   });
 
   it("shows the invited group's name", async () => {

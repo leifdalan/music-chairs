@@ -96,8 +96,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 20](phase-20.md) | A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming | ✅     |
 | [Phase 21](phase-21.md) | Organizer layout: the request, group, schedule and groups pages put the main job first | ✅     |
 | [Phase 22](phase-22.md) | Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight | ✅     |
-| [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ⬅️     |
-| [Phase 24](phase-24.md) | Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule | ⏳     |
+| [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ✅     |
+| [Phase 24](phase-24.md) | Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule | ⬅️     |
 | [Phase 25](phase-25.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ⏳     |
 | [Phase 26](phase-26.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⏳     |
 | [Phase 27](phase-27.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ⏳     |
@@ -211,6 +211,6 @@ Shipped files are linked. A file a future phase will create may also appear, as 
 | Deliverable runtime + metadata       | [`../project/package.json`](../project/package.json), [`../project/pnpm-lock.yaml`](../project/pnpm-lock.yaml), [`../project/react-router.config.ts`](../project/react-router.config.ts) |
 | Persistence layer                    | `../project/app/.server/` (Phase 1)                       |
 | Identity and Google sign-in          | [`../project/app/.server/google.ts`](../project/app/.server/google.ts), [`../project/app/.server/membership.ts`](../project/app/.server/membership.ts) |
-| Google Calendar                      | [`../project/app/.server/calendar-sync.ts`](../project/app/.server/calendar-sync.ts), [`../project/app/routes/availability.tsx`](../project/app/routes/availability.tsx), [`../project/app/lib/busy.ts`](../project/app/lib/busy.ts), [`../project/app/routes/calendar-feed.ts`](../project/app/routes/calendar-feed.ts) |
+| Google Calendar                      | [`../project/app/.server/calendar-sync.ts`](../project/app/.server/calendar-sync.ts), [`../project/app/.server/clashes.ts`](../project/app/.server/clashes.ts), [`../project/app/routes/request.tsx`](../project/app/routes/request.tsx), [`../project/app/lib/busy.ts`](../project/app/lib/busy.ts), [`../project/app/routes/calendar-feed.ts`](../project/app/routes/calendar-feed.ts) |
 | AWS infrastructure                   | [`../project/deploy/`](../project/deploy/README.md), [`../bin/deploy`](../bin/deploy) |
 | Governance environment               | [`../tooling/.python-version`](../tooling/.python-version), [`../tooling/pyproject.toml`](../tooling/pyproject.toml), [`../tooling/uv.lock`](../tooling/uv.lock) |

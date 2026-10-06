@@ -89,7 +89,6 @@ type Table =
   | "groups"
   | "members"
   | "availability"
-  | "availability_skips"
   | "rehearsals"
   | "rehearsal_cancellations"
   | "rsvps"

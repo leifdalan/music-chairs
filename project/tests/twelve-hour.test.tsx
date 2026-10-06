@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
-import Availability, { loader as availabilityLoader } from "../app/routes/availability";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
@@ -39,7 +38,7 @@ function readable(html: string): string {
 const TWENTY_FOUR_HOUR = /\b(0\d|1[3-9]|2[0-3]):[0-5]\d\b|\b(00|24):00\b/;
 
 describe("12-hour times on every page (plan/phase-22.md)", () => {
-  it("shows an evening and a half-hour time with AM/PM on the request, schedule, availability and home pages", async () => {
+  it("shows an evening and a half-hour time with AM/PM on the request (calendar and list), schedule and home pages", async () => {
     const store = getStore();
     const { group, organizer } = store.createGroup("Clock Band", "Viola", "Europe/London");
     const cellist = store.addMember(group.id, "Cellist", "member");
@@ -111,20 +110,22 @@ describe("12-hour times on every page (plan/phase-22.md)", () => {
           `${base}/schedule`,
         ),
       ]);
-      for (const search of ["", "?view=list", "?times=list"]) {
-        pages.push([
-          `availability${search} (${who})`,
-          render(
-            "availability",
-            "/g/:groupAddress/availability",
-            Availability,
-            await availabilityLoader(
-              routeArgs(`${base}/availability${search}`, { groupAddress: address }, { cookie }),
+      pages.push([
+        `request list (${who})`,
+        render(
+          "request",
+          "/g/:groupAddress/requests/:requestId",
+          RequestPage,
+          await requestLoader(
+            routeArgs(
+              `${requestPath}?times=list`,
+              { groupAddress: address, requestId: request.id },
+              { cookie },
             ),
-            `${base}/availability${search}`,
           ),
-        ]);
-      }
+          `${requestPath}?times=list`,
+        ),
+      ]);
       pages.push([
         `home (${who})`,
         render("home", "/", Home, await homeLoader(routeArgs("/", {}, { cookie })), "/"),
