@@ -18,6 +18,7 @@ import {
   addDays,
   expandOccurrences,
   formatDate,
+  formatMinutes,
   parseSlotInput,
   timeInputValue,
   timeRange,
@@ -58,16 +59,17 @@ async function load(
   return { group, viewer, scheduleRequest };
 }
 
-/** "Sat 3 Oct, 14:05" in the group's zone. */
+/** "Sat 3 Oct, 2:05 PM" in the group's zone. */
 function formatAnsweredAt(instant: string, zone: string): string {
   const at = new Date(instant);
-  const time = new Intl.DateTimeFormat("en-GB", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: zone,
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).format(at);
-  return `${formatDate(todayInZone(zone, at))}, ${time}`;
+  }).formatToParts(at);
+  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
+  return `${formatDate(todayInZone(zone, at))}, ${formatMinutes(part("hour") * 60 + part("minute"))}`;
 }
 
 // A member gets the request, their own times in its span and their own answer

@@ -2,7 +2,14 @@
 // it covers. Dates and minutes are wall-clock values in the group's zone, as in
 // availability.
 
-import { addDays, daysBetween, isDate, parseTimeText } from "~/lib/availability";
+import {
+  addDays,
+  daysBetween,
+  formatMinutes,
+  isDate,
+  LATEST_START,
+  parseTimeText,
+} from "~/lib/availability";
 import type { Stretch } from "~/lib/overlap";
 
 /** A time of day, as minutes after midnight (an end of 1440 is midnight). */
@@ -119,7 +126,7 @@ export function parseRequestForm(
     if (!start.ok || !end.ok) {
       rows[index] =
         !start.ok && start.reason === "too-late"
-          ? "The start is too late; the latest start is 23:45."
+          ? `The start is too late; the latest start is ${formatMinutes(LATEST_START)}.`
           : "Enter a start and an end time.";
     } else if (end.minutes <= start.minutes) {
       rows[index] = "The end must be after the start.";

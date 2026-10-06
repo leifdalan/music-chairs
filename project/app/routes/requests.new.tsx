@@ -7,9 +7,8 @@ import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TimeRange } from "~/components/time-range";
-import { QuarterHours } from "~/components/time-field";
 import { groupPath } from "~/lib/group-address";
-import { addDays, formatMinutes, timeInputValue, todayInZone } from "~/lib/availability";
+import { addDays, parseTimeText, timeInputValue, timeRange, todayInZone } from "~/lib/availability";
 import {
   MAX_WINDOWS,
   parseRequestForm,
@@ -254,7 +253,6 @@ function RequestFields({
         >
           <legend>Times of day</legend>
           <p className="hint">Each time applies to every day between the dates.</p>
-          <QuarterHours id="window-times" />
           {rows.map((row, index) => {
             const rowError = errors.rows?.[index];
             return (
@@ -296,6 +294,16 @@ function RequestFields({
   );
 }
 
+/** A row's times as the summary line first shows them. */
+function rowSummary(row: { start: string; end: string } | null): string {
+  if (!row || (!row.start && !row.end)) return "not set";
+  const start = parseTimeText(row.start, { end: false });
+  const end = parseTimeText(row.end, { end: true });
+  return start.ok && end.ok && end.minutes > start.minutes
+    ? timeRange(start.minutes, end.minutes)
+    : "check the times";
+}
+
 /** One time of day, folded into a summary line that follows what is chosen. */
 function WindowRow({
   index,
@@ -308,8 +316,7 @@ function WindowRow({
   error: string | undefined;
   open: boolean;
 }) {
-  const typed = row && (row.start || row.end) ? `${row.start}–${row.end}` : null;
-  const [summary, setSummary] = useState(typed ?? "not set");
+  const [summary, setSummary] = useState(() => rowSummary(row));
   return (
     <details className="window-row" open={open}>
       <summary>
@@ -322,13 +329,9 @@ function WindowRow({
         endValue={row?.end ?? ""}
         rangeError={error}
         labelPrefix={`Time ${index + 1}`}
-        listId="window-times"
-        onChange={(range, typed) => {
-          if (range) {
-            setSummary(`${formatMinutes(range.startMinute)}–${formatMinutes(range.endMinute)}`);
-          } else {
-            setSummary(typed ? "check the times" : "not set");
-          }
+        onChange={(range, chosen) => {
+          if (range) setSummary(timeRange(range.startMinute, range.endMinute));
+          else setSummary(chosen ? "check the times" : "not set");
         }}
       />
     </details>

@@ -3376,3 +3376,131 @@ Execution trace: 6aa89adafafd45eda5006e79f786784c
 - Lessons: none new; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #11.
+
+## 2026-10-06 06:26 — START
+Phase 22 — Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight
+
+Execution trace: 7f8436852c3c4204b6ef03176e2a55c7
+
+Planned work:
+- Every time the app displays uses the 12-hour clock with AM/PM: lists, calendars, date panels, cards, warnings, toasts, the home page and form summaries. One shared formatter; the planner settles the exact form (for example "7 PM", "7:30 PM", and ranges such as "7–10 PM") and uses it everywhere. Stored minutes, the calendar feed and Google Calendar events are unchanged.
+- A new time-of-day picker replaces `project/app/components/time-range.tsx` (and the typed `time-field.tsx` it wraps) wherever a stretch of the day is picked: availability, a new request's times, and proposing a different time. It is a horizontal bar from 9 AM to midnight with a labelled tick each hour and half-hour steps. Tapping one point and then another picks the stretch between them; pressing and dragging picks it in one movement; the picked stretch reads back in words ("7–10 PM").
+- The picker stays usable by keyboard and by screen reader, and fits a phone without sideways scrolling.
+
+## 2026-10-06 06:57 — END
+Phase 22 — Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight
+
+Every time the app shows now reads in 12-hour form ("7–10 PM", "6:30–9 PM", "12 AM" for midnight). Picking a stretch of the day is now a horizontal bar from 9 AM to midnight: tap a start and an end, or drag across, in half-hour steps. It is used on My availability, on a new request's times and in "Propose a different time". From/Until dropdowns under the bar are the keyboard, screen-reader and no-JavaScript path. Stored times, the calendar feed and Google Calendar events are unchanged.
+
+Files changed:
+- project/app/lib/availability.ts — formatMinutes and timeRange give 12-hour text (a range ending at noon or midnight keeps both suffixes); form values stay "19:00"; formatMeridiem removed; LATEST_START shared; describeSlot uses timeRange
+- project/app/lib/requests.ts — "the latest start is 11:45 PM"
+- project/app/lib/time-bar.ts (new) — the bar's arithmetic: 9 AM–midnight, half-hour boundaries, tap, drag, stored-range fit
+- project/app/lib/time-grid.ts — deleted (the quarter-hour grid)
+- project/app/components/time-range.tsx — TimeRange rewritten: chips, the hidden TimeBar with AM/PM markers and a spoken readback, two From/Until selects with an empty first option and every stored or preset time kept choosable
+- project/app/components/time-field.tsx — deleted (typed time fields and their datalist)
+- project/app/components/slot-fields.tsx — rounding hint removed
+- project/app/routes/requests.new.tsx — rows use the new picker; row summaries in 12-hour form
+- project/app/routes/request.tsx — "answered at" time in 12-hour form
+- project/app/app.css — grid styles replaced by the bar's
+- project/scripts/smoke.sh — expects the 12-hour summaries
+- project/tests/time-bar.test.ts, project/tests/twelve-hour.test.tsx (new); project/tests/time-range.test.tsx rewritten; project/tests/time-field.test.tsx and time-grid.test.ts deleted; displayed-time expectations updated in 11 other test files; project/tests/routes.ts gains selectedOption
+- plan/phase-22.md — User Demo tightened at phase start (before capture)
+
+Build status:
+- smoke.local (build and end-to-end smoke): OK
+- ci.check (CI check job on draft PR #13, commit 453187c): OK — CHECK ALL PASS, SMOKE PASS
+- test.changed (./bin/test --changed-from '@{upstream}'): OK — Vitest 622/622, pytest 180/180
+- Focused before critique: lint, typecheck, format OK; 7 hand mutations all caught (one survivor fixed by a new test first)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic); astra CLI unavailable, so reviewer and critic used the configured alternative opus
+- Planner: inline primary (opus)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline primary (opus)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.290, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.290, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Planner: inline
+- Reviewer (plan review): 196.221 s; first event 0.744 s; longest idle 42.545 s; success
+- Coder: inline
+- Critic (code review): 158.191 s; first event 0.659 s; longest idle 26.058 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Active makespan: 1794.178987334 s (trace 7f8436852c3c4204b6ef03176e2a55c7)
+- Intelligence 354.411 s; gates 174.592 s; wait 353.381 s; orchestration 1793.511 s (interval unions, overlapping)
+- Failed work: 0 s; retry work: 0 s; unattributed 0.668 s
+- Awaiting user input: none in this trace
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: initial=f2ffe4e6… reviewed by critic=d34b3bf7… final=5c6dcc0f2c02ed7ee0d4c3a9fec32775d07c681ee738c916faa85e286a629fac
+- Advisory reports: plan-1 (10 findings) and code-1 (5 findings); primary dispositions: 10 adopted, 2 deferred to this block, 3 declined
+- Gates: implementation-final=3 (smoke.local, ci.check, test.changed), all recorded against the final candidate; tree ids unchanged across the gates
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Declined or deferred advice:
+- Code critique F003 (declined): while a new tap or drag on a request's time row is unfinished, that row's folded summary reads "check the times"; the bar's own line says what to do, and the row returns to the new range on release.
+- Plan review F007 and F010 (deferred here; the phase file is captured authority). Corrections to the User Demo: keyboard use is through the From/Until dropdowns, which move the bar (the bar itself is not focusable); "clear it" means simply drag again, or set both dropdowns to "—"; in step 3, My availability opens on its Calendar view, where you drag 7–10 PM on the bar and then tick a date, which saves itself; there is no separate save there.
+
+Wall-clock observations:
+- None material.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (independently reviewed, gate-proved, candidate-bound): ./bin/test project/tests covers the 12-hour formatter (noon, midnight, half hours, ranges across noon and ending at midnight), the twelve-hour sweep across request, schedule, availability and home, and the picker's markup and bar arithmetic; ./bin/check all passed in CI on the phase's draft pull request.
+- Parked for the user: how the bar feels and reads on your phone (two taps, a drag, fitting without sideways scroll), and the User Demo below.
+
+Delivery:
+- default — commit and pull request #13 merged when green after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-23.md — add "Inherited from Phase 22": the picker is TimeRange in project/app/components/time-range.tsx with onChange(range, chosen), range null while the bar waits for an end; 12-hour text comes from formatMinutes/timeRange in project/app/lib/availability.ts; form values stay 24-hour (pending)
+- DECIDE: None
+
+Lessons:
+- filed (pending): juicy-jaybird — an unquoted heredoc that feeds a script runs every backticked span in its text as a shell command; methodology
+- occurrences added (pending): camouflaged-dragon (7 total) — Phase 21 END (handoff and CI runs failed on governance test-time ceilings from machine load) and Phase 22 END (a hand mutation survived until an off-grid-start test was added; a privacy test's "no 7" check had to change once "7–10 PM" became real text)
+- occurrences added (pending): gentle-pug (8 total) — Phase 22 END (the demo named keyboard use of the bar and a "save" step that do not exist)
+- graduation DECIDE: camouflaged-dragon → test — recurring; the timing ceilings in particular have now failed real gates twice
+- graduation DECIDE: gentle-pug → kickoff skill — check every User Demo step against the actual controls before capture
+- graduation DECIDE: lively-salamander → CLAUDE.md conventions — already ready (5 occurrences)
+- recalibration: insufficient samples (no group has 30 successful samples)
+
+User demo (per policies/user-demo-protocols.md):
+- Entry point. On your phone, signed in as an organizer of a group with at least one other member, open:
+
+https://rehearse.dalan.dev
+
+- Suggested inputs.
+  1. From the group, start a new request and, on the time bar, tap 7 PM and then 10 PM.
+  2. Clear it, and drag from 6:30 PM to 9 PM instead; create the request.
+  3. Open My availability, add a one-off time by dragging 7–10 PM on the bar, and save.
+  4. Open the request, tick a time in a date's panel, and propose it; open the group's Schedule; open the home page.
+- What to look for.
+  - The bar runs from 9 AM to midnight with a label at each hour; after two taps or one drag the picked stretch is highlighted and reads back in words ("7–10 PM", "6:30–9 PM").
+  - Every time on the request, schedule, My availability and home pages reads with AM/PM; no "19:00" anywhere.
+  - The bar fits the phone's width without sideways scrolling.
+- Variations to explore. A stretch ending at midnight; tapping the end first and then the start; a time saved before this phase that starts before 9 AM (it still reads correctly); using the bar with a keyboard on a laptop.
+- (Corrections for steps 2–3 and the keyboard variation are under "Declined or deferred advice" above.)
+
+Remaining:
+- None beyond the parked User Demo.
+
+## 2026-10-06 06:57 — NOTE
+Phase 22 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 22 ✅ and Phase 23 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-23.md gained "Inherited from Phase 22" (the picker's contract and the 12-hour formatters).
+- Lessons: juicy-jaybird filed; camouflaged-dragon now 7 occurrences (Phase 21 END, Phase 22 END added); gentle-pug now 8 (Phase 22 END added); ./bin/lessons validate OK.

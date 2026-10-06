@@ -17,6 +17,10 @@ occurrences:
     ref: "Phase 9 END"
   - date: 2026-10-03
     ref: "Phase 10 PARK"
+  - date: 2026-10-05
+    ref: "Phase 21 END"
+  - date: 2026-10-06
+    ref: "Phase 22 END"
 ---
 
 Two Phase 3 checks looked like evidence but were not. A route test asserted that loading a schedule with a 2062 rehearsal took under one second, meant to prove cells are built only for the dates read; mutating the code to build every day up to 2062 still ran in well under a second, so the assertion could never fail. It was replaced by a unit test that asserts exactly which dates `buildCells` produces. Separately, the production smoke proposed a rehearsal on the fixed date 2027-01-07, which the app refuses once that date is past, so every gate would have started failing three months later for no product reason; the smoke now computes a Thursday about ten weeks ahead.
@@ -30,3 +34,7 @@ Phase 7 recurrence: a borrowed-device import test passed with its guard removed 
 Phase 9 recurrence: a migration-5 test's list of inserts that must be refused included an answer for an unknown member with a limit of 0, meant to prove the 1–99 limit check; it would have failed on the foreign key or primary key even with the check removed, and was split so each insert breaks one rule. The code critique then noted that the test's raw database connection never turned foreign keys on, so no foreign key or cascade in the new tables was exercised; the test now enables them and asserts unknown parents are refused and windows and answers go with their request.
 
 Phase 10 recurrence: a test that the calendar offers to connect Google Calendar when free/busy access is missing passed with the grant's scope check removed, because its member had no grant at all, so a different check refused first. A member with a write-only grant now kills that mutation. All other new guards in the phase were mutation-checked and failed their tests.
+
+Phase 21 recurrence: the governance suite's per-test time ceilings failed real gates for no product reason. The handoff `./bin/check all` failed once on a pytest over its 2 s ceiling and once on eight Vitest 5 s timeouts while the machine was loaded, and the post-merge CI run failed `test_deploy.py` at 2.56 s against 2 s, skipping the deploy until a rerun. A wall-clock ceiling measures the machine as much as the code.
+
+Phase 22 recurrence: of seven hand mutations, one (dropping the off-half-hour check on a stored start) survived until a test with a 7:15 PM start was added. Separately, a privacy test asserted that a member's page never contains the digit 7 (another member's limit); once times read "7–10 PM" that check would fail for an innocent reason, so it now uses a limit of 37.

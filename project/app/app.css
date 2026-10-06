@@ -16,7 +16,7 @@
  * - Native elements keep working without JavaScript (forms, <details>, <dialog>,
  *   checkboxes); they are styled here, once, rather than wrapped in components.
  * - Class names that tests and the smoke assert (hint, rehearsal, slot-summary,
- *   occurrences, chip, time-cell, …) are styled through their selectors here.
+ *   occurrences, chip, time-bar, …) are styled through their selectors here.
  */
 
 @import "tailwindcss";
@@ -684,33 +684,46 @@
     @apply border-primary bg-primary text-primary-foreground;
   }
 
-  /* The grid scrolls inside a bounded box so the dates and the button stay in reach.
-     A swipe scrolls it (pan-y); taps choose cells; a mouse or pen can drag. */
-  .time-grid {
-    @apply overflow-y-auto rounded-lg border p-1 select-none;
-    max-height: max(16rem, 50vh);
+  /* The hour bar (plan/phase-22.md): 9 AM to midnight across the width. A
+     horizontal press drags; a vertical swipe still scrolls the page (pan-y). */
+  .time-bar {
+    @apply relative px-2 pt-1 pb-9 select-none;
     touch-action: pan-y;
+    cursor: pointer;
   }
 
-  .time-row {
-    @apply mb-0.5 grid grid-cols-[3.25rem_repeat(4,minmax(0,1fr))] gap-0.5;
+  .time-bar-track {
+    @apply relative h-11 rounded-md border bg-muted;
   }
 
-  .time-hour {
-    @apply flex items-center text-xs text-muted-foreground tabular-nums;
+  .time-bar-tick {
+    @apply absolute bottom-0 h-2 w-px -translate-x-1/2 bg-border;
   }
 
-  .time-cell {
-    @apply min-h-11 rounded-sm bg-muted p-0 text-xs text-muted-foreground;
-    touch-action: pan-y;
+  .time-bar-tick.hour {
+    @apply h-4 bg-muted-foreground/50;
   }
 
-  .time-cell.on {
-    @apply bg-primary text-primary-foreground;
+  .time-bar-fill {
+    @apply absolute inset-y-0 rounded-sm bg-primary;
   }
 
-  .time-cell.anchor {
-    @apply outline-2 -outline-offset-2 outline-foreground;
+  .time-bar-anchor {
+    @apply absolute inset-y-0 w-1 -translate-x-1/2 rounded-full bg-foreground;
+  }
+
+  .time-bar-labels {
+    @apply absolute inset-x-2 bottom-4 h-4 text-xs text-muted-foreground tabular-nums max-[360px]:text-[0.6875rem] max-[360px]:tracking-tighter;
+  }
+
+  /* AM under 9 and PM under noon, so the bare hour numbers read unambiguously. */
+  .time-bar-meridiem {
+    @apply absolute inset-x-2 bottom-0 h-4 text-[0.625rem] font-medium tracking-wide text-muted-foreground;
+  }
+
+  .time-bar-labels span,
+  .time-bar-meridiem span {
+    @apply absolute -translate-x-1/2 whitespace-nowrap;
   }
 
   .time-summary {

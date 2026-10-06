@@ -36,3 +36,7 @@ Open at phase start: how an organizer gives their own times on a request whose p
 ## Inherited from Phase 21
 
 Pinned by [Phase 21](phase-21.md): on the request page members still see their own times ("Your times in this span", with the "Check availability for <time>" links) and then "Your answer" (the rehearsal cap), in that order. The answer section is one shared fragment (`answerSection` in `project/app/routes/request.tsx`) rendered for both roles, and organizers see it after the calendar. Quieter destructive controls use the `outline-destructive` button variant.
+
+## Inherited from Phase 22
+
+Pinned by [Phase 22](phase-22.md): the time picker is `TimeRange` in `project/app/components/time-range.tsx` (an `aria-hidden` hour bar from 9 AM to midnight in half-hour steps, plus From/Until selects that are the form's real inputs), with `onChange(range, chosen)` where `range` is null while the bar waits for a second tap or a drag is under way, so auto-saving controls never save mid-gesture. Displayed times come from `formatMinutes` and `timeRange` in `project/app/lib/availability.ts` ("7–10 PM"); form values and stored minutes stay 24-hour ("19:00"); the server still rounds to 15 minutes.

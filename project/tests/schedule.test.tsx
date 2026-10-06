@@ -44,7 +44,7 @@ const thursdays = {
   endMinute: 22 * 60,
 };
 
-/** Viola (organizer) and Cellist are free Thursdays 19:00–22:00; Pianist never is. */
+/** Viola (organizer) and Cellist are free Thursdays 7–10 PM; Pianist never is. */
 async function band() {
   const store = getStore();
   const { group, organizer } = store.createGroup("Thursday Quartet", "Viola", "Europe/London");
@@ -262,7 +262,7 @@ describe("schedule route", () => {
         location: "Studio B",
         requestId: rehearsal.requestId,
         requestName: "Autumn rehearsals",
-        summary: "Thu 8 Oct, 19:30–21:30",
+        summary: "Thu 8 Oct, 7:30–9:30 PM",
         dates: [
           { date: "2026-10-08", mine: null, counts: { yes: 0, no: 0, maybe: 0 }, names: null },
         ],
@@ -729,7 +729,7 @@ describe("schedule route", () => {
       const html = render(await load(group.id, cellistCookie));
 
       expect(html).toMatch(
-        /aria-pressed="true"[^>]*aria-label="Maybe for Thu 8 Oct \(Every Thursday from 8 Oct, 19:30–21:30\)"/,
+        /aria-pressed="true"[^>]*aria-label="Maybe for Thu 8 Oct \(Every Thursday from 8 Oct, 7:30–9:30 PM\)"/,
       );
       // Answer-all buttons are actions, not toggles.
       expect(html).toMatch(/aria-label="Yes for every date of [^"]*"/);

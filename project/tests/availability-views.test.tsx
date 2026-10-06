@@ -17,6 +17,7 @@ import {
   tempDatabase,
   addressOf,
   addressFor,
+  selectedOption,
 } from "./routes";
 
 const count = tempDatabase();
@@ -169,8 +170,8 @@ describe("entering availability in the calendar", () => {
     expect(html).toContain('name="date" value="2026-11-02"');
     expect(html).not.toContain('value="2026-10-30"');
     expect(html).toContain(`name="request" value="${request.id}"`);
-    expect(html).toMatch(/name="startTime"[^>]*value="19:00"/);
-    expect(html).toMatch(/name="endTime"[^>]*value="22:00"/);
+    expect(selectedOption(html, "startTime")).toBe("19:00");
+    expect(selectedOption(html, "endTime")).toBe("22:00");
     expect(html).toContain("November concert");
   });
 
@@ -273,7 +274,7 @@ describe("entering availability in the calendar", () => {
     });
     const html = render(await load(group.id, pianistCookie), first.data);
     expect(html).toMatch(/value="2026-10-06" checked=""|checked="" value="2026-10-06"/);
-    expect(html).toMatch(/name="startTime"[^>]*value="22:00"/);
+    expect(selectedOption(html, "startTime")).toBe("22:00");
     expect(html).toContain("End time must be after the start time.");
   });
 });
@@ -283,8 +284,8 @@ describe("clashes with Google Calendar", () => {
     const { group, cellistCookie } = await band();
     const request = concert(group.id);
     google.busy = [
-      { start: "2026-11-03T19:00:00Z", end: "2026-11-03T20:00:00Z" }, // Tue 3 Nov 19:00–20:00 GMT
-      { start: "2026-11-04T08:00:00Z", end: "2026-11-04T09:00:00Z" }, // 08:00–09:00, outside the windows
+      { start: "2026-11-03T19:00:00Z", end: "2026-11-03T20:00:00Z" }, // Tue 3 Nov 7–8 PM GMT
+      { start: "2026-11-04T08:00:00Z", end: "2026-11-04T09:00:00Z" }, // 8–9 AM, outside the windows
       { start: "2026-10-20T18:00:00Z", end: "2026-10-20T19:00:00Z" }, // before the request's dates
     ];
 
@@ -314,7 +315,7 @@ describe("clashes with Google Calendar", () => {
 
   it("greys by the chosen times, and a greyed date can still be saved", async () => {
     const { group, cellist, cellistCookie } = await band();
-    google.busy = [{ start: "2026-10-06T18:00:00Z", end: "2026-10-06T19:00:00Z" }]; // 19:00–20:00 BST
+    google.busy = [{ start: "2026-10-06T18:00:00Z", end: "2026-10-06T19:00:00Z" }]; // 7–8 PM BST
 
     const page = await load(group.id, cellistCookie);
     // Nothing chosen and no request: nothing greyed yet.
@@ -482,11 +483,11 @@ describe("the list view and My times", () => {
       "/g/x/availability?times=list",
     );
 
-    expect(calendar).toContain('aria-label="Thu 8 Oct: 19:00–22:00"');
+    expect(calendar).toContain('aria-label="Thu 8 Oct: 7–10 PM"');
     expect(calendar).toContain('aria-label="Thu 15 Oct: no times"');
     expect(calendar).toContain("can&#x27;t make it");
-    expect(list).toContain("<span>Thu 8 Oct</span><span>19:00–22:00</span>");
+    expect(list).toContain("<span>Thu 8 Oct</span><span>7–10 PM</span>");
     expect(list).not.toContain("<span>Thu 15 Oct</span>");
-    expect(list).toContain("Every Thursday from 8 Oct, 19:00–22:00");
+    expect(list).toContain("Every Thursday from 8 Oct, 7–10 PM");
   });
 });

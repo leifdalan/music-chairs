@@ -49,6 +49,8 @@ export const UPCOMING_WEEKS = 8;
 /** Every time is a multiple of this many minutes (plan/phase-8.md). */
 export const STEP_MINUTES = 15;
 const DAY_MINUTES = 24 * 60;
+/** A start rounding past this is the next day. */
+export const LATEST_START = DAY_MINUTES - STEP_MINUTES;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -89,20 +91,42 @@ export function formatDate(date: string): string {
   return `${WEEKDAYS[value.getUTCDay()].slice(0, 3)} ${value.getUTCDate()} ${MONTHS[value.getUTCMonth()]}`;
 }
 
-/** "19:00"; the end of the day reads "24:00". */
+const HALF_DAY = DAY_MINUTES / 2;
+
+/** "7 PM" or "7:30 PM" without the suffix; the hour runs 12, 1 … 11. */
+function clockFace(minutes: number): string {
+  const inDay = minutes % DAY_MINUTES;
+  const hour = Math.floor(inDay / 60) % 12 || 12;
+  const minute = inDay % 60;
+  return minute === 0 ? String(hour) : `${hour}:${String(minute).padStart(2, "0")}`;
+}
+
+function suffix(minutes: number): "AM" | "PM" {
+  return minutes % DAY_MINUTES < HALF_DAY ? "AM" : "PM";
+}
+
+/** "7 PM", "7:30 PM"; noon is "12 PM" and midnight, either end of the day, "12 AM". */
 export function formatMinutes(minutes: number): string {
-  const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
-  return `${hours}:${String(minutes % 60).padStart(2, "0")}`;
+  return `${clockFace(minutes)} ${suffix(minutes)}`;
 }
 
-/** "19:00–22:00". */
+/**
+ * "7–10 PM" when both ends fall in the same half of the day, "11 AM–2 PM"
+ * otherwise; a range ending at noon or midnight keeps both suffixes.
+ */
 export function timeRange(start: number, end: number): string {
-  return `${formatMinutes(start)}–${formatMinutes(end)}`;
+  const sameHalf =
+    end % HALF_DAY !== 0 && Math.floor(start / HALF_DAY) === Math.floor((end - 1) / HALF_DAY);
+  return sameHalf
+    ? `${clockFace(start)}–${formatMinutes(end)}`
+    : `${formatMinutes(start)}–${formatMinutes(end)}`;
 }
 
-/** The value for an `<input type="time">`; the end of the day is "00:00". */
+/** The value for a form's time field, "19:00"; the end of the day is "00:00". */
 export function timeInputValue(minutes: number): string {
-  return formatMinutes(minutes % DAY_MINUTES);
+  const inDay = minutes % DAY_MINUTES;
+  const hours = String(Math.floor(inDay / 60)).padStart(2, "0");
+  return `${hours}:${String(inDay % 60).padStart(2, "0")}`;
 }
 
 /** The calendar date it is now in `zone`. */
@@ -182,20 +206,13 @@ export function parseTimeText(text: string, options: { end: boolean }): TimePars
   return { ok: true, minutes: rounded, meridiem };
 }
 
-/** A time of day as "9:45pm" (12-hour, as typed with am/pm); the end of the day is "12:00am". */
-export function formatMeridiem(minutes: number): string {
-  const inDay = minutes % DAY_MINUTES;
-  const hours = Math.floor(inDay / 60);
-  const twelve = hours % 12 === 0 ? 12 : hours % 12;
-  return `${twelve}:${String(inDay % 60).padStart(2, "0")}${hours < 12 ? "am" : "pm"}`;
-}
-
 /** A typed time on the 15-minute grid, or the message saying why it can't be read. */
 export function parseTime(value: string, label: string, end: boolean): number | string {
   const parsed = parseTimeText(value, { end });
   if (parsed.ok) return parsed.minutes;
   if (parsed.reason === "empty") return `${label} is required.`;
-  if (parsed.reason === "too-late") return `${label} is too late; the latest start is 23:45.`;
+  if (parsed.reason === "too-late")
+    return `${label} is too late; the latest start is ${formatMinutes(LATEST_START)}.`;
   return `${label} is not a valid time.`;
 }
 
@@ -299,7 +316,7 @@ export function offeredDates(slot: Slot, today: string, until: string): string[]
 
 /** "Every Thursday from 1 Oct until 24 Dec" or "Thu 8 Oct". */
 export function describeSlot(slot: SlotInput): string {
-  const times = `${formatMinutes(slot.startMinute)}–${formatMinutes(slot.endMinute)}`;
+  const times = timeRange(slot.startMinute, slot.endMinute);
   if (slot.kind === "once") return `${formatDate(slot.startDate)}, ${times}`;
   const from = formatDate(slot.startDate).slice(4);
   const until = slot.endDate ? ` until ${formatDate(slot.endDate).slice(4)}` : "";

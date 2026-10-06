@@ -145,8 +145,8 @@ describe("request progress", () => {
         memberCount: 3,
         complete: false,
         proposed: [
-          { id: b.id, summary: "Fri 9 Oct, 19:00–21:00" },
-          { id: c.id, summary: "Sat 10 Oct, 19:00–21:00" },
+          { id: b.id, summary: "Fri 9 Oct, 7–9 PM" },
+          { id: c.id, summary: "Sat 10 Oct, 7–9 PM" },
         ],
       },
     ]);
@@ -223,7 +223,7 @@ describe("the schedule page by request", () => {
       );
       expect(proposed).toContain(`href="/g/x/requests/${concert}"`);
       expect(proposed).toContain(">Concert</a></h3>");
-      expect(proposed).toContain("Thu 8 Oct, 19:00–21:00");
+      expect(proposed).toContain("Thu 8 Oct, 7–9 PM");
       expect(proposed).not.toContain("Gig");
       expect(html).toContain('<p class="hint">From Gig</p>');
       expect(html).toContain('<p class="hint">From Concert</p>');
@@ -322,7 +322,7 @@ describe("your requests on the home screen", () => {
     expect(data.requests[0].requestId).toBe(tour.id);
     const html = renderHome(data);
     expect(html).toContain("Your requests");
-    expect(html).toContain(`Proposed: Thu 8 Oct, 19:00–21:00`);
+    expect(html).toContain(`Proposed: Thu 8 Oct, 7–9 PM`);
     expect(html).toContain(`href="${groupPath(group)}/schedule"`);
     expect(html).toContain("0 of 1 confirmed · 0 of 3 answered");
     expect(html).toContain("1 of 1 confirmed");

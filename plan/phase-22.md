@@ -25,7 +25,21 @@ Readings recorded at phase start (the operator may override before planning ends
 
 - `./bin/test project/tests` covers the 12-hour formatter (noon, midnight, half hours, ranges across noon), that no route renders a 24-hour time, and the picker's markup and its translation between bar positions and stored minutes.
 - `./bin/check all` passes and the CI/CD `check` job is green on the phase's pull request; merging deploys.
-- User Demo: to be tightened at phase start (picking 7–10 PM on a phone by two taps and by dragging; reading times on the request, schedule and home pages).
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, signed in as an organizer of a group with at least one other member, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. From the group, start a new request and, on the time bar, tap 7 PM and then 10 PM.
+    2. Clear it, and drag from 6:30 PM to 9 PM instead; create the request.
+    3. Open My availability, add a one-off time by dragging 7–10 PM on the bar, and save.
+    4. Open the request, tick a time in a date's panel, and propose it; open the group's Schedule; open the home page.
+  - **What to look for.**
+    - The bar runs from 9 AM to midnight with a label at each hour; after two taps or one drag the picked stretch is highlighted and reads back in words ("7–10 PM", "6:30–9 PM").
+    - Every time on the request, schedule, My availability and home pages reads with AM/PM; no "19:00" anywhere.
+    - The bar fits the phone's width without sideways scrolling.
+  - **Variations to explore.** A stretch ending at midnight; tapping the end first and then the start; a time saved before this phase that starts before 9 AM (it still reads correctly); using the bar with a keyboard on a laptop.
 
 ## Brief refs
 

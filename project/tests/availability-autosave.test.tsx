@@ -286,7 +286,7 @@ describe("the request page", () => {
     ).replaceAll("<!-- -->", "");
 
     expect(html).toContain(
-      `href="${groupPath(group)}/availability?request=${request.id}&amp;window=0" data-discover="true">Check availability for 19:00–22:00</a>`,
+      `href="${groupPath(group)}/availability?request=${request.id}&amp;window=0" data-discover="true">Check availability for 7–10 PM</a>`,
     );
   });
 });
