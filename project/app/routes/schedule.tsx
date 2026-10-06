@@ -50,6 +50,7 @@ import { buttonVariants } from "~/components/ui/button";
 import { Switch, useSwitch } from "~/components/view-switch";
 import { dayHeat } from "~/lib/heat";
 import { answerable, nextWeekday } from "~/lib/requests";
+import { missingSentence, missingSummaries } from "~/lib/warnings";
 
 import type { Route } from "./+types/schedule";
 
@@ -204,21 +205,24 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       dates: dates.map((date) => dateView(rehearsal, date)),
     };
     if (!isOrganizer) return { ...view, organizer: null };
-    const warnings = dates
-      .map((date) => ({
-        date,
-        missing: missingRequired(
-          members,
-          freeDuring(cells, date, rehearsal.startMinute, rehearsal.endMinute),
-        ).map((member) => member.displayName),
-      }))
-      .filter((warning) => warning.missing.length > 0);
+    // One summary per set of required members who aren't free (plan/phase-25.md).
+    const missing = missingSummaries(
+      dates
+        .map((date) => ({
+          date,
+          missing: missingRequired(
+            members,
+            freeDuring(cells, date, rehearsal.startMinute, rehearsal.endMinute),
+          ).map((member) => member.displayName),
+        }))
+        .filter((warning) => warning.missing.length > 0),
+    );
     const runsPastWindow =
       rehearsal.kind === "weekly" && (rehearsal.endDate === null || rehearsal.endDate > until);
     return {
       ...view,
       organizer: {
-        warnings,
+        missing,
         uncheckedAfter: runsPastWindow ? until : null,
         // Every date in the window the pattern meets, cancelled or not, for the toggles.
         weeks:
@@ -743,15 +747,15 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
           <p className="area-label" id={`organize-${item.id}`}>
             For organizers
           </p>
-          {organizer.warnings.length > 0 ? (
-            <ul className="warnings" aria-label="Warnings">
-              {organizer.warnings.map((warning) => (
-                <li key={warning.date} role="status">
-                  {formatDate(warning.date)}: {warning.missing.join(", ")}{" "}
-                  {warning.missing.length === 1 ? "isn't" : "aren't"} free
-                </li>
-              ))}
-            </ul>
+          {organizer.missing.length > 0 ? (
+            // One calm region for the whole card, not one live region per date.
+            <div className="warnings" role="status" aria-label="Who isn't free">
+              <ul>
+                {organizer.missing.map((summary) => (
+                  <li key={summary.dates[0]}>{missingSentence(summary)}</li>
+                ))}
+              </ul>
+            </div>
           ) : null}
           {organizer.uncheckedAfter ? (
             <p className="hint">
@@ -778,7 +782,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               fields={{ intent: "delete", rehearsalId: item.id }}
               trigger="Delete"
               triggerLabel={`Delete ${item.summary}`}
-              triggerVariant="destructive"
+              triggerVariant="outline-destructive"
               {...deleteRehearsalPrompt(item.summary)}
               feedbackKey={`delete-${item.id}`}
             />

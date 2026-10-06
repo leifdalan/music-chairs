@@ -3787,3 +3787,14 @@ Phase 24 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 24 ✅ and Phase 25 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-25.md gained "Inherited from Phase 24" (the names, the proposed card's layout and anchor, the group page's upcoming list).
 - Lessons: camouflaged-dragon now has 8 occurrences (Phase 24 END added); ./bin/lessons validate OK.
+
+## 2026-10-06 15:59 — START
+Phase 25 — The confirm moment: one calm warning, a quieter delete, and local date formats
+
+Execution trace: 92b3a3f18c9d4c88a1cc479ee1cc350f
+
+Planned work:
+- Missing-member warnings on a proposed rehearsal collapse into one summary per set of missing people, in one status region (no longer one live region per date); amber, not red; red reserved for destructive actions.
+- Delete on a proposed rehearsal is a quieter destructive control set apart from "Confirm for everyone", using the `outline-destructive` variant Phase 21 introduced.
+- (Dropped at phase start by the operator: dates and calendars stay as they are.)
+- The signed-in home page drops the product pitch (kept for visitors).
