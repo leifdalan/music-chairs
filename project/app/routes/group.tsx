@@ -18,6 +18,7 @@ import { groupPath } from "~/lib/group-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
+import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/group";
@@ -278,6 +279,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
   } = loaderData;
   const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
   const settingsResult = actionData && "settingsErrors" in actionData ? actionData : null;
+  const soleMember = members.length < 2;
   return (
     <main>
       <h1>{groupName}</h1>
@@ -331,21 +333,9 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}
       {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
+      {/* A group of one needs its invite before anything else (plan/phase-21.md). */}
+      {inviteUrl && soleMember ? <InvitePanel inviteUrl={inviteUrl} groupName={groupName} /> : null}
       {requests ? <RequestsSection requests={requests} memberCount={memberCount} /> : null}
-      {inviteUrl ? <InvitePanel inviteUrl={inviteUrl} groupName={groupName} /> : null}
-      {showNames !== null ? (
-        <section className="invite" aria-labelledby="privacy-heading">
-          <h2 id="privacy-heading">What members see</h2>
-          <p className="hint">
-            {showNames
-              ? "Members see who is free at each time."
-              : "Members see only how many people are free at each time."}
-          </p>
-          <Toggle intent="set-privacy" setTo={!showNames}>
-            {showNames ? "Show only counts" : "Show names to members"}
-          </Toggle>
-        </section>
-      ) : null}
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members ({members.length})</h2>
         {settings ? (
@@ -361,7 +351,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         ) : null}
         <ul className="members">
           {members.map((member, index) => (
-            // Organizers' rows hold forms; keying them by member keeps each with its member.
+            // Organizers' rows hold forms; keying them by member keeps each with its member,
+            // so an open "Manage" disclosure stays open after a change made inside it.
             <li key={member.manage?.id ?? index}>
               <span className="member-name">
                 {member.displayName}
@@ -369,93 +360,102 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                   <span className="member-instrument"> · {member.instrument}</span>
                 ) : null}
                 {member.isViewer ? " (you)" : ""}
-                {member.google ? (
-                  <span className="google-mark" title="Signs in with Google">
-                    {" "}
-                    · Google
-                  </span>
-                ) : null}
-                {member.manage?.email ? (
-                  <span className="member-email"> {member.manage.email}</span>
-                ) : null}
-                {member.manage?.invitedEmail ? (
-                  <span className="member-email"> invited as {member.manage.invitedEmail}</span>
-                ) : null}
               </span>
-              <span className={`role role-${member.role}`}>
-                {member.role}
-                {member.manage?.optional ? ", optional" : ""}
+              <span className="member-badges">
+                {member.role === "organizer" ? <Badge variant="secondary">organizer</Badge> : null}
+                {member.manage?.optional ? <Badge variant="outline">optional</Badge> : null}
+                {member.google ? (
+                  <Badge variant="outline" title="Signs in with Google">
+                    Google
+                  </Badge>
+                ) : null}
               </span>
               {member.manage ? (
-                <div className="member-controls">
-                  <Toggle
-                    intent="set-optional"
-                    memberId={member.manage.id}
-                    setTo={!member.manage.optional}
-                    label={`${member.manage.optional ? "Make required" : "Make optional"}: ${member.displayName}`}
-                  >
-                    {member.manage.optional ? "Make required" : "Make optional"}
-                  </Toggle>
-                  {member.manage.lastOrganizer ? (
-                    <p className="hint">The group needs at least one organizer.</p>
-                  ) : (
-                    <>
-                      <ConfirmForm
-                        fields={{
-                          intent: "set-role",
-                          memberId: member.manage.id,
-                          value: member.role === "organizer" ? "off" : "on",
-                        }}
-                        trigger={
-                          member.role === "organizer" ? "Remove organizer" : "Make organizer"
-                        }
-                        triggerLabel={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
-                        triggerSize="sm"
-                        {...roleChangePrompt(member.displayName, member.role !== "organizer")}
-                        feedbackKey={`set-role-${member.manage.id}`}
+                <details className="member-actions" name="member-actions">
+                  <summary>
+                    Manage {member.displayName}
+                    {member.isViewer ? " (you)" : ""}
+                  </summary>
+                  <div className="member-controls">
+                    {member.manage.email ? (
+                      <p className="hint member-email">Google: {member.manage.email}</p>
+                    ) : null}
+                    {member.manage.invitedEmail ? (
+                      <p className="hint member-email">Invited as {member.manage.invitedEmail}</p>
+                    ) : null}
+                    <Form method="post" replace className="rename-form">
+                      <input type="hidden" name="intent" value="rename-member" />
+                      <input type="hidden" name="memberId" value={member.manage.id} />
+                      <input
+                        type="text"
+                        name="displayName"
+                        required
+                        autoComplete="off"
+                        defaultValue={member.displayName}
+                        aria-label={`New name for ${member.displayName}`}
                       />
-                      <ConfirmForm
-                        fields={{ intent: "remove-member", memberId: member.manage.id }}
-                        trigger="Remove"
-                        triggerLabel={`Remove ${member.displayName}`}
-                        triggerVariant="destructive"
-                        triggerSize="sm"
-                        {...removalPrompt(member.displayName)}
-                        feedbackKey={`remove-${member.manage.id}`}
-                      />
-                    </>
-                  )}
-                  <Form method="post" replace className="rename-form">
-                    <input type="hidden" name="intent" value="rename-member" />
-                    <input type="hidden" name="memberId" value={member.manage.id} />
-                    <input
-                      type="text"
-                      name="displayName"
-                      required
-                      autoComplete="off"
-                      defaultValue={member.displayName}
-                      aria-label={`New name for ${member.displayName}`}
-                    />
-                    <SubmitButton
-                      feedbackKey={`rename-${member.manage.id}`}
-                      variant="outline"
-                      size="sm"
-                      label={`Rename ${member.displayName}`}
+                      <SubmitButton
+                        feedbackKey={`rename-${member.manage.id}`}
+                        variant="outline"
+                        size="sm"
+                        label={`Rename ${member.displayName}`}
+                      >
+                        Rename
+                      </SubmitButton>
+                    </Form>
+                    <Toggle
+                      intent="set-optional"
+                      memberId={member.manage.id}
+                      setTo={!member.manage.optional}
+                      label={`${member.manage.optional ? "Make required" : "Make optional"}: ${member.displayName}`}
                     >
-                      Rename
-                    </SubmitButton>
-                  </Form>
-                </div>
+                      {member.manage.optional ? "Make required" : "Make optional"}
+                    </Toggle>
+                    {member.manage.lastOrganizer ? (
+                      <p className="hint">The group needs at least one organizer.</p>
+                    ) : (
+                      <>
+                        <ConfirmForm
+                          fields={{
+                            intent: "set-role",
+                            memberId: member.manage.id,
+                            value: member.role === "organizer" ? "off" : "on",
+                          }}
+                          trigger={
+                            member.role === "organizer" ? "Remove organizer" : "Make organizer"
+                          }
+                          triggerLabel={`${member.role === "organizer" ? "Remove organizer" : "Make organizer"}: ${member.displayName}`}
+                          triggerSize="sm"
+                          {...roleChangePrompt(member.displayName, member.role !== "organizer")}
+                          feedbackKey={`set-role-${member.manage.id}`}
+                        />
+                        <ConfirmForm
+                          fields={{ intent: "remove-member", memberId: member.manage.id }}
+                          trigger="Remove"
+                          triggerLabel={`Remove ${member.displayName}`}
+                          triggerVariant="outline-destructive"
+                          triggerSize="sm"
+                          {...removalPrompt(member.displayName)}
+                          feedbackKey={`remove-${member.manage.id}`}
+                        />
+                      </>
+                    )}
+                  </div>
+                </details>
               ) : null}
             </li>
           ))}
         </ul>
       </section>
+      {inviteUrl && !soleMember ? (
+        <InvitePanel inviteUrl={inviteUrl} groupName={groupName} />
+      ) : null}
       {settings ? (
         <GroupSettings
           groupName={groupName}
           timeZone={timeZone}
           timeZones={settings.timeZones}
+          showNames={showNames ?? false}
           result={settingsResult}
         />
       ) : null}
@@ -468,11 +468,13 @@ function GroupSettings({
   groupName,
   timeZone,
   timeZones,
+  showNames,
   result,
 }: {
   groupName: string;
   timeZone: string;
   timeZones: string[];
+  showNames: boolean;
   result: {
     settingsErrors: { name?: string; timeZone?: string };
     settingsValues: { name: string; timeZone: string };
@@ -480,45 +482,70 @@ function GroupSettings({
 }) {
   const values = result?.settingsValues ?? { name: groupName, timeZone };
   const errors = result?.settingsErrors ?? {};
+  // Folded away (plan/phase-21.md). A rejected change opens it so its error shows,
+  // and it stays open afterwards: later actions inside it must not fold it away.
+  const [opened, setOpened] = useState(result !== null);
+  if (result && !opened) setOpened(true);
   return (
     <section className="invite group-settings" aria-labelledby="settings-heading">
       <h2 id="settings-heading">Group settings</h2>
-      <Form method="post" replace className="stack">
-        <input type="hidden" name="intent" value="update-group" />
-        <TextField name="name" label="Group name" defaultValue={values.name} error={errors.name} />
-        <div className="field">
-          <label htmlFor="timeZone">Time zone</label>
-          <select
-            id="timeZone"
-            name="timeZone"
-            defaultValue={values.timeZone}
-            aria-invalid={errors.timeZone ? true : undefined}
-            aria-describedby={errors.timeZone ? "timeZone-error" : "timeZone-hint"}
-          >
-            {timeZones.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </select>
-          <p className="hint" id="timeZone-hint">
-            Every date and time keeps its clock time in the new zone.
-          </p>
-          {errors.timeZone ? (
-            <p className="field-error" id="timeZone-error" role="alert">
-              {errors.timeZone}
+      <details open={opened || undefined}>
+        <summary>Show group settings</summary>
+        <div className="stack">
+          <Form method="post" replace className="stack">
+            <input type="hidden" name="intent" value="update-group" />
+            <TextField
+              name="name"
+              label="Group name"
+              defaultValue={values.name}
+              error={errors.name}
+            />
+            <div className="field">
+              <label htmlFor="timeZone">Time zone</label>
+              <select
+                id="timeZone"
+                name="timeZone"
+                defaultValue={values.timeZone}
+                aria-invalid={errors.timeZone ? true : undefined}
+                aria-describedby={errors.timeZone ? "timeZone-error" : "timeZone-hint"}
+              >
+                {timeZones.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </select>
+              <p className="hint" id="timeZone-hint">
+                Every date and time keeps its clock time in the new zone.
+              </p>
+              {errors.timeZone ? (
+                <p className="field-error" id="timeZone-error" role="alert">
+                  {errors.timeZone}
+                </p>
+              ) : null}
+            </div>
+            <SubmitButton feedbackKey="update-group">Save group settings</SubmitButton>
+          </Form>
+          <div className="stack" role="group" aria-labelledby="privacy-heading">
+            <h3 id="privacy-heading">What members see</h3>
+            <p className="hint">
+              {showNames
+                ? "Members see who is free at each time."
+                : "Members see only how many people are free at each time."}
             </p>
-          ) : null}
+            <Toggle intent="set-privacy" setTo={!showNames}>
+              {showNames ? "Show only counts" : "Show names to members"}
+            </Toggle>
+          </div>
+          <ConfirmForm
+            fields={{ intent: "delete-group" }}
+            trigger="Delete group"
+            triggerVariant="outline-destructive"
+            {...deletionPrompt(groupName)}
+            feedbackKey="delete-group"
+          />
         </div>
-        <SubmitButton feedbackKey="update-group">Save group settings</SubmitButton>
-      </Form>
-      <ConfirmForm
-        fields={{ intent: "delete-group" }}
-        trigger="Delete group"
-        triggerVariant="destructive"
-        {...deletionPrompt(groupName)}
-        feedbackKey="delete-group"
-      />
+      </details>
     </section>
   );
 }

@@ -1,4 +1,5 @@
-import { data, Form, Link, redirect } from "react-router";
+import { useEffect, useRef, type ReactNode } from "react";
+import { data, Form, Link, redirect, useLocation } from "react-router";
 
 import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
@@ -270,16 +271,97 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
   const link = useSwitch();
+  const ownTimes = (
+    <>
+      {myTimes.length === 0 ? (
+        <p className="hint">You have no availability between these dates yet.</p>
+      ) : (
+        <ul className="occurrences">
+          {myTimes.map((occurrence) => (
+            <li key={`${occurrence.slotId}-${occurrence.date}`}>
+              <span>{formatDate(occurrence.date)}</span>
+              <span>{timeRange(occurrence.startMinute, occurrence.endMinute)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {canAnswer ? (
+        <ul className="add-windows">
+          {windows.map((window, index) => (
+            <li key={index}>
+              <Link
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                to={`${groupHref}/availability?request=${requestId}&window=${index}`}
+              >
+                Check availability for {timeRange(window.startMinute, window.endMinute)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+  const answerSection = (
+    <section aria-labelledby="answer-heading">
+      <h2 id="answer-heading">Your answer</h2>
+      {mine ? (
+        <p className="hint">
+          Answered {mine.answeredAt}:{" "}
+          {mine.limit === null ? "any and all rehearsals" : `no more than ${mine.limit}`}.
+        </p>
+      ) : null}
+      {canAnswer ? (
+        <AnswerForm limit={mine ? mine.limit : null} answered={mine !== null} />
+      ) : (
+        <p className="hint">This request is no longer taking answers.</p>
+      )}
+    </section>
+  );
   return (
     <main>
       <p className="eyebrow">
         <Link to={groupHref}>{groupName}</Link>
       </p>
       <h1>{name}</h1>
-      <p className="request-span">
-        {formatDate(startDate)} to {formatDate(endDate)}
-        {status ? <span className="request-status"> · {status}</span> : null}
-      </p>
+      <div className="request-span">
+        <span>
+          {formatDate(startDate)} to {formatDate(endDate)}
+          {status ? <span className="request-status"> · {status}</span> : null}
+        </span>
+        {isOrganizer ? (
+          <RequestMenu>
+            {open ? (
+              <Link
+                to={`${groupHref}/requests/new?edit=${requestId}`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Edit
+              </Link>
+            ) : null}
+            {open ? (
+              <ConfirmForm
+                fields={{ intent: "close" }}
+                trigger="Close request"
+                {...closePrompt(name)}
+                feedbackKey={`request-open-${requestId}`}
+              />
+            ) : (
+              <Form method="post" replace>
+                <input type="hidden" name="intent" value="reopen" />
+                <SubmitButton feedbackKey={`request-open-${requestId}`} variant="outline">
+                  Reopen request
+                </SubmitButton>
+              </Form>
+            )}
+            <Link
+              to={`${groupHref}/requests/new?repeat=${requestId}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Repeat request
+            </Link>
+          </RequestMenu>
+        ) : null}
+      </div>
       <p className="hint">
         Times of day:{" "}
         {windows.map((window) => timeRange(window.startMinute, window.endMinute)).join(", ")} (
@@ -290,168 +372,118 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       ) : null}
       {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
+      {/* Organizers come here to choose times: the calendar of who is free leads;
+          members come to give their own times and answer (plan/phase-21.md). */}
       {isOrganizer ? (
-        <div className="request-actions">
-          {open ? (
-            <Link
-              to={`${groupHref}/requests/new?edit=${requestId}`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Edit
-            </Link>
-          ) : null}
-          {open ? (
-            <ConfirmForm
-              fields={{ intent: "close" }}
-              trigger="Close request"
-              {...closePrompt(name)}
-              feedbackKey={`request-open-${requestId}`}
-            />
-          ) : (
-            <Form method="post" replace>
-              <input type="hidden" name="intent" value="reopen" />
-              <SubmitButton feedbackKey={`request-open-${requestId}`} variant="outline">
-                Reopen request
-              </SubmitButton>
-            </Form>
-          )}
-          <Link
-            to={`${groupHref}/requests/new?repeat=${requestId}`}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Repeat request
-          </Link>
-        </div>
-      ) : null}
-
-      <section aria-labelledby="my-times-heading">
-        <h2 id="my-times-heading">Your times in this span</h2>
-        {myTimes.length === 0 ? (
-          <p className="hint">You have no availability between these dates yet.</p>
-        ) : (
-          <ul className="occurrences">
-            {myTimes.map((occurrence) => (
-              <li key={`${occurrence.slotId}-${occurrence.date}`}>
-                <span>{formatDate(occurrence.date)}</span>
-                <span>{timeRange(occurrence.startMinute, occurrence.endMinute)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {canAnswer ? (
-          <ul className="add-windows">
-            {windows.map((window, index) => (
-              <li key={index}>
-                <Link
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  to={`${groupHref}/availability?request=${requestId}&window=${index}`}
-                >
-                  Check availability for {timeRange(window.startMinute, window.endMinute)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
-
-      <section aria-labelledby="answer-heading">
-        <h2 id="answer-heading">Your answer</h2>
-        {mine ? (
-          <p className="hint">
-            Answered {mine.answeredAt}:{" "}
-            {mine.limit === null ? "any and all rehearsals" : `no more than ${mine.limit}`}.
-          </p>
-        ) : null}
-        {canAnswer ? (
-          <AnswerForm limit={mine ? mine.limit : null} answered={mine !== null} />
-        ) : (
-          <p className="hint">This request is no longer taking answers.</p>
-        )}
-      </section>
-
-      {answers ? (
-        <section aria-labelledby="answers-heading">
-          <h2 id="answers-heading">
-            Answers ({answers.filter((item) => item.answer).length} of {answers.length})
-          </h2>
-          <ul className="request-answers">
-            {answers.map((item, index) => (
-              <li key={index}>
-                <span className="member-name">{item.name}</span>
-                {item.answer ? (
-                  <span>
-                    {item.answer.limit === null
-                      ? "Any and all"
-                      : `No more than ${item.answer.limit}`}
-                    <span className="hint"> · {item.answer.answeredAt}</span>
-                  </span>
-                ) : (
-                  <span className="hint">Not yet</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {overlap ? (
-        <section aria-labelledby="overlap-heading">
-          <h2 id="overlap-heading">When people are free</h2>
-          <p className="hint">Within this request's dates and times of day.</p>
-          <Switch
-            label="How to show when people are free"
-            options={[
-              { text: "Calendar", to: link("free", null), current: freeView === "calendar" },
-              { text: "List", to: link("free", "list"), current: freeView === "list" },
-            ]}
-          />
-          <p className="hint">Switching views clears ticks you haven't proposed.</p>
-          <ProposeTimes
-            hasTimes={overlap.length > 0}
-            problem={pickProblem}
-            resetKey={rehearsalCount ?? 0}
-          >
-            {freeView === "list" ? <input type="hidden" name="free" value="list" /> : null}
-            {overlap.length === 0 ? (
-              <p className="hint">Nobody is free at these times yet.</p>
-            ) : freeView === "calendar" && freeRange ? (
-              <FreeCalendar
-                from={freeRange.from}
-                to={freeRange.to}
-                days={overlap}
-                total={answers?.length ?? 0}
+        <>
+          {overlap ? (
+            <section aria-labelledby="overlap-heading">
+              <h2 id="overlap-heading">When people are free</h2>
+              <p className="hint">Within this request's dates and times of day.</p>
+              <Switch
+                label="How to show when people are free"
+                options={[
+                  { text: "Calendar", to: link("free", null), current: freeView === "calendar" },
+                  { text: "List", to: link("free", "list"), current: freeView === "list" },
+                ]}
               />
-            ) : (
-              <ul className="days">
-                {overlap.map((day) => (
-                  <li key={day.date}>
-                    <h3>{formatDate(day.date)}</h3>
-                    <ul className="stretches">
-                      {day.stretches.map((stretch) => (
-                        <li key={stretch.startMinute} className="stretch">
-                          <FreeStretch
-                            date={day.date}
-                            stretch={stretch}
-                            total={answers?.length ?? 0}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ProposeTimes>
-          <details className="custom-proposal" open={formResult !== undefined}>
-            <summary>Propose a different time</summary>
-            <ProposeForm
-              key={rehearsalCount ?? 0}
-              result={formResult}
-              fromList={freeView === "list"}
-            />
-          </details>
-        </section>
-      ) : null}
+              <p className="hint">Switching views clears ticks you haven't proposed.</p>
+              <ProposeTimes
+                hasTimes={overlap.length > 0}
+                problem={pickProblem}
+                resetKey={rehearsalCount ?? 0}
+              >
+                {freeView === "list" ? <input type="hidden" name="free" value="list" /> : null}
+                {overlap.length === 0 ? (
+                  <p className="hint">Nobody is free at these times yet.</p>
+                ) : freeView === "calendar" && freeRange ? (
+                  <FreeCalendar
+                    from={freeRange.from}
+                    to={freeRange.to}
+                    days={overlap}
+                    total={answers?.length ?? 0}
+                  />
+                ) : (
+                  <ul className="days">
+                    {overlap.map((day) => (
+                      <li key={day.date}>
+                        <h3>{formatDate(day.date)}</h3>
+                        <ul className="stretches">
+                          {day.stretches.map((stretch) => (
+                            <li key={stretch.startMinute} className="stretch">
+                              <FreeStretch
+                                date={day.date}
+                                stretch={stretch}
+                                total={answers?.length ?? 0}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </ProposeTimes>
+              <details className="custom-proposal" open={formResult !== undefined}>
+                <summary>Propose a different time</summary>
+                <ProposeForm
+                  key={rehearsalCount ?? 0}
+                  result={formResult}
+                  fromList={freeView === "list"}
+                />
+              </details>
+            </section>
+          ) : null}
+          {answerSection}
+          <section aria-labelledby="my-times-heading">
+            <h2 id="my-times-heading">Your times in this span</h2>
+            {/* Folded for organizers, whose job here is the calendar above (plan/phase-21.md). */}
+            <details>
+              <summary>
+                {myTimes.length === 0
+                  ? "None yet"
+                  : `${myTimes.length} ${myTimes.length === 1 ? "time" : "times"} in this span`}
+              </summary>
+              {ownTimes}
+            </details>
+          </section>
+          {answers ? (
+            <section aria-labelledby="answers-heading">
+              <h2 id="answers-heading">
+                Answers ({answers.filter((item) => item.answer).length} of {answers.length})
+              </h2>
+              <details>
+                <summary>Show who has answered</summary>
+                <ul className="request-answers">
+                  {answers.map((item, index) => (
+                    <li key={index}>
+                      <span className="member-name">{item.name}</span>
+                      {item.answer ? (
+                        <span>
+                          {item.answer.limit === null
+                            ? "Any and all"
+                            : `No more than ${item.answer.limit}`}
+                          <span className="hint"> · {item.answer.answeredAt}</span>
+                        </span>
+                      ) : (
+                        <span className="hint">Not yet</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <section aria-labelledby="my-times-heading">
+            <h2 id="my-times-heading">Your times in this span</h2>
+            {ownTimes}
+          </section>
+          {answerSection}
+        </>
+      )}
     </main>
   );
 }
@@ -533,4 +565,38 @@ function closePrompt(name: string) {
     body: "Members can no longer answer it. You can reopen it later.",
     label: "Close request",
   };
+}
+
+/**
+ * The organizer's request options (plan/phase-21.md): a disclosure that works
+ * without JavaScript, like the profile menu. It closes after navigating and
+ * gives focus back to its summary if focus was inside it.
+ */
+function RequestMenu({ children }: { children: ReactNode }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  // Whether focus was inside the menu when the page changed: a Close or Reopen
+  // replaces the focused button, so it can't be read afterwards.
+  const focusInside = useRef(false);
+  const location = useLocation();
+  useEffect(() => {
+    const details = menu.current;
+    if (!details?.open) return;
+    details.open = false;
+    if (focusInside.current) details.querySelector("summary")?.focus();
+  }, [location.key]);
+  return (
+    <details
+      className="request-menu"
+      ref={menu}
+      onFocus={() => {
+        focusInside.current = true;
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) focusInside.current = false;
+      }}
+    >
+      <summary>Request options</summary>
+      <div className="request-menu-panel">{children}</div>
+    </details>
+  );
 }

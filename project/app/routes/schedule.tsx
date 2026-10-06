@@ -483,6 +483,13 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     group.items.push(item);
     byRequest.set(id, group);
   }
+  const visibilityNote = isOrganizer
+    ? showNames
+      ? "Members also see names."
+      : "Members see only how many people are free."
+    : showNames
+      ? null
+      : "Showing how many people are free.";
   return (
     <main>
       <p className="eyebrow">
@@ -552,16 +559,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
 
       <section aria-labelledby="overlap-heading">
         <h2 id="overlap-heading">When people are free</h2>
-        <p className="hint">
-          Until {formatDate(until)}.{" "}
-          {isOrganizer
-            ? showNames
-              ? "Members also see names."
-              : "Members see only how many people are free."
-            : showNames
-              ? null
-              : "Showing how many people are free."}
-        </p>
+        {visibilityNote ? <p className="hint">{visibilityNote}</p> : null}
         {isOrganizer ? (
           <p className="hint">
             To propose times, open a request on the{" "}
@@ -571,7 +569,12 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
             .
           </p>
         ) : null}
-        {freeTimes}
+        {/* Folded so the schedule ends after the rehearsals (plan/phase-21.md); it covers
+            weeks no request asks about, so it stays one tap away. */}
+        <details className="free-times">
+          <summary>Show free times until {formatDate(until)}</summary>
+          {freeTimes}
+        </details>
       </section>
     </main>
   );

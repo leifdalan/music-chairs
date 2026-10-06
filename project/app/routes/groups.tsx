@@ -90,9 +90,6 @@ function GroupCard({ group }: { group: GroupItem }) {
         >
           My availability
         </Link>
-        <Link to={group.path} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          Group page
-        </Link>
       </p>
       <details>
         <summary>Manage this group</summary>
@@ -141,7 +138,7 @@ function GroupCard({ group }: { group: GroupItem }) {
                 action={group.path}
                 fields={{ intent: "delete-group", returnTo: "/groups" }}
                 trigger="Delete group"
-                triggerVariant="destructive"
+                triggerVariant="outline-destructive"
                 triggerSize="sm"
                 {...deletionPrompt(group.name)}
                 feedbackKey={`delete-${group.path.slice(3)}`}

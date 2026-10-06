@@ -363,19 +363,31 @@
     @apply flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-3;
   }
 
-  .role,
   .member-instrument,
-  .google-mark,
   .member-email {
     @apply text-sm font-normal text-muted-foreground;
   }
 
-  .role {
-    @apply flex-none;
+  /* A member row (plan/phase-21.md): name and instrument, then badges; an
+     organizer's actions for that member open below the row. */
+  .member-badges {
+    @apply flex flex-none flex-wrap gap-1.5;
   }
 
-  .role-organizer {
-    @apply font-semibold text-foreground;
+  .member-actions {
+    @apply basis-full;
+  }
+
+  .member-actions > summary {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .member-actions[open] > summary {
+    @apply text-foreground;
+  }
+
+  .member-actions .member-controls {
+    @apply pt-1 pb-2;
   }
 
   .group-links {
@@ -819,8 +831,28 @@
     @apply font-semibold;
   }
 
+  /* The dates line, with the organizer's request options at its end. */
   .request-span {
-    @apply m-0;
+    @apply m-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-1;
+  }
+
+  /* ml-auto keeps the menu at the line's end even when the dates wrap, so its
+     right-aligned panel stays on screen. */
+  .request-menu {
+    @apply relative ml-auto font-normal;
+  }
+
+  .request-menu-panel {
+    @apply absolute top-[calc(100%+0.25rem)] right-0 z-10 grid w-[min(16rem,calc(100vw-2rem))] gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg;
+  }
+
+  .request-menu-panel > *,
+  .request-menu-panel form > button {
+    @apply w-full;
+  }
+
+  .ticked-count {
+    @apply m-0 font-medium text-foreground;
   }
 
   .request-answered {
@@ -832,7 +864,6 @@
     @apply text-muted-foreground;
   }
 
-  .request-actions,
   .add-windows {
     @apply my-3 flex flex-wrap gap-2;
   }

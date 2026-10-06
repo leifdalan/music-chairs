@@ -3252,3 +3252,14 @@ Execution trace: 22205170456b47e19a89c513fe149767
 - Lessons: hypersonic-labrador filed; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #8.
+
+## 2026-10-05 17:19 — START
+Phase 21 — Organizer layout: the request, group, schedule and groups pages put the main job first
+
+Execution trace: 6aa89adafafd45eda5006e79f786784c
+
+Planned work:
+- Request page, for organizers: "When people are free" (calendar or list) comes first after the request's title and dates; a running count of ticked times ("2 times ticked") sits beside "Propose selected", with the rehearsal length and location next to it; the organizer's own times in the span collapse to one line with a disclosure; everyone's answers collapse to "N of M answered" with a disclosure; Edit, Close and Repeat move into one request menu.
+- Group page: each member row shows the name, instrumentation and badges (organizer, optional); a member's actions (rename, required/optional, organizer, remove) open from that row, with Remove as a quieter destructive button; the group's settings and Delete group sit in a collapsed "Group settings" disclosure; the invite card comes first while the group has fewer than two members, after the members otherwise.
+- Schedule page: the day-by-day "When people are free" list no longer repeats in full under the rehearsals; it collapses behind a disclosure.
+- Groups page: each group card offers the group (its name), Schedule and My availability, and "Manage this group"; the separate "Group page" button goes.

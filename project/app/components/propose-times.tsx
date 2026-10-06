@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useCallback, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Form } from "react-router";
 
 import { formatDate, timeRange } from "~/lib/availability";
@@ -27,8 +27,26 @@ export function ProposeTimes({
   resetKey: number;
   children: ReactNode;
 }) {
+  // A fresh form, with its own ticked count, after each successful proposal.
   return (
-    <Form key={resetKey} method="post" className="propose-times" replace>
+    <ProposeTimesForm key={resetKey} hasTimes={hasTimes} problem={problem}>
+      {children}
+    </ProposeTimesForm>
+  );
+}
+
+function ProposeTimesForm({
+  hasTimes,
+  problem,
+  children,
+}: {
+  hasTimes: boolean;
+  problem: string | null;
+  children: ReactNode;
+}) {
+  const [form, setForm] = useState<HTMLFormElement | null>(null);
+  return (
+    <Form ref={setForm} method="post" className="propose-times" replace>
       <input type="hidden" name="intent" value="propose-times" />
       {children}
       {hasTimes ? (
@@ -55,6 +73,7 @@ export function ProposeTimes({
               {problem}
             </p>
           ) : null}
+          <TickedCount form={form} />
           <SubmitButton feedbackKey="propose-times">Propose selected</SubmitButton>
         </div>
       ) : null}
@@ -134,5 +153,45 @@ export function FreeStretch({
       </span>
       <span className="hint stretch-line">Free: {stretch.freeNames.join(", ")}</span>
     </FreeTime>
+  );
+}
+
+/** "No times ticked", "1 time ticked", "3 times ticked". */
+export function tickedLabel(count: number): string {
+  if (count === 0) return "No times ticked";
+  return `${count} ${count === 1 ? "time" : "times"} ticked`;
+}
+
+/**
+ * How many times are ticked, beside "Propose selected" (plan/phase-21.md),
+ * once the page is interactive. Always read from the form itself, never
+ * accumulated: at hydration (ticks the browser restored after a reload count),
+ * on every change, and whenever the view switches and swaps the tick boxes
+ * (a mutation observer sees the new boxes).
+ */
+function TickedCount({ form }: { form: HTMLFormElement | null }) {
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      if (!form) return () => {};
+      const observer = new MutationObserver(notify);
+      observer.observe(form, { childList: true, subtree: true });
+      form.addEventListener("change", notify);
+      return () => {
+        observer.disconnect();
+        form.removeEventListener("change", notify);
+      };
+    },
+    [form],
+  );
+  const count = useSyncExternalStore(
+    subscribe,
+    () => (form ? form.querySelectorAll('input[name="time"]:checked').length : null),
+    () => null,
+  );
+  if (count === null) return null;
+  return (
+    <p className="hint ticked-count" aria-live="polite">
+      {tickedLabel(count)}
+    </p>
   );
 }

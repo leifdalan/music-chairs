@@ -18,6 +18,10 @@ export const buttonVariants = cva(
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 dark:bg-[oklch(0.5_0.19_25)] dark:hover:bg-[oklch(0.45_0.19_25)]",
         outline:
           "border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50",
+        // A quieter destructive control (plan/phase-21.md): red text and border on the
+        // page's own background, which never tints, so contrast holds on hover.
+        "outline-destructive":
+          "border border-destructive/50 bg-background text-destructive shadow-xs hover:border-destructive dark:bg-input/30",
         secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline underline-offset-4",
