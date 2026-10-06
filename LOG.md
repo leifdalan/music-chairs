@@ -3516,3 +3516,31 @@ Planned work:
 - The separate "My times" section of the request page goes; the calendar is the member's view of their own times in the span.
 - Availability is given inside availability requests only: the standalone My availability page, its weekly ("every Thursday") patterns, and every link to it (group page, Groups page, home page, after joining) go. A signed-in member's Google Calendar import moves onto the request page. Existing stored availability is carried forward by a forward-only migration (the planner proposes how weekly rows become dates, or are dropped, for the operator to choose).
 - "Answer" means Yes / No / Maybe to a proposed rehearsal only. After joining, the next screen is the group's open availability request when there is one. Home's waiting line for a request reads as adding free times by its end date.
+
+## 2026-10-06 11:22 — PARK
+Phase 23 — Members answer an availability request on its calendar: dates, times and a cap that save as they go
+
+Execution trace: 332420b0f362468cb82180c31e0fc79e
+
+Reason: the implementation passed its code critique (corrections adopted) and its local gates (smoke, and the changed-path tests: Vitest 607/607, pytest 180/180), but this run cannot close. The phase deletes project/app/routes/availability.tsx, and plan/INDEX.md's Critical-Files Map still links to it. CI on draft pull request #14 failed on that dead link (check-catalogs), and kickoff-evidence's accepted close runs the same check while allowing only status changes to plan/INDEX.md, a captured authority. The plan missed the INDEX link (the recurrence of lesson imperious-bug). The run parks; the link is fixed and a fresh run continues. An orchestration and planning fault, not a product defect. The gate list was superseded once in this run to drop the CI gate after the failure (recorded in the evidence); the continuation restores it.
+
+State at park:
+- Candidate 21ce370dc3d25940e74fc59cb31d06c3c4abf82552522e9aaabb476d68ba40af, committed on main as c0d1bbc and pushed to branch phase-23 (draft pull request #14): times given on the request page (calendar or list, hour bar, one time per date within the request's windows, auto-saving ticks and cap), the organizer's own times folded below the heat map, "Responded" wording, My availability and weekly availability removed, migration 11 turning saved weekly times into dates, and landing on the open request after joining.
+- Approved plan: plan-2 (hash 710d9ca0fb1b3a05725b4c13358885c0ec065ec91c96da8d9a6e88c26d42bb70) after one independent plan review (13 findings: 12 adopted, 1 deferred). One code critique on candidate 5b556829… (9 findings: 7 adopted, 1 adopted in part, 1 deferred), corrections on the current candidate.
+- Focused results: Vitest 607/607, lint, typecheck, format PASS, smoke PASS; mutation checks 19 of 19 killed across both rounds.
+- No status change: Phase 23 stays 🚧. Pushed to the pull request branch only; nothing merged.
+
+Resume: a planned continuation under policies/review-lanes.md § Continue an approved plan after preparation: plan/INDEX.md's Critical-Files Map row points at project/app/.server/clashes.ts and project/app/routes/request.tsx instead of the deleted route; a fresh run with --follow-up-route full-cycle carries plan-2, its review and the code critique, and reruns the gates (including CI on pull request #14), the close and delivery.
+
+Lessons:
+- imperious-bug recurrence (pending, written at the continuation's END): a phase deleting a file linked from plan/INDEX.md cannot close; the plan should catch the link before capture
+
+Remaining:
+- Continuation run: INDEX link fix, gates on the unchanged product candidate, accepted close, handoff gate, delivery through pull request #14.
+
+## 2026-10-06 11:22 — START (resumed)
+Phase 23 — Members answer an availability request on its calendar: dates, times and a cap that save as they go
+
+Execution trace: 9a1989a7ebfb4ed9af4facca1bc38be7
+
+Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): the approved plan-2 (710d9ca0fb1b3a05725b4c13358885c0ec065ec91c96da8d9a6e88c26d42bb70), its plan review and the code critique are carried; the product candidate 21ce370dc3d25940e74fc59cb31d06c3c4abf82552522e9aaabb476d68ba40af is unchanged since the park. plan/INDEX.md's Critical-Files Map row now links project/app/.server/clashes.ts and project/app/routes/request.tsx instead of the deleted route. Remaining: gates on this candidate (including CI on pull request #14), close and delivery.
