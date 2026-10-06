@@ -7,7 +7,7 @@ export const LAST_ORGANIZER =
 export function deletionPrompt(groupName: string) {
   return {
     title: `Delete ${groupName}?`,
-    body: "Everything in the group goes now: its members, availability, requests and rehearsals. Rehearsal events this app added to members' Google Calendars are removed and calendar feed links stop working. This can't be undone.",
+    body: "Everything in the group goes now: its members, availability, availability requests and rehearsals. Rehearsal events this app added to members' Google Calendars are removed and calendar feed links stop working. This can't be undone.",
     label: "Delete group",
   };
 }
@@ -15,7 +15,7 @@ export function deletionPrompt(groupName: string) {
 export function leavePrompt(groupName: string) {
   return {
     title: `Leave ${groupName}?`,
-    body: "Your availability, request responses and rehearsal answers in this group are deleted, and rehearsal events this app added to your Google Calendar are removed. You can join again with the invite link.",
+    body: "Your availability, availability request responses and rehearsal answers in this group are deleted, and rehearsal events this app added to your Google Calendar are removed. You can join again with the invite link.",
     label: "Leave group",
   };
 }

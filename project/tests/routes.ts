@@ -16,6 +16,7 @@ import {
   type Group,
   type Store,
 } from "../app/.server/store";
+import type { SlotInput } from "../app/lib/availability";
 
 export const ORIGIN = "http://music-chairs.test";
 
@@ -167,4 +168,9 @@ export function selectedOption(html: string, name: string): string | null {
   const select = new RegExp(`<select[^>]*name="${name}"[^>]*>(.*?)</select>`, "s").exec(html);
   if (!select) return null;
   return /<option value="([^"]*)" selected="">/.exec(select[1])?.[1] ?? null;
+}
+
+/** Several availability times for one member (the store adds one at a time). */
+export function addSlots(store: Store, memberId: string, inputs: SlotInput[]): void {
+  for (const input of inputs) store.addSlot(memberId, input);
 }

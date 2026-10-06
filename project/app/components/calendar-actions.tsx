@@ -99,7 +99,7 @@ export function ProgressFigures({
   return (
     <span className="hint progress-figures">
       {item.confirmed} of {item.total} confirmed
-      {item.answered !== null ? ` · ${item.answered} of ${item.memberCount} answered` : ""}
+      {item.answered !== null ? ` · ${item.answered} of ${item.memberCount} answered all` : ""}
       {item.complete ? (
         <>
           {" "}

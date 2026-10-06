@@ -20,6 +20,7 @@ import {
   type GoogleWriteState,
 } from "~/components/calendar-actions";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
+import { FreeCalendar } from "~/components/free-calendar";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import {
@@ -44,9 +45,11 @@ import {
 } from "~/lib/overlap";
 import { groupPath } from "~/lib/group-address";
 import { calendarNotice } from "~/lib/calendar-notices";
-import { nextWeekday } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
+import { Switch, useSwitch } from "~/components/view-switch";
+import { dayHeat } from "~/lib/heat";
+import { answerable, nextWeekday } from "~/lib/requests";
 
 import type { Route } from "./+types/schedule";
 
@@ -117,8 +120,26 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // With counts only, back-to-back stretches with the same count would still
     // reveal that someone else took over; members get them merged.
     const shown = showNames ? stretches : mergeEqualCounts(stretches);
-    if (shown.length > 0) days.push({ date, stretches: shown });
+    // The calendar shades a date by the most people free together for an
+    // hour, any time of day (plan/phase-24.md).
+    if (shown.length > 0)
+      days.push({ date, heat: dayHeat(cells, date, WHOLE_DAY), stretches: shown });
   }
+  // Who has given any times for the coming weeks, and who has responded to
+  // each availability request still taking times (plan/phase-24.md).
+  const summary = {
+    given: members.filter((member) => expandOccurrences(member.slots, today, until).length > 0)
+      .length,
+    memberCount: members.length,
+    requests: store
+      .listRequests(group.id)
+      .filter((item) => answerable(item, today))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        responded: store.listAnswers(group.id, item.id).length,
+      })),
+  };
 
   const requestNames = new Map(store.listRequests(group.id).map((item) => [item.id, item.name]));
   const calendar = await calendarPanel(request, group, viewer);
@@ -134,6 +155,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     today,
     until,
     days,
+    summary,
+    freeView: new URL(request.url).searchParams.get("free") === "list" ? "list" : "calendar",
     rehearsals: rehearsals.map(rehearsalView),
   };
 
@@ -171,6 +194,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       requestId: rehearsal.requestId,
       requestName: rehearsal.requestId ? (requestNames.get(rehearsal.requestId) ?? null) : null,
       summary: describeSlot(rehearsal),
+      // Members who answered at least one of its dates (plan/phase-24.md).
+      answered: new Set(
+        [...answers]
+          .filter(([key]) => key.startsWith(`${rehearsal.id}|`))
+          .flatMap(([, byMember]) => [...byMember.keys()]),
+      ).size,
+      memberCount: members.length,
       dates: dates.map((date) => dateView(rehearsal, date)),
     };
     if (!isOrganizer) return { ...view, organizer: null };
@@ -211,6 +241,9 @@ type StretchView = {
   freeNames: string[] | null;
   missing: { name: string; optional: boolean }[] | null;
 };
+
+/** Any time of day, for the schedule's calendar of who is free. */
+const WHOLE_DAY = [{ startMinute: 0, endMinute: 24 * 60 }];
 
 /** How many past rehearsal times "Times that worked" offers again. */
 const TIMES_THAT_WORKED = 6;
@@ -408,7 +441,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     syncGroup(group.id);
     return back(intent === "cancel-date" ? "Date cancelled" : "Date restored");
   }
-  return problem("Something went wrong with that request. Please try again.");
+  return problem("Something went wrong. Please try again.");
 }
 
 export default function Schedule({ loaderData, actionData }: Route.ComponentProps) {
@@ -424,49 +457,61 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     timesThatWorked,
     progress,
     groupHref,
+    today,
+    summary,
+    freeView,
   } = loaderData;
+  const link = useSwitch(["notice"]);
   const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
+  const stretchRow = (stretch: (typeof days)[number]["stretches"][number]) => (
+    <li
+      key={stretch.startMinute}
+      className={stretch.everyoneNeeded ? "stretch everyone" : "stretch"}
+    >
+      <div className="free-time">
+        <span className="stretch-time">
+          {timeRange(stretch.startMinute, stretch.endMinute)}
+          <span className="stretch-count">
+            {stretch.freeCount} of {stretch.memberCount} free
+          </span>
+        </span>
+        {stretch.everyoneNeeded ? (
+          <span className="hint stretch-line">Everyone needed is free.</span>
+        ) : null}
+        {stretch.freeNames ? (
+          <span className="hint stretch-line">Free: {stretch.freeNames.join(", ")}</span>
+        ) : null}
+        {stretch.missing && stretch.missing.length > 0 ? (
+          <span className="hint stretch-line">
+            Not free:{" "}
+            {stretch.missing.map((m) => (m.optional ? `${m.name} (optional)` : m.name)).join(", ")}
+          </span>
+        ) : null}
+      </div>
+    </li>
+  );
   const freeTimes =
     days.length === 0 ? (
-      <p className="hint">Nobody has entered availability for the coming weeks yet.</p>
+      <p className="hint">Nobody has given times for the coming weeks yet.</p>
+    ) : freeView === "calendar" ? (
+      <FreeCalendar
+        from={today}
+        to={until}
+        days={days}
+        total={summary.memberCount}
+        legend={
+          showNames || isOrganizer
+            ? "Tap a date to see who is free."
+            : "Tap a date to see how many are free."
+        }
+        renderStretch={(_date, stretch) => stretchRow(stretch)}
+      />
     ) : (
       <ul className="days">
         {days.map((day) => (
           <li key={day.date}>
             <h3>{formatDate(day.date)}</h3>
-            <ul className="stretches">
-              {day.stretches.map((stretch) => (
-                <li
-                  key={stretch.startMinute}
-                  className={stretch.everyoneNeeded ? "stretch everyone" : "stretch"}
-                >
-                  <div className="free-time">
-                    <span className="stretch-time">
-                      {timeRange(stretch.startMinute, stretch.endMinute)}
-                      <span className="stretch-count">
-                        {stretch.freeCount} of {stretch.memberCount} free
-                      </span>
-                    </span>
-                    {stretch.everyoneNeeded ? (
-                      <span className="hint stretch-line">Everyone needed is free.</span>
-                    ) : null}
-                    {stretch.freeNames ? (
-                      <span className="hint stretch-line">
-                        Free: {stretch.freeNames.join(", ")}
-                      </span>
-                    ) : null}
-                    {stretch.missing && stretch.missing.length > 0 ? (
-                      <span className="hint stretch-line">
-                        Not free:{" "}
-                        {stretch.missing
-                          .map((m) => (m.optional ? `${m.name} (optional)` : m.name))
-                          .join(", ")}
-                      </span>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <ul className="stretches">{day.stretches.map(stretchRow)}</ul>
           </li>
         ))}
       </ul>
@@ -504,15 +549,21 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       ) : null}
       {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
-      <RehearsalList title="Confirmed" items={confirmed} empty="Nothing confirmed yet." />
+      <RehearsalList
+        title="Confirmed rehearsals"
+        id="confirmed-heading"
+        items={confirmed}
+        empty="Nothing confirmed yet."
+      />
       <section aria-labelledby="proposed-heading">
-        <h2 id="proposed-heading">Proposed</h2>
+        <h2 id="proposed-heading">Proposed rehearsals</h2>
         {byRequest.size === 0 ? (
-          <p className="hint">No proposed times.</p>
+          <p className="hint">No proposed rehearsals.</p>
         ) : (
           [...byRequest].map(([requestId, group]) => (
             <div key={requestId} className="request-group">
               <h3>
+                From{" "}
                 <Link to={`../requests/${requestId}`} relative="path">
                   {group.name}
                 </Link>
@@ -535,7 +586,6 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         google={calendar.google?.state ?? null}
         until={until}
       />
-      <CalendarPanel calendar={calendar} />
 
       {timesThatWorked && timesThatWorked.length > 0 ? (
         <section aria-labelledby="worked-heading">
@@ -559,23 +609,47 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
 
       <section aria-labelledby="overlap-heading">
         <h2 id="overlap-heading">When people are free</h2>
+        {/* How far along the group is (plan/phase-24.md). */}
+        <div className="free-summary">
+          <p>
+            {summary.given} of {summary.memberCount}{" "}
+            {summary.memberCount === 1 ? "member has" : "members have"} given times between{" "}
+            {formatDate(today)} and {formatDate(until)}.
+          </p>
+          {summary.requests.length > 0 ? (
+            <ul className="free-summary-requests">
+              {summary.requests.map((item) => (
+                <li key={item.id}>
+                  <Link to={`../requests/${item.id}`} relative="path">
+                    {item.name}
+                  </Link>
+                  : {item.responded} of {summary.memberCount} responded
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
         {visibilityNote ? <p className="hint">{visibilityNote}</p> : null}
         {isOrganizer ? (
           <p className="hint">
-            To propose times, open a request on the{" "}
+            To propose rehearsals, open an availability request on the{" "}
             <Link to=".." relative="path">
               group page
             </Link>
             .
           </p>
         ) : null}
-        {/* Folded so the schedule ends after the rehearsals (plan/phase-21.md); it covers
-            weeks no request asks about, so it stays one tap away. */}
-        <details className="free-times">
-          <summary>Show free times until {formatDate(until)}</summary>
-          {freeTimes}
-        </details>
+        <Switch
+          label="How to show when people are free"
+          options={[
+            { text: "Calendar", to: link("free", null), current: freeView === "calendar" },
+            { text: "List", to: link("free", "list"), current: freeView === "list" },
+          ]}
+        />
+        {freeTimes}
       </section>
+      {/* Last: the rehearsals in your own calendar (plan/phase-24.md). */}
+      <CalendarPanel calendar={calendar} />
     </main>
   );
 }
@@ -589,11 +663,11 @@ function RehearsalList({
   empty,
 }: {
   title: string;
-  id?: string;
+  id: string;
   items: RehearsalItem[];
   empty: string;
 }) {
-  const headingId = id ?? `${title.toLowerCase()}-heading`;
+  const headingId = id;
   return (
     <section aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
@@ -615,11 +689,14 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
   const shown = item.dates.slice(0, 4);
   const more = item.dates.slice(4);
   return (
-    <li className={`rehearsal ${item.status}`}>
+    <li className={`rehearsal ${item.status}`} id={`rehearsal-${item.id}`}>
       <p className="slot-summary">{item.summary}</p>
       {item.location ? <p className="hint">At {item.location}</p> : null}
-      {item.status === "confirmed" && item.requestName ? (
-        <p className="hint">From {item.requestName}</p>
+      {item.requestName ? <p className="hint">From {item.requestName}</p> : null}
+      {item.status === "proposed" ? (
+        <p className="hint">
+          {item.answered} of {item.memberCount} answered
+        </p>
       ) : null}
       {/* The viewer's own answers, which save on each tap (plan/phase-20.md). */}
       <div className="your-answer" role="group" aria-labelledby={`answer-${item.id}`}>
@@ -993,9 +1070,9 @@ function ProgressSection({
 }) {
   return (
     <section aria-labelledby="progress-heading">
-      <h2 id="progress-heading">Requests</h2>
+      <h2 id="progress-heading">Availability requests</h2>
       {progress.length === 0 ? (
-        <p className="hint">No request has rehearsals coming up.</p>
+        <p className="hint">No availability request has rehearsals coming up.</p>
       ) : (
         <ul className="request-progress">
           {progress.map((item) => (

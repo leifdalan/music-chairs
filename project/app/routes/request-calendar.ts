@@ -1,7 +1,7 @@
 import { data, redirect } from "react-router";
 
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
-import { findViewer } from "~/.server/membership";
+import { findViewer, publicOrigin } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
 import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
@@ -43,7 +43,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const dates = calendarDates(group, viewer.id, addDays(today, -28), windowEnd(today)).filter(
     ({ rehearsal }) => rehearsal.requestId === scheduleRequest.id,
   );
-  const body = renderFeed(`${group.name} — ${scheduleRequest.name}`, feedEvents(group, dates), now);
+  const body = renderFeed(
+    `${group.name} — ${scheduleRequest.name}`,
+    feedEvents(group, dates, publicOrigin() ?? new URL(request.url).origin),
+    now,
+  );
   return new Response(body, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",

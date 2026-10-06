@@ -7,6 +7,7 @@ export type FeedEvent = {
   end: Date;
   summary: string;
   location: string;
+  description: string;
 };
 
 function utc(value: Date): string {
@@ -63,6 +64,7 @@ export function renderFeed(calendarName: string, events: FeedEvent[], now: Date)
       `DTEND:${utc(event.end)}`,
       `SUMMARY:${escapeText(event.summary)}`,
       ...(event.location ? [`LOCATION:${escapeText(event.location)}`] : []),
+      `DESCRIPTION:${escapeText(event.description)}`,
       "END:VEVENT",
     );
   }

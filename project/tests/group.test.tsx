@@ -135,6 +135,7 @@ describe("group route", () => {
       showNames: false,
       inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
       requests: [],
+      upcoming: [],
       memberCount: 2,
       settings: { timeZones: expect.arrayContaining(["UTC", "Europe/London"]) },
     });

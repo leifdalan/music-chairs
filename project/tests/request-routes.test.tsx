@@ -186,7 +186,7 @@ describe("creating and editing requests", () => {
       "windowEnd-0": "21:00",
     });
 
-    expect(await toastOf(first)).toBe("Request created");
+    expect(await toastOf(first)).toBe("Availability request created");
     expect(count("requests")).toBe(before + 2);
     expect(getStore().listRequests(group.id)).toEqual([
       expect.objectContaining({ name: "Weekly rehearsals", open: true }),
@@ -304,7 +304,7 @@ describe("creating and editing requests", () => {
       "windowStart-1": "",
       "windowEnd-1": "",
     });
-    expect(await toastOf(kept)).toBe("Request updated");
+    expect(await toastOf(kept)).toBe("Availability request updated");
     expect(getStore().findRequest(group.id, id)).toMatchObject({
       name: "Concert",
       startDate: "2026-10-01",
@@ -325,7 +325,7 @@ describe("creating and editing requests", () => {
     const id = await created(group.id, organizerCookie, november);
     expect(
       await toastOf(await post(group.id, id, organizerCookie, { intent: "close", confirmed: "1" })),
-    ).toBe("Request closed");
+    ).toBe("Availability request closed");
 
     const refused = await newForm(group.id, organizerCookie, {
       ...november,
@@ -335,11 +335,11 @@ describe("creating and editing requests", () => {
     expect(statusOf(refused)).toBe(400);
     expect(getStore().findRequest(group.id, id)?.name).toBe("November concert");
     expect(renderForm(await loadForm(group.id, organizerCookie, `?edit=${id}`))).toContain(
-      "This request is closed.",
+      "This availability request is closed.",
     );
 
     expect(await toastOf(await post(group.id, id, organizerCookie, { intent: "reopen" }))).toBe(
-      "Request reopened",
+      "Availability request reopened",
     );
     await newForm(group.id, organizerCookie, { ...november, requestId: id, name: "X" });
     expect(getStore().findRequest(group.id, id)?.name).toBe("X");
@@ -522,7 +522,7 @@ describe("answering a request", () => {
       expect(render(page)).toContain("no longer taking times");
     }
     expect(count("request_answers")).toBe(before);
-    expect(render(await load(group.id, ended, organizerCookie))).toContain("Repeat request");
+    expect(render(await load(group.id, ended, organizerCookie))).toContain(">Repeat<");
   });
 });
 
@@ -546,13 +546,13 @@ describe("requests on the group page", () => {
     expect(asCellist.memberCount).toBeNull();
     const html = renderGroup(asCellist);
     expect(html).toContain("Not yet");
-    expect(html).not.toContain("New request");
+    expect(html).not.toContain("New availability request");
 
     const asOrganizer = (await groupLoader(
       routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: organizerCookie }),
     )) as GroupData;
     expect(renderGroup(asOrganizer)).toContain("1 of 3 responded");
-    expect(renderGroup(asOrganizer)).toContain("New request");
+    expect(renderGroup(asOrganizer)).toContain("New availability request");
   });
 
   it("gives visitors no requests at all", async () => {

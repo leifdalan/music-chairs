@@ -214,7 +214,7 @@ describe("schedule route", () => {
     expect([...(stretch?.freeNames ?? [])].sort()).toEqual(["Cellist", "Viola"]);
     expect(stretch?.missing).toEqual([{ name: "Pianist", optional: true }]);
     expect(render(page)).not.toContain('name="time"');
-    expect(render(page)).toContain("To propose times, open a request on the");
+    expect(render(page)).toContain("To propose rehearsals, open an availability request on the");
   });
 
   it("warns when a non-optional member is missing, and still lets the organizer confirm", async () => {
@@ -263,6 +263,8 @@ describe("schedule route", () => {
         requestId: rehearsal.requestId,
         requestName: "Autumn rehearsals",
         summary: "Thu 8 Oct, 7:30–9:30 PM",
+        answered: 0,
+        memberCount: 3,
         dates: [
           { date: "2026-10-08", mine: null, counts: { yes: 0, no: 0, maybe: 0 }, names: null },
         ],

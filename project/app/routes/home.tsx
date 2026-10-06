@@ -71,8 +71,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <ul className="pending-requests">
             {proposals.map((item) => (
               <li key={item.rehearsalId}>
-                <Link to={`${item.groupHref}/schedule`}>
-                  <span className="pending-name">Proposed: {item.summary}</span>
+                <Link to={`${item.groupHref}/schedule#rehearsal-${item.rehearsalId}`}>
+                  <span className="pending-name">Proposed rehearsal: {item.summary}</span>
                   <span className="hint">
                     {item.groupName}
                     {item.requestName ? ` · ${item.requestName}` : ""} · Say if you can come
@@ -96,7 +96,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       ) : null}
       {inProgress.length > 0 ? (
         <section className="pending" aria-labelledby="requests-heading">
-          <h2 id="requests-heading">Your requests</h2>
+          <h2 id="requests-heading">Your availability requests</h2>
           <ul className="pending-requests">
             {inProgress.map((item) => (
               <li key={item.requestId}>
@@ -111,8 +111,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                       <ul className="proposed-list">
                         {item.progress.proposed.map((rehearsal) => (
                           <li key={rehearsal.id}>
-                            <Link to={`${item.groupHref}/schedule`}>
-                              Proposed: {rehearsal.summary}
+                            <Link to={`${item.groupHref}/schedule#rehearsal-${rehearsal.id}`}>
+                              Proposed rehearsal: {rehearsal.summary}
                             </Link>
                           </li>
                         ))}

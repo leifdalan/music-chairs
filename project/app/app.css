@@ -346,6 +346,9 @@
   .requests,
   .request-answers,
   .date-list,
+  .upcoming,
+  .proposed-rehearsals,
+  .free-summary-requests,
   .times-worked,
   .choices,
   .pending-requests,
@@ -729,6 +732,39 @@
 
   .time-summary {
     @apply mt-1 mb-2 font-semibold;
+  }
+
+  /* Upcoming rehearsals and a request's proposed rehearsals (plan/phase-24.md). */
+  .upcoming li {
+    @apply border-b py-2;
+  }
+
+  .upcoming-when {
+    @apply font-medium;
+  }
+
+  .proposed-rehearsals {
+    @apply mt-2 grid gap-2;
+  }
+
+  .requests .proposed-rehearsals {
+    @apply ml-3 border-l pl-3;
+  }
+
+  .proposed-rehearsals li {
+    @apply flex flex-wrap items-baseline gap-x-2 gap-y-1;
+  }
+
+  .proposed-state {
+    @apply ml-auto;
+  }
+
+  .proposed-link {
+    @apply basis-full text-sm;
+  }
+
+  .free-summary {
+    @apply mb-3 grid gap-1;
   }
 
   /* Schedule. */

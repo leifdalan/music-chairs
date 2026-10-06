@@ -137,6 +137,7 @@ describe("writing to Google Calendar", () => {
   });
 
   it("adds one confirmed, non-attendee event per date with a stable id and the group's zone", async () => {
+    vi.stubEnv("MUSIC_CHAIRS_PUBLIC_URL", "https://rehearse.example");
     const { store, cellist, rehearsal, firstDate, target } = syncingBand();
 
     await syncMember(target);
@@ -154,7 +155,9 @@ describe("writing to Google Calendar", () => {
     expect(body).not.toHaveProperty("attendees");
     // The schedule link is the group's readable address (plan/phase-19.3.md).
     const group = store.findGroup(target.groupId)!;
-    expect(String(body.description)).toContain(`${groupPath(group)}/schedule`);
+    expect(String(body.description)).toContain(
+      `Answer or see the schedule: https://rehearse.example${groupPath(group)}/schedule`,
+    );
     expect(String(body.description)).not.toContain(group.id);
     expect(String(body.id)).toMatch(/^[a-v0-9]{5,1024}$/);
     expect(store.listCalendarEvents(cellist.id)).toHaveLength(3);

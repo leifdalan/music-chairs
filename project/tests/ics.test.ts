@@ -9,6 +9,7 @@ const event = {
   end: new Date("2026-10-08T20:30:00Z"),
   summary: "Quartet, strings; rehearsal",
   location: "Studio B\nback door",
+  description: 'Rehearsal for Quartet, from the availability request "Winter concert".',
 };
 
 describe("calendar feed", () => {
@@ -36,6 +37,9 @@ describe("calendar feed", () => {
 
     expect(feed).toContain("SUMMARY:Quartet\\, strings\\; rehearsal");
     expect(feed).toContain("LOCATION:Studio B\\nback door");
+    expect(feed.replace(/\r\n /g, "")).toContain(
+      'DESCRIPTION:Rehearsal for Quartet\\, from the availability request "Winter concert".',
+    );
   });
 
   it("folds long lines at 75 octets without splitting a character", () => {

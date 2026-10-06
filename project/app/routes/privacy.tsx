@@ -28,7 +28,8 @@ export default function Privacy() {
       <ul>
         <li>
           What you and your group enter: group names, your name and instrumentation, your
-          availability, scheduling requests and your answers, rehearsals and who is coming.
+          availability, availability requests and your responses and answers, rehearsals and who is
+          coming.
         </li>
         <li>
           Cookies on your device that remember which groups you joined there and, if you signed in

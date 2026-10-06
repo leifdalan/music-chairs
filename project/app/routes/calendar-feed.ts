@@ -1,4 +1,5 @@
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
+import { publicOrigin } from "~/.server/membership";
 import { getStore } from "~/.server/store";
 import { addDays, todayInZone, windowEnd } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
@@ -10,7 +11,7 @@ import type { Route } from "./+types/calendar-feed";
  * written to Google (confirmed, minus dates they said No to and cancelled
  * dates), from four weeks back to the end of the answer window.
  */
-export function loader({ params }: Route.LoaderArgs) {
+export function loader({ request, params }: Route.LoaderArgs) {
   const token = params.feedFile.endsWith(".ics") ? params.feedFile.slice(0, -4) : "";
   const store = getStore();
   const member = store.findMemberByFeed(token);
@@ -21,6 +22,7 @@ export function loader({ params }: Route.LoaderArgs) {
   const events = feedEvents(
     group,
     calendarDates(group, member.id, addDays(today, -28), windowEnd(today)),
+    publicOrigin() ?? new URL(request.url).origin,
   );
   return new Response(renderFeed(`${group.name} rehearsals`, events, now), {
     headers: {

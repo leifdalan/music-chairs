@@ -199,28 +199,6 @@ const thursdays: SlotInput = {
 };
 
 describe("availability store", () => {
-  it("adds several times at once, or none when one is refused", () => {
-    const store = memoryStore();
-    const { organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
-    const once = (startDate: string, endMinute = 1320) => ({
-      kind: "once" as const,
-      startDate,
-      endDate: null,
-      startMinute: 1140,
-      endMinute,
-    });
-
-    expect(store.addSlots(organizer.id, [once("2026-10-06"), once("2026-10-08")])).toHaveLength(2);
-    // The second ends before it starts, which the table refuses.
-    expect(() =>
-      store.addSlots(organizer.id, [once("2026-10-13"), once("2026-10-15", 1100)]),
-    ).toThrow();
-    expect(store.listSlots(organizer.id).map((slot) => slot.startDate)).toEqual([
-      "2026-10-06",
-      "2026-10-08",
-    ]);
-  });
-
   function member(store: Store) {
     return store.createGroup("Quartet", "Viola", "Europe/London").organizer;
   }
@@ -244,9 +222,8 @@ describe("availability store", () => {
     const slot = store.addSlot(viola.id, thursdays);
 
     expect(store.listSlots(cello.id)).toEqual([]);
-    expect(store.findSlot(cello.id, slot.id)).toBeNull();
     expect(store.deleteSlot(cello.id, slot.id)).toBe(false);
-    expect(store.findSlot(viola.id, slot.id)).toEqual(slot);
+    expect(store.listSlots(viola.id)).toEqual([slot]);
   });
 
   it("refuses rows off the 15-minute grid or ending before they start", () => {

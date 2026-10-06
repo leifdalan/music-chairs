@@ -24,7 +24,7 @@ import type { Route } from "./+types/requests.new";
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return pageMeta("Not found");
   return pageMeta(
-    `${loaderData.editing ? "Edit request" : "New request"} · ${loaderData.groupName}`,
+    `${loaderData.editing ? "Edit availability request" : "New availability request"} · ${loaderData.groupName}`,
   );
 }
 
@@ -93,7 +93,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   const requestId = form.get("requestId");
   const stored = typeof requestId === "string" ? existing(group, requestId) : null;
   if (stored && !stored.open) {
-    return data({ problem: "This request is closed. Reopen it to make changes." }, { status: 400 });
+    return data(
+      { problem: "This availability request is closed. Reopen it to make changes." },
+      { status: 400 },
+    );
   }
   // "Add another window" keeps everything typed and shows one more row.
   if (form.get("intent") === "add-window") {
@@ -110,14 +113,20 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (stored) {
     if (!store.updateRequest(group.id, stored.id, parsed.value)) {
       return data(
-        { problem: "This request is closed. Reopen it to make changes." },
+        { problem: "This availability request is closed. Reopen it to make changes." },
         { status: 400 },
       );
     }
-    return redirectWithToast(`${groupPath(group)}/requests/${stored.id}`, "Request updated");
+    return redirectWithToast(
+      `${groupPath(group)}/requests/${stored.id}`,
+      "Availability request updated",
+    );
   }
   const created = store.createRequest(group.id, parsed.value);
-  return redirectWithToast(`${groupPath(group)}/requests/${created.id}`, "Request created");
+  return redirectWithToast(
+    `${groupPath(group)}/requests/${created.id}`,
+    "Availability request created",
+  );
 }
 
 export default function RequestForm({ loaderData, actionData }: Route.ComponentProps) {
@@ -138,7 +147,7 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
       <p className="eyebrow">
         <Link to={groupHref}>{groupName}</Link>
       </p>
-      <h1>{editing ? "Edit request" : "New request"}</h1>
+      <h1>{editing ? "Edit availability request" : "New availability request"}</h1>
       <p className="hint">
         Ask the band when they can rehearse between two dates, at the times of day you choose. All
         times are in {timeZone}.
@@ -150,7 +159,7 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
       ) : null}
       {editing && !editing.open ? (
         <p className="notice">
-          This request is closed. <Link to={backTo}>Reopen it</Link> to make changes.
+          This availability request is closed. <Link to={backTo}>Reopen it</Link> to make changes.
         </p>
       ) : (
         <RequestFields
@@ -284,7 +293,7 @@ function RequestFields({
           ) : null}
         </fieldset>
         <SubmitButton feedbackKey="request-save" name="intent" value="save">
-          {editingId ? "Save changes" : "Send request"}
+          {editingId ? "Save changes" : "Send availability request"}
         </SubmitButton>
         <Link to={backTo} className="cancel">
           Cancel

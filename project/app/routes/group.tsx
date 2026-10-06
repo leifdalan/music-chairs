@@ -9,11 +9,13 @@ import { googleConfig } from "~/.server/google";
 import { findViewer, forgetMembership, publicOrigin, readAccount } from "~/.server/membership";
 import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
+import { requestRehearsals, upcomingRehearsals, type UpcomingDate } from "~/.server/upcoming";
+import { ProposedList, type ProposedItem } from "~/components/proposed-list";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
-import { canonicalTimeZone, formatDate, todayInZone } from "~/lib/availability";
+import { canonicalTimeZone, formatDate, timeRange, todayInZone } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
@@ -55,24 +57,39 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const allMembers = store.listMembers(group.id);
   const memberCount = allMembers.length;
   const organizerCount = allMembers.filter((member) => member.role === "organizer").length;
+  // Each request's proposed rehearsals nest under it (plan/phase-24.md); a
+  // closed or ended request that still has one stays in view for everyone.
+  const rehearsalsByRequest = viewer
+    ? requestRehearsals(group, today)
+    : new Map<string, ProposedItem[]>();
   const requests = viewer
     ? store
         .listRequests(group.id)
-        .filter((item) => isOrganizer || (item.open && item.endDate >= today))
-        .map((item) => ({
-          id: item.id,
-          name: item.name,
-          startDate: item.startDate,
-          endDate: item.endDate,
-          current: item.open && item.endDate >= today,
-          answered: store
-            .listAnswers(group.id, item.id)
-            .some((answer) => answer.memberId === viewer.id),
-          answerCount: isOrganizer ? item.answerCount : null,
-        }))
+        .map((item) => {
+          const proposed = (rehearsalsByRequest.get(item.id) ?? []).filter(
+            (rehearsal) => rehearsal.status === "proposed",
+          );
+          return {
+            id: item.id,
+            name: item.name,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            current: item.open && item.endDate >= today,
+            // Kept in view while it has proposed rehearsals, marked as no longer open.
+            status: !item.open ? "Closed" : item.endDate < today ? "Ended" : null,
+            proposed,
+            answered: store
+              .listAnswers(group.id, item.id)
+              .some((answer) => answer.memberId === viewer.id),
+            answerCount: isOrganizer ? item.answerCount : null,
+          };
+        })
+        .filter((item) => isOrganizer || item.current || item.proposed.length > 0)
     : null;
   return {
     requests,
+    // Confirmed rehearsal dates from today, for members only (plan/phase-24.md).
+    upcoming: viewer ? upcomingRehearsals(group, today) : null,
     memberCount: isOrganizer ? memberCount : null,
     groupHref: groupPath(group),
     groupName: group.name,
@@ -217,7 +234,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     scheduleRemovals();
     return redirectWithToast(toGroups ? "/groups" : "/", `Group ${group.name} deleted`);
   }
-  return problem("Something went wrong with that request.");
+  return problem("Something went wrong. Please try again.");
 }
 
 /**
@@ -258,7 +275,7 @@ function roleChangePrompt(name: string, makeOrganizer: boolean) {
 function removalPrompt(name: string) {
   return {
     title: `Remove ${name}?`,
-    body: "Their availability, request responses and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
+    body: "Their availability, availability request responses and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
     label: "Remove member",
   };
 }
@@ -274,8 +291,10 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
     signInAvailable,
     notice,
     requests,
+    upcoming,
     memberCount,
     settings,
+    groupHref,
   } = loaderData;
   const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
   const settingsResult = actionData && "settingsErrors" in actionData ? actionData : null;
@@ -307,7 +326,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
             </p>
           ) : null}
           <p className="group-links">
-            <Link to="schedule" relative="path" className={buttonVariants()}>
+            {/* Not the primary look: nothing here is "selected" (plan/phase-24.md). */}
+            <Link to="schedule" relative="path" className={buttonVariants({ variant: "outline" })}>
               Schedule
             </Link>
           </p>
@@ -328,7 +348,14 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
       {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
       {/* A group of one needs its invite before anything else (plan/phase-21.md). */}
       {inviteUrl && soleMember ? <InvitePanel inviteUrl={inviteUrl} groupName={groupName} /> : null}
-      {requests ? <RequestsSection requests={requests} memberCount={memberCount} /> : null}
+      {upcoming ? <UpcomingRehearsals dates={upcoming} /> : null}
+      {requests ? (
+        <RequestsSection
+          requests={requests}
+          memberCount={memberCount}
+          scheduleHref={`${groupHref}/schedule`}
+        />
+      ) : null}
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members ({members.length})</h2>
         {settings ? (
@@ -545,28 +572,61 @@ function GroupSettings({
 
 type RequestItem = NonNullable<Route.ComponentProps["loaderData"]["requests"]>[number];
 
-/** Open requests for everyone in the group; organizers also start, count and repeat them. */
+/**
+ * The group's confirmed rehearsal dates from today (plan/phase-24.md): only
+ * confirmed ones, only future dates.
+ */
+function UpcomingRehearsals({ dates }: { dates: UpcomingDate[] }) {
+  return (
+    <section aria-labelledby="upcoming-heading">
+      <h2 id="upcoming-heading">Upcoming rehearsals</h2>
+      {dates.length === 0 ? (
+        <p className="hint">No confirmed rehearsals coming up.</p>
+      ) : (
+        <ul className="upcoming">
+          {dates.map((item) => (
+            <li key={`${item.rehearsalId}-${item.date}`}>
+              <span className="upcoming-when">
+                {formatDate(item.date)}, {timeRange(item.startMinute, item.endMinute)}
+              </span>
+              {item.location ? <span className="hint"> · {item.location}</span> : null}
+              {item.requestName ? <span className="hint"> · {item.requestName}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Open availability requests for everyone in the group, each with its proposed
+ * rehearsals nested (and closed ones that still have some); organizers also
+ * start, count and repeat them.
+ */
 function RequestsSection({
   requests,
   memberCount,
+  scheduleHref,
 }: {
   requests: RequestItem[];
   /** Organizers only. */
   memberCount: number | null;
+  scheduleHref: string;
 }) {
   const organizer = memberCount !== null;
-  const current = requests.filter((item) => item.current);
-  const past = requests.filter((item) => !item.current);
+  const current = requests.filter((item) => item.current || item.proposed.length > 0);
+  const past = requests.filter((item) => !item.current && item.proposed.length === 0);
   const span = (item: RequestItem) =>
     `${formatDate(item.startDate)} to ${formatDate(item.endDate)}`;
   return (
     <section aria-labelledby="requests-heading">
-      <h2 id="requests-heading">Requests</h2>
+      <h2 id="requests-heading">Availability requests</h2>
       {current.length === 0 ? (
         <p className="hint">
           {organizer
             ? "Ask the band when they can rehearse between two dates."
-            : "No open requests from your organizers."}
+            : "No open availability requests from your organizers."}
         </p>
       ) : (
         <ul className="requests">
@@ -576,14 +636,31 @@ function RequestsSection({
                 {item.name}
               </Link>
               <span className="hint"> {span(item)}</span>
-              <span className={item.answered ? "request-answered" : "request-unanswered"}>
-                {item.answered ? "Responded" : "Not yet"}
-              </span>
-              {item.answerCount !== null ? (
-                <span className="hint">
-                  {item.answerCount} of {memberCount} responded
-                </span>
+              {item.status ? (
+                <span className="request-status">{item.status}</span>
+              ) : (
+                <>
+                  <span className={item.answered ? "request-answered" : "request-unanswered"}>
+                    {item.answered ? "Responded" : "Not yet"}
+                  </span>
+                  {item.answerCount !== null ? (
+                    <span className="hint">
+                      {item.answerCount} of {memberCount} responded
+                    </span>
+                  ) : null}
+                </>
+              )}
+              {organizer && item.status ? (
+                <Link
+                  to={`requests/new?repeat=${item.id}`}
+                  relative="path"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  aria-label={`Repeat availability request: ${item.name}`}
+                >
+                  Repeat
+                </Link>
               ) : null}
+              <ProposedList items={item.proposed} scheduleHref={scheduleHref} empty={null} />
             </li>
           ))}
         </ul>
@@ -596,12 +673,12 @@ function RequestsSection({
               relative="path"
               className={buttonVariants({ variant: "outline" })}
             >
-              New request
+              New availability request
             </Link>
           </p>
           {past.length > 0 ? (
             <details>
-              <summary>Past and closed requests ({past.length})</summary>
+              <summary>Past and closed availability requests ({past.length})</summary>
               <ul className="requests">
                 {past.map((item) => (
                   <li key={item.id}>
@@ -613,7 +690,7 @@ function RequestsSection({
                       to={`requests/new?repeat=${item.id}`}
                       relative="path"
                       className={buttonVariants({ variant: "outline", size: "sm" })}
-                      aria-label={`Repeat request: ${item.name}`}
+                      aria-label={`Repeat availability request: ${item.name}`}
                     >
                       Repeat
                     </Link>
