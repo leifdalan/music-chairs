@@ -325,7 +325,7 @@ describe("requests waiting for your answer", () => {
 
     const html = render({ loaderData: { home: data } });
     expect(html).toContain("Waiting on you");
-    expect(html).toContain("Waiting for your answer");
+    expect(html).toContain("Add your free times by");
     expect(html).toContain(`href="${groupPath(mine.group)}/requests/${mine.open.id}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your groups"));
     expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(

@@ -1,11 +1,13 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { data, Form, Link, redirect, useLocation } from "react-router";
+import { data, Form, Link, redirect, useFetcher, useLocation } from "react-router";
 
+import { googleClashes } from "~/.server/clashes";
 import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
+import { RequestDates, type DateErrors, type DateValues } from "~/components/request-dates";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { FreeCalendar } from "~/components/free-calendar";
@@ -16,23 +18,27 @@ import { TextField } from "~/components/text-field";
 import { Switch, useSwitch } from "~/components/view-switch";
 import {
   addDays,
-  expandOccurrences,
   formatDate,
   formatMinutes,
+  isDate,
   parseSlotInput,
+  parseTime,
   timeInputValue,
   timeRange,
   todayInZone,
   validateLocation,
+  type Slot,
   type SlotErrors,
   type SlotFormValues,
 } from "~/lib/availability";
+import { calendarNotice } from "~/lib/calendar-notices";
 import { groupPath } from "~/lib/group-address";
 import { dayHeat } from "~/lib/heat";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes } from "~/lib/propose";
-import { answerable, clipToWindows } from "~/lib/requests";
+import { answerable, clipToWindows, type TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { useHydrated } from "~/lib/use-hydrated";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/request";
@@ -59,6 +65,88 @@ async function load(
   return { group, viewer, scheduleRequest };
 }
 
+const DATE_GONE = "One of the dates isn't on offer any more. Reload the page and try again.";
+const NOT_TAKING = "This request is no longer taking times.";
+
+/** Whether a stretch overlaps one of the request's windows. */
+function overlapsWindows(range: TimeWindow, windows: TimeWindow[]): boolean {
+  return windows.some(
+    (window) => window.startMinute < range.endMinute && window.endMinute > range.startMinute,
+  );
+}
+
+/** A one-off time within the request's windows: one of the member's times for it. */
+function inWindows(slot: Slot, windows: TimeWindow[]): boolean {
+  return slot.kind === "once" && overlapsWindows(slot, windows);
+}
+
+/** The dates a member can still give times for: the rest of the request's span. */
+function openSpan(scheduleRequest: ScheduleRequest, today: string) {
+  return {
+    from: scheduleRequest.startDate > today ? scheduleRequest.startDate : today,
+    to: scheduleRequest.endDate,
+  };
+}
+
+/** The member's times on `date` within the request's windows. */
+function timesOnDate(memberId: string, date: string, windows: TimeWindow[]): Slot[] {
+  return getStore()
+    .listSlots(memberId)
+    .filter((slot) => slot.startDate === date && inWindows(slot, windows));
+}
+
+/** Sets `date` to the stretch (replacing its times in the windows), or clears it with null. */
+function setDateTimes(
+  memberId: string,
+  date: string,
+  windows: TimeWindow[],
+  stretch: TimeWindow | null,
+) {
+  const store = getStore();
+  for (const slot of timesOnDate(memberId, date, windows)) store.deleteSlot(memberId, slot.id);
+  if (stretch) {
+    store.addSlot(memberId, {
+      kind: "once",
+      startDate: date,
+      endDate: null,
+      startMinute: stretch.startMinute,
+      endMinute: stretch.endMinute,
+    });
+  }
+}
+
+/** The posted stretch, or the errors that refuse it. */
+function readStretch(form: FormData): TimeWindow | DateErrors {
+  const text = (name: string) => {
+    const value = form.get(name);
+    return typeof value === "string" ? value.trim() : "";
+  };
+  const start = parseTime(text("startTime"), "Start time", false);
+  const end = parseTime(text("endTime"), "End time", true);
+  const errors: DateErrors = {};
+  if (typeof start === "string") errors.startTime = start;
+  if (typeof end === "string") errors.endTime = end;
+  if (typeof start === "number" && typeof end === "number" && end <= start) {
+    errors.endTime = "End time must be after the start time.";
+  }
+  return typeof start === "number" && typeof end === "number" && Object.keys(errors).length === 0
+    ? { startMinute: start, endMinute: end }
+    : errors;
+}
+
+function isStretch(value: TimeWindow | DateErrors): value is TimeWindow {
+  return "startMinute" in value;
+}
+
+const OUTSIDE_WINDOWS = "Pick a time within this request's times of day.";
+
+/** The posted stretch if it falls within one of the request's windows, else why not. */
+function readRequestStretch(form: FormData, windows: TimeWindow[]): TimeWindow | DateErrors {
+  const read = readStretch(form);
+  if (!isStretch(read)) return read;
+  return overlapsWindows(read, windows) ? read : { startTime: OUTSIDE_WINDOWS };
+}
+
 /** "Sat 3 Oct, 2:05 PM" in the group's zone. */
 function formatAnsweredAt(instant: string, zone: string): string {
   const at = new Date(instant);
@@ -83,8 +171,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
   const isOrganizer = viewer.role === "organizer";
   const today = todayInZone(group.timeZone, new Date());
-  const from = scheduleRequest.startDate > today ? scheduleRequest.startDate : today;
-  const to = scheduleRequest.endDate;
+  const { from, to } = openSpan(scheduleRequest, today);
+  const answering = answerable(scheduleRequest, today);
+  // A request that stopped taking times shows the whole span read-only.
+  const dates = answering ? { from, to } : { from: scheduleRequest.startDate, to };
+  const search = new URL(request.url).searchParams;
   const answers = store.listAnswers(group.id, scheduleRequest.id);
   const own = answers.find((answer) => answer.memberId === viewer.id);
   const view = (answer: (typeof answers)[number]) => ({
@@ -133,9 +224,28 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     windows: scheduleRequest.windows,
     open: scheduleRequest.open,
     expired: scheduleRequest.endDate < today,
-    canAnswer: answerable(scheduleRequest, today),
+    canAnswer: answering,
     isOrganizer,
-    myTimes: expandOccurrences(store.listSlots(viewer.id), from, to),
+    dates,
+    // The viewer's times on the request's dates and within its windows (plan/phase-23.md).
+    oneOffs: store
+      .listSlots(viewer.id)
+      .filter(
+        (slot) =>
+          slot.startDate >= dates.from &&
+          slot.startDate <= dates.to &&
+          inWindows(slot, scheduleRequest.windows),
+      )
+      .map((slot) => ({
+        date: slot.startDate,
+        startMinute: slot.startMinute,
+        endMinute: slot.endMinute,
+      })),
+    timesView: search.get("times") === "list" ? ("list" as const) : ("calendar" as const),
+    clashes: answering
+      ? await googleClashes(request, group, { from, to }, scheduleRequest.windows)
+      : ({ state: "none" } as const),
+    notice: calendarNotice(request),
     mine: own ? view(own) : null,
     answers: isOrganizer
       ? members.map((member) => {
@@ -146,7 +256,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     overlap,
     // The calendar of who is free covers the dates the free times do (plan/phase-20.md).
     freeRange: overlap ? { from, to } : null,
-    freeView: new URL(request.url).searchParams.get("free") === "list" ? "list" : "calendar",
+    freeView: search.get("free") === "list" ? "list" : "calendar",
     // Changes when a proposal is made, so the picker starts afresh.
     rehearsalCount: isOrganizer ? store.listRehearsals(group.id).length : null,
   };
@@ -168,25 +278,94 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
   const here = `${groupPath(group)}/requests/${scheduleRequest.id}`;
 
-  if (intent === "answer") {
-    if (!answerable(scheduleRequest, todayInZone(group.timeZone, new Date()))) {
-      return problem("This request is no longer taking answers.");
+  const today = todayInZone(group.timeZone, new Date());
+  // A date ticked or unticked on the request's calendar, saved straight away
+  // (plan/phase-23.md): ticking sets the date to the stretch, unticking clears
+  // the member's times on it within the request's windows.
+  if (intent === "set-date") {
+    if (!answerable(scheduleRequest, today)) {
+      return data({ dateProblem: NOT_TAKING }, { status: 400 });
     }
+    const span = openSpan(scheduleRequest, today);
+    const date = form.get("date");
+    if (typeof date !== "string" || !isDate(date) || date < span.from || date > span.to) {
+      return data({ dateProblem: DATE_GONE }, { status: 400 });
+    }
+    let stretch: TimeWindow | null = null;
+    if (form.get("on") === "1") {
+      const read = readRequestStretch(form, scheduleRequest.windows);
+      if (!isStretch(read)) {
+        return data({ dateProblem: read.startTime ?? read.endTime ?? DATE_GONE }, { status: 400 });
+      }
+      stretch = read;
+    }
+    setDateTimes(viewer.id, date, scheduleRequest.windows, stretch);
+    store.touchResponse(group.id, scheduleRequest.id, viewer.id);
+    return { dateSaved: true };
+  }
+  // The calendar's Save without JavaScript: newly ticked dates get the stretch,
+  // saved dates left unticked are cleared, saved dates still ticked keep their times.
+  if (intent === "save-dates") {
+    if (!answerable(scheduleRequest, today)) return problem(NOT_TAKING);
+    const span = openSpan(scheduleRequest, today);
+    const ticked = [
+      ...new Set(form.getAll("date").filter((value): value is string => typeof value === "string")),
+    ];
+    const values: DateValues = {
+      dates: ticked,
+      startTime: String(form.get("startTime") ?? ""),
+      endTime: String(form.get("endTime") ?? ""),
+    };
+    if (ticked.some((date) => !isDate(date) || date < span.from || date > span.to)) {
+      return data({ dateErrors: { dates: DATE_GONE }, dateValues: values }, { status: 400 });
+    }
+    const saved = new Set(
+      store
+        .listSlots(viewer.id)
+        .filter(
+          (slot) =>
+            slot.startDate >= span.from &&
+            slot.startDate <= span.to &&
+            inWindows(slot, scheduleRequest.windows),
+        )
+        .map((slot) => slot.startDate),
+    );
+    const added = ticked.filter((date) => !saved.has(date));
+    let stretch: TimeWindow | null = null;
+    if (added.length > 0) {
+      const read = readRequestStretch(form, scheduleRequest.windows);
+      if (!isStretch(read)) {
+        return data({ dateErrors: read, dateValues: values }, { status: 400 });
+      }
+      stretch = read;
+    }
+    for (const date of saved) {
+      if (!ticked.includes(date)) setDateTimes(viewer.id, date, scheduleRequest.windows, null);
+    }
+    for (const date of added) setDateTimes(viewer.id, date, scheduleRequest.windows, stretch);
+    store.touchResponse(group.id, scheduleRequest.id, viewer.id);
+    return redirectWithToast(here, "Times saved");
+  }
+  // The rehearsal cap: saved through a fetcher as it changes, or by the Save
+  // button without JavaScript.
+  if (intent === "answer") {
+    const viaFetcher = form.get("via") === "fetcher";
+    // Shown beside the cap, whether it came through a fetcher or the Save button.
+    const refuse = (message: string) => data({ capProblem: message }, { status: 400 });
+    if (!answerable(scheduleRequest, today)) return refuse(NOT_TAKING);
     let limit: number | null = null;
     if (form.get("limit") === "most") {
+      // An empty field reads as 0, which is refused like any other out-of-range count.
       const count = Number(form.get("limitCount"));
       if (!Number.isInteger(count) || count < 1 || count > LIMIT_MAX) {
-        return problem(`Choose a number of rehearsals from 1 to ${LIMIT_MAX}.`);
+        return refuse(`Choose a number of rehearsals from 1 to ${LIMIT_MAX}.`);
       }
       limit = count;
     }
-    const before = store
-      .listAnswers(group.id, scheduleRequest.id)
-      .some((answer) => answer.memberId === viewer.id);
     if (!store.answerRequest(group.id, scheduleRequest.id, viewer.id, limit)) {
-      return problem("This request is no longer taking answers.");
+      return refuse(NOT_TAKING);
     }
-    return redirectWithToast(here, before ? "Answer updated" : "Answer sent");
+    return viaFetcher ? { capSaved: true } : redirectWithToast(here, "Saved");
   }
   // Proposing from the request's free times, whether it is open, closed or over.
   // Back to the List view when the proposal came from it (plan/phase-20.md).
@@ -260,7 +439,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     expired,
     canAnswer,
     isOrganizer,
-    myTimes,
+    dates,
+    oneOffs,
+    timesView,
+    clashes,
+    notice,
     mine,
     answers,
     overlap,
@@ -272,51 +455,33 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   const pickProblem =
     actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
   const formResult = actionData && "errors" in actionData ? actionData : undefined;
-  const link = useSwitch();
-  const ownTimes = (
-    <>
-      {myTimes.length === 0 ? (
-        <p className="hint">You have no availability between these dates yet.</p>
-      ) : (
-        <ul className="occurrences">
-          {myTimes.map((occurrence) => (
-            <li key={`${occurrence.slotId}-${occurrence.date}`}>
-              <span>{formatDate(occurrence.date)}</span>
-              <span>{timeRange(occurrence.startMinute, occurrence.endMinute)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {canAnswer ? (
-        <ul className="add-windows">
-          {windows.map((window, index) => (
-            <li key={index}>
-              <Link
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-                to={`${groupHref}/availability?request=${requestId}&window=${index}`}
-              >
-                Check availability for {timeRange(window.startMinute, window.endMinute)}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </>
+  const datesResult = actionData && "dateErrors" in actionData ? actionData : undefined;
+  const capProblem = actionData && "capProblem" in actionData ? actionData.capProblem : null;
+  const link = useSwitch(["notice"]);
+  const datesCount = new Set(oneOffs.map((slot) => slot.date)).size;
+  const yourTimes = (
+    <RequestDates
+      from={dates.from}
+      to={dates.to}
+      windows={windows}
+      oneOffs={oneOffs}
+      view={timesView}
+      editable={canAnswer}
+      clashes={clashes}
+      notice={notice}
+      result={datesResult}
+    />
   );
-  const answerSection = (
-    <section aria-labelledby="answer-heading">
-      <h2 id="answer-heading">Your answer</h2>
+  const capSection = (
+    <section aria-labelledby="cap-heading">
+      <h2 id="cap-heading">Rehearsals you can make</h2>
       {mine ? (
         <p className="hint">
-          Answered {mine.answeredAt}:{" "}
+          Saved {mine.answeredAt}:{" "}
           {mine.limit === null ? "any and all rehearsals" : `no more than ${mine.limit}`}.
         </p>
       ) : null}
-      {canAnswer ? (
-        <AnswerForm limit={mine ? mine.limit : null} answered={mine !== null} />
-      ) : (
-        <p className="hint">This request is no longer taking answers.</p>
-      )}
+      {canAnswer ? <CapForm limit={mine ? mine.limit : null} refused={capProblem} /> : null}
     </section>
   );
   return (
@@ -374,8 +539,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       ) : null}
       {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
 
-      {/* Organizers come here to choose times: the calendar of who is free leads;
-          members come to give their own times and answer (plan/phase-21.md). */}
+      {!canAnswer ? <p className="hint">{NOT_TAKING}</p> : null}
+
+      {/* Organizers come here to choose times: the calendar of who is free leads,
+          their own times fold below it; members come to give their times
+          (plan/phase-21.md, plan/phase-23.md). */}
       {isOrganizer ? (
         <>
           {overlap ? (
@@ -436,26 +604,33 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               </details>
             </section>
           ) : null}
-          {answerSection}
-          <section aria-labelledby="my-times-heading">
-            <h2 id="my-times-heading">Your times in this span</h2>
-            {/* Folded for organizers, whose job here is the calendar above (plan/phase-21.md). */}
-            <details>
+          <section aria-labelledby="your-times-heading">
+            <h2 id="your-times-heading">Your times</h2>
+            <details
+              className="your-times"
+              open={
+                timesView === "list" ||
+                notice !== null ||
+                datesResult !== undefined ||
+                capProblem !== null
+              }
+            >
               <summary>
-                {myTimes.length === 0
+                {datesCount === 0
                   ? "None yet"
-                  : `${myTimes.length} ${myTimes.length === 1 ? "time" : "times"} in this span`}
+                  : `${datesCount} ${datesCount === 1 ? "date" : "dates"} in this span`}
               </summary>
-              {ownTimes}
+              {yourTimes}
+              {capSection}
             </details>
           </section>
           {answers ? (
             <section aria-labelledby="answers-heading">
               <h2 id="answers-heading">
-                Answers ({answers.filter((item) => item.answer).length} of {answers.length})
+                Responses ({answers.filter((item) => item.answer).length} of {answers.length})
               </h2>
               <details>
-                <summary>Show who has answered</summary>
+                <summary>Show who has responded</summary>
                 <ul className="request-answers">
                   {answers.map((item, index) => (
                     <li key={index}>
@@ -465,7 +640,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                           {item.answer.limit === null
                             ? "Any and all"
                             : `No more than ${item.answer.limit}`}
-                          <span className="hint"> · {item.answer.answeredAt}</span>
+                          <span className="hint"> · responded {item.answer.answeredAt}</span>
                         </span>
                       ) : (
                         <span className="hint">Not yet</span>
@@ -479,11 +654,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         </>
       ) : (
         <>
-          <section aria-labelledby="my-times-heading">
-            <h2 id="my-times-heading">Your times in this span</h2>
-            {ownTimes}
+          <section aria-labelledby="your-times-heading">
+            <h2 id="your-times-heading">Your times</h2>
+            {yourTimes}
           </section>
-          {answerSection}
+          {capSection}
         </>
       )}
     </main>
@@ -528,34 +703,114 @@ function ProposeForm({
   );
 }
 
-function AnswerForm({ limit, answered }: { limit: number | null; answered: boolean }) {
+/**
+ * The rehearsal cap (plan/phase-23.md): saved through a fetcher when a choice
+ * changes or the number is committed (on leaving the field or Enter, not on
+ * every keystroke); typing a number chooses "No more than". Without
+ * JavaScript, a Save button posts it.
+ */
+function CapForm({
+  limit,
+  refused,
+}: {
+  limit: number | null;
+  /** A value the Save button sent without JavaScript and the server refused. */
+  refused: string | null;
+}) {
+  const hydrated = useHydrated();
+  const fetcher = useFetcher<{ capSaved?: boolean; capProblem?: string }>({
+    key: "request-cap",
+  });
+  const problem = fetcher.data?.capProblem ?? refused;
+  const form = useRef<HTMLFormElement>(null);
+  const most = useRef<HTMLInputElement>(null);
+  const count = useRef<HTMLInputElement>(null);
+  const save = useRef<() => void>(() => {});
+  useEffect(() => {
+    save.current = () => {
+      if (!form.current) return;
+      const values = new FormData(form.current);
+      values.set("via", "fetcher");
+      void fetcher.submit(values, { method: "post" });
+    };
+  });
+  // The number's native change event fires when it is committed; React's
+  // onChange would fire on every keystroke.
+  useEffect(() => {
+    const input = count.current;
+    if (!input) return;
+    const committed = () => save.current();
+    input.addEventListener("change", committed);
+    return () => input.removeEventListener("change", committed);
+  }, []);
+  const status =
+    fetcher.state !== "idle"
+      ? "Saving…"
+      : fetcher.data?.capSaved
+        ? "Saved"
+        : fetcher.data?.capProblem
+          ? "Not saved"
+          : "";
   return (
-    <Form method="post" className="stack" replace>
+    <Form
+      method="post"
+      className="stack"
+      replace
+      ref={form}
+      // Once interactive, every change saves itself; Enter commits the number.
+      onSubmit={hydrated ? (event) => event.preventDefault() : undefined}
+    >
       <input type="hidden" name="intent" value="answer" />
-      <fieldset className="limit">
+      <fieldset className="limit" aria-describedby={problem ? "cap-error" : undefined}>
         <legend>How many rehearsals can you make in this span?</legend>
         <label>
-          <input type="radio" name="limit" value="any" defaultChecked={limit === null} />
+          <input
+            type="radio"
+            name="limit"
+            value="any"
+            defaultChecked={limit === null}
+            onChange={() => save.current()}
+          />
           Any and all
         </label>
         <label className="limit-most">
-          <input type="radio" name="limit" value="most" defaultChecked={limit !== null} />
+          <input
+            type="radio"
+            name="limit"
+            value="most"
+            ref={most}
+            defaultChecked={limit !== null}
+            onChange={() => save.current()}
+          />
           No more than{" "}
           <input
             type="number"
             name="limitCount"
+            ref={count}
             min={1}
             max={LIMIT_MAX}
             defaultValue={limit ?? 2}
             aria-label="Most rehearsals"
             inputMode="numeric"
+            onInput={() => {
+              if (most.current) most.current.checked = true;
+            }}
           />{" "}
           rehearsals
         </label>
+        {problem ? (
+          <p className="field-error" id="cap-error" role="alert">
+            {problem}
+          </p>
+        ) : null}
       </fieldset>
-      <SubmitButton feedbackKey="request-answer">
-        {answered ? "Update my answer" : "Send my answer"}
-      </SubmitButton>
+      {hydrated ? (
+        <p className="hint save-status" aria-live="polite">
+          {status}
+        </p>
+      ) : (
+        <SubmitButton feedbackKey="request-answer">Save</SubmitButton>
+      )}
     </Form>
   );
 }
@@ -564,7 +819,7 @@ function AnswerForm({ limit, answered }: { limit: number | null; answered: boole
 function closePrompt(name: string) {
   return {
     title: `Close ${name}?`,
-    body: "Members can no longer answer it. You can reopen it later.",
+    body: "Members can no longer add times to it. You can reopen it later.",
     label: "Close request",
   };
 }

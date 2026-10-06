@@ -7,7 +7,6 @@ import { CALENDAR_SCOPES } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
 import { ConfirmForm, ConfirmPanel } from "../app/components/confirm-form";
-import { action as availabilityAction } from "../app/routes/availability";
 import { action as groupAction } from "../app/routes/group";
 import { action as requestAction } from "../app/routes/request";
 import { action as scheduleAction } from "../app/routes/schedule";
@@ -95,20 +94,6 @@ const destructive: {
   form: (b: Band) => Record<string, string>;
   done: (b: Band) => boolean;
 }[] = [
-  {
-    name: "deleting a time",
-    as: "cellist",
-    run: (b, form) =>
-      availabilityAction(
-        routeArgs(
-          `${groupPath(b.group)}/availability`,
-          { groupAddress: addressOf(b.group) },
-          { cookie: b.cellistCookie, form },
-        ),
-      ),
-    form: (b) => ({ intent: "delete", slotId: b.slot.id }),
-    done: (b) => b.store.findSlot(b.cellist.id, b.slot.id) === null,
-  },
   {
     name: "closing a request",
     as: "organizer",

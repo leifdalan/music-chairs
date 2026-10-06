@@ -188,10 +188,7 @@ export type Store = {
   addSlot(memberId: string, input: SlotInput): Slot;
   /** Several times at once, all or none. */
   addSlots(memberId: string, inputs: SlotInput[]): Slot[];
-  updateSlot(memberId: string, slotId: string, input: SlotInput): Slot | null;
   deleteSlot(memberId: string, slotId: string): boolean;
-  /** Skips or restores one date; false when the slot is unknown or does not meet that day. */
-  setSkip(memberId: string, slotId: string, date: string, skipped: boolean): boolean;
   /** Every member's slots in the group, keyed by member id. */
   listGroupSlots(groupId: string): Map<string, Slot[]>;
   // Rehearsals belong to a group; an id from another group behaves as unknown.
@@ -303,6 +300,11 @@ export type Store = {
     limit: number | null,
     now?: Date,
   ): boolean;
+  /**
+   * Marks a member as having responded to a request (they saved a date on it)
+   * without changing their limit. False as for `answerRequest`.
+   */
+  touchResponse(groupId: string, requestId: string, memberId: string, now?: Date): boolean;
   listAnswers(groupId: string, requestId: string): RequestAnswer[];
   close(): void;
 };
@@ -555,6 +557,46 @@ export const MIGRATIONS: readonly string[] = [
     substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
     substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1);
   CREATE UNIQUE INDEX groups_by_short_id ON groups (short_id);
+  `,
+  // Version 11 (Phase 23): availability is given as dates on requests, so each
+  // weekly time becomes its one-off dates and weekly times and their skips go.
+  // SQLite can't read a group's zone, so the dates run from UTC yesterday to
+  // UTC today + 56 days, which holds every zone's next 8 weeks; a date or two
+  // beyond a zone's 8 weeks is a harmless extra one-off. A one-off already
+  // saved at the same date and minutes isn't repeated, nor is one two identical
+  // weekly times would both give (DISTINCT). Ids are 22 hex characters, which
+  // TOKEN_PATTERN accepts.
+  `
+  WITH RECURSIVE days(day) AS (
+    SELECT date('now', '-1 day')
+    UNION ALL
+    SELECT date(day, '+1 day') FROM days WHERE day < date('now', '+56 days')
+  )
+  INSERT INTO availability
+    (id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at)
+    SELECT lower(hex(randomblob(11))), member_id, 'once', day, NULL, start_minute, end_minute,
+      strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    FROM (
+    SELECT DISTINCT weekly.member_id, days.day, weekly.start_minute, weekly.end_minute
+    FROM availability AS weekly JOIN days
+    WHERE weekly.kind = 'weekly'
+      AND strftime('%w', days.day) = strftime('%w', weekly.start_date)
+      AND days.day >= weekly.start_date
+      AND (weekly.end_date IS NULL OR days.day <= weekly.end_date)
+      AND NOT EXISTS (
+        SELECT 1 FROM availability_skips
+        WHERE availability_id = weekly.id AND date = days.day
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM availability AS once
+        WHERE once.member_id = weekly.member_id AND once.kind = 'once'
+          AND once.start_date = days.day
+          AND once.start_minute = weekly.start_minute AND once.end_minute = weekly.end_minute
+      )
+    );
+  DELETE FROM availability_skips;
+  DROP TABLE availability_skips;
+  DELETE FROM availability WHERE kind = 'weekly';
   `,
 ];
 
@@ -942,6 +984,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     "INSERT OR IGNORE INTO request_windows (request_id, start_minute, end_minute) VALUES (?, ?, ?)",
   );
   const removeWindows = db.prepare("DELETE FROM request_windows WHERE request_id = ?");
+  const touchAnswer = db.prepare(
+    `INSERT INTO request_answers (request_id, member_id, answered_at, limit_count) VALUES (?, ?, ?, NULL)
+     ON CONFLICT (request_id, member_id) DO UPDATE SET answered_at = excluded.answered_at`,
+  );
   const upsertAnswer = db.prepare(
     `INSERT INTO request_answers (request_id, member_id, answered_at, limit_count) VALUES (?, ?, ?, ?)
      ON CONFLICT (request_id, member_id)
@@ -1006,25 +1052,12 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectSlot = db.prepare(
     `SELECT ${slotColumns} FROM availability WHERE member_id = ? AND id = ?`,
   );
-  const selectSkips = db.prepare(
-    "SELECT date FROM availability_skips WHERE availability_id = ? ORDER BY date",
-  );
   const insertSlot = db.prepare(
     `INSERT INTO availability
      (id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const changeSlot = db.prepare(
-    `UPDATE availability SET kind = ?, start_date = ?, end_date = ?, start_minute = ?, end_minute = ?
-     WHERE member_id = ? AND id = ?`,
-  );
   const removeSlot = db.prepare("DELETE FROM availability WHERE member_id = ? AND id = ?");
-  const insertSkip = db.prepare(
-    "INSERT OR IGNORE INTO availability_skips (availability_id, date) VALUES (?, ?)",
-  );
-  const removeSkip = db.prepare(
-    "DELETE FROM availability_skips WHERE availability_id = ? AND date = ?",
-  );
   const selectGroupSlots = db.prepare(
     `SELECT availability.member_id, ${slotColumns
       .split(", ")
@@ -1089,7 +1122,8 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       endDate: row.end_date,
       startMinute: row.start_minute,
       endMinute: row.end_minute,
-      skips: (selectSkips.all(row.id) as { date: string }[]).map((skip) => skip.date),
+      // Availability has no skips since migration 11; rehearsals keep cancellations.
+      skips: [],
     };
   }
 
@@ -1390,36 +1424,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     addSlots(memberId, inputs) {
       return transaction(() => inputs.map((input) => addSlot(memberId, input)));
     },
-    updateSlot(memberId, slotId, input) {
-      const existing = findSlot(memberId, slotId);
-      if (!existing) return null;
-      return transaction(() => {
-        changeSlot.run(
-          input.kind,
-          input.startDate,
-          input.endDate,
-          input.startMinute,
-          input.endMinute,
-          memberId,
-          slotId,
-        );
-        // Skips that are no longer dates of the edited pattern go with it.
-        for (const date of existing.skips) {
-          if (!isOccurrence(input, date)) removeSkip.run(slotId, date);
-        }
-        return findSlot(memberId, slotId);
-      });
-    },
     deleteSlot(memberId, slotId) {
       if (!isToken(slotId)) return false;
       return Number(removeSlot.run(memberId, slotId).changes) > 0;
-    },
-    setSkip(memberId, slotId, date, skipped) {
-      const slot = findSlot(memberId, slotId);
-      if (!slot || !isOccurrence(slot, date)) return false;
-      if (skipped) insertSkip.run(slotId, date);
-      else removeSkip.run(slotId, date);
-      return true;
     },
     listGroupSlots(groupId) {
       const slots = new Map<string, Slot[]>();
@@ -1687,6 +1694,14 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         return false;
       }
       upsertAnswer.run(requestId, memberId, now.toISOString(), limit);
+      return true;
+    },
+    touchResponse(groupId, requestId, memberId, now = new Date()) {
+      const request = findRequest(groupId, requestId);
+      if (!request?.open || !isToken(memberId) || !selectMember.get(groupId, memberId)) {
+        return false;
+      }
+      touchAnswer.run(requestId, memberId, now.toISOString());
       return true;
     },
     listAnswers(groupId, requestId) {

@@ -5,6 +5,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
+import { addDays, todayInZone } from "../app/lib/availability";
+import { groupPath } from "../app/lib/group-address";
 import Join, { action, loader } from "../app/routes/join";
 import { ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
 
@@ -87,6 +89,13 @@ describe("getting back in by name", () => {
 
   it("lets a signed-in joiner choose between a matching member and joining as new", async () => {
     const { store, group, spare } = await band();
+    const today = todayInZone(group.timeZone, new Date());
+    const open = store.createRequest(group.id, {
+      name: "Next gig",
+      startDate: today,
+      endDate: addDays(today, 14),
+      windows: [{ startMinute: 1140, endMinute: 1320 }],
+    });
     const { cookie, account } = await signedIn({
       sub: "join-visitor",
       email: "visitor@example.test",
@@ -107,6 +116,10 @@ describe("getting back in by name", () => {
       cookie,
     );
     expect(statusOf(picked)).toBe(302);
+    // Picked members land on the open request, like new ones (plan/phase-23.md).
+    expect((picked as Response).headers.get("Location")).toBe(
+      `${groupPath(group)}/requests/${open.id}`,
+    );
     const viewer = await findViewer(
       new Request(ORIGIN, { headers: { Cookie: membershipOf(picked) } }),
       group,

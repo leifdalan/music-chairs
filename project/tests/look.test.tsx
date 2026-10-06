@@ -123,7 +123,7 @@ describe("buttons", () => {
     ).replaceAll("<!-- -->", "");
   }
 
-  it("make exactly one action primary on the group settings, request answer and schedule confirm forms", async () => {
+  it("make exactly one action primary on the group settings, request cap and schedule confirm forms", async () => {
     const store = getStore();
     const { group, organizer } = store.createGroup("Look Band", "Viola", "Europe/London");
     const cookie = await deviceCookie(group.id, organizer.deviceToken);
@@ -165,7 +165,7 @@ describe("buttons", () => {
     );
 
     expect(primaries(groupHtml, 'id="settings-heading"')).toBe(1);
-    expect(primaries(requestHtml, 'id="answer-heading"')).toBe(1);
+    expect(primaries(requestHtml, 'id="cap-heading"')).toBe(1);
     expect(primaries(scheduleHtml, 'name="intent" value="confirm"')).toBe(1);
   });
 });

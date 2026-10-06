@@ -85,7 +85,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 <Link to={`${item.groupHref}/requests/${item.requestId}`}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">
-                    {item.groupName} · Waiting for your answer · answer by{" "}
+                    {item.groupName} · Add your free times by{" "}
                     {formatDate(item.waitingUntil as string)}
                   </span>
                 </Link>

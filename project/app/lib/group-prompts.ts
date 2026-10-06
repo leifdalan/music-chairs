@@ -15,7 +15,7 @@ export function deletionPrompt(groupName: string) {
 export function leavePrompt(groupName: string) {
   return {
     title: `Leave ${groupName}?`,
-    body: "Your availability, request answers and rehearsal answers in this group are deleted, and rehearsal events this app added to your Google Calendar are removed. You can join again with the invite link.",
+    body: "Your availability, request responses and rehearsal answers in this group are deleted, and rehearsal events this app added to your Google Calendar are removed. You can join again with the invite link.",
     label: "Leave group",
   };
 }

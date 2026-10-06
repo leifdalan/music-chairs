@@ -16,6 +16,7 @@ import {
 } from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
 import { requestIn } from "./routes";
+import { weeklyDates } from "./weekly-dates";
 
 /** A new member as every later read returns it: without the device token. */
 function withoutToken(member: NewMember): Member {
@@ -224,50 +225,16 @@ describe("availability store", () => {
     return store.createGroup("Quartet", "Viola", "Europe/London").organizer;
   }
 
-  it("adds, lists, updates and deletes a member's slots", () => {
+  it("adds, lists and deletes a member's slots", () => {
     const store = memoryStore();
     const viola = member(store);
-    const weekly = store.addSlot(viola.id, thursdays);
+    const later = store.addSlot(viola.id, { ...thursdays, kind: "once", startDate: "2026-10-08" });
     const once = store.addSlot(viola.id, { ...thursdays, kind: "once", startDate: "2026-09-26" });
 
-    expect(store.listSlots(viola.id)).toEqual([once, weekly]);
-    const changed = store.updateSlot(viola.id, weekly.id, {
-      ...thursdays,
-      startMinute: 19 * 60 + 30,
-    });
-    expect(changed).toMatchObject({ id: weekly.id, startMinute: 1170, endMinute: 1320 });
+    expect(store.listSlots(viola.id)).toEqual([once, later]);
+    expect(once.skips).toEqual([]);
     expect(store.deleteSlot(viola.id, once.id)).toBe(true);
-    expect(store.listSlots(viola.id)).toEqual([changed]);
-  });
-
-  it("skips only dates the pattern meets, and restores them", () => {
-    const store = memoryStore();
-    const viola = member(store);
-    const slot = store.addSlot(viola.id, thursdays);
-
-    expect(store.setSkip(viola.id, slot.id, "2026-10-08", true)).toBe(true);
-    expect(store.setSkip(viola.id, slot.id, "2026-10-09", true)).toBe(false);
-    expect(store.findSlot(viola.id, slot.id)?.skips).toEqual(["2026-10-08"]);
-    expect(store.setSkip(viola.id, slot.id, "2026-10-08", false)).toBe(true);
-    expect(store.findSlot(viola.id, slot.id)?.skips).toEqual([]);
-  });
-
-  it("drops skips that an edit moves off the pattern, and all skips with the slot", () => {
-    const store = memoryStore();
-    const viola = member(store);
-    const slot = store.addSlot(viola.id, thursdays);
-    store.setSkip(viola.id, slot.id, "2026-10-08", true);
-    store.setSkip(viola.id, slot.id, "2026-10-15", true);
-
-    const kept = store.updateSlot(viola.id, slot.id, { ...thursdays, endDate: "2026-10-31" });
-    expect(kept?.skips).toEqual(["2026-10-08", "2026-10-15"]);
-    const moved = store.updateSlot(viola.id, slot.id, { ...thursdays, startDate: "2026-10-02" });
-    expect(moved?.skips).toEqual([]);
-
-    store.setSkip(viola.id, slot.id, "2026-10-09", true);
-    store.deleteSlot(viola.id, slot.id);
-    store.addSlot(viola.id, thursdays);
-    expect(store.listSlots(viola.id).flatMap((item) => item.skips)).toEqual([]);
+    expect(store.listSlots(viola.id)).toEqual([later]);
   });
 
   it("treats another member's slot as unknown to every function", () => {
@@ -278,9 +245,7 @@ describe("availability store", () => {
 
     expect(store.listSlots(cello.id)).toEqual([]);
     expect(store.findSlot(cello.id, slot.id)).toBeNull();
-    expect(store.updateSlot(cello.id, slot.id, thursdays)).toBeNull();
     expect(store.deleteSlot(cello.id, slot.id)).toBe(false);
-    expect(store.setSkip(cello.id, slot.id, "2026-10-08", true)).toBe(false);
     expect(store.findSlot(viola.id, slot.id)).toEqual(slot);
   });
 
@@ -790,8 +755,7 @@ describe("removing members and deleting groups", () => {
     store.saveGrant(account.id, "refresh", [
       "https://www.googleapis.com/auth/calendar.events.owned",
     ]);
-    const slot = store.addSlot(cellist.id, thursdays);
-    store.setSkip(cellist.id, slot.id, "2026-10-08", true);
+    store.addSlot(cellist.id, thursdays);
     const request = store.createRequest(group.id, {
       name: "Concert",
       startDate: "2026-11-02",
@@ -990,7 +954,10 @@ describe("schema migrations", () => {
 
     expect(version(check)).toBe(MIGRATIONS.length);
     expect(check.prepare("SELECT account_id FROM members").all()).toEqual([{ account_id: null }]);
-    expect(check.prepare("SELECT COUNT(*) AS n FROM availability").get()).toEqual({ n: 1 });
+    // Migration 11 turned the weekly time into its coming Thursdays.
+    expect(check.prepare("SELECT COUNT(*) AS n FROM availability").get()).toEqual({
+      n: weeklyDates("2026-10-01").length,
+    });
     expect(store.listRsvps("g")).toEqual([
       { rehearsalId: "r", memberId: "m", date: "2026-10-08", answer: "yes" },
     ]);
@@ -1053,15 +1020,14 @@ describe("schema migrations", () => {
       (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
 
     expect(version(db)).toBe(MIGRATIONS.length);
-    for (const table of [
-      "availability",
-      "availability_skips",
-      "rehearsals",
-      "rehearsal_cancellations",
-      "rsvps",
-    ]) {
+    for (const table of ["rehearsals", "rehearsal_cancellations", "rsvps"]) {
       expect(count(table)).toBe(1);
     }
+    // Migration 11 turned the weekly time into its coming Thursdays (plan/phase-23.md).
+    expect(
+      db.prepare("SELECT DISTINCT kind, start_minute, end_minute FROM availability").all(),
+    ).toEqual([{ kind: "once", start_minute: 1140, end_minute: 1260 }]);
+    expect(count("availability")).toBe(weeklyDates("2026-10-01", null, ["2026-10-08"]).length);
     db.exec(
       "INSERT INTO availability VALUES ('q', 'm', 'once', '2026-10-02', NULL, 1155, 1290, 'x')",
     );
@@ -1307,40 +1273,41 @@ describe("schema migrations", () => {
   it("applies a later migration once, and a table rebuild keeps the child rows", () => {
     const filename = fileDatabase();
     const store = openStore(filename);
-    const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
-    const slot = store.addSlot(organizer.id, thursdays);
-    store.setSkip(organizer.id, slot.id, "2026-10-08", true);
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const request = store.createRequest(group.id, {
+      name: "Concert",
+      startDate: "2026-10-01",
+      endDate: "2026-10-31",
+      windows: [{ startMinute: 1140, endMinute: 1320 }],
+    });
+    const rehearsal = store.addRehearsal(group.id, request.id, thursdays, "Studio");
+    store.setCancelled(group.id, rehearsal.id, "2026-10-08", true);
     store.close();
 
-    // A typical SQLite column change: rebuild the parent table of availability_skips.
-    const rebuild = `
-      CREATE TABLE availability_new (
-        id TEXT PRIMARY KEY,
-        member_id TEXT NOT NULL REFERENCES members(id),
-        kind TEXT NOT NULL,
-        start_date TEXT NOT NULL,
-        end_date TEXT,
-        start_minute INTEGER NOT NULL,
-        end_minute INTEGER NOT NULL,
-        created_at TEXT NOT NULL,
-        note TEXT NOT NULL DEFAULT ''
-      );
-      INSERT INTO availability_new
-        SELECT id, member_id, kind, start_date, end_date, start_minute, end_minute, created_at, ''
-        FROM availability;
-      DROP TABLE availability;
-      ALTER TABLE availability_new RENAME TO availability;
-    `;
     const db = new DatabaseSync(filename);
+    // A typical SQLite column change: rebuild the parent table of
+    // rehearsal_cancellations from its own definition, plus a column.
+    const { sql } = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rehearsals'")
+      .get() as { sql: string };
+    const rebuild = `
+      ${sql.replace(/^CREATE TABLE "?rehearsals"?/, "CREATE TABLE rehearsals_new")};
+      ALTER TABLE rehearsals_new ADD COLUMN note TEXT NOT NULL DEFAULT '';
+      INSERT INTO rehearsals_new SELECT *, '' FROM rehearsals;
+      DROP TABLE rehearsals;
+      ALTER TABLE rehearsals_new RENAME TO rehearsals;
+      CREATE INDEX rehearsals_by_group ON rehearsals (group_id);
+      CREATE INDEX rehearsals_by_request ON rehearsals (request_id);
+    `;
     db.exec("PRAGMA foreign_keys = ON;");
     migrate(db, [...MIGRATIONS, rebuild]);
     migrate(db, [...MIGRATIONS, rebuild]);
 
     expect(version(db)).toBe(MIGRATIONS.length + 1);
-    expect(db.prepare("SELECT date FROM availability_skips").all()).toEqual([
+    expect(db.prepare("SELECT date FROM rehearsal_cancellations").all()).toEqual([
       { date: "2026-10-08" },
     ]);
-    expect(db.prepare("SELECT note FROM availability").all()).toEqual([{ note: "" }]);
+    expect(db.prepare("SELECT note FROM rehearsals").all()).toEqual([{ note: "" }]);
     expect(db.prepare("SELECT name FROM groups WHERE id = ?").get(group.id)).toEqual({
       name: "Quartet",
     });

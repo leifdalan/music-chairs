@@ -5,10 +5,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
-import Availability, {
-  action as availabilityAction,
-  loader as availabilityLoader,
-} from "../app/routes/availability";
 import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import RequestPage, { action, loader } from "../app/routes/request";
 import RequestForm, {
@@ -42,7 +38,6 @@ afterAll(() => {
 type RequestData = Awaited<ReturnType<typeof loader>>;
 type FormData_ = Awaited<ReturnType<typeof formLoader>>;
 type GroupData = Awaited<ReturnType<typeof groupLoader>>;
-type AvailabilityData = Awaited<ReturnType<typeof availabilityLoader>>;
 
 /** Viola (organizer), Cellist and Pianist; Viola and Cellist are free Mondays 6–11 PM. */
 async function band() {
@@ -165,18 +160,6 @@ function renderGroup(data: GroupData): string {
   const Stub = createRoutesStub([{ id: "group", path: "/g/:groupId", Component: GroupPage }]);
   return renderToString(
     <Stub initialEntries={["/g/x"]} hydrationData={{ loaderData: { group: data } }} />,
-  ).replaceAll("<!-- -->", "");
-}
-
-function renderAvailability(data: AvailabilityData): string {
-  const Stub = createRoutesStub([
-    { id: "availability", path: "/g/:groupId/availability", Component: Availability },
-  ]);
-  return renderToString(
-    <Stub
-      initialEntries={["/g/x/availability"]}
-      hydrationData={{ loaderData: { availability: data } }}
-    />,
   ).replaceAll("<!-- -->", "");
 }
 
@@ -431,11 +414,12 @@ describe("answering a request", () => {
       limit: "most",
       limitCount: "2",
     });
-    expect(await toastOf(sent)).toBe("Answer sent");
+    expect(await toastOf(sent)).toBe("Saved");
 
     const asCellist = await load(group.id, concert, cellistCookie);
     expect(asCellist.mine).toEqual({ answeredAt: "Fri 2 Oct, 1 PM", limit: 2 });
-    expect(render(asCellist)).toContain("Update my answer");
+    expect(render(asCellist)).toContain("Saved Fri 2 Oct, 1 PM: no more than 2.");
+    expect(render(asCellist)).not.toMatch(/Send my answer|Update my answer/);
 
     const asOrganizer = await load(group.id, concert, organizerCookie);
     expect(asOrganizer.answers).toEqual([
@@ -445,14 +429,14 @@ describe("answering a request", () => {
     ]);
     const html = render(asOrganizer);
     expect(html).toContain("No more than 2");
-    expect(html).toContain("Answers (1 of 3)");
+    expect(html).toContain("Responses (1 of 3)");
     expect((await load(group.id, weekly, organizerCookie)).answers?.[1].answer).toBeNull();
 
     const updated = await post(group.id, concert, cellistCookie, {
       intent: "answer",
       limit: "any",
     });
-    expect(await toastOf(updated)).toBe("Answer updated");
+    expect(await toastOf(updated)).toBe("Saved");
     expect((await load(group.id, concert, organizerCookie)).answers?.[1].answer?.limit).toBeNull();
   });
 
@@ -535,7 +519,7 @@ describe("answering a request", () => {
       const page = await load(group.id, id, cellistCookie);
       expect(page.canAnswer).toBe(false);
       expect(render(page)).not.toContain("availability?request=");
-      expect(render(page)).toContain("no longer taking answers");
+      expect(render(page)).toContain("no longer taking times");
     }
     expect(count("request_answers")).toBe(before);
     expect(render(await load(group.id, ended, organizerCookie))).toContain("Repeat request");
@@ -561,13 +545,13 @@ describe("requests on the group page", () => {
     );
     expect(asCellist.memberCount).toBeNull();
     const html = renderGroup(asCellist);
-    expect(html).toContain("Not answered yet");
+    expect(html).toContain("Not yet");
     expect(html).not.toContain("New request");
 
     const asOrganizer = (await groupLoader(
       routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: organizerCookie }),
     )) as GroupData;
-    expect(renderGroup(asOrganizer)).toContain("1 of 3 answered");
+    expect(renderGroup(asOrganizer)).toContain("1 of 3 responded");
     expect(renderGroup(asOrganizer)).toContain("New request");
   });
 
@@ -599,117 +583,5 @@ describe("requests on the group page", () => {
     expect(renderGroup(asOrganizer)).toContain(`requests/new?repeat=${closed}`);
     expect(asCellist.requests).toEqual([]);
     expect(renderGroup(asCellist)).not.toContain("November concert");
-  });
-});
-
-describe("adding availability from a request", () => {
-  function loadAvailability(groupId: string, cookie: string, search: string) {
-    return availabilityLoader(
-      routeArgs(
-        `/g/${addressFor(groupId)}/availability${search}`,
-        { groupAddress: addressFor(groupId) },
-        { cookie },
-      ),
-    ) as Promise<AvailabilityData>;
-  }
-
-  function save(groupId: string, cookie: string, form: Record<string, string>) {
-    return availabilityAction(
-      routeArgs(
-        `/g/${addressFor(groupId)}/availability`,
-        { groupAddress: addressFor(groupId) },
-        { cookie, form },
-      ),
-    ) as Promise<unknown>;
-  }
-
-  it("pre-fills a weekly time over the span at the window, then returns to the request", async () => {
-    const { group, organizerCookie, pianistCookie } = await band();
-    const id = await created(group.id, organizerCookie, november);
-
-    const page = await loadAvailability(group.id, pianistCookie, `?request=${id}&window=1`);
-
-    expect(page.fromRequest?.values).toEqual({
-      kind: "weekly",
-      startDate: "2026-11-02",
-      endDate: "2026-11-29",
-      startTime: "19:00",
-      endTime: "22:00",
-    });
-    const html = renderAvailability(page);
-    expect(html).toContain(`name="request" value="${id}"`);
-    expect(html).toContain("November concert");
-
-    const saved = (await save(group.id, pianistCookie, {
-      intent: "create",
-      request: id,
-      ...page.fromRequest!.values,
-    })) as Response;
-    expect(saved.headers.get("Location")).toBe(`${groupPath(group)}/requests/${id}`);
-    expect(await toastOf(saved)).toBe("Availability saved");
-    expect((await load(group.id, id, pianistCookie)).myTimes).toHaveLength(4);
-  });
-
-  it("ignores another group's, an unknown or a closed request, returning to availability", async () => {
-    const { group, organizerCookie, pianistCookie } = await band();
-    const other = await band();
-    const foreign = await created(other.group.id, other.organizerCookie, november);
-    const closed = await created(group.id, organizerCookie, november);
-    await post(group.id, closed, organizerCookie, { intent: "close", confirmed: "1" });
-    const ended = getStore().createRequest(group.id, {
-      name: "September",
-      startDate: "2026-09-01",
-      endDate: "2026-10-01",
-      windows: [{ startMinute: 1140, endMinute: 1320 }],
-    }).id;
-
-    for (const id of [foreign, closed, ended, "unknown"]) {
-      const page = await loadAvailability(group.id, pianistCookie, `?request=${id}&window=0`);
-      expect(page.fromRequest).toBeNull();
-      const saved = (await save(group.id, pianistCookie, {
-        intent: "create",
-        request: id,
-        kind: "once",
-        startDate: "2026-11-03",
-        endDate: "",
-        startTime: "19:00",
-        endTime: "20:00",
-      })) as Response;
-      expect(saved.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
-    }
-    const open = await created(group.id, organizerCookie, november);
-    // A window the request doesn't have: the request's calendar, with no window chosen.
-    const noWindow = (await loadAvailability(group.id, pianistCookie, `?request=${open}&window=5`))
-      .fromRequest;
-    expect(noWindow).toMatchObject({ id: open, window: null, values: null });
-  });
-
-  it("sends delete and skip back to availability even with a request named", async () => {
-    const { group, organizerCookie, cellist, cellistCookie } = await band();
-    const id = await created(group.id, organizerCookie, november);
-    const [slot] = getStore().listSlots(cellist.id);
-
-    const skipped = (await save(group.id, cellistCookie, {
-      intent: "skip",
-      slotId: slot.id,
-      date: "2026-10-05",
-      request: id,
-    })) as Response;
-    const unskipped = (await save(group.id, cellistCookie, {
-      intent: "unskip",
-      slotId: slot.id,
-      date: "2026-10-05",
-      request: id,
-    })) as Response;
-    const deleted = (await save(group.id, cellistCookie, {
-      intent: "delete",
-      confirmed: "1",
-      slotId: slot.id,
-      request: id,
-    })) as Response;
-
-    expect(skipped.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
-    expect(unskipped.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
-    expect(deleted.headers.get("Location")).toBe(`${groupPath(group)}/availability`);
   });
 });

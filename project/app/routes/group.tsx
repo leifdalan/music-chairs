@@ -258,7 +258,7 @@ function roleChangePrompt(name: string, makeOrganizer: boolean) {
 function removalPrompt(name: string) {
   return {
     title: `Remove ${name}?`,
-    body: "Their availability, request answers and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
+    body: "Their availability, request responses and rehearsal answers are deleted, and rehearsal events this app added to their Google Calendar are removed. They can join again with the invite link.",
     label: "Remove member",
   };
 }
@@ -309,13 +309,6 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           <p className="group-links">
             <Link to="schedule" relative="path" className={buttonVariants()}>
               Schedule
-            </Link>
-            <Link
-              to="availability"
-              relative="path"
-              className={buttonVariants({ variant: "outline" })}
-            >
-              My availability
             </Link>
           </p>
         </>
@@ -584,11 +577,11 @@ function RequestsSection({
               </Link>
               <span className="hint"> {span(item)}</span>
               <span className={item.answered ? "request-answered" : "request-unanswered"}>
-                {item.answered ? "Answered" : "Not answered yet"}
+                {item.answered ? "Responded" : "Not yet"}
               </span>
               {item.answerCount !== null ? (
                 <span className="hint">
-                  {item.answerCount} of {memberCount} answered
+                  {item.answerCount} of {memberCount} responded
                 </span>
               ) : null}
             </li>

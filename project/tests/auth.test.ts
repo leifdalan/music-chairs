@@ -2,12 +2,13 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
-import { getStore } from "../app/.server/store";
+import { getStore, type Group } from "../app/.server/store";
+import { addDays, todayInZone } from "../app/lib/availability";
 import { groupPath } from "../app/lib/group-address";
 import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as callback } from "../app/routes/auth.google.callback";
 import { action as signOut } from "../app/routes/auth.sign-out";
-import { loader as availabilityPage } from "../app/routes/availability";
+import { loader as requestLoader } from "../app/routes/request";
 import { loader as schedulePage } from "../app/routes/schedule";
 import { loader as groupPage } from "../app/routes/group";
 import { loader as homePage } from "../app/routes/home";
@@ -91,6 +92,24 @@ async function signInThroughGoogle(
   return (await callback(
     routeArgs(`/auth/google/callback?code=abc&state=${state}`, {}, { cookie }),
   )) as Response;
+}
+
+/** A group's open request page as `cookie` sees it, where Google clashes show (plan/phase-23.md). */
+async function requestPage(group: Group, cookie: string) {
+  const today = todayInZone(group.timeZone, new Date());
+  const { id } = getStore().createRequest(group.id, {
+    name: "Clashes",
+    startDate: today,
+    endDate: addDays(today, 27),
+    windows: [{ startMinute: 1140, endMinute: 1320 }],
+  });
+  return requestLoader(
+    routeArgs(
+      `${groupPath(group)}/requests/${id}`,
+      { groupAddress: addressOf(group), requestId: id },
+      { cookie },
+    ),
+  );
 }
 
 describe("starting Google sign-in", () => {
@@ -319,9 +338,7 @@ describe("Calendar access with every sign-in", () => {
     const cookie = `${await deviceCookie(group.id, member.deviceToken)}; ${session}`;
     calendarFake();
 
-    const availability = (await availabilityPage(
-      routeArgs(`${groupPath(group)}/availability`, { groupAddress: addressOf(group) }, { cookie }),
-    )) as { clashes: { state: string } };
+    const availability = (await requestPage(group, cookie)) as { clashes: { state: string } };
     const schedule = (await schedulePage(
       routeArgs(`${groupPath(group)}/schedule`, { groupAddress: addressOf(group) }, { cookie }),
     )) as { calendar: { google: { state: string } | null } };
@@ -341,9 +358,7 @@ describe("Calendar access with every sign-in", () => {
     const member = getStore().addMember(group.id, "Cal", "member", account.id);
     const cookie = `${await deviceCookie(group.id, member.deviceToken)}; ${session}`;
 
-    const availability = (await availabilityPage(
-      routeArgs(`${groupPath(group)}/availability`, { groupAddress: addressOf(group) }, { cookie }),
-    )) as { clashes: { state: string } };
+    const availability = (await requestPage(group, cookie)) as { clashes: { state: string } };
 
     expect(availability.clashes.state).toBe("connect");
   });
@@ -399,13 +414,7 @@ describe("sessions", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(start + 89 * DAY);
-      await availabilityPage(
-        routeArgs(
-          `${groupPath(group)}/availability`,
-          { groupAddress: addressOf(group) },
-          { cookie: both },
-        ),
-      );
+      await requestPage(group, both);
       vi.setSystemTime(start + 150 * DAY);
       const home = await homePage(routeArgs("/", {}, { cookie }));
       expect(home.account?.email).toBe("cellist@example.test");

@@ -3504,3 +3504,15 @@ Phase 22 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 22 ✅ and Phase 23 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-23.md gained "Inherited from Phase 22" (the picker's contract and the 12-hour formatters).
 - Lessons: juicy-jaybird filed; camouflaged-dragon now 7 occurrences (Phase 21 END, Phase 22 END added); gentle-pug now 8 (Phase 22 END added); ./bin/lessons validate OK.
+
+## 2026-10-06 10:44 — START
+Phase 23 — Members answer an availability request on its calendar: dates, times and a cap that save as they go
+
+Execution trace: 332420b0f362468cb82180c31e0fc79e
+
+Planned work:
+- A member who opens an availability request always sees the calendar of the dates in its span, with a List view toggle; the list is a multi-select of the same dates. Picking dates and a stretch of the day on Phase 22's hour bar saves availability for those dates, with the same "Saving…/Saved" feedback the app's other auto-saving controls use. Each date shows the time saved for it, and can be cleared.
+- "How many rehearsals can you make in this span" saves as it changes, with the same feedback; "Send my answer" goes. The cap stays optional.
+- The separate "My times" section of the request page goes; the calendar is the member's view of their own times in the span.
+- Availability is given inside availability requests only: the standalone My availability page, its weekly ("every Thursday") patterns, and every link to it (group page, Groups page, home page, after joining) go. A signed-in member's Google Calendar import moves onto the request page. Existing stored availability is carried forward by a forward-only migration (the planner proposes how weekly rows become dates, or are dropped, for the operator to choose).
+- "Answer" means Yes / No / Maybe to a proposed rehearsal only. After joining, the next screen is the group's open availability request when there is one. Home's waiting line for a request reads as adding free times by its end date.

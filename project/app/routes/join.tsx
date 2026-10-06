@@ -3,12 +3,14 @@ import { data, Form, redirect } from "react-router";
 import { googleConfig } from "~/.server/google";
 import { findViewer, readAccount, rememberMembership } from "~/.server/membership";
 import { redirectWithToast } from "~/.server/flash";
+import { todayInZone } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
 import { getStore, type Group, type Member } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { sameName } from "~/lib/profile";
+import { answerable } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
@@ -62,9 +64,22 @@ async function welcomeBack(
 ) {
   const token = getStore().deviceTokenFor(group.id, member.id);
   if (!token) throw data(null, { status: 404 });
-  return redirectWithToast(groupPath(group), message, {
+  return redirectWithToast(firstStop(group), message, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, token) },
   });
+}
+
+/**
+ * Where a member lands after joining (plan/phase-23.md): the group's open
+ * request that takes times and ends soonest, else the group page.
+ */
+function firstStop(group: Group): string {
+  const today = todayInZone(group.timeZone, new Date());
+  const [next] = getStore()
+    .listRequests(group.id)
+    .filter((item) => answerable(item, today))
+    .sort((a, b) => a.endDate.localeCompare(b.endDate));
+  return next ? `${groupPath(group)}/requests/${next.id}` : groupPath(group);
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -141,7 +156,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
     throw error;
   }
-  return redirectWithToast(groupPath(group), `You joined ${group.name}`, {
+  return redirectWithToast(firstStop(group), `You joined ${group.name}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
 }
