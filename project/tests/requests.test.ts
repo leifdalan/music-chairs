@@ -106,6 +106,17 @@ describe("parseRequestForm", () => {
     expect(parseRequestForm(form({ ...valid, startDate: TODAY }), { today: TODAY }).ok).toBe(true);
   });
 
+  it("names the latest start in 12-hour time when a start is too late", () => {
+    expect(
+      parseRequestForm(form({ ...valid, "windowStart-0": "23:53", "windowEnd-0": "00:00" }), {
+        today: TODAY,
+      }),
+    ).toMatchObject({
+      ok: false,
+      errors: { rows: { 0: "The start is too late; the latest start is 11:45 PM." } },
+    });
+  });
+
   it("needs at least one window, ignores blank rows and reports each bad row", () => {
     const none = form({ ...valid, "windowStart-0": "", "windowEnd-0": "" });
     expect(parseRequestForm(none, { today: TODAY })).toMatchObject({

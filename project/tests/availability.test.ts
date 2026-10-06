@@ -7,10 +7,10 @@ import {
   formatDate,
   formatMinutes,
   isOccurrence,
-  formatMeridiem,
   parseSlotInput,
   parseTimeText,
   timeInputValue,
+  timeRange,
   todayInZone,
   type Slot,
 } from "../app/lib/availability";
@@ -132,7 +132,7 @@ describe("parseSlotInput", () => {
     expect(parsed.ok && parsed.value.endMinute).toBe(1440);
     // Round trip back into the form for editing.
     expect(timeInputValue(1440)).toBe("00:00");
-    expect(formatMinutes(1440)).toBe("24:00");
+    expect(formatMinutes(1440)).toBe("12 AM");
   });
 
   it("rounds typed times to the nearest quarter hour instead of refusing them", () => {
@@ -148,7 +148,7 @@ describe("parseSlotInput", () => {
   });
 
   it.each([
-    [{ startTime: "23:53" }, "startTime", "Start time is too late; the latest start is 23:45."],
+    [{ startTime: "23:53" }, "startTime", "Start time is too late; the latest start is 11:45 PM."],
     [{ endTime: "18:30" }, "endTime", "End time must be after the start time."],
     [{ endTime: "19:00" }, "endTime", "End time must be after the start time."],
     [{ startDate: "2026-02-30" }, "startDate", "Enter a valid date."],
@@ -208,7 +208,7 @@ describe("group time zone", () => {
 
     expect(new Set(results).size).toBe(1);
     expect(results[0]).toBe(
-      "2026-10-15,2026-10-22,2026-10-29,2026-11-05,2026-11-12|Thu 8 Oct|Every Thursday from 1 Oct until 24 Dec, 19:00–22:00",
+      "2026-10-15,2026-10-22,2026-10-29,2026-11-05,2026-11-12|Thu 8 Oct|Every Thursday from 1 Oct until 24 Dec, 7–10 PM",
     );
   });
 });
@@ -267,12 +267,44 @@ describe("typed times", () => {
     expect(minutes(start("24:00"))).toBe("too-late");
   });
 
-  it("says whether am/pm was typed, and formats that style back", () => {
+  it("says whether am/pm was typed", () => {
     expect(start("9:52pm")).toEqual({ ok: true, minutes: 1305, meridiem: true });
     expect(start("21:52")).toEqual({ ok: true, minutes: 1305, meridiem: false });
-    expect(formatMeridiem(1305)).toBe("9:45pm");
-    expect(formatMeridiem(0)).toBe("12:00am");
-    expect(formatMeridiem(720)).toBe("12:00pm");
-    expect(formatMeridiem(1440)).toBe("12:00am");
+  });
+});
+
+describe("12-hour times (plan/phase-22.md)", () => {
+  it.each([
+    [0, "12 AM"],
+    [540, "9 AM"],
+    [570, "9:30 AM"],
+    [720, "12 PM"],
+    [765, "12:45 PM"],
+    [1140, "7 PM"],
+    [1410, "11:30 PM"],
+    [1440, "12 AM"],
+  ])("writes %i minutes as %s", (minutes, text) => {
+    expect(formatMinutes(minutes)).toBe(text);
+  });
+
+  it.each([
+    [1140, 1320, "7–10 PM"],
+    [1110, 1260, "6:30–9 PM"],
+    [570, 660, "9:30–11 AM"],
+    [720, 780, "12–1 PM"],
+    [660, 720, "11 AM–12 PM"],
+    [660, 840, "11 AM–2 PM"],
+    [540, 1440, "9 AM–12 AM"],
+    [1260, 1440, "9 PM–12 AM"],
+    [0, 1440, "12 AM–12 AM"],
+    [0, 60, "12–1 AM"],
+  ])("writes %i–%i as %s", (start, end, text) => {
+    expect(timeRange(start, end)).toBe(text);
+  });
+
+  it("keeps form values on the 24-hour clock", () => {
+    expect(timeInputValue(1140)).toBe("19:00");
+    expect(timeInputValue(540)).toBe("09:00");
+    expect(timeInputValue(1440)).toBe("00:00");
   });
 });

@@ -3376,3 +3376,13 @@ Execution trace: 6aa89adafafd45eda5006e79f786784c
 - Lessons: none new; ./bin/lessons validate: LESSONS OK. camouflaged-dragon, gentle-pug and lively-salamander are graduation-ready for the operator.
 - Recalibration: insufficient samples.
 - Next: the execution report, the bare ./bin/check all handoff gate, then delivery through pull request #11.
+
+## 2026-10-06 06:26 — START
+Phase 22 — Times you can read and pick: AM/PM everywhere and an hour bar from 9 AM to midnight
+
+Execution trace: 7f8436852c3c4204b6ef03176e2a55c7
+
+Planned work:
+- Every time the app displays uses the 12-hour clock with AM/PM: lists, calendars, date panels, cards, warnings, toasts, the home page and form summaries. One shared formatter; the planner settles the exact form (for example "7 PM", "7:30 PM", and ranges such as "7–10 PM") and uses it everywhere. Stored minutes, the calendar feed and Google Calendar events are unchanged.
+- A new time-of-day picker replaces `project/app/components/time-range.tsx` (and the typed `time-field.tsx` it wraps) wherever a stretch of the day is picked: availability, a new request's times, and proposing a different time. It is a horizontal bar from 9 AM to midnight with a labelled tick each hour and half-hour steps. Tapping one point and then another picks the stretch between them; pressing and dragging picks it in one movement; the picked stretch reads back in words ("7–10 PM").
+- The picker stays usable by keyboard and by screen reader, and fits a phone without sideways scrolling.

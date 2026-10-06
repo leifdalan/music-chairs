@@ -65,7 +65,6 @@ export function SlotFields({
         presets={presets}
         startError={errors.startTime}
         endError={errors.endTime}
-        endHint="Any time; rounded to the nearest 15 minutes. Use 00:00 for midnight."
         required
       />
       <div className="field weekly-only">

@@ -66,7 +66,7 @@ describe("how dark a date is", () => {
   const evening = [{ startMinute: 1140, endMinute: 1320 }];
 
   it("counts people free together for a whole hour, even when someone else's short slot splits the time", () => {
-    // Viola and Cellist 19:00–20:00; Pianist only 19:30–19:45.
+    // Viola and Cellist 7–8 PM; Pianist only 7:30–7:45 PM.
     const cells = cellsOf({
       viola: [[1140, 1200]],
       cellist: [[1140, 1200]],
@@ -92,7 +92,7 @@ describe("how dark a date is", () => {
 
     expect(dayHeat(cells, "2026-10-05", evening)).toBe(0);
     expect(dayHeat(cells, "2026-10-05", [{ startMinute: 1020, endMinute: 1140 }])).toBe(2);
-    // Free 21:30–23:00: only half an hour of it is inside 19:00–22:00.
+    // Free 9:30–11 PM: only half an hour of it is inside 7–10 PM.
     const late = cellsOf({ viola: [[1290, 1380]], cellist: [[1290, 1380]] });
     expect(dayHeat(late, "2026-10-05", evening)).toBe(0);
   });
@@ -107,8 +107,8 @@ const once = (date: string, startMinute: number, endMinute: number) => ({
 });
 
 /**
- * Three members and a request for 5–12 Oct, 19:00–22:00. Mon 5 Oct: Viola and
- * Cellist free all evening, Pianist only 19:00–19:30. Tue 6 Oct: Viola only.
+ * Three members and a request for 5–12 Oct, 7–10 PM. Mon 5 Oct: Viola and
+ * Cellist free all evening, Pianist only 7–7:30 PM. Tue 6 Oct: Viola only.
  * Nobody on the other dates.
  */
 async function band() {
@@ -239,8 +239,8 @@ describe("proposing from the calendar or the list", () => {
 
     const response = await post(b, [
       ["intent", "propose-times"],
-      ["time", found.get("Propose Mon 5 Oct, 19:30–22:00")![0]],
-      ["time", found.get("Propose Tue 6 Oct, 19:00–22:00")![0]],
+      ["time", found.get("Propose Mon 5 Oct, 7:30–10 PM")![0]],
+      ["time", found.get("Propose Tue 6 Oct, 7–10 PM")![0]],
       ["length", "120"],
       ["location", ""],
     ]);
@@ -261,7 +261,7 @@ describe("proposing from the calendar or the list", () => {
     const response = await post(b, [
       ["intent", "propose-times"],
       ["free", "list"],
-      ["time", found.get("Propose Tue 6 Oct, 19:00–22:00")![0]],
+      ["time", found.get("Propose Tue 6 Oct, 7–10 PM")![0]],
       ["length", "60"],
       ["location", ""],
     ]);

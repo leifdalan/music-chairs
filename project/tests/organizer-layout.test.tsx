@@ -114,7 +114,7 @@ describe("the request page", () => {
 
     const own = detailsAfter(html, 'id="my-times-heading"');
     expect(own).toContain("<summary>2 times in this span</summary>");
-    expect(own).toContain("Check availability for 19:00–22:00");
+    expect(own).toContain("Check availability for 7–10 PM");
     const answers = detailsAfter(html, 'id="answers-heading"');
     expect(answers).toContain("<summary>Show who has answered</summary>");
     expect(answers).toContain("Cellist");
@@ -272,7 +272,7 @@ describe("the schedule and groups pages", () => {
     expect(free).toMatch(
       /^<details class="free-times"><summary>Show free times until [^<]+<\/summary>/,
     );
-    expect(free).toContain("19:00–22:00");
+    expect(free).toContain("7–10 PM");
   });
 
   it("offers each group once, with Schedule and My availability", async () => {

@@ -14,6 +14,7 @@ import {
   tempDatabase,
   thrownBy,
   addressFor,
+  selectedOption,
 } from "./routes";
 
 const count = tempDatabase();
@@ -316,9 +317,9 @@ describe("availability route", () => {
 
     expect(page.editing?.id).toBe(slot.id);
     expect(html).toContain("All times are in Europe/London.");
-    expect(html).toContain("Every Thursday from 1 Oct, 19:00–24:00");
+    expect(html).toContain("Every Thursday from 1 Oct, 7 PM–12 AM");
     expect(html).toContain("Change a time");
-    expect(html).toMatch(/name="endTime"[^>]*value="00:00"/);
+    expect(selectedOption(html, "endTime")).toBe("00:00");
     expect(html).toContain("Thu 8 Oct");
   });
 });

@@ -50,9 +50,9 @@ describe("reading ticked free times", () => {
   it("starts each at its free time, lasting the chosen length or cut to the free time", () => {
     const parsed = parseProposedTimes(
       formOf([
-        ["time", "2026-10-08 1140 1320"], // 19:00–22:00 → 19:00–21:00
-        ["time", "2026-10-09 1140 1200"], // 19:00–20:00 → cut to 20:00
-        ["time", "2026-10-10 1320 1440"], // 22:00–24:00 → cut at midnight
+        ["time", "2026-10-08 1140 1320"], // 7–10 PM → 7–9 PM
+        ["time", "2026-10-09 1140 1200"], // 7–8 PM → cut to 20:00
+        ["time", "2026-10-10 1320 1440"], // 10 PM–12 AM → cut at midnight
         ["time", "2026-10-08 1140 1320"], // the same tick again
         ["length", "120"],
       ]),
@@ -125,8 +125,8 @@ describe("reading ticked free times", () => {
   });
 });
 
-// Viola (organizer) and Cellist are free Thursdays 19:00–22:00 and Saturdays
-// 22:00–24:00, and Fridays 19:00–20:00; Pianist never is.
+// Viola (organizer) and Cellist are free Thursdays 7–10 PM and Saturdays
+// 10 PM–12 AM, and Fridays 7–8 PM; Pianist never is.
 async function band() {
   const store = getStore();
   const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
@@ -270,7 +270,7 @@ describe("free times on the schedule page", () => {
 
     for (const page of [organizer, member]) {
       expect(page).toContain("When people are free");
-      expect(page).toContain("19:00–22:00");
+      expect(page).toContain("7–10 PM");
       expect(page).not.toContain('name="time"');
       expect(page).not.toContain("Propose selected");
       expect(page).not.toContain("custom-proposal");
@@ -283,7 +283,7 @@ describe("free times on the schedule page", () => {
 describe("proposing ticked times on a request's page", () => {
   async function withRequest() {
     const setup = await band();
-    // Mondays 18:00–23:00 are free; the request asks for 19:00–21:00.
+    // Mondays 6–11 PM are free; the request asks for 7–9 PM.
     const scheduleRequest = setup.store.createRequest(setup.group.id, {
       name: "November concert",
       startDate: "2026-10-05",
@@ -311,7 +311,7 @@ describe("proposing ticked times on a request's page", () => {
 
     const response = await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
-      ["time", tickFor(html, "Propose Mon 5 Oct, 19:00–21:00")],
+      ["time", tickFor(html, "Propose Mon 5 Oct, 7–9 PM")],
       ["length", "180"],
       ["location", ""],
     ]);
@@ -408,10 +408,7 @@ describe("proposing ticked times on a request's page", () => {
     const before = (await data(organizerCookie)).rehearsalCount;
     await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
-      [
-        "time",
-        tickFor(renderRequest(await data(organizerCookie)), "Propose Mon 5 Oct, 19:00–21:00"),
-      ],
+      ["time", tickFor(renderRequest(await data(organizerCookie)), "Propose Mon 5 Oct, 7–9 PM")],
       ["length", "120"],
     ]);
     expect((await data(organizerCookie)).rehearsalCount).toBe((before ?? 0) + 1);
@@ -422,7 +419,7 @@ describe("proposing ticked times on a request's page", () => {
     const { store, group, organizerCookie, cellistCookie, requestId } = await withRequest();
     store.setRequestOpen(group.id, requestId, false);
     const html = await page(group.id, requestId, organizerCookie);
-    const tick = tickFor(html, "Propose Mon 12 Oct, 19:00–21:00");
+    const tick = tickFor(html, "Propose Mon 12 Oct, 7–9 PM");
 
     const thrown = await thrownBy(
       requestPost(group.id, requestId, cellistCookie, [

@@ -148,7 +148,7 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$or
 [ "$code" = 302 ] || fail "adding availability returned HTTP $code"
 availability_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/availability?times=list" | sed 's/<!-- -->//g' >"$work/availability.html"
-  grep -q "Every Thursday from 1 Jan, 19:00–22:00" "$work/availability.html" &&
+  grep -q "Every Thursday from 1 Jan, 7–10 PM" "$work/availability.html" &&
     grep -q "All times are in Europe/London" "$work/availability.html" &&
     grep -q '<ul class="occurrences"><li><span>Thu ' "$work/availability.html" &&
     ! grep -q "No upcoming times" "$work/availability.html"
@@ -199,7 +199,7 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$or
 [ "$code" = 302 ] || fail "answering yes returned HTTP $code"
 schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
-  grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 19:30–21:30" "$work/schedule.html" &&
+  grep -q "<li class=\"rehearsal confirmed\"><p class=\"slot-summary\">Every Thursday from $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
     grep -q "At Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&
     grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html" &&

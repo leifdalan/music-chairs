@@ -162,3 +162,10 @@ export function addressFor(groupId: string): string {
 export function groupAt(location: string | null): Group | null {
   return location?.startsWith("/g/") ? findGroupByAddress(location.slice("/g/".length)) : null;
 }
+
+/** The value of the option selected in the server-rendered `<select name>`, or null. */
+export function selectedOption(html: string, name: string): string | null {
+  const select = new RegExp(`<select[^>]*name="${name}"[^>]*>(.*?)</select>`, "s").exec(html);
+  if (!select) return null;
+  return /<option value="([^"]*)" selected="">/.exec(select[1])?.[1] ?? null;
+}

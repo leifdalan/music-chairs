@@ -24,6 +24,7 @@ import {
   thrownBy,
   addressOf,
   addressFor,
+  selectedOption,
 } from "./routes";
 
 const count = tempDatabase();
@@ -43,7 +44,7 @@ type FormData_ = Awaited<ReturnType<typeof formLoader>>;
 type GroupData = Awaited<ReturnType<typeof groupLoader>>;
 type AvailabilityData = Awaited<ReturnType<typeof availabilityLoader>>;
 
-/** Viola (organizer), Cellist and Pianist; Viola and Cellist are free Mondays 18:00–23:00. */
+/** Viola (organizer), Cellist and Pianist; Viola and Cellist are free Mondays 6–11 PM. */
 async function band() {
   const store = getStore();
   const { group, organizer } = store.createGroup("Thursday Quartet", "Viola", "Europe/London");
@@ -241,7 +242,7 @@ describe("creating and editing requests", () => {
     const html = renderForm(await loadForm(group.id, organizerCookie), result);
     expect(html).toContain('name="windowStart-2"');
     expect(html).not.toContain('name="windowStart-3"');
-    expect(html).toMatch(/name="windowStart-1"[^>]*value="10:00"/);
+    expect(selectedOption(html, "windowStart-1")).toBe("10:00");
     expect(html).toMatch(/name="name"[^>]*value="November concert"/);
   });
 
@@ -263,7 +264,7 @@ describe("creating and editing requests", () => {
     })) as { data: unknown };
 
     const html = renderForm(await loadForm(group.id, organizerCookie), result.data);
-    expect(html).toMatch(/name="windowStart-3"[^>]*value="22:00"/);
+    expect(selectedOption(html, "windowStart-3")).toBe("22:00");
     expect(html).toContain("The end must be after the start.");
     expect(html).not.toContain('name="windowStart-4"');
     // Rows open: the first empty one (row 1) and the one with an error (row 3).
@@ -275,7 +276,7 @@ describe("creating and editing requests", () => {
     expect(html).toMatch(
       /name="windowStart-3"[^>]*aria-invalid="true"|aria-invalid="true"[^>]*name="windowStart-3"/,
     );
-    expect(html).toContain("Time 4: From");
+    expect(html).toContain("Time 4: from");
     expect(html).toContain("Time 4: until");
   });
 
@@ -433,13 +434,13 @@ describe("answering a request", () => {
     expect(await toastOf(sent)).toBe("Answer sent");
 
     const asCellist = await load(group.id, concert, cellistCookie);
-    expect(asCellist.mine).toEqual({ answeredAt: "Fri 2 Oct, 13:00", limit: 2 });
+    expect(asCellist.mine).toEqual({ answeredAt: "Fri 2 Oct, 1 PM", limit: 2 });
     expect(render(asCellist)).toContain("Update my answer");
 
     const asOrganizer = await load(group.id, concert, organizerCookie);
     expect(asOrganizer.answers).toEqual([
       { name: "Viola", answer: null },
-      { name: "Cellist", answer: { answeredAt: "Fri 2 Oct, 13:00", limit: 2 } },
+      { name: "Cellist", answer: { answeredAt: "Fri 2 Oct, 1 PM", limit: 2 } },
       { name: "Pianist", answer: null },
     ]);
     const html = render(asOrganizer);
@@ -476,7 +477,7 @@ describe("answering a request", () => {
   it("gives a member only their own answer, never anyone else's name, time or limit", async () => {
     const { group, organizerCookie, cellistCookie, pianistCookie } = await band();
     const id = await created(group.id, organizerCookie, november);
-    await post(group.id, id, cellistCookie, { intent: "answer", limit: "most", limitCount: "7" });
+    await post(group.id, id, cellistCookie, { intent: "answer", limit: "most", limitCount: "37" });
 
     const asPianist = await load(group.id, id, pianistCookie);
 
@@ -486,8 +487,8 @@ describe("answering a request", () => {
     for (const text of [JSON.stringify(asPianist), render(asPianist)]) {
       expect(text).not.toContain("Cellist");
       expect(text).not.toContain("Viola");
-      expect(text).not.toContain("Fri 2 Oct, 13:00");
-      expect(text).not.toMatch(/\b7\b/);
+      expect(text).not.toContain("Fri 2 Oct, 1 PM");
+      expect(text).not.toMatch(/\b37\b/);
     }
   });
 
@@ -497,7 +498,7 @@ describe("answering a request", () => {
 
     const page = await load(group.id, id, organizerCookie);
 
-    // Mondays 18:00–23:00, clipped to 19:00–22:00; nobody is free 10:00–13:00.
+    // Mondays 6–11 PM, clipped to 7–10 PM; nobody is free 10 AM–1 PM.
     expect(page.overlap?.map((day) => day.date)).toEqual([
       "2026-11-02",
       "2026-11-09",
