@@ -12,7 +12,7 @@ informs: ["24"]
 ## Deliverables
 
 - Missing-member warnings on a proposed rehearsal collapse into one summary per set of missing people, in one status region (no longer one live region per date); amber, not red; red reserved for destructive actions.
-- Delete on a rehearsal is a quieter destructive control set apart from "Confirm for everyone".
+- Delete on a rehearsal is a quieter destructive control set apart from "Confirm for everyone". The same goes for My availability's per-time Delete (still a solid red button after Phase 21); both use the `outline-destructive` variant Phase 21 introduced.
 - Date inputs and month calendars follow the group's locale conventions (day-month order; weeks starting Monday where the group's zone implies it), consistent with "Tue 6 Oct".
 - The signed-in home page drops the product pitch (kept for visitors).
 

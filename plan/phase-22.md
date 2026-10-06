@@ -28,3 +28,7 @@ From the Impeccable critique's P1 "Members can 'answer' a request without giving
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Success criteria".
+
+## Inherited from Phase 21
+
+Pinned by [Phase 21](phase-21.md): on the request page members still see their own times ("Your times in this span", with the "Check availability for <time>" links) and then "Your answer" (the rehearsal cap), in that order, unchanged by Phase 21 — reworking that order and wording is this phase's. The answer section is one shared fragment (`answerSection` in `project/app/routes/request.tsx`) rendered for both roles, and organizers see it after the calendar. Quieter destructive controls use the `outline-destructive` button variant.

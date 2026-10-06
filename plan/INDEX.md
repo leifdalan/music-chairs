@@ -92,8 +92,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 19.2](phase-19.2.md) | A groups page, home led by what needs you, clearer availability and requests | ✅     |
 | [Phase 19.3](phase-19.3.md) | Readable group addresses                                       | ✅     |
 | [Phase 20](phase-20.md) | A visual organizer view: availability at a glance, picking dates on a calendar, and clearer confirming | ✅     |
-| [Phase 21](phase-21.md) | Organizer layout: the request, group, schedule and groups pages put the main job first | 🚧     |
-| [Phase 22](phase-22.md) | Members give availability: one meaning for answer, and the next step after joining | ⏳     |
+| [Phase 21](phase-21.md) | Organizer layout: the request, group, schedule and groups pages put the main job first | ✅     |
+| [Phase 22](phase-22.md) | Members give availability: one meaning for answer, and the next step after joining | ⬅️     |
 | [Phase 23](phase-23.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ⏳     |
 | [Phase 24](phase-24.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⏳     |
 | [Phase 25](phase-25.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ⏳     |
