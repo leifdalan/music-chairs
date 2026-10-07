@@ -21,6 +21,7 @@ import {
 } from "~/components/calendar-actions";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { FreeCalendar } from "~/components/free-calendar";
+import { PayoffBody } from "~/components/payoff-card";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import {
@@ -192,6 +193,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       kind: rehearsal.kind,
       status: rehearsal.status,
       location: rehearsal.location,
+      startMinute: rehearsal.startMinute,
+      endMinute: rehearsal.endMinute,
       requestId: rehearsal.requestId,
       requestName: rehearsal.requestId ? (requestNames.get(rehearsal.requestId) ?? null) : null,
       summary: describeSlot(rehearsal),
@@ -691,11 +694,30 @@ function RehearsalList({
 function RehearsalCard({ item }: { item: RehearsalItem }) {
   const organizer = item.organizer;
   const shown = item.dates.slice(0, 4);
+  const next = item.dates[0];
   const more = item.dates.slice(4);
   return (
     <li className={`rehearsal ${item.status}`} id={`rehearsal-${item.id}`}>
+      {/* The payoff leads a confirmed rehearsal's card (plan/phase-26.md). */}
+      {item.status === "confirmed" && next ? (
+        <PayoffBody
+          payoff={{
+            date: next.date,
+            startMinute: item.startMinute,
+            endMinute: item.endMinute,
+            location: item.location,
+            mine: next.mine,
+            comingNames: next.names ? next.names.yes : null,
+            yes: next.counts.yes,
+            answered: next.counts.yes + next.counts.no + next.counts.maybe,
+          }}
+        />
+      ) : null}
       <p className="slot-summary">{item.summary}</p>
-      {item.location ? <p className="hint">At {item.location}</p> : null}
+      {/* The payoff already says where; other cards say it here. */}
+      {item.location && !(item.status === "confirmed" && next) ? (
+        <p className="hint">At {item.location}</p>
+      ) : null}
       {item.requestName ? <p className="hint">From {item.requestName}</p> : null}
       {item.status === "proposed" ? (
         <p className="hint">

@@ -16,6 +16,7 @@ import { headerProfile } from "~/.server/profile";
 import { ProfileMenu } from "~/components/profile-menu";
 import { FeedbackProvider } from "~/components/submit-button";
 import { Toaster } from "~/components/toast";
+import { Wordmark } from "~/components/wordmark";
 import { siteName } from "~/lib/site";
 
 import type { Route } from "./+types/root";
@@ -53,7 +54,9 @@ export function Layout({ children }: { children: ReactNode }) {
       <body>
         <FeedbackProvider>
           <header className="site-header">
-            <Link to="/">{siteName}</Link>
+            <Link to="/" aria-label={`${siteName}, home`}>
+              <Wordmark />
+            </Link>
             <nav className="header-nav" aria-label="Site">
               <NavLink to="/groups">Groups</NavLink>
               <ProfileMenu />

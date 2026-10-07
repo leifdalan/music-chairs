@@ -36,9 +36,8 @@ export function FreeCalendar<S extends { startMinute: number }>({
   return (
     <div className="free-calendar">
       <p className="hint heat-legend">
-        <span className="heat-swatch heat-1" aria-hidden="true" /> Fainter green: fewer free ·{" "}
-        <span className="heat-swatch heat-4" aria-hidden="true" /> Stronger green: more free.{" "}
-        {legend}
+        <span className="heat-swatch heat-1" aria-hidden="true" /> Paler: fewer free ·{" "}
+        <span className="heat-swatch heat-4" aria-hidden="true" /> Deeper: more free. {legend}
       </p>
       {monthGrid(from, to).map((month) => (
         <div className="month" key={month.label}>

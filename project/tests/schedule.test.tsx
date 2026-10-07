@@ -260,6 +260,8 @@ describe("schedule route", () => {
         kind: "once",
         status: "proposed",
         location: "Studio B",
+        startMinute: 1170,
+        endMinute: 1290,
         requestId: rehearsal.requestId,
         requestName: "Autumn rehearsals",
         summary: "Thu 8 Oct, 7:30–9:30 PM",

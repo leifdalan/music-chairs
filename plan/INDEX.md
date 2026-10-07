@@ -99,7 +99,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 23](phase-23.md) | Members answer an availability request on its calendar: dates, times and a cap that save as they go | ✅     |
 | [Phase 24](phase-24.md) | Availability requests and their proposed rehearsals: names, nesting, a simpler group page and schedule | ✅     |
 | [Phase 25](phase-25.md) | The confirm moment: one calm warning, a quieter delete, and local date formats | ✅     |
-| [Phase 26](phase-26.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | ⬅️     |
+| [Phase 26](phase-26.md) | Identity: a recorded product and design context, a wordmark, an accent colour and a payoff | 🚧     |
 | [Phase 27](phase-27.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.

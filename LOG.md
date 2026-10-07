@@ -3905,3 +3905,13 @@ Phase 25 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 25 ✅ and Phase 26 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-26.md gained "Inherited from Phase 25" (the warning token, red for destructive actions only, the quieter Delete, the newcomer-only pitch).
 - Lessons: none new; ./bin/lessons validate not needed (no lesson writes).
+
+## 2026-10-06 22:42 — START
+Phase 26 — Identity: a recorded product and design context, a wordmark, an accent colour and a payoff
+
+Execution trace: 39881587a5b2471e91a8e1eea3e6835a
+
+Planned work:
+- `PRODUCT.md` and `DESIGN.md` recorded (Impeccable `init` and `document`), consistent with `briefs/BRIEF.md` rather than duplicating it.
+- A real wordmark in the header; one considered accent colour on the neutral base, used for the primary action and the heat map; type tuned (line length capped, hierarchy).
+- A confirmed rehearsal shown as the payoff (who is coming, when, where), on the schedule and the home page.

@@ -31,7 +31,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  /* Indigo, the one accent (plan/phase-26.md, Rehearsal room): about 6.3:1 with white. */
+  --primary: oklch(0.5 0.17 275);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -56,8 +57,8 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
+    --primary: oklch(0.72 0.14 275);
+    --primary-foreground: oklch(0.145 0 0);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -76,6 +77,8 @@
 
 @theme inline {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* The display serif for the wordmark and page titles: system fonts only. */
+  --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -118,7 +121,7 @@
   }
 
   h1 {
-    @apply mt-2 mb-4 text-2xl leading-tight font-semibold tracking-tight;
+    @apply mt-2 mb-4 font-display text-[1.75rem] leading-tight font-bold;
   }
 
   h2 {
@@ -205,6 +208,10 @@
 
   .site-header > a {
     @apply text-foreground no-underline;
+  }
+
+  .wordmark {
+    @apply font-display text-xl font-bold tracking-tight;
   }
 
   .header-nav {
@@ -554,23 +561,24 @@
     @apply border-0;
   }
 
-  /* The organizer's calendar of who is free (plan/phase-20.md): green deepens
-     as more people are free together; the count is always shown too. */
+  /* The calendar of who is free (plan/phase-20.md): the accent deepens as
+     more people are free together (indigo since plan/phase-26.md); the count
+     is always shown too. */
   .heat-1 {
-    background: color-mix(in oklab, var(--success) 18%, var(--background));
+    background: color-mix(in oklab, var(--primary) 18%, var(--background));
   }
 
   .heat-2 {
-    background: color-mix(in oklab, var(--success) 38%, var(--background));
+    background: color-mix(in oklab, var(--primary) 38%, var(--background));
   }
 
   .heat-3 {
-    background: color-mix(in oklab, var(--success) 62%, var(--background));
+    background: color-mix(in oklab, var(--primary) 62%, var(--background));
   }
 
   .heat-4 {
-    background: var(--success);
-    color: var(--success-foreground);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   /* The count is small text, so on any shade it takes the cell's full colour. */
@@ -610,8 +618,9 @@
   }
 
   /* A ticked time stays visible on its date after the panel closes. */
+  /* Foreground, not the accent, so a ticked date shows on the deepest shade. */
   .free-day:has(input:checked) {
-    @apply outline-2 outline-offset-1 outline-primary;
+    @apply outline-2 outline-offset-1 outline-foreground;
   }
 
   /* One panel open at a time: a bottom sheet on phones, a centred card on wider screens. */
@@ -721,8 +730,9 @@
     @apply absolute inset-y-0 rounded-sm bg-primary;
   }
 
+  /* A ring in the background colour keeps the marker visible on the fill. */
   .time-bar-anchor {
-    @apply absolute inset-y-0 w-1 -translate-x-1/2 rounded-full bg-foreground;
+    @apply absolute inset-y-0 w-1 -translate-x-1/2 rounded-full bg-foreground ring-2 ring-background;
   }
 
   .time-bar-labels {
@@ -774,6 +784,49 @@
 
   .free-summary {
     @apply mb-3 grid gap-1;
+  }
+
+  /* The payoff (plan/phase-26.md): a confirmed rehearsal's next date, who is
+     coming, led by a check in the accent. */
+  .payoff p {
+    @apply my-1;
+  }
+
+  .payoff-headline {
+    @apply flex items-center gap-2 font-display text-lg font-bold text-primary;
+  }
+
+  .payoff-check {
+    @apply size-5 shrink-0;
+  }
+
+  .payoff-when {
+    @apply font-medium;
+  }
+
+  /* A confirmed rehearsal's card is outlined in the accent, the payoff at its top. */
+  .rehearsal.confirmed:has(> .payoff) {
+    @apply my-3 rounded-lg border-2 border-primary px-3;
+  }
+
+  .rehearsal.confirmed .payoff {
+    @apply mb-3 border-b pb-3;
+  }
+
+  .payoff-cards {
+    @apply m-0 grid list-none gap-3 p-0;
+  }
+
+  .payoff-card {
+    @apply rounded-lg border-2 border-primary px-4 py-3;
+  }
+
+  .payoff-group {
+    @apply m-0 text-xs font-medium tracking-wide uppercase;
+  }
+
+  .payoff-link {
+    @apply mt-1 inline-block text-sm;
   }
 
   /* Schedule. */

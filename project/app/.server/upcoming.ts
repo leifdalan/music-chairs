@@ -1,9 +1,11 @@
 // What a group has coming up (plan/phase-24.md): its confirmed rehearsal dates
 // for the group page, and each availability request's own rehearsals.
 
-import { describeSlot, offeredDates, windowEnd } from "~/lib/availability";
+import { describeSlot, offeredDates, todayInZone, windowEnd } from "~/lib/availability";
 
-import { getStore, type Group } from "./store";
+import type { PayoffData } from "~/components/payoff-card";
+
+import { getStore, type Group, type Member } from "./store";
 
 export type UpcomingDate = {
   rehearsalId: string;
@@ -81,4 +83,41 @@ export function requestRehearsals(group: Group, today: string): Map<string, Requ
     byRequest.set(rehearsal.requestId, list);
   }
   return byRequest;
+}
+
+/**
+ * A member's next confirmed rehearsal date in a group, from that group's own
+ * today, with their answer and who said yes (names when the member may see
+ * names: organizers, or a group that shows them), or null when none is coming.
+ */
+export function nextRehearsalFor(
+  group: Group,
+  member: Member,
+  now: Date,
+): (PayoffData & { rehearsalId: string }) | null {
+  const store = getStore();
+  const [next] = upcomingRehearsals(group, todayInZone(group.timeZone, now));
+  if (!next) return null;
+  const answers = store
+    .listRsvps(group.id)
+    .filter((rsvp) => rsvp.rehearsalId === next.rehearsalId && rsvp.date === next.date);
+  const yes = answers.filter((rsvp) => rsvp.answer === "yes");
+  const yesIds = new Set(yes.map((rsvp) => rsvp.memberId));
+  const showNames = member.role === "organizer" || group.showNames;
+  return {
+    rehearsalId: next.rehearsalId,
+    date: next.date,
+    startMinute: next.startMinute,
+    endMinute: next.endMinute,
+    location: next.location,
+    mine: answers.find((rsvp) => rsvp.memberId === member.id)?.answer ?? null,
+    comingNames: showNames
+      ? store
+          .listMembers(group.id)
+          .filter((item) => yesIds.has(item.id))
+          .map((item) => item.displayName)
+      : null,
+    yes: yes.length,
+    answered: answers.length,
+  };
 }

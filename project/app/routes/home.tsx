@@ -4,6 +4,9 @@ import { createGroupAction, timeZoneChoices } from "~/.server/create-group";
 import { googleConfig } from "~/.server/google";
 import { readAccount } from "~/.server/membership";
 import { visitorGroups } from "~/.server/memberships";
+import { nextRehearsalFor } from "~/.server/upcoming";
+import { PayoffCard } from "~/components/payoff-card";
+import { Wordmark } from "~/components/wordmark";
 import { homeRequests, waitingProposals } from "~/.server/pending";
 import { CalendarActions, ProgressFigures } from "~/components/calendar-actions";
 import { CreateGroupForm } from "~/components/create-group-form";
@@ -45,6 +48,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     notice: notice ? (NOTICES[notice] ?? calendarNotice(request)) : null,
     requests: await homeRequests(request, memberships),
     proposals: waitingProposals(memberships),
+    // Each group's next confirmed rehearsal, the payoff (plan/phase-26.md).
+    comingUp: memberships
+      .flatMap(({ group, member }) => {
+        const next = nextRehearsalFor(group, member, new Date());
+        return next ? [{ groupName: group.name, groupHref: groupPath(group), ...next }] : [];
+      })
+      .sort((a, b) => a.date.localeCompare(b.date) || a.startMinute - b.startMinute),
   };
 }
 
@@ -53,12 +63,13 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Home({ loaderData, actionData }: Route.ComponentProps) {
-  const { requests, proposals, groups } = loaderData;
+  const { requests, proposals, groups, comingUp } = loaderData;
+  const newcomer = groups.length === 0 && !loaderData.account;
   const waiting = requests.filter((item) => item.waitingUntil !== null);
   const inProgress = requests.filter((item) => item.progress !== null);
   return (
     <main>
-      <h1>{siteName}</h1>
+      <h1>{newcomer ? <Wordmark /> : "Your rehearsals"}</h1>
       <p>{siteTagline}</p>
       {loaderData.notice ? (
         <p className="notice" role="status">
@@ -90,6 +101,21 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                   </span>
                 </Link>
               </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {comingUp.length > 0 ? (
+        <section className="pending" aria-labelledby="coming-heading">
+          <h2 id="coming-heading">Coming up</h2>
+          <ul className="payoff-cards">
+            {comingUp.map((item) => (
+              <PayoffCard
+                key={`${item.rehearsalId}-${item.date}`}
+                payoff={item}
+                groupName={item.groupName}
+                href={`${item.groupHref}/schedule#rehearsal-${item.rehearsalId}`}
+              />
             ))}
           </ul>
         </section>
@@ -152,7 +178,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         </section>
       ) : null}
       {/* For newcomers only: anyone with a group or an account knows already (plan/phase-25.md). */}
-      {groups.length === 0 && !loaderData.account ? (
+      {newcomer ? (
         <section className="about" aria-labelledby="about-heading">
           <h2 id="about-heading">What {siteName} does</h2>
           <ul>
