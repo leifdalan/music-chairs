@@ -3915,3 +3915,134 @@ Planned work:
 - `PRODUCT.md` and `DESIGN.md` recorded (Impeccable `init` and `document`), consistent with `briefs/BRIEF.md` rather than duplicating it.
 - A real wordmark in the header; one considered accent colour on the neutral base, used for the primary action and the heat map; type tuned (line length capped, hierarchy).
 - A confirmed rehearsal shown as the payoff (who is coming, when, where), on the schedule and the home page.
+
+## 2026-10-06 23:29 — END
+Phase 26 — Identity: a recorded product and design context, a wordmark, an accent colour and a payoff
+
+music-chairs now has the "Rehearsal room" look you chose. Indigo is the one accent: primary buttons, your chosen answers, ticked dates and the time bar, and the heat map, which now deepens from pale to deep indigo. The header and newcomers' home page show a serif "music·chairs" wordmark, and page titles are set in the same serif. A confirmed rehearsal is now the payoff. On the schedule its card is outlined in indigo and starts with "You're on" (or what you answered), the next date, time and place, and who is coming. On the home page, a new "Coming up" section shows each group's next confirmed rehearsal as its own card, with a link to it. Who is coming appears as names for organizers or when the group shows names, and as a count otherwise. Members' home pages are now titled "Your rehearsals". The product and design context is recorded in project/PRODUCT.md (approved by you) and project/DESIGN.md for later reviews. How it looks in light and dark is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 39881587a5b2471e91a8e1eea3e6835a
+
+Files changed:
+- project/PRODUCT.md, project/DESIGN.md (new) — the product and design context in Impeccable's formats (no links outside project/)
+- project/app/app.css — indigo --primary (light and dark), neutral focus ring, the display serif, the heat map's indigo shades and a foreground outline for ticked dates, the wordmark, the payoff and its card, the confirmed card's border when it has a payoff, the time bar marker's ring
+- project/app/components/wordmark.tsx, project/app/components/payoff-card.tsx (new); project/app/root.tsx — the header wordmark
+- project/app/routes/schedule.tsx — the payoff leads confirmed cards; the place isn't repeated below it
+- project/app/routes/home.tsx, project/app/.server/upcoming.ts — "Coming up" per group (each group's own today, sorted by date); the h1
+- project/app/components/free-calendar.tsx — the legend "Paler: fewer free · Deeper: more free"
+- project/scripts/smoke.sh — checks the payoff after a real confirm and Yes
+- project/tests/identity.test.tsx (new); home.test.tsx and schedule.test.tsx updated
+- plan/phase-26.md — the "Rehearsal room" ruling and User Demo (before capture)
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 37580607355, check success for 63be6d1 (CHECK ALL PASS, SMOKE PASS)
+- test.changed (./bin/test --changed-from '@{upstream}'): attempt 1 failed for an environment reason (the machine's disk was full: "No space left on device" in pytest's temp dirs; Vitest had passed 638/638). I freed about 1 GB of my own scratch (old headless-Chrome profiles) and re-ran it under a superseding gate list: attempt 2 OK — Vitest 638/638, pytest 180/180. My first review of attempt 1 was mistakenly recorded as PASS by a chained command; it is superseded by a correct FAILED review in the evidence.
+- Focused before the gates: lint, typecheck, format OK; 6 hand mutations all caught (one survivor fixed by a stronger test first)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic); astra CLI unavailable, so the configured alternative opus
+- Planner: inline primary (opus)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline primary (opus)
+- Critic (code review): requested model=opus effort=default venue=claude
+
+Reviewer: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.291, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Planner: inline
+- Reviewer (plan review): 252.842 s; first event 0.693 s; longest idle 56.271 s; success
+- Coder: inline
+- Critic (code review): 179.866 s; first event 1.063 s; longest idle 40.001 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Active makespan: 2798.480 s; intelligence 432.709 s; gates 340.163 s; wait 431.688 s (interval unions, overlapping)
+- Failed work: 171.035 s (the disk-full gate attempt); retry work: 158.433 s; unattributed 0.938 s
+- Awaiting user input: the PRODUCT.md approval round was answered within the trace (not separately measured); the direction question came before it began
+- Timing validation: exact monotonic nanoseconds, overlap-safe unions, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued 7319eae1…, final 485306d3c9e6de3fea9a7325585312308227a9ef425fe633da633515abe01eed
+- Advisory reports: plan-1 (12 findings) and code-1 (10 findings); primary dispositions: 22 adopted
+- Gates: smoke.local, ci.check and test.changed (attempt 2) against the final candidate; tree ids unchanged across the gates; one superseding gate list for the re-run
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Notes:
+- The check icon leads every confirmed headline, including "are you coming?" and "you said you can't make it"; it marks the rehearsal as confirmed. Worth a look in the demo.
+- Your machine's main disk is about 99% full (1.6 GB free after my cleanup); the next build or test run may fail the same way until space is freed.
+
+Wall-clock observations:
+- About five minutes went to the disk-full failure and its re-run.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (independently reviewed, gate-proved, candidate-bound): ./bin/test project/tests covers the header wordmark and its accessible name, the light and dark indigo tokens and neutral focus ring, the heat map's shades and ticked outline, the display serif, the payoff's headlines and who-is-coming rules, the payoff leading confirmed schedule cards (not proposed ones) and the home "Coming up" cards with per-group today and privacy; the smoke checks the payoff after a real confirm and Yes; ./bin/check all passed in CI on the phase's pull request.
+- Parked for the user: the look itself in light and dark (indigo, the serif, the payoff), contrast by eye, and the User Demo below.
+
+Delivery:
+- default — commit and pull request #17 merged when green after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-27.md — add "Inherited from Phase 26": the "Rehearsal room" identity and tokens, project/PRODUCT.md and project/DESIGN.md as the context for the polish pass and second critique, and the convention to run Impeccable from project/ (or with --target project/...) so it finds them (pending)
+- DECIDE: None
+
+Lessons:
+- occurrence added (pending): loyal-dinosaur — Phase 26 END: a failed gate was followed, in the same chained command, by a review recording "PASS"; corrected with a superseding review
+- occurrence added (pending): camouflaged-dragon — Phase 25 END: the merge's CI failed on a test-time ceiling (test_deploy 2.15 s over 2 s) and passed on re-run (recorded here because no tracked write may follow a handoff gate)
+- graduation DECIDE (standing): camouflaged-dragon → test; gentle-pug → kickoff skill; lively-salamander → CLAUDE.md conventions
+- recalibration: insufficient samples (no group has 30 successful samples)
+
+User demo (per policies/user-demo-protocols.md):
+- Entry point. On your phone, signed in to a group that has a confirmed rehearsal coming up (confirm one on the schedule first if needed), open:
+
+https://rehearse.dalan.dev
+
+- Suggested inputs.
+  1. Look at the home page.
+  2. Open the group page, then the schedule.
+  3. Open an availability request as an organizer and look at "When people are free".
+  4. Switch your phone between light and dark mode and repeat steps 1–2.
+- What to look for.
+  - The header shows the serif "music·chairs" wordmark.
+  - The home page and the schedule show the confirmed rehearsal as an indigo-edged "You're on" card with the date, time, place and who is coming.
+  - Primary buttons (like "Confirm for everyone" and "Propose selected") are indigo; the heat map shades in indigo; amber warnings and red Delete still stand apart from it.
+  - Long text lines don't run wider than comfortable reading on a laptop; headings read clearly above body text.
+- Variations to explore. A member who said No to the confirmed date; a rehearsal nobody has answered yet; a laptop-width window.
+
+Remaining:
+- None beyond the parked User Demo.
+
+## 2026-10-06 23:30 — NOTE
+Phase 26 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 26 ✅ and Phase 27 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-27.md gained "Inherited from Phase 26" (the identity, the context files and running Impeccable from project/).
+- Lessons: camouflaged-dragon (Phase 25 END) and loyal-dinosaur (Phase 26 END) occurrences added; ./bin/lessons validate OK.
+
+## 2026-10-06 23:32 — PARK
+Phase 26 — Identity: a recorded product and design context, a wordmark, an accent colour and a payoff
+
+Execution trace: 39881587a5b2471e91a8e1eea3e6835a
+
+Reason: the phase's implementation is accepted on its gates (accepted close recorded above; plan/INDEX.md shows it complete), but the final bare ./bin/check all on the handoff tree failed for an environment reason: the machine's data volume is full (about 683 MB free of 460 GB), so uv and pytest cannot create temporary files ("No space left on device"). Delivery is parked until the operator frees disk space; nothing is committed or pushed beyond draft pull request #17's earlier commit.
+
+State at park:
+- Close bookkeeping is written but uncommitted: LOG.md, EXECUTION_LOG.jsonl, plan/INDEX.md, plan/phase-27.md, lessons/camouflaged-dragon.md, lessons/loyal-dinosaur.md, reports/execution/.
+- Draft pull request #17 holds the implementation commit (CI green on it).
+
+Resume: after disk space is freed, rerun the bare ./bin/check all on this tree; on success commit the bookkeeping paths above, push to phase-26, mark pull request #17 ready and merge when green.
+
+Lessons:
+- none new beyond those recorded at this phase's END (the disk-full gate failure is an environment condition, not a process fault)
+
+Remaining:
+- Handoff gate and delivery of Phase 26.

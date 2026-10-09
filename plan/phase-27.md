@@ -27,3 +27,7 @@ From the operator's scope answer "everything, including the minor items" (3c). T
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Technology and constraints".
+
+## Inherited from Phase 26
+
+Pinned by [Phase 26](phase-26.md): the "Rehearsal room" identity — indigo `--primary` as the one accent (primary actions, chosen answers, the heat map), a neutral focus ring, the system display serif for the "music·chairs" wordmark and `h1`, and the confirmed-rehearsal payoff (leading confirmed schedule cards; "Coming up" cards on the home page). The product and design context lives in `project/PRODUCT.md` and `project/DESIGN.md`; run Impeccable's polish, critique and audit from `project/` (or with `--target project/...`) so it finds them. The 42rem column is the recorded line-length cap.
