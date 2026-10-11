@@ -45,14 +45,8 @@ afterAll(() => {
 
 const TODAY = "2026-10-02";
 
-function once(startDate: string, startMinute = 19 * 60) {
-  return {
-    kind: "once" as const,
-    startDate,
-    endDate: null,
-    startMinute,
-    endMinute: startMinute + 120,
-  };
+function once(date: string, startMinute = 19 * 60) {
+  return { date, startMinute, endMinute: startMinute + 120 };
 }
 
 let bands = 0;
@@ -130,10 +124,10 @@ describe("request progress", () => {
     );
     store.confirmRehearsal(group.id, a.id);
     // Viola answers both open proposals, Cellist only one, Pianist none.
-    store.setRsvp(group.id, b.id, organizer.id, "2026-10-09", "yes");
-    store.setRsvp(group.id, c.id, organizer.id, "2026-10-10", "no");
-    store.setRsvp(group.id, b.id, cellist.id, "2026-10-09", "maybe");
-    store.setRsvp(group.id, c.id, pianist.id, "2026-10-10", "yes");
+    store.setRsvp(group.id, b.id, organizer.id, "yes");
+    store.setRsvp(group.id, c.id, organizer.id, "no");
+    store.setRsvp(group.id, b.id, cellist.id, "maybe");
+    store.setRsvp(group.id, c.id, pianist.id, "yes");
 
     expect(requestProgress(group, TODAY)).toEqual([
       {
@@ -249,12 +243,12 @@ describe("the schedule page by request", () => {
   it("puts every rehearsal without a request under Earlier rehearsals", async () => {
     const { group, organizerCookie } = await band();
     // Rehearsals made before this phase have no request; the store no longer
-    // makes them, so they are written as migration 9 left them.
+    // makes them, so they are written as migrations 9 and 12 left them.
     const raw = new DatabaseSync(process.env.MUSIC_CHAIRS_DB as string);
     const insert = raw.prepare(
-      `INSERT INTO rehearsals (id, group_id, kind, start_date, end_date, start_minute, end_minute,
-        location, status, created_at, request_id)
-       VALUES (?, ?, 'once', ?, NULL, 1140, 1260, '', ?, '2026-09-01', NULL)`,
+      `INSERT INTO rehearsals (id, group_id, date, start_minute, end_minute, location, status,
+        created_at, request_id)
+       VALUES (?, ?, ?, 1140, 1260, '', ?, '2026-09-01', NULL)`,
     );
     insert.run("E".repeat(21) + "1", group.id, "2026-10-12", "confirmed");
     insert.run("E".repeat(21) + "2", group.id, "2026-10-13", "proposed");
@@ -460,25 +454,22 @@ describe("your requests on the home screen", () => {
 });
 
 describe("downloading a complete request", () => {
-  it("holds only that request's confirmed dates for the viewer, without their No or cancelled dates", async () => {
+  it("holds only that request's confirmed rehearsals for the viewer, without their No", async () => {
     const { store, group, cellist, cellistCookie } = await band();
     const gig = requestIn(group.id, { name: "Autumn gig!" });
     const other = requestIn(group.id, { name: "Other" });
-    const weekly = store.addRehearsal(
+    const [first, declined, last] = store.addRehearsals(
       group.id,
       gig,
-      {
-        kind: "weekly",
-        startDate: "2026-10-05",
-        endDate: "2026-10-26",
+      ["2026-10-05", "2026-10-19", "2026-10-26"].map((date) => ({
+        date,
         startMinute: 1140,
         endMinute: 1260,
-      },
+      })),
       "Club",
     );
-    store.confirmRehearsal(group.id, weekly.id);
-    store.setCancelled(group.id, weekly.id, "2026-10-12", true);
-    store.setRsvp(group.id, weekly.id, cellist.id, "2026-10-19", "no");
+    for (const item of [first, declined, last]) store.confirmRehearsal(group.id, item.id);
+    store.setRsvp(group.id, declined.id, cellist.id, "no");
     const elsewhere = store.addRehearsal(group.id, other, once("2026-10-07"), "Hall");
     store.confirmRehearsal(group.id, elsewhere.id);
 
@@ -491,10 +482,9 @@ describe("downloading a complete request", () => {
     );
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     expect(body.match(/BEGIN:VEVENT/g)).toHaveLength(2);
-    expect(body).toContain(`UID:${weekly.id}-2026-10-05@music-chairs`);
-    expect(body).toContain(`UID:${weekly.id}-2026-10-26@music-chairs`);
-    expect(body).not.toContain("2026-10-12@");
-    expect(body).not.toContain("2026-10-19@");
+    expect(body).toContain(`UID:${first.id}-2026-10-05@music-chairs`);
+    expect(body).toContain(`UID:${last.id}-2026-10-26@music-chairs`);
+    expect(body).not.toContain(declined.id);
     expect(body).not.toContain(elsewhere.id);
   });
 

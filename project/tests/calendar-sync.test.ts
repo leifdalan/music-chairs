@@ -32,7 +32,7 @@ afterEach(() => {
 
 let accounts = 0;
 
-/** A group with a linked, syncing member who granted Calendar writing, and a confirmed weekly rehearsal. */
+/** A group with a linked, syncing member who granted Calendar writing, and three confirmed weekly-spaced rehearsals. */
 function syncingBand(options: { scopes?: string[]; endMinute?: number } = {}) {
   const store = getStore();
   const { group } = store.createGroup("Quartet", "Viola", ZONE);
@@ -47,21 +47,20 @@ function syncingBand(options: { scopes?: string[]; endMinute?: number } = {}) {
   store.setCalendarSync(group.id, cellist.id, true);
   const today = todayInZone(ZONE, new Date());
   const firstDate = addDays(today, 7);
-  const rehearsal = store.addRehearsal(
+  const rehearsals = store.addRehearsals(
     group.id,
     requestIn(group.id),
-    {
-      kind: "weekly",
-      startDate: firstDate,
-      endDate: addDays(firstDate, 14),
+    [0, 7, 14].map((days) => ({
+      date: addDays(firstDate, days),
       startMinute: 19 * 60,
       endMinute: options.endMinute ?? 21 * 60,
-    },
+    })),
     "Studio B",
   );
-  store.confirmRehearsal(group.id, rehearsal.id);
+  for (const item of rehearsals) store.confirmRehearsal(group.id, item.id);
+  const [rehearsal] = rehearsals;
   const target = { memberId: cellist.id, groupId: group.id, accountId: account.id };
-  return { store, group, cellist, account, rehearsal, firstDate, today, target };
+  return { store, group, cellist, account, rehearsal, rehearsals, firstDate, today, target };
 }
 
 const inserts = () =>
@@ -69,20 +68,23 @@ const inserts = () =>
 const deletes = () => google.calendarCalls().filter((call) => call.method === "DELETE");
 
 describe("which dates go on a member's calendar", () => {
-  it("lists confirmed dates, without cancelled dates or dates the member said No to", () => {
-    const { store, group, cellist, rehearsal, firstDate, today } = syncingBand();
-    store.setCancelled(group.id, rehearsal.id, addDays(firstDate, 7), true);
-    store.setRsvp(group.id, rehearsal.id, cellist.id, addDays(firstDate, 14), "no");
+  it("lists confirmed rehearsals, without those the member said No to", () => {
+    const { store, group, cellist, rehearsals, firstDate, today } = syncingBand();
+    store.setRsvp(group.id, rehearsals[2].id, cellist.id, "no");
     store.addRehearsal(
       group.id,
       requestIn(group.id),
-      { kind: "once", startDate: firstDate, endDate: null, startMinute: 600, endMinute: 660 },
+      { date: firstDate, startMinute: 600, endMinute: 660 },
       "Proposed only",
     );
 
-    const dates = calendarDates(group, cellist.id, today, addDays(today, 55));
+    const dates = calendarDates(group, cellist.id, today);
 
-    expect(dates.map((item) => item.date)).toEqual([firstDate]);
+    expect(dates.map((item) => item.date)).toEqual([firstDate, addDays(firstDate, 7)]);
+    // A rehearsal before `from` stays off.
+    expect(
+      calendarDates(group, cellist.id, addDays(firstDate, 1)).map((item) => item.date),
+    ).toEqual([addDays(firstDate, 7)]);
   });
 
   it("includes a confirmed one-off beyond the eight-week window, as members can answer it", () => {
@@ -90,18 +92,12 @@ describe("which dates go on a member's calendar", () => {
     const later = store.addRehearsal(
       group.id,
       requestIn(group.id),
-      {
-        kind: "once",
-        startDate: addDays(today, 70),
-        endDate: null,
-        startMinute: 600,
-        endMinute: 660,
-      },
+      { date: addDays(today, 70), startMinute: 600, endMinute: 660 },
       "Hall",
     );
     store.confirmRehearsal(group.id, later.id);
 
-    const dates = calendarDates(group, cellist.id, today, addDays(today, 55));
+    const dates = calendarDates(group, cellist.id, today);
 
     expect(dates.map((item) => item.date)).toContain(addDays(today, 70));
   });
@@ -113,13 +109,7 @@ describe("writing to Google Calendar", () => {
     const later = store.addRehearsal(
       group.id,
       requestIn(group.id),
-      {
-        kind: "once",
-        startDate: addDays(firstDate, 1),
-        endDate: null,
-        startMinute: 19 * 60 + 15,
-        endMinute: 21 * 60 + 45,
-      },
+      { date: addDays(firstDate, 1), startMinute: 19 * 60 + 15, endMinute: 21 * 60 + 45 },
       "Hall",
     );
     store.confirmRehearsal(group.id, later.id);
@@ -192,7 +182,7 @@ describe("writing to Google Calendar", () => {
     const { store, group, cellist, rehearsal, firstDate, target } = syncingBand();
     await syncMember(target);
 
-    store.setRsvp(group.id, rehearsal.id, cellist.id, firstDate, "no");
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "no");
     await syncMember(target);
     expect(deletes()).toHaveLength(1);
     expect(deletes()[0].url).toContain(eventId(cellist.id, rehearsal.id, firstDate));
@@ -241,11 +231,11 @@ describe("writing to Google Calendar", () => {
   });
 
   it("still removes a No-answered date when another date's insert fails", async () => {
-    const { store, group, cellist, rehearsal, firstDate, target } = syncingBand();
+    const { store, group, cellist, rehearsal, rehearsals, firstDate, target } = syncingBand();
     await syncMember(target);
-    store.setRsvp(group.id, rehearsal.id, cellist.id, firstDate, "no");
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "no");
     // A date dropped from the map must be written again, and that write fails.
-    store.forgetCalendarEvent(cellist.id, rehearsal.id, addDays(firstDate, 7));
+    store.forgetCalendarEvent(cellist.id, rehearsals[1].id, addDays(firstDate, 7));
     google.queue.set("POST /calendars/primary/events", [{ status: 500, body: {} }]);
 
     await expect(syncMember(target)).rejects.toThrow("1 calendar update(s) failed");
@@ -273,9 +263,9 @@ describe("writing to Google Calendar", () => {
   });
 
   it("retries a failed removal on the next sweep", async () => {
-    const { store, group, cellist, rehearsal, firstDate, target } = syncingBand();
+    const { store, group, cellist, rehearsal, target } = syncingBand();
     await syncMember(target);
-    store.setRsvp(group.id, rehearsal.id, cellist.id, firstDate, "no");
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "no");
     google.queue.set("DELETE /calendars/primary/events", [{ status: 500, body: {} }]);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 

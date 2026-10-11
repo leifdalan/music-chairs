@@ -2,15 +2,17 @@ import { useCallback, useId, useState, useSyncExternalStore, type ReactNode } fr
 import { Form } from "react-router";
 
 import { formatDate, timeRange } from "~/lib/availability";
-import { DEFAULT_PROPOSE_LENGTH, lengthLabel, PROPOSE_LENGTHS, timeValue } from "~/lib/propose";
+import { timeValue } from "~/lib/propose";
+import { NOTES_MAX } from "~/lib/rehearsal";
 
 import { SubmitButton } from "./submit-button";
 
 /**
  * The organizer's "tick several free times and propose them" form
  * (plan/phase-15.md), wrapped around a page's own list of free times. The
- * length and location apply to every ticked time; a refusal shows here, next
- * to the button. The controls appear only when there is a time to tick.
+ * location and notes apply to every ticked time, each proposed for its whole
+ * free time (plan/phase-29.md); a refusal shows here, next to the button. The
+ * controls appear only when there is a time to tick.
  */
 export function ProposeTimes({
   hasTimes,
@@ -21,7 +23,7 @@ export function ProposeTimes({
   hasTimes: boolean;
   problem: string | null;
   /**
-   * Changes after a successful proposal, so the ticks and location start
+   * Changes after a successful proposal, so the ticks, location and notes start
    * empty again instead of inviting the same times twice; a refusal keeps them.
    */
   resetKey: number;
@@ -52,22 +54,10 @@ function ProposeTimesForm({
       {hasTimes ? (
         <div className="propose-times-controls stack">
           <div className="field">
-            <label htmlFor="propose-length">Rehearsal length</label>
-            <select id="propose-length" name="length" defaultValue={DEFAULT_PROPOSE_LENGTH}>
-              {PROPOSE_LENGTHS.map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {lengthLabel(minutes)}
-                </option>
-              ))}
-            </select>
-            <p className="hint">
-              Each starts when its free time starts, shorter if that ends sooner.
-            </p>
-          </div>
-          <div className="field">
             <label htmlFor="propose-location">Location (optional)</label>
             <input id="propose-location" name="location" type="text" autoComplete="off" />
           </div>
+          <NotesField id="propose-notes" />
           {problem ? (
             <p className="field-error" role="alert">
               {problem}
@@ -114,6 +104,67 @@ export function FreeTime({
         {children}
       </span>
     </label>
+  );
+}
+
+/** A rehearsal's optional notes (plan/phase-29.md), for everything proposed at once. */
+export function NotesField({
+  id,
+  defaultValue,
+  error,
+}: {
+  id: string;
+  defaultValue?: string;
+  /** A refusal of these notes, shown and linked to the field. */
+  error?: string;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>Notes (optional)</label>
+      <textarea
+        id={id}
+        name="notes"
+        rows={3}
+        maxLength={NOTES_MAX}
+        defaultValue={defaultValue}
+        placeholder="Bring the Brahms parts"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error ${id}-hint` : `${id}-hint`}
+      />
+      <p className="hint" id={`${id}-hint`}>
+        Members see these on the schedule and in their calendars.
+      </p>
+      {error ? (
+        <p className="field-error" id={`${id}-error`} role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The tick box for a date with only one free time (plan/phase-29.md): the
+ * whole calendar cell is its label, so tapping the date ticks it without a
+ * panel. `heat` says how many are free, as the cell's panel would.
+ */
+export function OneTapTime({
+  date,
+  stretch,
+  heat,
+}: {
+  date: string;
+  stretch: { startMinute: number; endMinute: number };
+  heat: string;
+}) {
+  const range = timeRange(stretch.startMinute, stretch.endMinute);
+  return (
+    <input
+      type="checkbox"
+      name="time"
+      value={timeValue(date, stretch.startMinute, stretch.endMinute)}
+      aria-label={`Propose ${formatDate(date)}, ${range}: ${heat}`}
+    />
   );
 }
 

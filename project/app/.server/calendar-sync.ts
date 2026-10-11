@@ -1,13 +1,14 @@
 // Writing confirmed rehearsals to members' primary Google Calendars
-// (plan/phase-7.md, Decisions): one event per date, the same dates members can
-// answer for, minus dates they said No to and cancelled dates.
+// (plan/phase-7.md, Decisions): one event per confirmed rehearsal (each is one
+// date since plan/phase-29.md), minus those the member said No to.
 
 import { createHash } from "node:crypto";
 
 import type { GoogleWriteState } from "~/components/calendar-actions";
-import { offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import { todayInZone } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
 import type { FeedEvent } from "~/lib/ics";
+import { isUpcoming } from "~/lib/rehearsal";
 import { zonedInstant } from "~/lib/zoned-time";
 
 import {
@@ -46,12 +47,11 @@ export async function calendarViewer(
   return member && member.id === viewer.id ? { member, account } : null;
 }
 
-/** The rehearsal dates that belong on this member's calendar between `from` and `to`. */
+/** The confirmed rehearsals on or after `from` that belong on this member's calendar. */
 export function calendarDates(
   group: Group,
   memberId: string,
   from: string,
-  to: string,
 ): { rehearsal: Rehearsal; date: string }[] {
   const store = getStore();
   const declined = new Set(
@@ -62,25 +62,28 @@ export function calendarDates(
   );
   return store
     .listRehearsals(group.id)
-    .filter((rehearsal) => rehearsal.status === "confirmed")
-    .flatMap((rehearsal) =>
-      offeredDates(rehearsal, from, to)
-        .filter((date) => !declined.has(`${rehearsal.id} ${date}`))
-        .map((date) => ({ rehearsal, date })),
-    );
+    .filter(
+      (rehearsal) =>
+        rehearsal.status === "confirmed" &&
+        isUpcoming(rehearsal, from) &&
+        !declined.has(`${rehearsal.id} ${rehearsal.date}`),
+    )
+    .map((rehearsal) => ({ rehearsal, date: rehearsal.date }));
 }
 
 /**
- * What a rehearsal's calendar event says (plan/phase-24.md): the group, the
- * availability request it came from, and where to answer.
+ * What a rehearsal's calendar event says (plan/phase-24.md): the organizer's
+ * notes first (plan/phase-29.md), then the group, the availability request it
+ * came from, and where to answer.
  */
-function eventDescription(group: Group, rehearsal: Rehearsal, origin: string): string {
+export function eventDescription(group: Group, rehearsal: Rehearsal, origin: string): string {
   const request = rehearsal.requestId
     ? getStore().findRequest(group.id, rehearsal.requestId)
     : null;
   const from = request ? `, from the availability request "${request.name}"` : "";
   const where = origin ? ` Answer or see the schedule: ${origin}${groupPath(group)}/schedule` : "";
-  return `Rehearsal for ${group.name}${from}.${where}`;
+  const about = `Rehearsal for ${group.name}${from}.${where}`;
+  return rehearsal.notes ? `${rehearsal.notes}\n\n${about}` : about;
 }
 
 /** Calendar-file events for `calendarDates` output: the feed's and a request's download. */
@@ -143,9 +146,7 @@ export async function syncMember(
   const grant = store.findGrant(target.accountId);
   if (!grant?.scopes.includes(CALENDAR_SCOPES.write)) return;
   const today = todayInZone(group.timeZone, now);
-  const wanted = member.calendarSync
-    ? calendarDates(group, member.id, today, windowEnd(today))
-    : [];
+  const wanted = member.calendarSync ? calendarDates(group, member.id, today) : [];
   const written = store.listCalendarEvents(member.id);
   const writtenKeys = new Set(written.map((event) => `${event.rehearsalId} ${event.date}`));
   const wantedKeys = new Set(wanted.map(({ rehearsal, date }) => `${rehearsal.id} ${date}`));

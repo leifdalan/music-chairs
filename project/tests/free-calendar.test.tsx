@@ -149,6 +149,13 @@ async function requestPage(b: Band, cookie: string, search = "") {
   ).replaceAll("<!-- -->", "");
 }
 
+/** The value of the tick box whose label starts with `label`. */
+function tickOf(found: Map<string, string[]>, label: string): string {
+  const [match] = [...found].filter(([key]) => key === label || key.startsWith(`${label}:`));
+  if (!match) throw new Error(`No tick box for ${label}`);
+  return match[1][0];
+}
+
 /** Each tick box's value by its label. */
 function ticks(html: string): Map<string, string[]> {
   const found = new Map<string, string[]>();
@@ -172,11 +179,17 @@ describe("the request page's calendar of who is free", () => {
     expect(html).toMatch(
       /<details class="day free-day heat-3" name="free-date"><summary aria-label="Mon 5 Oct: up to 2 of 3 free">/,
     );
-    expect(html).toMatch(
-      /<details class="day free-day heat-2" name="free-date"><summary aria-label="Tue 6 Oct: up to 1 of 3 free">/,
+    // Tue has one free time: the date is its own tick box, with no panel (plan/phase-29.md).
+    const tuesday = html.slice(html.indexOf('<label class="day free-day one-time heat-2">'));
+    const box = /^<label[^>]*><input([^>]*)>/.exec(tuesday)?.[1] ?? "";
+    expect(box).toContain('name="time"');
+    expect(box).toContain('value="2026-10-06 1140 1320"');
+    expect(box).toContain('aria-label="Propose Tue 6 Oct, 7–10 PM: up to 1 of 3 free"');
+    expect(tuesday.slice(0, tuesday.indexOf("</label>"))).toContain(
+      '<span class="day-time" aria-hidden="true">7–10 PM</span>',
     );
     expect(html).toContain('aria-label="Wed 7 Oct: nobody free"');
-    expect(html.match(/name="free-date"/g)).toHaveLength(2);
+    expect(html.match(/name="free-date"/g)).toHaveLength(1);
   });
 
   it("lists each date's free times with who is free, as the same tick boxes as the list", async () => {
@@ -196,8 +209,10 @@ describe("the request page's calendar of who is free", () => {
       ["Cellist", "Pianist", "Viola"],
       ["Cellist", "Viola"],
     ]);
-    expect(ticks(calendar)).toEqual(ticks(list));
-    for (const values of ticks(calendar).values()) expect(values).toHaveLength(1);
+    // The same tick boxes (values) in both views; a one-time date's label adds who is free.
+    const values = (found: Map<string, string[]>) => [...found.values()].flat().sort();
+    expect(values(ticks(calendar))).toEqual(values(ticks(list)));
+    for (const tickValues of ticks(calendar).values()) expect(tickValues).toHaveLength(1);
     expect(list).toContain('class="days"');
     expect(list).not.toContain('class="free-calendar"');
     // The picker form itself carries the List view back to the action.
@@ -239,9 +254,8 @@ describe("proposing from the calendar or the list", () => {
 
     const response = await post(b, [
       ["intent", "propose-times"],
-      ["time", found.get("Propose Mon 5 Oct, 7:30–10 PM")![0]],
-      ["time", found.get("Propose Tue 6 Oct, 7–10 PM")![0]],
-      ["length", "120"],
+      ["time", tickOf(found, "Propose Mon 5 Oct, 7:30–10 PM")],
+      ["time", tickOf(found, "Propose Tue 6 Oct, 7–10 PM")],
       ["location", ""],
     ]);
 
@@ -249,7 +263,7 @@ describe("proposing from the calendar or the list", () => {
     expect(
       b.store
         .listRehearsals(b.group.id)
-        .map((r) => `${r.startDate} ${r.startMinute}`)
+        .map((r) => `${r.date} ${r.startMinute}`)
         .sort(),
     ).toEqual(["2026-10-05 1170", "2026-10-06 1140"]);
   });
@@ -261,8 +275,7 @@ describe("proposing from the calendar or the list", () => {
     const response = await post(b, [
       ["intent", "propose-times"],
       ["free", "list"],
-      ["time", found.get("Propose Tue 6 Oct, 7–10 PM")![0]],
-      ["length", "60"],
+      ["time", tickOf(found, "Propose Tue 6 Oct, 7–10 PM")],
       ["location", ""],
     ]);
 
@@ -291,13 +304,7 @@ describe("a rehearsal on the schedule page", () => {
     b.store.addRehearsal(
       b.group.id,
       b.requestId,
-      {
-        kind: "weekly",
-        startDate: "2026-10-05",
-        endDate: null,
-        startMinute: 1140,
-        endMinute: 1260,
-      },
+      { date: "2026-10-05", startMinute: 1140, endMinute: 1260 },
       "Hall",
     );
 
@@ -308,11 +315,11 @@ describe("a rehearsal on the schedule page", () => {
 
     expect(at(">Your answer<")).toBeGreaterThan(-1);
     expect(at(">Your answer<")).toBeLessThan(at('aria-label="Yes for'));
-    expect(at("Answer every date until")).toBeGreaterThan(at(">Your answer<"));
-    expect(at("Answer every date until")).toBeLessThan(at(">For organizers<"));
+    expect(card).not.toContain("Answer every date");
     expect(at('aria-label="Yes for')).toBeLessThan(at(">For organizers<"));
     expect(at(">For organizers<")).toBeLessThan(at(">Confirm for everyone<"));
-    expect(at(">For organizers<")).toBeLessThan(at("Cancel a date or set a last date"));
+    expect(at(">For organizers<")).toBeLessThan(at("Add notes"));
+    expect(card).not.toContain("Cancel a date");
     expect(card).toContain("Confirming makes it a rehearsal on everyone&#x27;s schedule.");
     expect(card).not.toContain(">Confirm<");
     expect(member).toContain(">Your answer<");

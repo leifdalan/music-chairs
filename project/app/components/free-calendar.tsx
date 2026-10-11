@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from "react";
 
 import { buttonVariants } from "~/components/ui/button";
-import { formatDate } from "~/lib/availability";
+import { formatDate, timeRange } from "~/lib/availability";
 import { monthGrid, WEEKDAY_INITIALS } from "~/lib/calendar-grid";
 import { heatLevel } from "~/lib/heat";
 import { useHydrated } from "~/lib/use-hydrated";
@@ -11,15 +11,18 @@ import { useHydrated } from "~/lib/use-hydrated";
  * people are free together, each date with free time opening a panel of its
  * free times. The request page's panels tick times to propose; the schedule's
  * only show them (plan/phase-24.md). Every date's disclosure shares one name,
- * so one panel is open at a time, with or without JavaScript.
+ * so one panel is open at a time, with or without JavaScript. With `tickOne`,
+ * a date with only one free time is itself its tick box, with no panel
+ * (plan/phase-29.md).
  */
-export function FreeCalendar<S extends { startMinute: number }>({
+export function FreeCalendar<S extends { startMinute: number; endMinute: number }>({
   from,
   to,
   days,
   total,
   legend,
   renderStretch,
+  tickOne,
 }: {
   from: string;
   to: string;
@@ -30,6 +33,8 @@ export function FreeCalendar<S extends { startMinute: number }>({
   legend: string;
   /** One free stretch in a date's panel, as an `<li>`. */
   renderStretch: (date: string, stretch: S) => ReactNode;
+  /** The tick box for a date's only free time; `heat` is how many are free, in words. */
+  tickOne?: (date: string, stretch: S, heat: string) => ReactNode;
 }) {
   const hydrated = useHydrated();
   const byDate = new Map(days.map((day) => [day.date, day]));
@@ -67,6 +72,23 @@ export function FreeCalendar<S extends { startMinute: number }>({
                     </span>
                   );
                 }
+                if (tickOne && stretches.length === 1) {
+                  const [stretch] = stretches;
+                  return (
+                    <label className={`day free-day one-time heat-${level}`} key={date}>
+                      {tickOne(date, stretch, heatWords(free, total))}
+                      <span className="day-number" aria-hidden="true">
+                        {day}
+                      </span>
+                      <span className="day-free" aria-hidden="true">
+                        {free > 0 ? `${free}/${total}` : "<1h"}
+                      </span>
+                      <span className="day-time" aria-hidden="true">
+                        {timeRange(stretch.startMinute, stretch.endMinute)}
+                      </span>
+                    </label>
+                  );
+                }
                 return (
                   <DateDetails
                     key={date}
@@ -89,7 +111,12 @@ export function FreeCalendar<S extends { startMinute: number }>({
   );
 }
 
-function DateDetails<S extends { startMinute: number }>({
+/** "up to 3 of 5 free", or that people are free only for less than an hour. */
+function heatWords(free: number, total: number): string {
+  return free > 0 ? `up to ${free} of ${total} free` : "free only for less than an hour";
+}
+
+function DateDetails<S extends { startMinute: number; endMinute: number }>({
   date,
   day,
   level,
@@ -117,13 +144,7 @@ function DateDetails<S extends { startMinute: number }>({
   };
   return (
     <details className={`day free-day heat-${level}`} name="free-date" ref={details}>
-      <summary
-        aria-label={
-          free > 0
-            ? `${formatDate(date)}: up to ${free} of ${total} free`
-            : `${formatDate(date)}: free only for less than an hour`
-        }
-      >
+      <summary aria-label={`${formatDate(date)}: ${heatWords(free, total)}`}>
         <span className="day-number">{day}</span>
         <span className="day-free" aria-hidden="true">
           {free > 0 ? `${free}/${total}` : "<1h"}

@@ -1,15 +1,15 @@
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
 import { publicOrigin } from "~/.server/membership";
 import { getStore } from "~/.server/store";
-import { addDays, todayInZone, windowEnd } from "~/lib/availability";
+import { addDays, todayInZone } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
 
 import type { Route } from "./+types/calendar-feed";
 
 /**
  * A member's private calendar feed at `/calendar/<token>.ics`: the same dates
- * written to Google (confirmed, minus dates they said No to and cancelled
- * dates), from four weeks back to the end of the answer window.
+ * written to Google (confirmed, minus those they said No to), from four weeks
+ * back on.
  */
 export function loader({ request, params }: Route.LoaderArgs) {
   const token = params.feedFile.endsWith(".ics") ? params.feedFile.slice(0, -4) : "";
@@ -21,7 +21,7 @@ export function loader({ request, params }: Route.LoaderArgs) {
   const today = todayInZone(group.timeZone, now);
   const events = feedEvents(
     group,
-    calendarDates(group, member.id, addDays(today, -28), windowEnd(today)),
+    calendarDates(group, member.id, addDays(today, -28)),
     publicOrigin() ?? new URL(request.url).origin,
   );
   return new Response(renderFeed(`${group.name} rehearsals`, events, now), {

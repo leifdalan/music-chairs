@@ -15,6 +15,7 @@ import {
   type Store,
 } from "../app/.server/store";
 import type { SlotInput } from "../app/lib/availability";
+import type { RehearsalInput } from "../app/lib/rehearsal";
 import { requestIn } from "./routes";
 import { weeklyDates } from "./weekly-dates";
 
@@ -292,58 +293,47 @@ describe("members, privacy and roles", () => {
   });
 });
 
+/** A rehearsal on Thu 8 Oct, 7–10 PM. */
+const thursday: RehearsalInput = { date: "2026-10-08", startMinute: 19 * 60, endMinute: 22 * 60 };
+
 describe("rehearsals store", () => {
-  it("proposes, confirms, ends and deletes rehearsals within their group", () => {
+  it("proposes, confirms, writes notes and deletes rehearsals within their group", () => {
     const store = memoryStore();
     const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
     const other = store.createGroup("Other", "Drums", "Europe/London");
 
-    const weekly = store.addRehearsal(
+    const rehearsal = store.addRehearsal(
       group.id,
       requestIn(group.id, { store }),
-      thursdays,
+      thursday,
       "Studio B",
+      "Bring parts",
     );
-    expect(store.findRehearsal(group.id, weekly.id)).toMatchObject({
-      status: "proposed",
+    expect(store.findRehearsal(group.id, rehearsal.id)).toEqual({
+      ...thursday,
+      id: rehearsal.id,
       location: "Studio B",
+      notes: "Bring parts",
+      status: "proposed",
+      requestId: rehearsal.requestId,
     });
-    expect(store.confirmRehearsal(other.group.id, weekly.id)).toBe(false);
-    expect(store.confirmRehearsal(group.id, weekly.id)).toBe(true);
-    expect(store.findRehearsal(group.id, weekly.id)?.status).toBe("confirmed");
+    expect(store.confirmRehearsal(other.group.id, rehearsal.id)).toBe(false);
+    expect(store.confirmRehearsal(group.id, rehearsal.id)).toBe(true);
+    expect(store.findRehearsal(group.id, rehearsal.id)?.status).toBe("confirmed");
 
-    store.setCancelled(group.id, weekly.id, "2026-10-08", true);
-    store.setCancelled(group.id, weekly.id, "2026-10-29", true);
-    const ended = store.endRehearsal(group.id, weekly.id, "2026-10-22");
-    expect(ended).toMatchObject({
-      endDate: "2026-10-22",
-      status: "confirmed",
-      skips: ["2026-10-08"],
-    });
-    expect(store.endRehearsal(group.id, weekly.id, "2026-09-01")).toBeNull();
-
-    expect(store.listRehearsals(other.group.id)).toEqual([]);
-    expect(store.deleteRehearsal(other.group.id, weekly.id)).toBe(false);
-    expect(store.deleteRehearsal(group.id, weekly.id)).toBe(true);
-    expect(store.listRehearsals(group.id)).toEqual([]);
-  });
-
-  it("cancels only dates the rehearsal meets, and refuses to end a one-off", () => {
-    const store = memoryStore();
-    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
-    const weekly = store.addRehearsal(group.id, requestIn(group.id, { store }), thursdays, "");
-    const once = store.addRehearsal(
-      group.id,
-      requestIn(group.id, { store }),
-      { ...thursdays, kind: "once" },
+    expect(store.setNotes(other.group.id, rehearsal.id, "x")).toBeNull();
+    expect(store.setNotes(group.id, "Q".repeat(22), "x")).toBeNull();
+    expect(store.setNotes(group.id, rehearsal.id, "Tune early")?.notes).toBe("Tune early");
+    expect(store.findRehearsal(group.id, rehearsal.id)?.notes).toBe("Tune early");
+    // Notes default to empty.
+    expect(store.addRehearsal(group.id, requestIn(group.id, { store }), thursday, "").notes).toBe(
       "",
     );
 
-    expect(store.setCancelled(group.id, weekly.id, "2026-10-09", true)).toBe(false);
-    expect(store.setCancelled(group.id, weekly.id, "2026-10-08", true)).toBe(true);
-    expect(store.setCancelled(group.id, weekly.id, "2026-10-08", false)).toBe(true);
-    expect(store.findRehearsal(group.id, weekly.id)?.skips).toEqual([]);
-    expect(store.endRehearsal(group.id, once.id, "2026-10-22")).toBeNull();
+    expect(store.listRehearsals(other.group.id)).toEqual([]);
+    expect(store.deleteRehearsal(other.group.id, rehearsal.id)).toBe(false);
+    expect(store.deleteRehearsal(group.id, rehearsal.id)).toBe(true);
+    expect(store.findRehearsal(group.id, rehearsal.id)).toBeNull();
   });
 });
 
@@ -352,81 +342,46 @@ describe("rsvp store", () => {
     const store = memoryStore();
     const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
     const cello = store.addMember(group.id, "Cello", "member");
-    const weekly = store.addRehearsal(
+    const rehearsal = store.addRehearsal(
       group.id,
       requestIn(group.id, { store }),
-      thursdays,
+      thursday,
       "Studio B",
     );
-    return { store, group, organizer, cello, weekly };
+    return { store, group, organizer, cello, rehearsal };
   }
 
-  it("sets, changes and clears an answer, and keeps it when the rehearsal is confirmed", () => {
-    const { store, group, cello, weekly } = setup();
+  it("sets, changes and clears an answer on the rehearsal's date, and keeps it when confirmed", () => {
+    const { store, group, cello, rehearsal } = setup();
 
-    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", "yes")).toBe(true);
-    store.confirmRehearsal(group.id, weekly.id);
+    expect(store.setRsvp(group.id, rehearsal.id, cello.id, "yes")).toBe(true);
+    store.confirmRehearsal(group.id, rehearsal.id);
     expect(store.listRsvps(group.id)).toEqual([
-      { rehearsalId: weekly.id, memberId: cello.id, date: "2026-10-08", answer: "yes" },
+      { rehearsalId: rehearsal.id, memberId: cello.id, date: "2026-10-08", answer: "yes" },
     ]);
-    store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", "no");
+    store.setRsvp(group.id, rehearsal.id, cello.id, "no");
     expect(store.listRsvps(group.id)[0].answer).toBe("no");
-    store.setRsvp(group.id, weekly.id, cello.id, "2026-10-08", null);
+    store.setRsvp(group.id, rehearsal.id, cello.id, null);
     expect(store.listRsvps(group.id)).toEqual([]);
   });
 
-  it("refuses answers for dates that don't happen, other groups and other groups' members", () => {
-    const { store, group, cello, weekly } = setup();
+  it("refuses answers for other groups, other groups' members and unknown rehearsals", () => {
+    const { store, group, cello, rehearsal } = setup();
     const other = store.createGroup("Other", "Drums", "Europe/London");
-    store.setCancelled(group.id, weekly.id, "2026-10-15", true);
 
-    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-09", "yes")).toBe(false);
-    expect(store.setRsvp(group.id, weekly.id, cello.id, "2026-10-15", "yes")).toBe(false);
-    expect(store.setRsvp(other.group.id, weekly.id, cello.id, "2026-10-08", "yes")).toBe(false);
-    expect(store.setRsvp(group.id, weekly.id, other.organizer.id, "2026-10-08", "yes")).toBe(false);
-    const once = store.addRehearsal(
-      group.id,
-      requestIn(group.id, { store }),
-      { ...thursdays, kind: "once" },
-      "",
-    );
-    expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-08", "yes")).toBe(false);
-    expect(store.setRsvp(group.id, once.id, cello.id, "2026-10-01", "yes")).toBe(true);
+    expect(store.setRsvp(other.group.id, rehearsal.id, cello.id, "yes")).toBe(false);
+    expect(store.setRsvp(group.id, rehearsal.id, other.organizer.id, "yes")).toBe(false);
+    expect(store.setRsvp(group.id, "Q".repeat(22), cello.id, "yes")).toBe(false);
+    expect(store.listRsvps(group.id)).toEqual([]);
     expect(store.listRsvps(other.group.id)).toEqual([]);
   });
 
-  it("answers several dates all or nothing", () => {
-    const { store, group, cello, weekly } = setup();
+  it("cascades answers when a rehearsal is deleted", () => {
+    const { store, group, cello, organizer, rehearsal } = setup();
+    store.setRsvp(group.id, rehearsal.id, cello.id, "yes");
+    store.setRsvp(group.id, rehearsal.id, organizer.id, "maybe");
 
-    expect(
-      store.setRsvps(group.id, weekly.id, cello.id, ["2026-10-08", "2026-10-09"], "maybe"),
-    ).toBe(false);
-    expect(store.listRsvps(group.id)).toEqual([]);
-    expect(
-      store.setRsvps(group.id, weekly.id, cello.id, ["2026-10-08", "2026-10-15"], "maybe"),
-    ).toBe(true);
-    expect(store.listRsvps(group.id).map((r) => [r.date, r.answer])).toEqual([
-      ["2026-10-08", "maybe"],
-      ["2026-10-15", "maybe"],
-    ]);
-  });
-
-  it("drops answers after a new last date, keeps them on a cancelled date, and cascades on delete", () => {
-    const { store, group, cello, weekly } = setup();
-    store.setRsvps(
-      group.id,
-      weekly.id,
-      cello.id,
-      ["2026-10-08", "2026-10-15", "2026-10-22"],
-      "yes",
-    );
-
-    store.setCancelled(group.id, weekly.id, "2026-10-08", true);
-    store.endRehearsal(group.id, weekly.id, "2026-10-15");
-    store.setCancelled(group.id, weekly.id, "2026-10-08", false);
-    expect(store.listRsvps(group.id).map((r) => r.date)).toEqual(["2026-10-08", "2026-10-15"]);
-
-    store.deleteRehearsal(group.id, weekly.id);
+    store.deleteRehearsal(group.id, rehearsal.id);
     expect(store.listRsvps(group.id)).toEqual([]);
   });
 });
@@ -709,13 +664,13 @@ describe("rehearsals belong to a request", () => {
     const own = requestIn(group.id, { store });
     const theirs = requestIn(other.group.id, { store });
 
-    const [first, second] = store.addRehearsals(group.id, own, [thursdays, thursdays], "Hall");
+    const [first, second] = store.addRehearsals(group.id, own, [thursday, thursday], "Hall");
 
     expect([first.requestId, second.requestId]).toEqual([own, own]);
     expect(store.findRehearsal(group.id, first.id)?.requestId).toBe(own);
-    expect(() => store.addRehearsal(group.id, theirs, thursdays, "Hall")).toThrow();
-    expect(() => store.addRehearsal(group.id, "Q".repeat(22), thursdays, "Hall")).toThrow();
-    expect(() => store.addRehearsals(group.id, theirs, [thursdays], "Hall")).toThrow();
+    expect(() => store.addRehearsal(group.id, theirs, thursday, "Hall")).toThrow();
+    expect(() => store.addRehearsal(group.id, "Q".repeat(22), thursday, "Hall")).toThrow();
+    expect(() => store.addRehearsals(group.id, theirs, [thursday], "Hall")).toThrow();
     expect(store.listRehearsals(group.id)).toHaveLength(2);
   });
 });
@@ -740,9 +695,8 @@ describe("removing members and deleting groups", () => {
       windows: [{ startMinute: 1140, endMinute: 1320 }],
     });
     // Linked to the request, so deleting the group meets the request link too.
-    const rehearsal = store.addRehearsal(group.id, request.id, thursdays, "Studio");
-    store.setCancelled(group.id, rehearsal.id, "2026-10-15", true);
-    store.setRsvp(group.id, rehearsal.id, cellist.id, "2026-10-22", "yes");
+    const rehearsal = store.addRehearsal(group.id, request.id, thursday, "Studio");
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "yes");
     store.answerRequest(group.id, request.id, cellist.id, 2);
     store.recordCalendarEvent(cellist.id, {
       rehearsalId: rehearsal.id,
@@ -980,8 +934,7 @@ describe("schema migrations", () => {
         VALUES ('m', 'g', 'Cellist', 'member', 0, 'device', '2026-10-01');
       INSERT INTO availability VALUES ('a', 'm', 'weekly', '2026-10-01', NULL, 1140, 1260, '2026-10-01');
       INSERT INTO availability_skips VALUES ('a', '2026-10-08');
-      INSERT INTO rehearsals VALUES ('r', 'g', 'weekly', '2026-10-01', NULL, 1140, 1260, 'Studio', 'confirmed', '2026-10-01');
-      INSERT INTO rehearsal_cancellations VALUES ('r', '2026-10-15');
+      INSERT INTO rehearsals VALUES ('r', 'g', 'once', '2026-10-08', NULL, 1140, 1260, 'Studio', 'confirmed', '2026-10-01');
       INSERT INTO rsvps VALUES ('r', 'm', '2026-10-08', 'yes', '2026-10-01');
     `);
     expect(() =>
@@ -997,9 +950,13 @@ describe("schema migrations", () => {
       (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
 
     expect(version(db)).toBe(MIGRATIONS.length);
-    for (const table of ["rehearsals", "rehearsal_cancellations", "rsvps"]) {
+    for (const table of ["rehearsals", "rsvps"]) {
       expect(count(table)).toBe(1);
     }
+    // Migration 12 dropped cancellations with weekly rehearsals (plan/phase-29.md).
+    expect(
+      db.prepare("SELECT name FROM sqlite_master WHERE name = 'rehearsal_cancellations'").all(),
+    ).toEqual([]);
     // Migration 11 turned the weekly time into its coming Thursdays (plan/phase-23.md).
     expect(
       db.prepare("SELECT DISTINCT kind, start_minute, end_minute FROM availability").all(),
@@ -1015,7 +972,8 @@ describe("schema migrations", () => {
     ).toThrow();
     expect(() =>
       db.exec(
-        "INSERT INTO rehearsals VALUES ('u', 'g', 'once', '2026-10-02', NULL, 1200, 1200, 'S', 'proposed', 'x')",
+        `INSERT INTO rehearsals (id, group_id, date, start_minute, end_minute, location, status,
+          created_at) VALUES ('u', 'g', '2026-10-02', 1200, 1200, 'S', 'proposed', 'x')`,
       ),
     ).toThrow();
     const indexes = (
@@ -1173,9 +1131,8 @@ describe("schema migrations", () => {
       INSERT INTO rehearsals
         (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
          created_at)
-        VALUES ('${rehearsalId}', 'g', 'weekly', '2026-10-01', NULL, 1140, 1260, 'Hall',
+        VALUES ('${rehearsalId}', 'g', 'once', '2026-10-15', NULL, 1140, 1260, 'Hall',
           'confirmed', '2026-10-01');
-      INSERT INTO rehearsal_cancellations VALUES ('${rehearsalId}', '2026-10-08');
       INSERT INTO rsvps VALUES ('${rehearsalId}', 'm', '2026-10-15', 'yes', '2026-10-01');
     `);
     expect(version(raw)).toBe(8);
@@ -1189,7 +1146,8 @@ describe("schema migrations", () => {
         id: rehearsalId,
         status: "confirmed",
         requestId: null,
-        skips: ["2026-10-08"],
+        date: "2026-10-15",
+        notes: "",
       }),
     ]);
     expect(store.listRsvps("g")).toHaveLength(1);
@@ -1257,13 +1215,14 @@ describe("schema migrations", () => {
       endDate: "2026-10-31",
       windows: [{ startMinute: 1140, endMinute: 1320 }],
     });
-    const rehearsal = store.addRehearsal(group.id, request.id, thursdays, "Studio");
-    store.setCancelled(group.id, rehearsal.id, "2026-10-08", true);
+    const [organizer] = store.listMembers(group.id);
+    const rehearsal = store.addRehearsal(group.id, request.id, thursday, "Studio");
+    store.setRsvp(group.id, rehearsal.id, organizer.id, "yes");
     store.close();
 
     const db = new DatabaseSync(filename);
-    // A typical SQLite column change: rebuild the parent table of
-    // rehearsal_cancellations from its own definition, plus a column.
+    // A typical SQLite column change: rebuild the parent table of rsvps (which
+    // cascades on delete) from its own definition, plus a column.
     const { sql } = db
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rehearsals'")
       .get() as { sql: string };
@@ -1281,8 +1240,8 @@ describe("schema migrations", () => {
     migrate(db, [...MIGRATIONS, rebuild]);
 
     expect(version(db)).toBe(MIGRATIONS.length + 1);
-    expect(db.prepare("SELECT date FROM rehearsal_cancellations").all()).toEqual([
-      { date: "2026-10-08" },
+    expect(db.prepare("SELECT date, answer FROM rsvps").all()).toEqual([
+      { date: "2026-10-08", answer: "yes" },
     ]);
     expect(db.prepare("SELECT note FROM rehearsals").all()).toEqual([{ note: "" }]);
     expect(db.prepare("SELECT name FROM groups WHERE id = ?").get(group.id)).toEqual({

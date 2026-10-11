@@ -4316,3 +4316,15 @@ Phase 28 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 28 ✅ and Phase 29 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-29.md gained "Inherited from Phase 28" (the time chosen on arrival, the preference wording and helper, the summary's place).
 - Lessons: versed-lorikeet filed (local): a CSS rule inserted by anchoring on one line of a selector list split the list; ./bin/lessons validate OK.
+
+## 2026-10-11 16:16 — START
+Phase 29 — Proposing simply: every rehearsal one date, no rehearsal length, one-tap dates and notes
+
+Execution trace: 90590a46325d45d380b2b77c15fcd687
+
+Planned work:
+- No one-time or weekly choice: every rehearsal is one date and time. Weekly rehearsals and everything attached to them are deleted by a forward-only migration, and every place that offered or showed weekly rehearsals (forms, the schedule, cancelling a date, answering every date, calendar exports and feeds) changes to match.
+- No "Rehearsal length": proposing a free time proposes that time.
+- On "When people are free", tapping a date with only one free time ticks that time directly, with no panel.
+- An optional notes field on a proposed rehearsal, shown in the app and in the Google Calendar event and calendar feeds, shaped so materials to prepare (attachments) can join it later.
+- `project/PRODUCT.md` no longer lists recurring rehearsals.

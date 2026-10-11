@@ -89,6 +89,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                     {item.requestName ? ` · ${item.requestName}` : ""} · Say if you can come
                   </span>
                 </Link>
+                {/* Outside the link, so long notes don't become its name. */}
+                {item.notes ? <span className="notes">{item.notes}</span> : null}
               </li>
             ))}
             {waiting.map((item) => (

@@ -49,19 +49,17 @@ async function writingCellist(options: { grant?: boolean } = {}) {
   }
   store.setCalendarSync(group.id, cellist.id, true);
   const firstDate = addDays(todayInZone(ZONE, new Date()), 7);
-  const rehearsal = store.addRehearsal(
+  const rehearsals = store.addRehearsals(
     group.id,
     requestIn(group.id),
-    {
-      kind: "weekly",
-      startDate: firstDate,
-      endDate: addDays(firstDate, 14),
+    [0, 7, 14].map((days) => ({
+      date: addDays(firstDate, days),
       startMinute: 19 * 60,
       endMinute: 21 * 60,
-    },
+    })),
     "Studio B",
   );
-  store.confirmRehearsal(group.id, rehearsal.id);
+  for (const rehearsal of rehearsals) store.confirmRehearsal(group.id, rehearsal.id);
   const target = { memberId: cellist.id, groupId: group.id, accountId: account.id };
   if (options.grant !== false) await syncMember(target);
   const queued = eventId(`removed-member-${people}`, "old-rehearsal", firstDate);
@@ -246,7 +244,7 @@ describe("Disconnect Google", () => {
     const rehearsal = store.addRehearsal(
       group.id,
       requestIn(group.id),
-      { kind: "once", startDate: firstDate, endDate: null, startMinute: 600, endMinute: 660 },
+      { date: firstDate, startMinute: 600, endMinute: 660 },
       "Hall",
     );
     store.confirmRehearsal(group.id, rehearsal.id);

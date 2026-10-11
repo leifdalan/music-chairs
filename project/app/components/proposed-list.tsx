@@ -6,6 +6,8 @@ export type ProposedItem = {
   status: "proposed" | "confirmed";
   summary: string;
   location: string;
+  /** The organizer's notes (plan/phase-29.md), possibly empty. */
+  notes: string;
   answered: number;
   memberCount: number;
 };
@@ -37,6 +39,7 @@ export function ProposedList({
               ? "Confirmed"
               : `${item.answered} of ${item.memberCount} answered`}
           </span>
+          {item.notes ? <span className="notes">{item.notes}</span> : null}
           <Link to={`${scheduleHref}#rehearsal-${item.id}`} className="proposed-link">
             Answer on the schedule
           </Link>

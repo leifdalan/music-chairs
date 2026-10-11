@@ -120,19 +120,20 @@ describe("the payoff's words", () => {
   });
 });
 
-/** Viola (organizer), Cellist and Pianist; a weekly Thursday rehearsal confirmed, 15 Oct cancelled. */
+/** Viola (organizer), Cellist and Pianist; rehearsals on Thu 8 and Thu 15 Oct, both confirmed. */
 async function band(name = "Payoff Band", zone = "Europe/London") {
   const store = getStore();
   const { group, organizer } = store.createGroup(name, "Viola", zone);
   const cellist = store.addMember(group.id, "Cellist", "member");
   const pianist = store.addMember(group.id, "Pianist", "member");
-  const rehearsal = store.addRehearsal(
+  const [rehearsal, later] = store.addRehearsals(
     group.id,
     requestIn(group.id, { store }),
-    { kind: "weekly", startDate: "2026-10-08", endDate: null, startMinute: 1140, endMinute: 1260 },
+    ["2026-10-08", "2026-10-15"].map((date) => ({ date, startMinute: 1140, endMinute: 1260 })),
     "Hall",
   );
   store.confirmRehearsal(group.id, rehearsal.id);
+  store.confirmRehearsal(group.id, later.id);
   return {
     store,
     group,
@@ -140,6 +141,7 @@ async function band(name = "Payoff Band", zone = "Europe/London") {
     cellist,
     pianist,
     rehearsal,
+    later,
     organizerCookie: await deviceCookie(group.id, organizer.deviceToken),
     cellistCookie: await deviceCookie(group.id, cellist.deviceToken),
   };
@@ -170,8 +172,8 @@ function home(cookie?: string) {
 describe("the payoff on the schedule", () => {
   it("leads a confirmed card with the next date and who is coming", async () => {
     const b = await band();
-    b.store.setRsvp(b.group.id, b.rehearsal.id, b.cellist.id, "2026-10-08", "yes");
-    b.store.setRsvp(b.group.id, b.rehearsal.id, b.pianist.id, "2026-10-08", "no");
+    b.store.setRsvp(b.group.id, b.rehearsal.id, b.cellist.id, "yes");
+    b.store.setRsvp(b.group.id, b.rehearsal.id, b.pianist.id, "no");
 
     const asOrganizer = await schedule(b, b.organizerCookie);
     const asCellist = await schedule(b, b.cellistCookie);
@@ -197,7 +199,7 @@ describe("the payoff on the schedule", () => {
     const proposed = b.store.addRehearsal(
       b.group.id,
       requestIn(b.group.id, { store: b.store }),
-      { kind: "once", startDate: "2026-10-09", endDate: null, startMinute: 1140, endMinute: 1260 },
+      { date: "2026-10-09", startMinute: 1140, endMinute: 1260 },
       "Hall",
     );
     const html = await schedule(b, b.organizerCookie);
@@ -208,11 +210,11 @@ describe("the payoff on the schedule", () => {
 });
 
 describe("the payoff on the home page", () => {
-  it("shows each group's next confirmed date, skipping cancelled ones, linked to the schedule", async () => {
+  it("shows each group's next confirmed rehearsal, skipping deleted ones, linked to the schedule", async () => {
     const b = await band("Home Band");
-    b.store.setCancelled(b.group.id, b.rehearsal.id, "2026-10-08", true);
-    b.store.setRsvp(b.group.id, b.rehearsal.id, b.cellist.id, "2026-10-15", "maybe");
-    b.store.setRsvp(b.group.id, b.rehearsal.id, b.pianist.id, "2026-10-15", "yes");
+    b.store.deleteRehearsal(b.group.id, b.rehearsal.id);
+    b.store.setRsvp(b.group.id, b.later.id, b.cellist.id, "maybe");
+    b.store.setRsvp(b.group.id, b.later.id, b.pianist.id, "yes");
 
     const html = await home(b.cellistCookie);
     const coming = html.slice(html.indexOf('id="coming-heading"'));
@@ -224,7 +226,7 @@ describe("the payoff on the home page", () => {
     // A member who sees counts only gets a count, not the name.
     expect(coming).toContain("1 coming");
     expect(coming).not.toContain("Pianist");
-    expect(coming).toContain(`href="${groupPath(b.group)}/schedule#rehearsal-${b.rehearsal.id}"`);
+    expect(coming).toContain(`href="${groupPath(b.group)}/schedule#rehearsal-${b.later.id}"`);
     expect(html).toContain("<h1>Your rehearsals</h1>");
   });
 

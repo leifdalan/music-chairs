@@ -156,11 +156,9 @@ describe("the organizer's request page", () => {
 });
 
 describe("the styles", () => {
-  it("keep the time-kind and preference choices 44px tall, with the summary's own rules apart", () => {
+  it("keep the preference choices 44px tall, with the summary's own rules apart", () => {
     const css = readFileSync(join(__dirname, "../app/app.css"), "utf8");
-    expect(css).toMatch(
-      /\.kind label,\s*\.limit label \{\s*@apply flex min-h-11 items-center gap-2 font-normal;/,
-    );
+    expect(css).toMatch(/\.limit label \{\s*@apply flex min-h-11 items-center gap-2 font-normal;/);
     expect(css).toMatch(/\n {2}\.preferred \.hint \{/);
   });
 });

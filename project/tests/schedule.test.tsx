@@ -101,9 +101,7 @@ function statusOf(value: unknown): number | undefined {
 
 const nextThursday = {
   intent: "propose",
-  kind: "once",
-  startDate: "2026-10-08",
-  endDate: "",
+  date: "2026-10-08",
   startTime: "19:30",
   endTime: "21:30",
   location: "Studio B",
@@ -257,9 +255,9 @@ describe("schedule route", () => {
     expect(page.rehearsals).toEqual([
       {
         id: rehearsal.id,
-        kind: "once",
         status: "proposed",
         location: "Studio B",
+        notes: "",
         startMinute: 1170,
         endMinute: 1290,
         requestId: rehearsal.requestId,
@@ -267,9 +265,7 @@ describe("schedule route", () => {
         summary: "Thu 8 Oct, 7:30–9:30 PM",
         answered: 0,
         memberCount: 3,
-        dates: [
-          { date: "2026-10-08", mine: null, counts: { yes: 0, no: 0, maybe: 0 }, names: null },
-        ],
+        date: { date: "2026-10-08", mine: null, counts: { yes: 0, no: 0, maybe: 0 }, names: null },
         organizer: null,
       },
     ]);
@@ -282,7 +278,7 @@ describe("schedule route", () => {
   it("checks a one-off rehearsal beyond the overlap window", async () => {
     const { group, organizerCookie } = await band();
 
-    await propose(group.id, organizerCookie, { ...nextThursday, startDate: "2026-12-31" });
+    await propose(group.id, organizerCookie, { ...nextThursday, date: "2026-12-31" });
     const page = await load(group.id, organizerCookie);
 
     expect(page.rehearsals[0].organizer?.missing).toEqual([
@@ -290,58 +286,12 @@ describe("schedule route", () => {
     ]);
   });
 
-  it("cancels a date of a weekly rehearsal, ends it, and labels unchecked later dates", async () => {
-    const { group, organizerCookie } = await band();
-    await propose(group.id, organizerCookie, {
-      ...nextThursday,
-      kind: "weekly",
-      startDate: "2026-10-08",
-    });
+  it("deletes a rehearsal and its answers", async () => {
+    const { group, organizerCookie, cellist } = await band();
+    await propose(group.id, organizerCookie, nextThursday);
     const [rehearsal] = getStore().listRehearsals(group.id);
-
-    const open = await load(group.id, organizerCookie);
-    await post(group.id, organizerCookie, {
-      intent: "cancel-date",
-      confirmed: "1",
-      rehearsalId: rehearsal.id,
-      date: "2026-10-15",
-    });
-    const wrongDay = await post(group.id, organizerCookie, {
-      intent: "cancel-date",
-      confirmed: "1",
-      rehearsalId: rehearsal.id,
-      date: "2026-10-16",
-    });
-    const ended = await post(group.id, organizerCookie, {
-      intent: "end",
-      confirmed: "1",
-      rehearsalId: rehearsal.id,
-      endDate: "2026-10-29",
-    });
-    const page = await load(group.id, organizerCookie);
-
-    expect(open.rehearsals[0].organizer?.uncheckedAfter).toBe("2026-11-26");
-    expect(statusOf(wrongDay)).toBe(400);
-    expect(statusOf(ended)).toBe(302);
-    expect(page.rehearsals[0].dates.map((d) => d.date)).toEqual([
-      "2026-10-08",
-      "2026-10-22",
-      "2026-10-29",
-    ]);
-    expect(page.rehearsals[0].organizer?.uncheckedAfter).toBeNull();
-  });
-
-  it("deletes a rehearsal and its cancellations", async () => {
-    const { group, organizerCookie } = await band();
-    await propose(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
-    const [rehearsal] = getStore().listRehearsals(group.id);
-    await post(group.id, organizerCookie, {
-      intent: "cancel-date",
-      confirmed: "1",
-      rehearsalId: rehearsal.id,
-      date: "2026-10-15",
-    });
-    const rows = [count("rehearsals"), count("rehearsal_cancellations")];
+    getStore().setRsvp(group.id, rehearsal.id, cellist.id, "yes");
+    const rows = [count("rehearsals"), count("rsvps")];
 
     await post(group.id, organizerCookie, {
       intent: "delete",
@@ -349,14 +299,11 @@ describe("schedule route", () => {
       rehearsalId: rehearsal.id,
     });
 
-    expect([count("rehearsals"), count("rehearsal_cancellations")]).toEqual([
-      rows[0] - 1,
-      rows[1] - 1,
-    ]);
+    expect([count("rehearsals"), count("rsvps")]).toEqual([rows[0] - 1, rows[1] - 1]);
   });
 
   it.each([
-    [{ startDate: "2026-10-01" }, { startDate: "Pick today or a later date." }],
+    [{ date: "2026-10-01" }, { date: "Pick today or a later date." }],
     [{ endTime: "19:00" }, { endTime: "End time must be after the start time." }],
     [{ location: "x".repeat(121) }, { location: "Location must be at most 120 characters." }],
   ])("refuses a proposal with %j and stores nothing", async (change, errors) => {
@@ -370,25 +317,17 @@ describe("schedule route", () => {
     expect(count("rehearsals")).toBe(before);
   });
 
-  it("lets only organizers propose, confirm, cancel, end or delete", async () => {
+  it("lets only organizers propose, confirm, delete or write notes", async () => {
     const { group, organizerCookie, cellistCookie } = await band();
-    await propose(group.id, organizerCookie, { ...nextThursday, kind: "weekly" });
+    await propose(group.id, organizerCookie, { ...nextThursday, notes: "Bring parts" });
     const [rehearsal] = getStore().listRehearsals(group.id);
-    await post(group.id, organizerCookie, {
-      intent: "cancel-date",
-      confirmed: "1",
-      rehearsalId: rehearsal.id,
-      date: "2026-10-15",
-    });
     const before = count("rehearsals");
 
     const forms: Record<string, string>[] = [
       nextThursday,
       { intent: "confirm", rehearsalId: rehearsal.id },
       { intent: "delete", confirmed: "1", rehearsalId: rehearsal.id },
-      { intent: "cancel-date", confirmed: "1", rehearsalId: rehearsal.id, date: "2026-10-22" },
-      { intent: "restore-date", rehearsalId: rehearsal.id, date: "2026-10-15" },
-      { intent: "end", confirmed: "1", rehearsalId: rehearsal.id, endDate: "2026-10-29" },
+      { intent: "notes", rehearsalId: rehearsal.id, notes: "Changed" },
     ];
     for (const form of forms) {
       expect(statusOf(await thrownBy(post(group.id, cellistCookie, form)))).toBe(403);
@@ -396,14 +335,13 @@ describe("schedule route", () => {
     expect(count("rehearsals")).toBe(before);
     expect(getStore().findRehearsal(group.id, rehearsal.id)).toMatchObject({
       status: "proposed",
-      endDate: null,
-      skips: ["2026-10-15"],
+      notes: "Bring parts",
     });
   });
 
   it("warns about a far-off one-off date", async () => {
     const { group, organizerCookie } = await band();
-    await propose(group.id, organizerCookie, { ...nextThursday, startDate: "2062-10-05" });
+    await propose(group.id, organizerCookie, { ...nextThursday, date: "2062-10-05" });
 
     const page = await load(group.id, organizerCookie);
 
@@ -480,21 +418,15 @@ describe("schedule route", () => {
   describe("times that worked", () => {
     function past(
       groupId: string,
-      startDate: string,
+      date: string,
       location: string,
-      options: { kind?: "once" | "weekly"; confirm?: boolean; start?: number } = {},
+      options: { confirm?: boolean; start?: number } = {},
     ) {
       const store = getStore();
       const rehearsal = store.addRehearsal(
         groupId,
         requestIn(groupId),
-        {
-          kind: options.kind ?? "once",
-          startDate,
-          endDate: null,
-          startMinute: options.start ?? 19 * 60 + 30,
-          endMinute: 21 * 60 + 30,
-        },
+        { date, startMinute: options.start ?? 19 * 60 + 30, endMinute: 21 * 60 + 30 },
         location,
       );
       if (options.confirm !== false) store.confirmRehearsal(groupId, rehearsal.id);
@@ -508,7 +440,7 @@ describe("schedule route", () => {
       past(group.id, "2026-09-28", "Hall"); // a Monday
       past(group.id, "2026-09-29", "Hall", { confirm: false }); // only proposed
       past(group.id, "2026-10-02", "Today"); // not yet past
-      past(group.id, "2026-09-03", "Weekly", { kind: "weekly", start: 18 * 60 }); // last met 1 Oct
+      past(group.id, "2026-10-01", "Thursday", { start: 18 * 60 }); // the latest
 
       const page = await load(group.id, organizerCookie);
 
@@ -518,7 +450,7 @@ describe("schedule route", () => {
           next: "2026-10-08",
           startMinute: 1080,
           endMinute: 1290,
-          location: "Weekly",
+          location: "Thursday",
         },
         {
           last: "2026-09-28",
@@ -551,13 +483,9 @@ describe("schedule route", () => {
   });
 
   describe("RSVP", () => {
-    async function weeklyRehearsal() {
+    async function thursday() {
       const setup = await band();
-      await propose(setup.group.id, setup.organizerCookie, {
-        ...nextThursday,
-        kind: "weekly",
-        startDate: "2026-10-08",
-      });
+      await propose(setup.group.id, setup.organizerCookie, nextThursday);
       const [rehearsal] = getStore().listRehearsals(setup.group.id);
       return { ...setup, rehearsal };
     }
@@ -567,70 +495,53 @@ describe("schedule route", () => {
       cookie: string | undefined,
       rehearsalId: string,
       value: string,
-      date?: string,
     ) {
-      return post(groupId, cookie, {
-        intent: date ? "rsvp" : "rsvp-all",
-        rehearsalId,
-        answer: value,
-        ...(date ? { date } : {}),
-      });
+      return post(groupId, cookie, { intent: "rsvp", rehearsalId, answer: value });
     }
 
-    it("lets a member answer, change and clear their answer for one date", async () => {
-      const { group, rehearsal, cellistCookie } = await weeklyRehearsal();
+    it("lets a member answer, change and clear their answer", async () => {
+      const { group, rehearsal, cellistCookie } = await thursday();
 
-      const yes = await answer(group.id, cellistCookie, rehearsal.id, "yes", "2026-10-15");
+      const yes = await answer(group.id, cellistCookie, rehearsal.id, "yes");
       const afterYes = await load(group.id, cellistCookie);
-      await answer(group.id, cellistCookie, rehearsal.id, "no", "2026-10-15");
+      await answer(group.id, cellistCookie, rehearsal.id, "no");
       const afterNo = await load(group.id, cellistCookie);
-      await answer(group.id, cellistCookie, rehearsal.id, "clear", "2026-10-15");
+      await answer(group.id, cellistCookie, rehearsal.id, "clear");
       const cleared = await load(group.id, cellistCookie);
 
-      const on15 = (data: ScheduleData) =>
-        data.rehearsals[0].dates.find((d) => d.date === "2026-10-15");
+      const mine = (data: ScheduleData) => data.rehearsals[0].date;
       expect(statusOf(yes)).toBe(302);
-      expect(on15(afterYes)).toMatchObject({ mine: "yes", counts: { yes: 1, no: 0, maybe: 0 } });
-      expect(on15(afterNo)).toMatchObject({ mine: "no", counts: { yes: 0, no: 1, maybe: 0 } });
-      expect(on15(cleared)).toMatchObject({ mine: null, counts: { yes: 0, no: 0, maybe: 0 } });
-    });
-
-    it("answers every offered date of a weekly rehearsal at once", async () => {
-      const { group, rehearsal, cellistCookie } = await weeklyRehearsal();
-
-      const result = await answer(group.id, cellistCookie, rehearsal.id, "maybe");
-      const page = await load(group.id, cellistCookie);
-
-      expect(statusOf(result)).toBe(302);
-      expect(page.rehearsals[0].dates.map((d) => d.mine)).toEqual(Array(8).fill("maybe"));
-      expect(page.rehearsals[0].dates.at(-1)?.date).toBe("2026-11-26");
+      expect(mine(afterYes)).toMatchObject({ mine: "yes", counts: { yes: 1, no: 0, maybe: 0 } });
+      expect(mine(afterNo)).toMatchObject({ mine: "no", counts: { yes: 0, no: 1, maybe: 0 } });
+      expect(mine(cleared)).toMatchObject({ mine: null, counts: { yes: 0, no: 0, maybe: 0 } });
+      expect(getStore().listRsvps(group.id)).toEqual([]);
     });
 
     it("keeps answers given on a proposed rehearsal after it is confirmed", async () => {
-      const { group, rehearsal, organizerCookie, cellistCookie } = await weeklyRehearsal();
-      await answer(group.id, cellistCookie, rehearsal.id, "yes", "2026-10-08");
+      const { group, rehearsal, organizerCookie, cellistCookie } = await thursday();
+      await answer(group.id, cellistCookie, rehearsal.id, "yes");
 
       await post(group.id, organizerCookie, { intent: "confirm", rehearsalId: rehearsal.id });
       const page = await load(group.id, cellistCookie);
 
       expect(page.rehearsals[0]).toMatchObject({ status: "confirmed" });
-      expect(page.rehearsals[0].dates[0]).toMatchObject({ date: "2026-10-08", mine: "yes" });
+      expect(page.rehearsals[0].date).toMatchObject({ date: "2026-10-08", mine: "yes" });
     });
 
     it("shows members totals only, names when the group shows them, never who hasn't answered", async () => {
-      const { group, rehearsal, organizerCookie, cellistCookie } = await weeklyRehearsal();
-      await answer(group.id, organizerCookie, rehearsal.id, "yes", "2026-10-08");
+      const { group, rehearsal, organizerCookie, cellistCookie } = await thursday();
+      await answer(group.id, organizerCookie, rehearsal.id, "yes");
 
       const countsOnly = await load(group.id, cellistCookie);
       getStore().setShowNames(group.id, true);
       const withNames = await load(group.id, cellistCookie);
 
-      expect(countsOnly.rehearsals[0].dates[0]).toMatchObject({
+      expect(countsOnly.rehearsals[0].date).toMatchObject({
         counts: { yes: 1, no: 0, maybe: 0 },
         names: null,
       });
       expect(JSON.stringify(countsOnly)).not.toContain("Viola");
-      expect(withNames.rehearsals[0].dates[0].names).toEqual({
+      expect(withNames.rehearsals[0].date?.names).toEqual({
         yes: ["Viola"],
         no: [],
         maybe: [],
@@ -639,12 +550,12 @@ describe("schedule route", () => {
     });
 
     it("shows organizers everyone's answers and who hasn't answered", async () => {
-      const { group, rehearsal, organizerCookie, cellistCookie } = await weeklyRehearsal();
-      await answer(group.id, cellistCookie, rehearsal.id, "no", "2026-10-08");
+      const { group, rehearsal, organizerCookie, cellistCookie } = await thursday();
+      await answer(group.id, cellistCookie, rehearsal.id, "no");
 
       const page = await load(group.id, organizerCookie);
 
-      expect(page.rehearsals[0].dates[0].names).toEqual({
+      expect(page.rehearsals[0].date?.names).toEqual({
         yes: [],
         no: ["Cellist"],
         maybe: [],
@@ -654,12 +565,11 @@ describe("schedule route", () => {
     });
 
     it("records the viewer's answer even if another member's id is posted", async () => {
-      const { group, rehearsal, pianist, cellist, cellistCookie } = await weeklyRehearsal();
+      const { group, rehearsal, pianist, cellist, cellistCookie } = await thursday();
 
       await post(group.id, cellistCookie, {
         intent: "rsvp",
         rehearsalId: rehearsal.id,
-        date: "2026-10-08",
         answer: "yes",
         memberId: pianist.id,
       });
@@ -671,75 +581,70 @@ describe("schedule route", () => {
       ).toEqual([cellist.id]);
     });
 
-    it("refuses past, cancelled, beyond-window and one-off answer-all requests and stores nothing", async () => {
-      const { group, rehearsal, organizerCookie, cellistCookie } = await weeklyRehearsal();
-      await post(group.id, organizerCookie, {
-        intent: "cancel-date",
-        confirmed: "1",
-        rehearsalId: rehearsal.id,
-        date: "2026-10-22",
-      });
-      await propose(group.id, organizerCookie, nextThursday);
-      const once = getStore()
-        .listRehearsals(group.id)
-        .find((item) => item.kind === "once");
+    it("refuses an unknown answer and the removed answer-every-date intent, and stores nothing", async () => {
+      const { group, rehearsal, cellistCookie, organizerCookie } = await thursday();
       const before = count("rsvps");
 
-      const results = [
-        await answer(group.id, cellistCookie, rehearsal.id, "yes", "2026-10-01"),
-        await answer(group.id, cellistCookie, rehearsal.id, "yes", "2026-10-22"),
-        await answer(group.id, cellistCookie, rehearsal.id, "yes", "2026-12-03"),
-        await answer(group.id, cellistCookie, rehearsal.id, "perhaps", "2026-10-08"),
-        await answer(group.id, cellistCookie, once!.id, "yes"),
-      ];
+      const unknown = await answer(group.id, cellistCookie, rehearsal.id, "perhaps");
+      const all = await thrownBy(
+        post(group.id, cellistCookie, {
+          intent: "rsvp-all",
+          rehearsalId: rehearsal.id,
+          answer: "yes",
+        }),
+      );
 
-      expect(results.map(statusOf)).toEqual([400, 400, 400, 400, 400]);
+      expect(statusOf(unknown)).toBe(400);
+      // Members can't use organizer intents, and answer-all is gone (plan/phase-29.md).
+      expect(statusOf(all)).toBe(403);
+      const asOrganizer = await post(group.id, organizerCookie, {
+        intent: "rsvp-all",
+        rehearsalId: rehearsal.id,
+        answer: "yes",
+      });
+      expect(statusOf(asOrganizer)).toBe(400);
       expect(count("rsvps")).toBe(before);
     });
 
-    it("refuses a real date that has already passed", async () => {
+    it("refuses a rehearsal whose date has already passed", async () => {
       const { group, cellistCookie } = await band();
-      // First date 2026-09-24, before the pinned today: a real, uncancelled occurrence.
       const past = getStore().addRehearsal(
         group.id,
         requestIn(group.id),
-        { ...thursdays, startDate: "2026-09-24", startMinute: 1170, endMinute: 1290 },
+        { date: "2026-09-24", startMinute: 1170, endMinute: 1290 },
         "",
       );
       const before = count("rsvps");
 
-      const result = await answer(group.id, cellistCookie, past.id, "yes", "2026-09-24");
+      const result = await answer(group.id, cellistCookie, past.id, "yes");
 
       expect(statusOf(result)).toBe(400);
       expect(count("rsvps")).toBe(before);
     });
 
     it("sends visitors to the group page without storing an answer", async () => {
-      const { group, rehearsal } = await weeklyRehearsal();
+      const { group, rehearsal } = await thursday();
       const before = count("rsvps");
 
-      const visitor = await thrownBy(
-        answer(group.id, undefined, rehearsal.id, "yes", "2026-10-08"),
-      );
+      const visitor = await thrownBy(answer(group.id, undefined, rehearsal.id, "yes"));
 
       expect((visitor as Response).headers.get("Location")).toBe(groupPath(group));
       expect(count("rsvps")).toBe(before);
     });
 
-    it("renders answer buttons with the current answer pressed", async () => {
-      const { group, rehearsal, cellistCookie } = await weeklyRehearsal();
-      await answer(group.id, cellistCookie, rehearsal.id, "maybe", "2026-10-08");
+    it("renders answer buttons with the current answer pressed, one date per card", async () => {
+      const { group, rehearsal, cellistCookie } = await thursday();
+      await answer(group.id, cellistCookie, rehearsal.id, "maybe");
 
       const html = render(await load(group.id, cellistCookie));
 
       expect(html).toMatch(
-        /aria-pressed="true"[^>]*aria-label="Maybe for Thu 8 Oct \(Every Thursday from 8 Oct, 7:30–9:30 PM\)"/,
+        /aria-pressed="true"[^>]*aria-label="Maybe for Thu 8 Oct, 7:30–9:30 PM"/,
       );
-      // Answer-all buttons are actions, not toggles.
-      expect(html).toMatch(/aria-label="Yes for every date of [^"]*"/);
-      expect(html).not.toMatch(/aria-pressed="false"[^>]*aria-label="Yes for every date/);
-      expect(html).toContain("Answer every date until Thu 26 Nov");
-      expect(html).toContain("More dates (4)");
+      expect(html).toMatch(/aria-pressed="false"[^>]*aria-label="Yes for Thu 8 Oct/);
+      expect(html).not.toContain("Answer every date");
+      expect(html).not.toContain("More dates");
+      expect(html).not.toContain('name="date"');
     });
   });
 });
@@ -822,52 +727,55 @@ describe("rehearsals in members' calendars", () => {
         CALENDAR_SCOPES.write,
       ]);
       await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
-      await propose(group.id, organizerCookie, {
-        ...nextThursday,
-        kind: "weekly",
-        endDate: "2026-10-29",
-      });
-      const [weekly] = getStore().listRehearsals(group.id);
+      await propose(group.id, organizerCookie, nextThursday);
+      await propose(group.id, organizerCookie, { ...nextThursday, date: "2026-10-15" });
+      const [first, second] = getStore().listRehearsals(group.id);
       const dates = () =>
         getStore()
           .listCalendarEvents(cellist.id)
-          .map((event) => event.date);
-      const step = async (cookie: string, form: Record<string, string>) => {
-        await post(group.id, cookie, { rehearsalId: weekly.id, ...form });
+          .map((event) => event.date)
+          .sort();
+      const step = async (cookie: string, form: Record<string, string>, id = first.id) => {
+        await post(group.id, cookie, { rehearsalId: id, ...form });
         await whenSynced();
         return dates();
       };
 
-      expect(await step(organizerCookie, { intent: "confirm" })).toEqual([
+      expect(await step(organizerCookie, { intent: "confirm" })).toEqual(["2026-10-08"]);
+      expect(await step(organizerCookie, { intent: "confirm" }, second.id)).toEqual([
         "2026-10-08",
         "2026-10-15",
-        "2026-10-22",
-        "2026-10-29",
       ]);
-      expect(
-        await step(organizerCookie, { intent: "cancel-date", confirmed: "1", date: "2026-10-15" }),
-      ).toEqual(["2026-10-08", "2026-10-22", "2026-10-29"]);
-      expect(await step(organizerCookie, { intent: "restore-date", date: "2026-10-15" })).toEqual([
+      expect(await step(cellistSignedIn, { intent: "rsvp", answer: "no" })).toEqual(["2026-10-15"]);
+      expect(await step(cellistSignedIn, { intent: "rsvp", answer: "yes" })).toEqual([
         "2026-10-08",
         "2026-10-15",
-        "2026-10-22",
-        "2026-10-29",
       ]);
-      expect(
-        await step(organizerCookie, { intent: "end", confirmed: "1", endDate: "2026-10-22" }),
-      ).toEqual(["2026-10-08", "2026-10-15", "2026-10-22"]);
-      expect(
-        await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "no" }),
-      ).toEqual(["2026-10-15", "2026-10-22"]);
-      expect(
-        await step(cellistSignedIn, { intent: "rsvp", date: "2026-10-08", answer: "yes" }),
-      ).toEqual(["2026-10-08", "2026-10-15", "2026-10-22"]);
+      // New notes on a confirmed rehearsal are written again to the calendar.
+      const withNotes = () =>
+        google
+          .calendarCalls()
+          .filter((call) => call.method === "POST" || call.method === "PUT")
+          .filter((call) =>
+            String((call.body as { description?: string }).description).startsWith(
+              "Bring the Brahms parts\n\n",
+            ),
+          ).length;
+      expect(withNotes()).toBe(0);
+      await step(organizerCookie, { intent: "notes", notes: "Bring the Brahms parts" });
+      expect(withNotes()).toBe(1);
+      // Saving the same notes again writes nothing new.
+      const writes = google.calendarCalls().length;
+      await step(organizerCookie, { intent: "notes", notes: "Bring the Brahms parts" });
+      expect(google.calendarCalls()).toHaveLength(writes);
       expect(
         await step(cellistSignedIn, { intent: "set-calendar", value: "off", confirmed: "1" }),
       ).toEqual([]);
-      expect(await step(cellistSignedIn, { intent: "set-calendar", value: "on" })).toHaveLength(3);
-      expect(await step(organizerCookie, { intent: "delete", confirmed: "1" })).toEqual([]);
-      expect(google.calendarCalls().filter((call) => call.method === "DELETE")).toHaveLength(9);
+      expect(await step(cellistSignedIn, { intent: "set-calendar", value: "on" })).toHaveLength(2);
+      expect(await step(organizerCookie, { intent: "delete", confirmed: "1" })).toEqual([
+        "2026-10-15",
+      ]);
+      expect(google.calendarCalls().filter((call) => call.method === "DELETE")).toHaveLength(4);
     } finally {
       cleanUp();
     }

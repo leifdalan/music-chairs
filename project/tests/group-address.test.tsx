@@ -238,7 +238,7 @@ describe("links", () => {
     store.addRehearsal(
       group.id,
       requestId,
-      { kind: "once", startDate: "2099-01-08", endDate: null, startMinute: 1140, endMinute: 1260 },
+      { date: "2099-01-08", startMinute: 1140, endMinute: 1260 },
       "Hall",
     );
     const path = groupPath(group);

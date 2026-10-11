@@ -19,13 +19,35 @@ informs: ["30"]
 
 ## Decisions (operator, 2026-10-11)
 
-Weekly rehearsals already saved are deleted rather than split into dates ("Delete them"). The brief records the ruling that there are no recurring rehearsals. To be tightened at phase start: exactly what a proposed time covers once rehearsal length is gone (the whole free time or the request's time of day), and where notes show and who can edit them.
+Weekly rehearsals already saved are deleted rather than split into dates ("Delete them"). The brief records the ruling that there are no recurring rehearsals. Rulings at phase start (operator, 2026-10-11), each the recommended option:
+
+- **What a ticked free time proposes:** the whole free time (for example 7–9:30 PM when that is when everyone ticked is free within the request's 7–10 PM). "Propose a different time" still takes any start and end.
+- **Notes:** organizers write them when proposing (one note for everything ticked, like the location) and can edit them later on the schedule; members read them in the app and in their calendars.
+- **Cancelling:** with every rehearsal a single date, "Cancel a date" goes away; cancelling a rehearsal is Delete, which removes it and the events music-chairs added to members' calendars. There is no separate cancelled state.
 
 ## Acceptance
 
 - `./bin/test project/tests` covers the migration, proposing without a length, the one-tap date and notes in the app and in calendar output.
 - `./bin/check all` passes and CI is green on the pull request; merging deploys.
-- User Demo: to be tightened at phase start.
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, as an organizer of a group with an open availability request that some members have answered, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Open the availability request and look under "When people are free".
+    2. Tap a date that has one free time; then tap a date with several and tick one.
+    3. Type a location and a note (for example "Bring the Brahms parts"), then "Propose selected".
+    4. Open the schedule, edit the note on one proposed rehearsal, and confirm it.
+    5. With Google Calendar writing on (or the calendar feed added), open the confirmed rehearsal's event.
+    6. Open "Propose a different time".
+  - **What to look for.**
+    - There is no "Rehearsal length" and no one-time/weekly choice anywhere.
+    - Tapping a date with one free time ticks it without opening a panel; a date with several opens the panel as before.
+    - Each proposed rehearsal covers the whole free time, on one date.
+    - The note shows on the schedule and the request page, and in the calendar event's description; the edit replaces it.
+    - Earlier weekly rehearsals are gone, and so are their events in members' Google Calendars.
+  - **Variations to explore.** A member's view of the note; deleting a confirmed rehearsal; light and dark mode.
 
 ## Brief refs
 

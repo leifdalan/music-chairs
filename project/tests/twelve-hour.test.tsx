@@ -72,7 +72,7 @@ describe("12-hour times on every page (plan/phase-22.md)", () => {
     store.addRehearsal(
       group.id,
       request.id,
-      { kind: "once", startDate: "2026-10-06", endDate: null, startMinute: 1110, endMinute: 1260 },
+      { date: "2026-10-06", startMinute: 1110, endMinute: 1260 },
       "Hall",
     );
     const address = addressOf(group);

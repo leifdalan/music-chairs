@@ -2,13 +2,15 @@
 // by how many people are free together.
 
 import { freeDuring, type Cells } from "./overlap";
-import { PROPOSE_LENGTHS } from "./propose";
 import type { TimeWindow } from "./requests";
 
 /** Shades above "nobody free". */
 export const HEAT_LEVELS = 4;
 
 const QUARTER_HOUR = 15;
+
+/** A date counts people free together for at least this long (an hour). */
+export const HEAT_MINUTES = 60;
 
 /** 0 when nobody is free, otherwise 1 to `HEAT_LEVELS` by the share of members free. */
 export function heatLevel(free: number, total: number): number {
@@ -17,13 +19,13 @@ export function heatLevel(free: number, total: number): number {
 }
 
 /**
- * The most people free together on `date` for a whole stretch as long as the
- * shortest rehearsal that can be proposed, starting on any quarter hour inside
+ * The most people free together on `date` for a whole `HEAT_MINUTES`,
+ * starting on any quarter hour inside
  * the request's times of day. Someone else's short slot in the middle doesn't
  * split it, and a sliver shorter than that never counts.
  */
 export function dayHeat(cells: Cells, date: string, windows: TimeWindow[]): number {
-  const length = PROPOSE_LENGTHS[0];
+  const length = HEAT_MINUTES;
   let best = 0;
   for (const window of windows) {
     for (

@@ -19,7 +19,7 @@
  * - Native elements keep working without JavaScript (forms, <details>, <dialog>,
  *   checkboxes); they are styled here, once, rather than wrapped in components.
  * - Class names that tests and the smoke assert (hint, rehearsal, slot-summary,
- *   occurrences, chip, time-bar, …) are styled through their selectors here.
+ *   chip, time-bar, …) are styled through their selectors here.
  */
 
 @import "tailwindcss";
@@ -334,11 +334,6 @@
     display: contents;
   }
 
-  .end-form,
-  .end-form.confirm-form {
-    @apply mt-3 grid gap-2;
-  }
-
   /* Feedback: the toast and the spinner (the saving/saved states are utilities in SubmitButton). */
   .spinner {
     @apply size-4 rounded-full border-2 border-current border-r-transparent;
@@ -370,11 +365,9 @@
 
   /* Lists of rows. */
   .members,
-  .weeks,
   .days,
   .stretches,
   .rehearsals,
-  .rsvp-dates,
   .requests,
   .request-answers,
   .date-list,
@@ -476,16 +469,7 @@
     list-style: disc;
   }
 
-  /* Availability. */
-  .kind {
-    @apply m-0 flex flex-wrap gap-x-6 gap-y-2 border-0 p-0;
-  }
-
-  .kind legend {
-    @apply mb-1 p-0;
-  }
-
-  .kind label,
+  /* A member's preferred number of rehearsals: 44px choices. */
   .limit label {
     @apply flex min-h-11 items-center gap-2 font-normal;
   }
@@ -502,11 +486,6 @@
   /* The separator ends an entry, so a wrapped line never starts with one. */
   .preferred-summary li:not(:last-child)::after {
     content: " ·" / "";
-  }
-
-  /* One-off times have no last date. */
-  .slot-form:has(input[name="kind"][value="once"]:checked) .weekly-only {
-    display: none;
   }
 
   .time-pair,
@@ -556,11 +535,6 @@
     @apply mt-2;
   }
 
-  .weeks li {
-    @apply flex items-center justify-between gap-4 py-1.5;
-  }
-
-  .weeks .skipped,
   .day-busy {
     @apply text-muted-foreground;
   }
@@ -676,6 +650,25 @@
 
   .free-day > summary::-webkit-details-marker {
     display: none;
+  }
+
+  /* A date with only one free time is its own tick box (plan/phase-29.md):
+     the checkbox covers the cell, unseen, like a member's date cells. */
+  .free-day.one-time {
+    @apply cursor-pointer gap-0.5;
+  }
+
+  .free-day.one-time input {
+    @apply absolute inset-0 m-0 size-full min-h-0 cursor-pointer opacity-0;
+  }
+
+  .free-day.one-time:focus-within {
+    @apply outline-2 outline-offset-1 outline-ring;
+  }
+
+  /* Ticked shows inside the cell, so the focus ring outside it can still show. */
+  .free-day.one-time:has(input:checked) {
+    box-shadow: inset 0 0 0 2px var(--foreground);
   }
 
   .day-free {
@@ -978,25 +971,26 @@
     @apply m-0 grid list-none gap-1 p-0;
   }
 
-  .rsvp-dates {
-    @apply mb-2;
+  /* The viewer's answer to a rehearsal: its counts, then Yes / No / Maybe. */
+  .rsvp {
+    @apply mb-2 border-t py-2;
   }
 
-  .rsvp-date {
-    @apply border-t py-2;
+  /* An organizer's notes on a rehearsal (plan/phase-29.md), line breaks kept. */
+  .notes {
+    @apply my-1 block text-sm whitespace-pre-line;
+  }
+
+  .notes-edit {
+    @apply mt-2;
   }
 
   .rsvp-heading {
-    @apply mt-0 mb-1.5 flex flex-wrap justify-between gap-2;
+    @apply mt-0 mb-1.5;
   }
 
-  .rsvp-form,
-  .rsvp-all {
+  .rsvp-form {
     @apply flex flex-wrap items-center gap-2;
-  }
-
-  .rsvp-all {
-    @apply my-2;
   }
 
   .answers {

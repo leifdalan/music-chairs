@@ -4,7 +4,8 @@
 // with its progress, and every proposed rehearsal the member hasn't answered.
 
 import type { GoogleWriteState } from "~/components/calendar-actions";
-import { describeSlot, offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import { todayInZone, windowEnd } from "~/lib/availability";
+import { describeRehearsal, isUpcoming } from "~/lib/rehearsal";
 import { groupPath } from "~/lib/group-address";
 import { answerable } from "~/lib/requests";
 
@@ -33,6 +34,8 @@ export type WaitingProposal = {
   groupName: string;
   rehearsalId: string;
   summary: string;
+  /** The organizer's notes, possibly empty. */
+  notes: string;
   /** The request it was proposed from. */
   requestName: string | null;
 };
@@ -83,9 +86,8 @@ export async function homeRequests(
 
 /**
  * Proposed rehearsals the member hasn't answered: no RSVP from them on the
- * rehearsal (the rule the progress figures count by) and a date still to
- * answer for, from today to the end of the answer window. By group name, then
- * as the schedule lists them.
+ * rehearsal (the rule the progress figures count by) and still to come. By
+ * group name, then as the schedule lists them.
  */
 export function waitingProposals(
   memberships: { group: Group; member: Member }[],
@@ -104,12 +106,13 @@ export function waitingProposals(
     );
     for (const rehearsal of store.listRehearsals(group.id)) {
       if (rehearsal.status !== "proposed" || answered.has(rehearsal.id)) continue;
-      if (offeredDates(rehearsal, today, windowEnd(today)).length === 0) continue;
+      if (!isUpcoming(rehearsal, today)) continue;
       proposals.push({
         groupHref: groupPath(group),
         groupName: group.name,
         rehearsalId: rehearsal.id,
-        summary: describeSlot(rehearsal),
+        summary: describeRehearsal(rehearsal),
+        notes: rehearsal.notes,
         requestName: rehearsal.requestId
           ? (store.findRequest(group.id, rehearsal.requestId)?.name ?? null)
           : null,

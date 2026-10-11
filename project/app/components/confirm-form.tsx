@@ -26,7 +26,6 @@ export function ConfirmForm({
   triggerLabel,
   className,
   action,
-  children,
 }: {
   /** Hidden fields posted with the action. */
   fields: Record<string, string>;
@@ -39,8 +38,6 @@ export function ConfirmForm({
   triggerSize?: ButtonSize;
   /** Accessible name when the trigger's text alone doesn't say what it affects. */
   triggerLabel?: string;
-  /** Visible fields the action also needs (for example a last date). */
-  children?: ReactNode;
   className?: string;
   /** Where the form posts, when not to the current page. */
   action?: string;
@@ -70,7 +67,6 @@ export function ConfirmForm({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      {children}
       <button
         type="submit"
         data-variant={triggerVariant}
@@ -80,8 +76,6 @@ export function ConfirmForm({
         onClick={(event) => {
           if (!hydrated) return;
           event.preventDefault();
-          // Problems with the form's own fields show before the dialog hides them.
-          if (event.currentTarget.form?.reportValidity() === false) return;
           dialog.current?.showModal();
         }}
       >
