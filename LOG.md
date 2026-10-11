@@ -4216,3 +4216,103 @@ Planned work:
 - A member's availability request page arrives with the request's time of day already chosen, so the dates can be ticked at once without first tapping a time.
 - "Rehearsals you can make" is renamed "Preferred number of rehearsals in date span" everywhere it appears.
 - Each member's preferred number is clear to the organizer where they propose rehearsals.
+
+## 2026-10-11 15:55 — END
+Phase 28 — Answering at once: the request's time already chosen, and members' preferred number of rehearsals shown to organizers
+
+Phase 28 is accepted on its gates. When a member opens an availability request, its time of day is already chosen, so they can tick dates straight away; with several times of day, the earliest is chosen and they can switch. If they've connected Google Calendar, busy days show greyed at once. "Rehearsals you can make" is now "Preferred number of rehearsals in date span", with "As many as possible" or a number of rehearsals. Organizers see everyone's preferred number in a line under "When people are free", above the heat map, for example "Cellist: 2 · Pianist: as many as possible · Oboe: not answered". A member who ticked dates but never chose a number counts as "as many as possible". How it feels is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: fd69918ed4a542958ce4fc50ab8ea489
+
+Files changed:
+- plan/phase-28.md — your 2026-10-11 rulings and the User Demo, before capture
+- project/app/components/request-dates.tsx — the time of day chosen on arrival (initialRange: a refused Save keeps its own values, otherwise the request's first, earliest time); the two hints reworded
+- project/app/lib/preference.ts (new) — the preference wording, in one place
+- project/app/routes/request.tsx — the renamed section, its choices and saved line, the Responses list's words ("Not answered"), and the organizers' summary above the heat map
+- project/app/app.css — the summary's styles
+- project/app/.server/store.ts — a comment
+- project/tests/answering.test.tsx (new); project/tests/request-dates.test.tsx, project/tests/request-routes.test.tsx updated
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38181872390, check success for commit 318540a (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — Vitest 660/660, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 125.6 s; first event 0.60 s; longest idle 29.5 s; success
+- Critic (code review): 108.8 s; first event 0.59 s; longest idle 29.2 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 1119.755 s; intelligence 234.443 s; gates 147.343 s; wait 233.505 s; orchestration 1113.957 s; unattributed 5.798 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 28 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=19c638d7… final=76bf6f3abffcab1470ab87e93cbdbe006320223eebdbbac42feae03356411d10
+- Findings: plan review 7 (all adopted); code critique 7 (5 adopted, 2 declined: the static "[n] rehearsals" label, and the group page's separate "Not yet")
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- None
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the time of day chosen on arrival (selects set in the server render, busy days greyed, midnight ends, several windows, refused Saves); the new wording on the member page, the saved line and the Responses list; the organizers' summary, its order and its absence for members.
+- Parked for you: the User Demo below. Two notes: "first" means the earliest time of day, because requests keep their times in order; and the number choice reads "[n] rehearsals" even for 1, since a live singular would need JavaScript.
+
+Delivery:
+- default — commit and delivery through pull request 20, merged when green, after the handoff gate
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-29.md — "Inherited from Phase 28": the preference wording and helper, the time chosen on arrival, and the summary's place above the Calendar/List switch, where "Rehearsal length" removal will also land (pending, applied after this block)
+- DECIDE: none
+
+Lessons:
+- pending: a new local lesson — a rule inserted by anchoring on a selector's line split an existing CSS selector list; anchor insertions on a complete rule, and guard shared rules with a test (written after this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (5), loyal-dinosaur (4) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=34); reviewer/claude opus — hard 1800 s, idle 600 s (n=31); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the site and go to a group where you're an organizer, with an open availability request that at least one other member has answered:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. As a member (another phone or a private window joined through the invite link), open the availability request.
+    2. Tick two dates straight away, without tapping a time first.
+    3. Under "Preferred number of rehearsals in date span", choose 2.
+    4. As the organizer, open the same request and look under "When people are free".
+  - **What to look for.**
+    - The member's page opens with the request's time of day already selected, and the dates can be ticked at once.
+    - The member sees "Preferred number of rehearsals in date span" with "As many as possible" or a number, never "Rehearsals you can make".
+    - The organizer sees each member's preferred number above the heat map, including who hasn't answered.
+  - **Variations to explore.** A request with two times of day (the first is selected; switching works); a member who chooses "As many as possible"; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo.
+
+## 2026-10-11 15:55 — NOTE
+Phase 28 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 28 ✅ and Phase 29 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-29.md gained "Inherited from Phase 28" (the time chosen on arrival, the preference wording and helper, the summary's place).
+- Lessons: versed-lorikeet filed (local): a CSS rule inserted by anchoring on one line of a selector list split the list; ./bin/lessons validate OK.

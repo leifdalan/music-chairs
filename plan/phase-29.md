@@ -30,3 +30,7 @@ Weekly rehearsals already saved are deleted rather than split into dates ("Delet
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Availability", "Choosing rehearsal times", "Rehearsal details", "Calendar output".
+
+## Inherited from Phase 28
+
+Pinned by [Phase 28](phase-28.md): a member's request page opens with the request's first (earliest) time of day chosen (`initialRange` in `project/app/components/request-dates.tsx`); a member's number is a preferred number of rehearsals ("As many as possible" or a number), worded through `project/app/lib/preference.ts`; organizers see each member's preferred number in a list under "When people are free", above the Calendar/List switch, in the same section where "Rehearsal length" sits today.
