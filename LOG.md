@@ -4085,3 +4085,124 @@ Phase 27 — Fit and finish, then measure: the remaining audit fixes, polish, an
 Execution trace: 0fa8bf490d764155a02b68f278af76ee
 
 Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): plan-3 (94af77a7e109005ca8cca1344b89d862e98c1d0d5662c4e3c2d6ab6c86ac7742), the independent plan review of plan-2 and the code critique are carried; the product candidate 45587f0d0b36080658559ca8e75c6c38bde7325a4ecd342bb0f5531a4adc6324 is unchanged since the park. Remaining: commit the park's bookkeeping, gates on this candidate (including CI on pull request #18), close and delivery.
+
+## 2026-10-11 10:56 — END
+Phase 27 — Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit
+
+Phase 27 is accepted on its gates, and it is the last phase in the plan. On phones, every calendar date is now at least 44 px square at every width, with no sideways scrolling even at 320 px. The privacy page's permission table reads cleanly. The avatar shows your initials on every page, never "?". On a laptop, a heat map that spans two months shows them side by side. Starting a group now offers your own time zone and the common ones first, with readable names. A new availability request has one-tap Mornings, Afternoons and Evenings choices. Small standalone links have bigger tap areas, grey hints stop at a reading width, and placeholder text now meets contrast rules. A second Impeccable review measured the change: the design critique scored 28/40 (was 27/40) and the technical audit 17/20 (was 16/20). How it feels on your phone and laptop is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 0fa8bf490d764155a02b68f278af76ee (continuation; the first run, f30b4bea4fa64c39b80a8bf829be08a4, parked before its gates because its trace held two overlapping orchestration stages — see the PARK block above)
+
+Files changed:
+- plan/phase-27.md — your 2026-10-11 rulings (wide screens, avatar, minor items) and the User Demo, before capture
+- project/app/app.css — 44 px date minimum with a narrow-screen bleed and inset outlines; months side by side at 64rem when there are two or more; privacy table fixed layout; 44 px standalone links (breadcrumbs, back links, Cancel, the header wordmark, footer, request names, schedule links, the Google clash link); hints at 70ch; placeholder colour
+- project/app/components/free-calendar.tsx — months wrapped so they can sit side by side
+- project/app/lib/profile.ts, project/app/.server/profile.ts, project/app/components/profile-menu.tsx — initials from the name you use in your groups away from a group (your account's groups first, then this device's, then your Google name); a person icon instead of "?"
+- project/app/lib/time-zones.ts, project/app/components/time-zone-options.tsx (new); create-group-form.tsx, group.tsx — common zones first, then the rest, readable names (Asia/Calcutta shown as Asia/Kolkata), one entry per zone; readable zone names on the group, schedule, request and new-request pages
+- project/app/components/time-range.tsx, project/app/routes/requests.new.tsx — named presets and per-row chip labels
+- project/app/routes/privacy.tsx, members.add.tsx, project/app/components/request-dates.tsx — the back and clash links
+- project/DESIGN.md — the calendar layout rules and the hint width
+- project/tests/fit-and-finish.test.tsx (new), project/tests/profile.test.tsx
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38161197668, check success for commit 640716d (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — Vitest 652/652, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- full cycle — planned continuation of the parked run (plan-3, its review and the code critique carried; candidate unchanged)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude — two passes; the first could not be bound (the primary wrote two planned files during it), the second (recorded cause) reviewed plan-2
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review, pass 1): 327.4 s; first event 0.57 s; longest idle 51.2 s; success
+- Reviewer (plan review, pass 2): 354.5 s; first event 0.57 s; longest idle 47.9 s; success
+- Critic (code review): 258.5 s; first event 0.59 s; longest idle 35.0 s; success
+
+Execution timing (per policies/execution-telemetry.md, continuation trace):
+- Makespan: 480.285 s; gates 145.227 s (test.changed 136.971 s, ci.check 4.949 s); orchestration 467.876 s; unattributed 12.410 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 27 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK; the parked run's trace is reported in its PARK block
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=281750bd… final=45587f0d0b36080658559ca8e75c6c38bde7325a4ecd342bb0f5531a4adc6324 (unchanged across the park)
+- Findings: plan review 8 (all adopted; the unbindable first pass's 11 were folded into plan-2); code critique 8 (all adopted)
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+- Note: in the parked run a refused mark-reviewed call recorded a lineage entry before refusing; acceptance there rests on the primary's dispositions, as here
+
+Wall-clock observations:
+- My smoke run rebuilt the app under the local server the reviewers were using, so their fresh browser tabs briefly got 404s for the stylesheet and script; the server was restarted and every audit measurement was re-taken afterwards.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): 44 px dates at every width (measured at 320/368/390 px, 16 and 20 px fonts); the privacy table; the avatar rules; two months side by side at 1280 px (one-month calendars stay in the column); time-zone groups and names; named presets (checked with JavaScript); 44 px standalone links (0 short links at 320/390/1280 px); hints at 70ch; placeholder contrast; the second critique and audit reported.
+- Parked for you: the User Demo below, and these judgments:
+  - The hour bar: the whole bar is one 44 px-tall target, but half-hour marks are only 8–11 px apart on phones (8.2 px on the new-request page and 9.1 px on the request page at 320 px; 10.5–11.4 px at 390 px). Tapping picks the nearest half hour, and the From/Until selects are the precise path. Is that easy enough with a thumb?
+  - The schedule's "When people are free" calendar also shows two months side by side on a laptop (the same component); say if it should stay one column there.
+
+Second critique and audit (full report in .impeccable/critique/2026-10-11T17-40-05Z__app.md, kept locally):
+- Critique 28/40 (was 27): better on plain language; still 2/4 on consistency (status words differ across pages) and on minimalism (the schedule is long). Audit 17/20 (was 16): responsive design rose to 4; accessibility, performance and integrity are 3; theming 4. This run had PRODUCT.md and DESIGN.md and different reviewers, so the comparison is indicative.
+- Top issues it found, not fixed in this phase (outside its scope): the schedule tries to do everything and buries a member's one job; status words contradict each other ("Complete" on home vs "Not yet · 1 of 5 responded" on the group page); a member's calendar stays locked until they tap the only time option; the group page has no single obvious next action.
+- Questions it asks you:
+  1. Which first: (a) a simpler schedule that leads with the next date's Yes / No / Maybe, (b) one set of status words across pages, or (c) members' first visit to a request?
+  2. Should "Confirmed" lead as a settled fact ("You're on") even before anyone answers, or wait for answers?
+  3. Scope: (a) the two P1 issues only, (b) all four priority issues, or (c) those plus the minor notes?
+
+Delivery:
+- default — commit and delivery through pull request 18, merged when green, after the handoff gate
+
+Ripple (per policies/phase-ripple.md):
+- none — no downstream phases; the plan is complete
+
+Lessons:
+- filed: zealous-chimera — writing on the tree during a read-only review, and reopening a stage before closing the last, leave evidence the run cannot use (local; filed at the PARK)
+- occurrences added: loyal-dinosaur (4 total) — Phase 27 PARK
+- graduation DECIDE: camouflaged-dragon (9) → test practice: compute dates and timing thresholds at run time; gentle-pug (8) → methodology: check a User Demo's reachability before capture; lively-salamander (5) → local note on bin/python's working directory; loyal-dinosaur (4) → never pipe a gating command into tail
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=33); reviewer/claude opus — hard 1800 s, idle 600 s (n=30); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, then on a laptop, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On the phone, open an availability request in a group you organize and tick and untick dates on its calendar; drag across the hour bar when adding a time.
+    2. Open the privacy page on the phone.
+    3. On the home page and the Groups page, look at the avatar in the header; then open a group and look again.
+    4. On Groups, start creating a group (you can stop before saving) and look at the time-zone choice.
+    5. Start a new availability request and try the Mornings / Afternoons / Evenings choices.
+    6. On the laptop, open the same availability request as an organizer and look at "When people are free".
+  - **What to look for.**
+    - Date cells and the hour bar are easy to hit with a thumb; nothing scrolls sideways.
+    - The privacy page's permission table reads cleanly on the phone, with no words broken one letter per line.
+    - The avatar shows your initials on every page, never "?".
+    - Your own time zone is already chosen, with common zones near the top.
+    - A preset fills the times of day in one tap.
+    - On the laptop, the heat map shows two months side by side.
+    - Breadcrumb and "Back to the group" links are easy to tap; grey hints don't run the full width of a wide screen.
+  - **Variations to explore.** Light and dark mode; a narrow (320 px) phone; a request whose dates fall within one month.
+  - **Before you start.** Step 6 needs a request whose dates cross a month end with someone free (the Winter concert style); if you have a Gravatar picture it replaces the initials in step 3.
+
+Remaining:
+- None beyond the parked User Demo and judgments. The plan has no further phases; the critique's findings above are candidates for new phases if you want them.
+
+## 2026-10-11 10:56 — NOTE
+Phase 27 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 27 ✅; no phase holds the arrow because the plan has no further phases (accepted ledger applied and verified).
+- Ripple: none — no downstream phases.
+- Lessons: zealous-chimera filed and the loyal-dinosaur occurrence added at the PARK; ./bin/lessons validate OK.
