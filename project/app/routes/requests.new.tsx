@@ -6,7 +6,7 @@ import { redirectWithToast } from "~/.server/flash";
 import { findViewer } from "~/.server/membership";
 import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
-import { TimeRange } from "~/components/time-range";
+import { TimeRange, type NamedWindow } from "~/components/time-range";
 import { groupPath } from "~/lib/group-address";
 import { addDays, parseTimeText, timeInputValue, timeRange, todayInZone } from "~/lib/availability";
 import {
@@ -18,6 +18,7 @@ import {
   type RequestFormValues,
 } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
+import { zoneLabel } from "~/lib/time-zones";
 
 import type { Route } from "./+types/requests.new";
 
@@ -150,7 +151,7 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
       <h1>{editing ? "Edit availability request" : "New availability request"}</h1>
       <p className="hint">
         Ask the band when they can rehearse between two dates, at the times of day you choose. All
-        times are in {timeZone}.
+        times are in {zoneLabel(timeZone)}.
       </p>
       {problem ? (
         <p className="notice" role="alert">
@@ -303,6 +304,13 @@ function RequestFields({
   );
 }
 
+/** One-tap times of day for a new availability request (plan/phase-27.md). */
+export const REQUEST_PRESETS: NamedWindow[] = [
+  { label: "Mornings", startMinute: 9 * 60, endMinute: 12 * 60 },
+  { label: "Afternoons", startMinute: 12 * 60, endMinute: 17 * 60 },
+  { label: "Evenings", startMinute: 19 * 60, endMinute: 22 * 60 },
+];
+
 /** A row's times as the summary line first shows them. */
 function rowSummary(row: { start: string; end: string } | null): string {
   if (!row || (!row.start && !row.end)) return "not set";
@@ -337,6 +345,7 @@ function WindowRow({
         startValue={row?.start ?? ""}
         endValue={row?.end ?? ""}
         rangeError={error}
+        presets={REQUEST_PRESETS}
         labelPrefix={`Time ${index + 1}`}
         onChange={(range, chosen) => {
           if (range) setSummary(timeRange(range.startMinute, range.endMinute));

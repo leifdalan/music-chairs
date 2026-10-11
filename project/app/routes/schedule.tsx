@@ -52,6 +52,7 @@ import { Switch, useSwitch } from "~/components/view-switch";
 import { dayHeat } from "~/lib/heat";
 import { answerable, nextWeekday } from "~/lib/requests";
 import { missingSentence, missingSummaries } from "~/lib/warnings";
+import { zoneLabel } from "~/lib/time-zones";
 
 import type { Route } from "./+types/schedule";
 
@@ -550,7 +551,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         </Link>
       </p>
       <h1>Schedule</h1>
-      <p className="hint">All times are in {timeZone}.</p>
+      <p className="hint">All times are in {zoneLabel(timeZone)}.</p>
       {pageProblem && actionData ? (
         <ProblemAlert message={pageProblem} response={actionData} />
       ) : null}

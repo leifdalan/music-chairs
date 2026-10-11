@@ -41,6 +41,7 @@ import { parseProposedTimes } from "~/lib/propose";
 import { answerable, clipToWindows, type TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { useHydrated } from "~/lib/use-hydrated";
+import { zoneLabel } from "~/lib/time-zones";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/request";
@@ -557,7 +558,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       <p className="hint">
         Times of day:{" "}
         {windows.map((window) => timeRange(window.startMinute, window.endMinute)).join(", ")} (
-        {timeZone})
+        {zoneLabel(timeZone)})
       </p>
       {actionData && "problem" in actionData ? (
         <ProblemAlert message={actionData.problem} response={actionData} />

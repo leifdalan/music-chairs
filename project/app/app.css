@@ -10,6 +10,8 @@
  * - Type: system fonts only (nothing loads from another site); body text-base,
  *   hints and secondary text text-sm, h3 text-base, h2 text-lg, h1 text-2xl.
  * - Spacing: Tailwind's 4px scale; one centred column, max-w-2xl, 1rem gutters.
+ *   Two exceptions (plan/phase-27.md): on wide screens a calendar of two or
+ *   more months breaks out to show two months side by side; hints stop at 70ch.
  * - Buttons (components/ui/button.tsx): one `default` (primary) per form or
  *   section, `outline` for secondary actions, `destructive` for deletes,
  *   `ghost`/`link` for tertiary ones. Every control is at least 44px tall and
@@ -165,6 +167,12 @@
     @apply min-h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs dark:bg-input/30;
   }
 
+  /* The hint colour, not the browser's half-strength text, so placeholders read at 4.5:1. */
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-muted-foreground;
+  }
+
   input[aria-invalid="true"],
   select[aria-invalid="true"] {
     @apply border-destructive;
@@ -229,10 +237,24 @@
 
   .hint {
     @apply text-sm;
+    max-width: 70ch;
   }
 
   .eyebrow {
     @apply mb-0 text-sm;
+  }
+
+  /* Standalone links get a 44px tap area (plan/phase-27.md); links inside sentences don't. */
+  .eyebrow a,
+  .group-card h2 a,
+  .site-header > a,
+  .site-footer a,
+  a.request-name,
+  .payoff-link,
+  .proposed-link,
+  .back-link,
+  .cancel {
+    @apply inline-flex min-h-11 items-center;
   }
 
   .stack {
@@ -479,7 +501,7 @@
   }
 
   .cancel {
-    @apply text-center;
+    @apply justify-center text-center;
   }
 
   .slot,
@@ -545,8 +567,41 @@
     @apply mt-3 mb-1;
   }
 
+  /* Every date is at least 44px square (plan/phase-27.md). Seven columns and
+     their gaps need 332px; where the column is narrower than that (the 2rem is
+     its gutters, so this follows the reader's font size) the grid takes 1px
+     gaps and runs into the gutters, leaving 2px each side. */
   .month-grid {
-    @apply grid grid-cols-7 gap-1;
+    @apply grid gap-1;
+    grid-template-columns: repeat(7, minmax(44px, 1fr));
+  }
+
+  @media (max-width: calc(332px + 2rem)) {
+    .month-grid {
+      gap: 1px;
+      margin-inline: calc(2px - 1rem);
+    }
+
+    /* Outlines drawn inside the cell, so the edge doesn't clip them. */
+    .month-grid > .day > summary:focus-visible,
+    .month-grid .free-day[open],
+    .month-grid .free-day:has(input:checked),
+    .calendar-entry .month-grid .day:focus-within {
+      outline-offset: -2px;
+    }
+  }
+
+  /* Wide screens: a calendar of two or more months shows them side by side,
+     the months alone centred on the column (its legend stays in the column).
+     Margins, not a transform, so the fixed date panel still sits against the
+     window. */
+  @media (min-width: 64rem) {
+    .free-calendar:has(.month + .month) .months {
+      --calendar-width: min(60rem, 100vw - 4rem);
+      @apply grid grid-cols-2 gap-8;
+      width: var(--calendar-width);
+      margin-inline: calc((100% - var(--calendar-width)) / 2);
+    }
   }
 
   .weekday {
@@ -826,7 +881,7 @@
   }
 
   .payoff-link {
-    @apply mt-1 inline-block text-sm;
+    @apply mt-1 text-sm;
   }
 
   /* Schedule. */
@@ -1068,8 +1123,13 @@
     @apply text-muted-foreground;
   }
 
+  /* A fixed first column, so a scope address wraps in chunks, not a letter per line. */
   .policy-scopes {
-    @apply w-full border-collapse text-sm;
+    @apply w-full table-fixed border-collapse text-sm;
+  }
+
+  .policy-scopes th:first-child {
+    @apply w-2/5;
   }
 
   .policy-scopes th,
@@ -1077,9 +1137,9 @@
     @apply border-b p-2 text-left align-top;
   }
 
-  /* Scope addresses are long; let them wrap on a phone. */
+  /* Scope addresses are long: on their own line, wrapping anywhere. */
   .policy-scopes code {
-    @apply text-xs text-muted-foreground;
+    @apply block text-xs text-muted-foreground;
     overflow-wrap: anywhere;
   }
 }

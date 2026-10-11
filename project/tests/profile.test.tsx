@@ -32,12 +32,12 @@ afterEach(() => {
 });
 
 describe("profile rules", () => {
-  it("makes initials from one or more words, and ? from nothing", () => {
+  it("makes initials from one or more words, and nothing from nothing", () => {
     expect(initials("Viola")).toBe("V");
     expect(initials("  leif   van dalan ")).toBe("LD");
     expect(initials("élodie roux")).toBe("ÉR");
-    expect(initials("")).toBe("?");
-    expect(initials(null)).toBe("?");
+    expect(initials("")).toBeNull();
+    expect(initials(null)).toBeNull();
   });
 
   it("compares names after NFC, trimming, collapsing spaces and lowercasing", () => {
@@ -101,7 +101,7 @@ describe("the header's profile data", () => {
     vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "secret");
 
     expect(await headerProfile(at("/"))).toEqual({
-      initials: "?",
+      initials: null,
       gravatar: null,
       signedIn: null,
       canSignIn: true,
@@ -109,13 +109,14 @@ describe("the header's profile data", () => {
     });
   });
 
-  it("is the account's picture and initials away from groups", async () => {
+  it("is the account's picture, with its group name's initials, away from groups", async () => {
     const { session, account } = await band();
 
     const profile = await headerProfile(at("/", session));
 
+    // The account's member is "Cellist"; its Google name "Cel Lo" is the fallback.
     expect(profile).toMatchObject({
-      initials: "CL",
+      initials: "C",
       gravatar: gravatarUrl(account.email),
       signedIn: { email: account.email },
       member: null,
@@ -153,6 +154,33 @@ describe("the header's profile data", () => {
     const other = getStore().createGroup("Other", "Oboe", "Europe/London").group;
 
     expect((await headerProfile(at(groupPath(other), pianistCookie))).member).toBeNull();
+  });
+
+  it("shows the same initials away from groups as in them", async () => {
+    const { group, pianistCookie, session } = await band();
+    const store = getStore();
+    const { account: other, cookie: otherSession } = await signedIn({
+      sub: `profile-other-${people}`,
+      email: `Other${people}@Example.test`,
+      name: "Oboe Player",
+    });
+
+    // Not signed in: this device's member's name, here and on a group it hasn't joined.
+    const stranger = store.createGroup("Stranger", "Oboe", "Europe/London").group;
+    expect((await headerProfile(at("/", pianistCookie))).initials).toBe("P");
+    expect((await headerProfile(at("/groups", pianistCookie))).initials).toBe("P");
+    expect((await headerProfile(at(groupPath(stranger), pianistCookie))).initials).toBe("P");
+    expect((await headerProfile(at(groupPath(group), pianistCookie))).initials).toBe("P");
+
+    // Signed in with no groups of its own: an unlinked member on this device counts.
+    expect((await headerProfile(at("/", `${pianistCookie}; ${otherSession}`))).initials).toBe("P");
+    // ...but not a member linked to someone else's Google account: the Google name instead.
+    const { cellistCookie } = await band();
+    const cellistDevice = cellistCookie.split("; ")[0];
+    expect((await headerProfile(at("/", `${cellistDevice}; ${otherSession}`))).initials).toBe("OP");
+    expect(other.name).toBe("Oboe Player");
+    // Signed in with its own groups: those come first.
+    expect((await headerProfile(at("/", `${pianistCookie}; ${session}`))).initials).toBe("C");
   });
 
   it("follows the group in the address from one group to the next", async () => {
@@ -298,10 +326,13 @@ describe("the profile menu", () => {
 
   it("offers sign-in to a visitor, and shows nothing without root data", () => {
     const visitor = render({
-      profile: { initials: "?", gravatar: null, signedIn: null, canSignIn: true, member: null },
+      profile: { initials: null, gravatar: null, signedIn: null, canSignIn: true, member: null },
     });
     expect(visitor).toContain('href="/auth/google?returnTo=%2Fg%2Fabc"');
     expect(visitor).not.toContain("<img");
+    // No name at all: a person icon, never "?".
+    expect(visitor).toMatch(/<span class="avatar" aria-hidden="true"><svg/);
+    expect(visitor).not.toContain(">?<");
     expect(visitor).not.toContain("Disconnect Google");
     expect(render(undefined)).not.toContain("profile-menu");
   });

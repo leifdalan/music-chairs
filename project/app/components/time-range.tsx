@@ -39,6 +39,20 @@ export function timeOptions(base: number[], extra: (number | null)[]): number[] 
   return [...all].sort((a, b) => a - b);
 }
 
+/** A preset time of day, optionally named: "Evenings". */
+export type NamedWindow = TimeWindow & { label?: string };
+
+/** The preset chips' group name: "Time 2: times of day" when the page has several ranges. */
+export function chipGroupLabel(prefix: string): string {
+  return prefix ? `${prefix}times of day` : "Times of day";
+}
+
+/** A preset chip's text: "Evenings · 7–10 PM", or just the times without a name. */
+export function presetLabel(window: NamedWindow): string {
+  const times = timeRange(window.startMinute, window.endMinute);
+  return window.label ? `${window.label} · ${times}` : times;
+}
+
 /** What the line under the bar says about the bar's state and the chosen times. */
 export function barReadback(shown: BarSelection, chosen: TimeWindow | null): string {
   if (shown.anchor !== null && !shown.range) {
@@ -77,7 +91,7 @@ export function TimeRange({
   endName: string;
   startValue: string;
   endValue: string;
-  presets?: TimeWindow[];
+  presets?: NamedWindow[];
   startError?: string;
   endError?: string;
   /** One error about the range as a whole, marked on both fields. */
@@ -130,7 +144,7 @@ export function TimeRange({
   return (
     <div className="time-range">
       {hydrated && presets.length > 0 ? (
-        <div className="time-chips" role="group" aria-label="Times of day">
+        <div className="time-chips" role="group" aria-label={chipGroupLabel(prefix)}>
           {presets.map((window) => {
             const on =
               chosen?.startMinute === window.startMinute && chosen.endMinute === window.endMinute;
@@ -142,7 +156,7 @@ export function TimeRange({
                 aria-pressed={on}
                 onClick={() => choose(window)}
               >
-                {timeRange(window.startMinute, window.endMinute)}
+                {presetLabel(window)}
               </button>
             );
           })}

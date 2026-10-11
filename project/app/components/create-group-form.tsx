@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Form } from "react-router";
 
 import { SubmitButton } from "./submit-button";
+import { TimeZoneOptions } from "./time-zone-options";
 import { TextField } from "./text-field";
 
 // The browser's zone, which the server can't know: null during the server
@@ -67,11 +68,7 @@ export function CreateGroupForm({
             aria-describedby={zoneError ? "timeZone-error" : "timeZone-hint"}
           >
             <option value="">Choose your time zone</option>
-            {zones.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
+            <TimeZoneOptions zones={zones} first={browserZone} />
           </select>
           {zoneError ? (
             <p className="field-error" id="timeZone-error" role="alert">

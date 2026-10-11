@@ -180,7 +180,9 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         <SubmitButton feedbackKey="add-member">Add</SubmitButton>
       </Form>
       <p>
-        <Link to={groupHref}>Back to the group</Link>
+        <Link to={groupHref} className="back-link">
+          Back to the group
+        </Link>
       </p>
     </main>
   );

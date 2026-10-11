@@ -54,7 +54,12 @@ Display: the system serif stack (wordmark and `h1`), bold, tight leading. Body a
 
 ## Layout
 
-One centred column, `max-w-2xl` (42rem) with 1rem gutters: this column is the line-length cap (about 70–75 characters of body text). Spacing on Tailwind's 4px scale.
+One centred column, `max-w-2xl` (42rem) with 1rem gutters: this column is the line-length cap (about 70–75 characters of body text); grey hints stop at 70ch. Spacing on Tailwind's 4px scale.
+
+Two calendar rules (plan Phase 27):
+
+- Every calendar date is at least 44 px square. Where the column is narrower than 332 px (phones below about 368 px at the default font size) the month grid uses 1 px gaps and runs into the gutters.
+- On screens 64rem and wider, a heat map of two or more months (request page and schedule) shows its months side by side, the months breaking out of the column to about 60rem (the legend stays in the column); a one-month calendar stays in the column.
 
 ## Elevation & Depth
 
@@ -97,5 +102,6 @@ A confirmed rehearsal's next date: a check icon (lucide `Check`) and "You're on"
 ### Don't:
 
 - Don't add a second accent colour or gradients.
+- Don't widen the column for anything but a calendar of two or more months.
 - Don't nest a bordered card inside another card; the payoff on the schedule is the card's own top.
 - Don't give the payoff a side stripe: its emphasis is a full 2px indigo border (operator ruling: "indigo-edged"). The one deliberate stripe is a free-time row's indigo left border when everyone needed is free, or when it is ticked to propose.

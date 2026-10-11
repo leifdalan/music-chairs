@@ -4046,3 +4046,12 @@ Lessons:
 
 Remaining:
 - Handoff gate and delivery of Phase 26.
+
+## 2026-10-11 09:52 — START
+Phase 27 — Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit
+
+Execution trace: f30b4bea4fa64c39b80a8bf829be08a4
+
+Planned work:
+- Date cells and the hour bar's targets at least 44 px at every width; the privacy page's permission table readable on phones; a consistent avatar; the heat map using wide screens; the remaining minor observations.
+- An Impeccable polish pass, then a second site-wide critique and audit, with scores compared to 27/40 and 16/20.

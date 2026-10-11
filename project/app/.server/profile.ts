@@ -1,9 +1,29 @@
 import { googleConfig } from "./google";
 import { findViewer, readAccount } from "./membership";
+import { visitorGroups } from "./memberships";
 import { gravatarUrl } from "./gravatar";
 import { findGroupByAddress } from "./group-address";
+import { getStore, type Account } from "./store";
 import { groupPath } from "~/lib/group-address";
 import { initials } from "~/lib/profile";
+
+/**
+ * The name behind the avatar away from a group's own member (plan/phase-27.md):
+ * the name the person uses in their groups, else their Google name. Signed in,
+ * the account's own memberships come first, then this device's members not
+ * linked to someone else's Google account, so a shared device never shows
+ * another person's initials; not signed in, this device's first member.
+ */
+async function nameAwayFromGroup(request: Request, account: Account | null) {
+  if (account) {
+    const linked = getStore().listAccountMemberships(account.id)[0]?.member;
+    if (linked) return linked.displayName;
+  }
+  const own = (await visitorGroups(request, null)).find(
+    ({ member }) => !account || member.googleEmail === null || member.googleEmail === account.email,
+  );
+  return own?.member.displayName ?? account?.name ?? null;
+}
 
 /**
  * What the header's profile menu shows (plan/phase-12.md): only the viewer's
@@ -18,7 +38,7 @@ export async function headerProfile(request: Request) {
   const member = group ? await findViewer(request, group) : null;
   const email = member ? member.googleEmail : (account?.email ?? null);
   return {
-    initials: initials(member?.displayName ?? account?.name),
+    initials: initials(member ? member.displayName : await nameAwayFromGroup(request, account)),
     gravatar: gravatarUrl(email),
     signedIn: account ? { email: account.email } : null,
     canSignIn: !account && googleConfig() !== null,
