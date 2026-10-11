@@ -99,7 +99,7 @@ export type ScheduleRequest = RequestInput & {
   createdAt: string;
 };
 
-/** A member's answer: when they sent it and their limit (null: any and all). */
+/** A member's response: when they sent it and their preferred number of rehearsals (null: as many as possible). */
 export type RequestAnswer = { memberId: string; answeredAt: string; limit: number | null };
 
 /** A session expires this many days after it was last used. */

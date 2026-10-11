@@ -418,7 +418,7 @@ describe("answering a request", () => {
 
     const asCellist = await load(group.id, concert, cellistCookie);
     expect(asCellist.mine).toEqual({ answeredAt: "Fri 2 Oct, 1 PM", limit: 2 });
-    expect(render(asCellist)).toContain("Saved Fri 2 Oct, 1 PM: no more than 2.");
+    expect(render(asCellist)).toContain("Saved Fri 2 Oct, 1 PM: 2 rehearsals.");
     expect(render(asCellist)).not.toMatch(/Send my answer|Update my answer/);
 
     const asOrganizer = await load(group.id, concert, organizerCookie);
@@ -428,7 +428,8 @@ describe("answering a request", () => {
       { name: "Pianist", answer: null },
     ]);
     const html = render(asOrganizer);
-    expect(html).toContain("No more than 2");
+    expect(html).toContain("2 rehearsals");
+    expect(html).toContain("<li>Cellist: 2</li>");
     expect(html).toContain("Responses (1 of 3)");
     expect((await load(group.id, weekly, organizerCookie)).answers?.[1].answer).toBeNull();
 

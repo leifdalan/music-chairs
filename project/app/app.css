@@ -490,6 +490,20 @@
     @apply flex min-h-11 items-center gap-2 font-normal;
   }
 
+  /* Each member's preferred number of rehearsals, above the heat map (plan/phase-28.md). */
+  .preferred .hint {
+    @apply mb-1;
+  }
+
+  .preferred-summary {
+    @apply mt-0 mb-3 flex list-none flex-wrap gap-x-1.5 p-0 text-sm text-muted-foreground;
+  }
+
+  /* The separator ends an entry, so a wrapped line never starts with one. */
+  .preferred-summary li:not(:last-child)::after {
+    content: " ·" / "";
+  }
+
   /* One-off times have no last date. */
   .slot-form:has(input[name="kind"][value="once"]:checked) .weekly-only {
     display: none;

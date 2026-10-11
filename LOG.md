@@ -4206,3 +4206,13 @@ Phase 27 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 27 ✅; no phase holds the arrow because the plan has no further phases (accepted ledger applied and verified).
 - Ripple: none — no downstream phases.
 - Lessons: zealous-chimera filed and the loyal-dinosaur occurrence added at the PARK; ./bin/lessons validate OK.
+
+## 2026-10-11 15:36 — START
+Phase 28 — Answering at once: the request's time already chosen, and members' preferred number of rehearsals shown to organizers
+
+Execution trace: fd69918ed4a542958ce4fc50ab8ea489
+
+Planned work:
+- A member's availability request page arrives with the request's time of day already chosen, so the dates can be ticked at once without first tapping a time.
+- "Rehearsals you can make" is renamed "Preferred number of rehearsals in date span" everywhere it appears.
+- Each member's preferred number is clear to the organizer where they propose rehearsals.

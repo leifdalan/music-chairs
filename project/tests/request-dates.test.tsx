@@ -17,6 +17,7 @@ import {
   deviceCookie,
   ORIGIN,
   routeArgs,
+  selectedOption,
   setCookies,
   signedIn,
   tempDatabase,
@@ -513,7 +514,7 @@ describe("the rehearsal cap", () => {
       expect.objectContaining({ memberId: pianist.id, limit: null }),
     ]);
     const html = render(await load(group, request.id, pianistCookie));
-    expect(html).toMatch(/<legend>How many rehearsals can you make in this span\?<\/legend>/);
+    expect(html).toMatch(/<legend>How many rehearsals would you like in these dates\?<\/legend>/);
     expect(html).toMatch(/name="intent" value="answer"[\s\S]*>Save</);
   });
 
@@ -584,7 +585,9 @@ describe("clashes with Google Calendar", () => {
     expect(JSON.stringify(page)).not.toContain("2026-11-04");
     const html = render(page);
     expect(html).toContain('aria-label="Tue 3 Nov"');
-    expect(html).toContain("Once you pick a stretch, days busy in your Google Calendar are greyed");
+    expect(html).toContain("Days busy in your Google Calendar are greyed");
+    // The request's first time of day (the morning) is chosen on arrival: the evening busy time doesn't grey it.
+    expect(html).not.toContain("Tue 3 Nov, busy");
     const evening = {
       dateErrors: {},
       dateValues: { dates: [], startTime: "19:00", endTime: "22:00" },
@@ -595,6 +598,18 @@ describe("clashes with Google Calendar", () => {
       dateValues: { dates: [], startTime: "10:00", endTime: "12:00" },
     };
     expect(render(page, morning)).not.toContain("Tue 3 Nov, busy");
+  });
+
+  it("chooses the request's time of day on arrival, greying its busy days at once", async () => {
+    const { group, cellistCookie } = await band();
+    const request = concert(group.id, [EVENING]);
+    google.busy = [{ start: "2026-11-03T19:00:00Z", end: "2026-11-03T20:00:00Z" }];
+
+    const html = render(await load(group, request.id, cellistCookie));
+
+    expect(selectedOption(html, "startTime")).toBe("19:00");
+    expect(selectedOption(html, "endTime")).toBe("22:00");
+    expect(html).toContain('aria-label="Tue 3 Nov, busy in your Google Calendar"');
   });
 
   it("greys nothing and says so when Google can't be read", async () => {
