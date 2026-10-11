@@ -1,6 +1,6 @@
 ---
 title: "music-chairs"
-date: 2026-10-02
+date: 2026-10-11
 status: draft
 scope: Product brief for music-chairs, a web app that helps small music ensembles find times to rehearse together in person: users, behavior, technology constraints, non-goals, success criteria and open questions.
 ---
@@ -31,7 +31,7 @@ The hardest part of playing music with other people is getting everyone into the
 
 - Members enter the times they are available.
 - **Optional Google Calendar import:** a signed-in member can fill in their availability from their Google Calendar free/busy information instead of entering it by hand.
-- Both **one-off** rehearsals and **recurring** rehearsals (for example, every Thursday evening) are supported.
+- Every rehearsal is **one date and time**. There are no recurring rehearsals: a band that meets every Thursday proposes each Thursday it wants (operator ruling, 2026-10-11, which removed the earlier one-off/recurring choice).
 
 ### Choosing rehearsal times
 
@@ -75,13 +75,13 @@ In practice:
 
 - An organizer can create a group and invite the band.
 - Every member can enter availability, whether signed in with Google or using just a name.
-- The organizer can see the overlap, pick several upcoming rehearsal times (one-off or recurring) and confirm them, with a warning when a required member is missing.
+- The organizer can see the overlap, pick several upcoming rehearsal times and confirm them, with a warning when a required member is missing.
 - Members can see the confirmed times, and can optionally RSVP and have them added to their Google Calendar.
 
 ## Open questions
 
 1. **Availability privacy:** can members see each other's individual availability, or only the combined overlap? The organizer presumably needs individual detail.
-2. **Recurring rehearsals and exceptions:** with a standing slot such as Thursdays at 7pm, how does a member mark that they can't make one particular date? How long does a recurring pattern stay in effect?
+2. **Recurring rehearsals and exceptions:** resolved 2026-10-11 by the operator: there are no recurring rehearsals, so each date is its own rehearsal and needs no exceptions.
 3. **Name-only to Google upgrade:** can a member who joined with only a name later link a Google account and keep their history?
 4. **Time zones:** groups are expected to be local, but should the app handle a member who is traveling or a group that spans time zones?
 5. **Google Calendar write model:** does the app create events on each member's own calendar, or does one organizer-owned event invite everyone? How are later changes and cancellations synced? Is the event read-only (an ICS feed) as a fallback for name-only members?
