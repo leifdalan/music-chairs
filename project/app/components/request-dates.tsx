@@ -139,7 +139,9 @@ export function RequestDates({
           ) : null}
           {clashState.state === "connect" ? (
             <p className="hint">
-              <a href={clashState.connectUrl}>See clashes from your Google Calendar</a>
+              <a href={clashState.connectUrl} className="back-link">
+                See clashes from your Google Calendar
+              </a>
             </p>
           ) : null}
           {clashState.state === "error" ? (

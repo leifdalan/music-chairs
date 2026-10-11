@@ -39,50 +39,52 @@ export function FreeCalendar<S extends { startMinute: number }>({
         <span className="heat-swatch heat-1" aria-hidden="true" /> Paler: fewer free ·{" "}
         <span className="heat-swatch heat-4" aria-hidden="true" /> Deeper: more free. {legend}
       </p>
-      {monthGrid(from, to).map((month) => (
-        <div className="month" key={month.label}>
-          <h3>{month.label}</h3>
-          <div className="month-grid">
-            {WEEKDAY_INITIALS.map((initial, index) => (
-              <span className="weekday" key={index} aria-hidden="true">
-                {initial}
-              </span>
-            ))}
-            {month.weeks.flat().map((date, index) => {
-              if (!date) return <span className="day blank" key={`blank-${index}`} />;
-              const stretches = byDate.get(date)?.stretches ?? [];
-              const free = byDate.get(date)?.heat ?? 0;
-              const level = heatLevel(free, total);
-              const day = Number(date.slice(8));
-              if (stretches.length === 0) {
+      <div className="months">
+        {monthGrid(from, to).map((month) => (
+          <div className="month" key={month.label}>
+            <h3>{month.label}</h3>
+            <div className="month-grid">
+              {WEEKDAY_INITIALS.map((initial, index) => (
+                <span className="weekday" key={index} aria-hidden="true">
+                  {initial}
+                </span>
+              ))}
+              {month.weeks.flat().map((date, index) => {
+                if (!date) return <span className="day blank" key={`blank-${index}`} />;
+                const stretches = byDate.get(date)?.stretches ?? [];
+                const free = byDate.get(date)?.heat ?? 0;
+                const level = heatLevel(free, total);
+                const day = Number(date.slice(8));
+                if (stretches.length === 0) {
+                  return (
+                    <span
+                      className="day heat-0"
+                      key={date}
+                      role="img"
+                      aria-label={`${formatDate(date)}: nobody free`}
+                    >
+                      <span className="day-number">{day}</span>
+                    </span>
+                  );
+                }
                 return (
-                  <span
-                    className="day heat-0"
+                  <DateDetails
                     key={date}
-                    role="img"
-                    aria-label={`${formatDate(date)}: nobody free`}
-                  >
-                    <span className="day-number">{day}</span>
-                  </span>
+                    date={date}
+                    day={day}
+                    level={level}
+                    free={free}
+                    total={total}
+                    stretches={stretches}
+                    hydrated={hydrated}
+                    renderStretch={renderStretch}
+                  />
                 );
-              }
-              return (
-                <DateDetails
-                  key={date}
-                  date={date}
-                  day={day}
-                  level={level}
-                  free={free}
-                  total={total}
-                  stretches={stretches}
-                  hydrated={hydrated}
-                  renderStretch={renderStretch}
-                />
-              );
-            })}
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

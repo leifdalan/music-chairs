@@ -5,10 +5,10 @@
 /** The longest instrumentation, in code points. */
 export const INSTRUMENT_MAX = 60;
 
-/** Up to two initials from a name; "?" when there is none. */
-export function initials(name: string | null | undefined): string {
+/** Up to two initials from a name; null when there is none. */
+export function initials(name: string | null | undefined): string | null {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
+  if (words.length === 0) return null;
   const letters = words.length === 1 ? [words[0]] : [words[0], words[words.length - 1]];
   return letters.map((word) => Array.from(word)[0].toLocaleUpperCase("en")).join("");
 }

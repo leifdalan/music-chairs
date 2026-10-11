@@ -4,6 +4,8 @@ import { data, Form, Link, redirect } from "react-router";
 import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { timeZoneChoices } from "~/.server/create-group";
+import { TimeZoneOptions } from "~/components/time-zone-options";
+import { zoneLabel } from "~/lib/time-zones";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
 import { findViewer, forgetMembership, publicOrigin, readAccount } from "~/.server/membership";
@@ -302,7 +304,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
   return (
     <main>
       <h1>{groupName}</h1>
-      <p className="hint">Times in {timeZone}</p>
+      <p className="hint">Times in {zoneLabel(timeZone)}</p>
       {viewer ? (
         <>
           <p className="hint">
@@ -529,11 +531,7 @@ function GroupSettings({
                 aria-invalid={errors.timeZone ? true : undefined}
                 aria-describedby={errors.timeZone ? "timeZone-error" : "timeZone-hint"}
               >
-                {timeZones.map((zone) => (
-                  <option key={zone} value={zone}>
-                    {zone}
-                  </option>
-                ))}
+                <TimeZoneOptions zones={timeZones} first={timeZone} />
               </select>
               <p className="hint" id="timeZone-hint">
                 Every date and time keeps its clock time in the new zone.

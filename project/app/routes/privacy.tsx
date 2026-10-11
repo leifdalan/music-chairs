@@ -74,7 +74,6 @@ export default function Privacy() {
             <tr key={row.scope}>
               <td>
                 {row.name}
-                <br />
                 <code>{row.scope}</code>
               </td>
               <td>{row.purpose}</td>
@@ -195,7 +194,9 @@ export default function Privacy() {
         {POLICY.updated}.
       </p>
       <p>
-        <Link to="/">Back to {siteName}</Link>
+        <Link to="/" className="back-link">
+          Back to {siteName}
+        </Link>
       </p>
     </main>
   );

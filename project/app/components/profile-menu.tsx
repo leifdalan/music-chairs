@@ -1,3 +1,4 @@
+import { UserRound } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Form, useLocation, useRouteLoaderData } from "react-router";
 
@@ -30,7 +31,11 @@ export function ProfileMenu() {
     <details className="profile-menu" ref={menu}>
       <summary aria-label="Your profile and sign-in">
         <span className="avatar" aria-hidden="true">
-          <span className="avatar-initials">{profile.initials}</span>
+          {profile.initials ? (
+            <span className="avatar-initials">{profile.initials}</span>
+          ) : (
+            <UserRound className="size-5" />
+          )}
           {profile.gravatar ? <img src={profile.gravatar} alt="" width={36} height={36} /> : null}
         </span>
       </summary>
