@@ -41,6 +41,7 @@ import { parseProposedTimes } from "~/lib/propose";
 import { answerable, clipToWindows, type TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { useHydrated } from "~/lib/use-hydrated";
+import { preferenceEntry, preferenceText } from "~/lib/preference";
 import { zoneLabel } from "~/lib/time-zones";
 import { buttonVariants } from "~/components/ui/button";
 
@@ -50,7 +51,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `${loaderData.name} · ${loaderData.groupName}` : "Not found");
 }
 
-/** The most rehearsals a member can name as their limit. */
+/** The largest preferred number of rehearsals a member can give. */
 const LIMIT_MAX = 99;
 
 /** The group, the member viewing it and the request; visitors go back to the group page. */
@@ -164,7 +165,7 @@ function formatAnsweredAt(instant: string, zone: string): string {
 }
 
 // A member gets the request, their own times in its span and their own answer
-// only; who else answered, their limits and the overlap are for organizers.
+// only; who else responded, their preferred numbers and the overlap are for organizers.
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { group, viewer, scheduleRequest } = await load(
     request,
@@ -351,11 +352,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.touchResponse(group.id, scheduleRequest.id, viewer.id);
     return redirectWithToast(here, "Times saved");
   }
-  // The rehearsal cap: saved through a fetcher as it changes, or by the Save
-  // button without JavaScript.
+  // The preferred number of rehearsals: saved through a fetcher as it changes,
+  // or by the Save button without JavaScript.
   if (intent === "answer") {
     const viaFetcher = form.get("via") === "fetcher";
-    // Shown beside the cap, whether it came through a fetcher or the Save button.
+    // Shown beside the choice, whether it came through a fetcher or the Save button.
     const refuse = (message: string) => data({ capProblem: message }, { status: 400 });
     if (!answerable(scheduleRequest, today)) return refuse(NOT_TAKING);
     let limit: number | null = null;
@@ -493,11 +494,10 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   );
   const capSection = (
     <section aria-labelledby="cap-heading">
-      <h2 id="cap-heading">Rehearsals you can make</h2>
+      <h2 id="cap-heading">Preferred number of rehearsals in date span</h2>
       {mine ? (
         <p className="hint">
-          Saved {mine.answeredAt}:{" "}
-          {mine.limit === null ? "any and all rehearsals" : `no more than ${mine.limit}`}.
+          Saved {mine.answeredAt}: {preferenceText(mine.limit)}.
         </p>
       ) : null}
       {canAnswer ? <CapForm limit={mine ? mine.limit : null} refused={capProblem} /> : null}
@@ -576,6 +576,18 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             <section aria-labelledby="overlap-heading">
               <h2 id="overlap-heading">When people are free</h2>
               <p className="hint">Within this availability request's dates and times of day.</p>
+              {answers ? (
+                <div className="preferred">
+                  <p className="hint" id="preferred-label">
+                    Preferred number of rehearsals:
+                  </p>
+                  <ul className="preferred-summary" role="list" aria-labelledby="preferred-label">
+                    {answers.map((item, index) => (
+                      <li key={index}>{preferenceEntry(item.name, item.answer)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <Switch
                 label="How to show when people are free"
                 options={[
@@ -670,13 +682,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                       <span className="member-name">{item.name}</span>
                       {item.answer ? (
                         <span>
-                          {item.answer.limit === null
-                            ? "Any and all"
-                            : `No more than ${item.answer.limit}`}
+                          {capitalized(preferenceText(item.answer.limit))}
                           <span className="hint"> · responded {item.answer.answeredAt}</span>
                         </span>
                       ) : (
-                        <span className="hint">Not yet</span>
+                        <span className="hint">Not answered</span>
                       )}
                     </li>
                   ))}
@@ -738,10 +748,11 @@ function ProposeForm({
 }
 
 /**
- * The rehearsal cap (plan/phase-23.md): saved through a fetcher when a choice
+ * The preferred number of rehearsals (plan/phase-23.md, worded as a
+ * preference in plan/phase-28.md): saved through a fetcher when a choice
  * changes or the number is committed (on leaving the field or Enter, not on
- * every keystroke); typing a number chooses "No more than". Without
- * JavaScript, a Save button posts it.
+ * every keystroke); typing a number chooses it. Without JavaScript, a Save
+ * button posts it.
  */
 function CapForm({
   limit,
@@ -796,7 +807,7 @@ function CapForm({
     >
       <input type="hidden" name="intent" value="answer" />
       <fieldset className="limit" aria-describedby={problem ? "cap-error" : undefined}>
-        <legend>How many rehearsals can you make in this span?</legend>
+        <legend>How many rehearsals would you like in these dates?</legend>
         <label>
           <input
             type="radio"
@@ -805,7 +816,7 @@ function CapForm({
             defaultChecked={limit === null}
             onChange={() => save.current()}
           />
-          Any and all
+          As many as possible
         </label>
         <label className="limit-most">
           <input
@@ -816,7 +827,6 @@ function CapForm({
             defaultChecked={limit !== null}
             onChange={() => save.current()}
           />
-          No more than{" "}
           <input
             type="number"
             name="limitCount"
@@ -824,7 +834,7 @@ function CapForm({
             min={1}
             max={LIMIT_MAX}
             defaultValue={limit ?? 2}
-            aria-label="Most rehearsals"
+            aria-label="Preferred number of rehearsals"
             inputMode="numeric"
             onInput={() => {
               if (most.current) most.current.checked = true;
@@ -890,4 +900,9 @@ function RequestMenu({ children }: { children: ReactNode }) {
       <div className="request-menu-panel">{children}</div>
     </details>
   );
+}
+
+/** "As many as possible" at the start of a list entry. */
+function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

@@ -26,6 +26,28 @@ function chosenRange(start: string, end: string): TimeWindow | null {
 }
 
 /**
+ * The time of day chosen when the page opens (plan/phase-28.md): a refused
+ * Save's own times, kept as typed even when they don't make a range; otherwise
+ * the request's first time of day, so the dates can be ticked at once.
+ */
+export function initialRange(
+  windows: TimeWindow[],
+  result: { dateValues: DateValues } | undefined,
+): { startTime: string; endTime: string; range: TimeWindow | null } {
+  if (result) {
+    const { startTime, endTime } = result.dateValues;
+    return { startTime, endTime, range: chosenRange(startTime, endTime) };
+  }
+  const first = windows[0];
+  if (!first) return { startTime: "", endTime: "", range: null };
+  return {
+    startTime: timeInputValue(first.startMinute),
+    endTime: timeInputValue(first.endMinute),
+    range: first,
+  };
+}
+
+/**
  * A member's times on one request (plan/phase-23.md): pick a stretch on the
  * hour bar, then tick the dates you're free, on a calendar or a list. Each
  * tick saves that date at the stretch straight away and an untick clears it
@@ -59,9 +81,8 @@ export function RequestDates({
 }) {
   const hydrated = useHydrated();
   const link = useSwitch(["notice"]);
-  const [chosen, setChosen] = useState(() =>
-    result ? chosenRange(result.dateValues.startTime, result.dateValues.endTime) : null,
-  );
+  const [initial] = useState(() => initialRange(windows, result));
+  const [chosen, setChosen] = useState(initial.range);
   const [saveProblem, setSaveProblem] = useState<string | null>(null);
   // The last save's outcome, for the status line; a failure also shows in the dates' alert.
   const [lastSave, setLastSave] = useState<"saved" | "failed" | null>(null);
@@ -120,12 +141,14 @@ export function RequestDates({
       ) : null}
       {editable ? (
         <>
-          <p className="hint">Pick a stretch of the day, then tick the dates you're free.</p>
+          <p className="hint">
+            Tick the dates you're free; for another time of day, change it below first.
+          </p>
           <TimeRange
             startName="startTime"
             endName="endTime"
-            startValue={result?.dateValues.startTime ?? ""}
-            endValue={result?.dateValues.endTime ?? ""}
+            startValue={initial.startTime}
+            endValue={initial.endTime}
             presets={windows}
             startError={errors.startTime}
             endError={errors.endTime}
@@ -133,8 +156,7 @@ export function RequestDates({
           />
           {clashState.state === "ready" ? (
             <p className="hint">
-              Once you pick a stretch, days busy in your Google Calendar are greyed; you can still
-              tick them.
+              Days busy in your Google Calendar are greyed; you can still tick them.
             </p>
           ) : null}
           {clashState.state === "connect" ? (
