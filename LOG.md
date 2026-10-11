@@ -4055,3 +4055,33 @@ Execution trace: f30b4bea4fa64c39b80a8bf829be08a4
 Planned work:
 - Date cells and the hour bar's targets at least 44 px at every width; the privacy page's permission table readable on phones; a consistent avatar; the heat map using wide screens; the remaining minor observations.
 - An Impeccable polish pass, then a second site-wide critique and audit, with scores compared to 27/40 and 16/20.
+
+## 2026-10-11 10:47 — PARK
+Phase 27 — Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit
+
+Execution trace: f30b4bea4fa64c39b80a8bf829be08a4
+
+Reason: the implementation is complete, passed its code critique (8 findings, all adopted) and the second Impeccable critique and audit (whose in-scope findings were also fixed), and CI is green on draft pull request #18 for commit 2aa8a2e. But this run cannot pass acceptance: its trace holds two overlapping orchestration stages. Recovering from an unbindable first plan review (the primary wrote two planned files while that read-only review ran), the primary opened the second planning stage seconds before closing an implementation stage it had opened too early; command zero refuses overlapping stages, and recorded spans cannot be changed. An orchestration fault, not a product defect.
+
+State at park:
+- Candidate 45587f0d0b36080658559ca8e75c6c38bde7325a4ecd342bb0f5531a4adc6324, committed on main as 2aa8a2e and pushed to branch phase-27 (draft pull request #18, CI check success): 44 px calendar dates at every width, two months side by side on wide screens, the privacy table on phones, the avatar's initials everywhere, time-zone groups and readable names, named presets, 44 px standalone links, hints at 70ch, placeholder contrast; DESIGN.md layout rules.
+- Plan: plan-3 (hash 94af77a7e109005ca8cca1344b89d862e98c1d0d5662c4e3c2d6ab6c86ac7742), plan-2 (hash 4d62b7f2a84a763497eef1205252d741849d10f9dcbbfd5e3d4c76c4c4ad6b12) reviewed independently (second pass, 8 findings, all adopted; the first pass's 11 findings were folded into plan-2 but could not be bound as evidence). One code critique on candidate 281750bd… (8 findings, all adopted).
+- Second critique 28/40 (was 27/40) and audit 17/20 (was 16/20), report in .impeccable/critique/ (ignored) and the run directory.
+- Focused results: Vitest 652/652, lint, typecheck, format PASS, smoke PASS; mutation checks 34 of 35 killed (the survivor is hydration-only and covered by a browser check); measurements at 320/368/390/1280 px.
+- No status change: Phase 27 stays 🚧. Pushed to the pull request branch only; nothing merged.
+
+Resume: a planned continuation under policies/review-lanes.md § Continue an approved plan after preparation: a fresh run with --follow-up-route full-cycle carries plan-3, its review and the code critique, commits this park's bookkeeping, and reruns the gates (including CI on pull request #18), the close and delivery.
+
+Lessons:
+- zealous-chimera filed: writing on the tree during a read-only review, and reopening a stage before closing the last, leave evidence the run cannot use (local)
+- loyal-dinosaur recurrence (4 total): the plan review's refused ingest went through tail, and the next steps ran anyway
+
+Remaining:
+- Continuation run: gates on the candidate, accepted close, handoff gate, delivery through pull request #18; the User Demo for the operator.
+
+## 2026-10-11 10:48 — START (resumed)
+Phase 27 — Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit
+
+Execution trace: 0fa8bf490d764155a02b68f278af76ee
+
+Planned continuation of the parked run above (policies/review-lanes.md § Continue an approved plan after preparation): plan-3 (94af77a7e109005ca8cca1344b89d862e98c1d0d5662c4e3c2d6ab6c86ac7742), the independent plan review of plan-2 and the code critique are carried; the product candidate 45587f0d0b36080658559ca8e75c6c38bde7325a4ecd342bb0f5531a4adc6324 is unchanged since the park. Remaining: commit the park's bookkeeping, gates on this candidate (including CI on pull request #18), close and delivery.
