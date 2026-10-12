@@ -189,6 +189,8 @@ export type Store = {
    * email (plan/phase-30.md), all at once; the groups claimed.
    */
   claimInvitations(accountId: string): Group[];
+  /** Whether any group has an unclaimed place for this email (plan/phase-34.md). */
+  hasInvitation(email: string): boolean;
   /**
    * Deletes a member and their availability, answers and RSVPs, queueing the
    * Google Calendar events the app wrote for them for removal. The group's
@@ -1552,6 +1554,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         holdAdded.run(groupId, row.id);
         return toMember(selectMember.get(groupId, row.id) as MemberRow);
       });
+    },
+    hasInvitation(email) {
+      return selectInvitedGroups.get(email.trim().toLowerCase()) !== undefined;
     },
     claimInvitations(accountId) {
       if (!isToken(accountId)) return [];

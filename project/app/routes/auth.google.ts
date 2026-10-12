@@ -10,6 +10,7 @@ import {
   SIGN_IN_WITH_CALENDAR_SCOPES,
 } from "~/.server/google";
 import { safeReturnTo, writeOAuthState } from "~/.server/membership";
+import { withNotice } from "~/lib/notices";
 
 import type { Route } from "./+types/auth.google";
 
@@ -18,17 +19,13 @@ import type { Route } from "./+types/auth.google";
  * remembers state, nonce and PKCE verifier, then goes to Google.
  */
 export async function loader({ request }: Route.LoaderArgs) {
+  const returnTo = safeReturnTo(new URL(request.url).searchParams.get("returnTo"), request);
   const config = googleConfig();
-  if (!config) {
-    return new Response("Google sign-in isn't available right now.", {
-      status: 503,
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-    });
-  }
+  // Back where it started, saying so (plan/phase-34.md).
+  if (!config) return redirect(withNotice(returnTo, "google-unavailable"));
   const state = randomBytes(16).toString("base64url");
   const nonce = randomBytes(16).toString("base64url");
   const { verifier, challenge } = pkcePair();
-  const returnTo = safeReturnTo(new URL(request.url).searchParams.get("returnTo"), request);
   const url = authorizationUrl(config, {
     state,
     nonce,

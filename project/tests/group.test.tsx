@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
-import { CALENDAR_ACCESS_HINT } from "../app/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT } from "../app/lib/notices";
 import { groupPath } from "../app/lib/group-address";
 import GroupPage, { action, loader } from "../app/routes/group";
 import {

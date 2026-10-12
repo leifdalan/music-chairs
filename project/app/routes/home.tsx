@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Link } from "react-router";
 
 import { createGroupAction, timeZoneChoices } from "~/.server/create-group";
 import { googleConfig } from "~/.server/google";
@@ -10,30 +10,39 @@ import { Wordmark } from "~/components/wordmark";
 import { homeRequests, waitingProposals } from "~/.server/pending";
 import { CalendarActions, ProgressFigures } from "~/components/calendar-actions";
 import { CreateGroupForm } from "~/components/create-group-form";
+import { ElsewhereForm } from "~/components/elsewhere-form";
 import { SubmitButton } from "~/components/submit-button";
 import { formatDate } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
-import { CALENDAR_ACCESS_HINT, calendarNotice } from "~/lib/calendar-notices";
+import {
+  CALENDAR_ACCESS_HINT,
+  CALENDAR_NOTICE_KEYS,
+  noticeText,
+  SIGNIN_NOTICE_KEYS,
+  type NoticeHandle,
+} from "~/lib/notices";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/home";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta() {
   return pageMeta();
 }
 
-const NOTICES: Record<string, string> = {
-  "signin-cancelled": "Google sign-in was cancelled.",
-  "signin-failed": "Google sign-in didn't work. Please try again.",
-};
+const HOME_NOTICES = [...SIGNIN_NOTICE_KEYS, ...CALENDAR_NOTICE_KEYS];
 
 // Time zones are built on the server so the server render and hydration list
 // the same options. The visitor's groups are this device's and, when signed
 // in, the account's.
+
+/** Sign-in lands here, and Google Calendar consent from "Your requests". */
+export const handle: NoticeHandle = { notices: HOME_NOTICES };
+
 export async function loader({ request }: Route.LoaderArgs) {
   const account = await readAccount(request);
-  const notice = new URL(request.url).searchParams.get("notice");
   const memberships = await visitorGroups(request, account);
   return {
     timeZones: timeZoneChoices(),
@@ -45,7 +54,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       displayName: member.displayName,
     })),
     // Google Calendar consent started from "Your requests" returns here too.
-    notice: notice ? (NOTICES[notice] ?? calendarNotice(request)) : null,
+    notice: noticeText(request, HOME_NOTICES),
     requests: await homeRequests(request, memberships),
     proposals: waitingProposals(memberships),
     // Each group's next confirmed rehearsal, the payoff (plan/phase-26.md).
@@ -62,13 +71,22 @@ export async function action({ request }: Route.ActionArgs) {
   return createGroupAction(request, await request.formData());
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["(default)"] });
+}
+
 export default function Home({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   const { requests, proposals, groups, comingUp } = loaderData;
   const newcomer = groups.length === 0 && !loaderData.account;
   const waiting = requests.filter((item) => item.waitingUntil !== null);
   const inProgress = requests.filter((item) => item.progress !== null);
   return (
     <main>
+      <PageFailure failure={failure} />
       <h1>{newcomer ? <Wordmark /> : "Your rehearsals"}</h1>
       <p>{siteTagline}</p>
       {loaderData.notice ? (
@@ -198,7 +216,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       ) : null}
       <AccountPanel account={loaderData.account} signInAvailable={loaderData.signInAvailable} />
       {groups.length === 0 ? (
-        <CreateGroupForm timeZones={loaderData.timeZones} result={actionData} />
+        <CreateGroupForm timeZones={loaderData.timeZones} result={kept} />
       ) : null}
     </main>
   );
@@ -230,11 +248,11 @@ function AccountPanel({
         Signed in with Google as <strong>{account.email}</strong>. Open a group you joined and sign
         in from there to link it.
       </p>
-      <Form method="post" action="/auth/sign-out">
+      <ElsewhereForm fetcherKey="sign-out" action="/auth/sign-out">
         <SubmitButton feedbackKey="sign-out" variant="outline" size="sm">
           Sign out
         </SubmitButton>
-      </Form>
+      </ElsewhereForm>
     </section>
   );
 }

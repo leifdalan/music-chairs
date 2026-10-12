@@ -2,13 +2,14 @@ import { Download } from "lucide-react";
 import { Form } from "react-router";
 
 import { formatDate } from "~/lib/availability";
-import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT } from "~/lib/notices";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
 
+import { ElsewhereForm } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
 
-export type GoogleWriteState = "unlinked" | "other-account" | "connect" | "off" | "on";
+export type GoogleWriteState = "unlinked" | "other-account" | "connect" | "revoked" | "off" | "on";
 
 /**
  * A complete request's "Add to calendar" pair (plan/phase-17.md): a download
@@ -45,19 +46,25 @@ export function CalendarActions({
       ? "Being added to your Google Calendar."
       : google === "connect"
         ? CALENDAR_ACCESS_HINT
-        : google === "unlinked"
-          ? "To add them to Google Calendar, sign in with Google from the group page."
-          : google === "other-account"
-            ? "To add them to Google Calendar, sign in with Google as this member."
-            : null;
+        : google === "revoked"
+          ? "Google Calendar access was removed, so rehearsals aren't being added. Reconnect to add them again."
+          : google === "unlinked"
+            ? "To add them to Google Calendar, sign in with Google from the group page."
+            : google === "other-account"
+              ? "To add them to Google Calendar, sign in with Google as this member."
+              : null;
+  const schedule = `${groupHref}/schedule`;
+  const onSchedule = returnTo.startsWith(schedule);
+  // From the schedule, the page's own address, so its view comes back too
+  // (plan/phase-33.md); from anywhere else in the background (plan/phase-34.md).
+  const SetCalendarForm = onSchedule ? Form : ElsewhereForm;
   return (
     <div className="calendar-actions">
       {google === "off" ? (
-        <Form
+        <SetCalendarForm
           method="post"
-          // From the schedule, the page's own address, so its view comes back too (plan/phase-33.md).
-          action={returnTo.startsWith(`${groupHref}/schedule`) ? returnTo : `${groupHref}/schedule`}
-          replace
+          action={onSchedule ? returnTo : schedule}
+          fetcherKey={`set-calendar-${requestHref}`}
           preventScrollReset
         >
           <input type="hidden" name="intent" value="set-calendar" />
@@ -71,11 +78,11 @@ export function CalendarActions({
           >
             Add to Google Calendar
           </SubmitButton>
-        </Form>
+        </SetCalendarForm>
       ) : null}
-      {google === "connect" ? (
+      {google === "connect" || google === "revoked" ? (
         <a className={buttonVariants({ variant: "outline", size: "sm" })} href={connect}>
-          Connect Google Calendar
+          {google === "revoked" ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </a>
       ) : null}
       {googleHint ? <p className="hint">{googleHint}</p> : null}

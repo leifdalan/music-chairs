@@ -11,7 +11,7 @@ import type { FeedEvent } from "~/lib/ics";
 import { isUpcoming } from "~/lib/rehearsal";
 import { zonedInstant } from "~/lib/zoned-time";
 
-import { GoogleAccessRevoked, googleConfig, putEvent, removeEvent } from "./google";
+import { accessRevoked, GoogleAccessRevoked, googleConfig, putEvent, removeEvent } from "./google";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { findViewer, publicOrigin, readAccount } from "./membership";
 import {
@@ -114,8 +114,20 @@ export async function googleWriteState(
   const capable = await calendarViewer(request, group);
   if (!capable) return viewer.googleEmail ? "other-account" : "unlinked";
   const grant = getStore().findGrant(capable.account.id);
-  if (!grant?.scopes.includes(CALENDAR_SCOPES.write)) return "connect";
+  if (!grant?.scopes.includes(CALENDAR_SCOPES.write)) {
+    // Google refused the access it had: said as removed, not as never given (plan/phase-34.md).
+    return accessRevoked(capable.account.id) ? "revoked" : "connect";
+  }
   return capable.member.calendarSync ? "on" : "off";
+}
+
+// When each member's calendar last failed to update (plan/phase-34.md), until
+// an update succeeds. In memory: after a restart the next sweep finds them again.
+const writeFailures = new Map<string, Date>();
+
+/** When this member's Google Calendar last failed to update, if it hasn't been updated since. */
+export function writeFailedAt(memberId: string): Date | null {
+  return writeFailures.get(memberId) ?? null;
 }
 
 /** A stable Google event id (base32hex characters) for one member's rehearsal date. */
@@ -212,9 +224,13 @@ export function scheduleSync(targets: SyncingMember[], options: { rewrite?: bool
     const previous = chains.get(target.memberId) ?? Promise.resolve();
     const next = previous
       .then(() => syncMember(target, new Date(), options))
+      .then(() => {
+        writeFailures.delete(target.memberId);
+      })
       .catch((error: unknown) => {
         const reason = error instanceof GoogleAccessRevoked ? "access revoked" : String(error);
         console.warn(`music-chairs: calendar sync for a member failed: ${reason}`);
+        writeFailures.set(target.memberId, new Date());
       });
     chains.set(target.memberId, next);
   }
@@ -286,7 +302,7 @@ export function scheduleRemovals(): void {
 }
 
 /** How long Disconnect Google waits for the account's events to be removed. */
-const STOP_WRITING_WAIT_MS = 20_000;
+export const STOP_WRITING_WAIT_MS = 20_000;
 
 /**
  * Before Disconnect Google withdraws the app's access (plan/phase-14.md): turns
@@ -304,6 +320,7 @@ export async function stopWritingFor(accountId: string): Promise<boolean> {
   // Withdrawing access is not the member choosing to stop: their holds stay as
   // they were, so a later grant writes again (plan/phase-32.md).
   store.stopAccountWriting(accountId);
+  for (const target of targets) writeFailures.delete(target.memberId);
   const work = targets.map((target) => {
     const next = (chains.get(target.memberId) ?? Promise.resolve())
       .catch(() => {})

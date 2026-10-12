@@ -1,14 +1,15 @@
 import { UserRound } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { Form, useLocation, useRouteLoaderData } from "react-router";
+import { useLocation, useRouteLoaderData } from "react-router";
 
 import type { HeaderProfile } from "~/.server/profile";
-import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT } from "~/lib/notices";
 import { DISCONNECT_PROMPT } from "~/lib/privacy";
 import { INSTRUMENT_MAX } from "~/lib/profile";
 import { buttonVariants } from "~/components/ui/button";
 
 import { ConfirmForm } from "./confirm-form";
+import { ElsewhereForm } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
 
 /**
@@ -42,8 +43,8 @@ export function ProfileMenu() {
       </summary>
       <div className="profile-panel">
         {profile.member ? (
-          <Form
-            method="post"
+          <ElsewhereForm
+            fetcherKey="profile-save"
             preventScrollReset
             action={`${profile.member.groupHref}/profile`}
             className="stack"
@@ -74,7 +75,7 @@ export function ProfileMenu() {
               />
             </div>
             <SubmitButton feedbackKey="profile-save">Save</SubmitButton>
-          </Form>
+          </ElsewhereForm>
         ) : null}
         {profile.signedIn ? (
           <>
@@ -82,11 +83,11 @@ export function ProfileMenu() {
             <a href="https://gravatar.com/profile" target="_blank" rel="noreferrer">
               Change picture on gravatar.com
             </a>
-            <Form method="post" action="/auth/sign-out">
+            <ElsewhereForm fetcherKey="profile-sign-out" action="/auth/sign-out">
               <SubmitButton feedbackKey="profile-sign-out" variant="outline">
                 Sign out
               </SubmitButton>
-            </Form>
+            </ElsewhereForm>
             <ConfirmForm
               action={`/auth/google/disconnect?returnTo=${encodeURIComponent(here)}`}
               fields={{}}

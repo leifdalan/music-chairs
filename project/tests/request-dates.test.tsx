@@ -644,6 +644,7 @@ describe("clashes with Google Calendar", () => {
     expect(page.clashes).toEqual({
       state: "connect",
       connectUrl: `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(`${pathOf(group, request.id)}?times=list`)}`,
+      revoked: false,
     });
     expect(render(page)).toContain("See clashes from your Google Calendar");
     expect(google.calendarCalls()).toEqual([]);

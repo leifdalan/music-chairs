@@ -3,7 +3,13 @@
 // plan/phase-23.md).
 
 import { calendarViewer } from "~/.server/calendar-sync";
-import { accessTokenFor, GoogleAccessRevoked, GoogleApiError, queryBusy } from "~/.server/google";
+import {
+  accessRevoked,
+  accessTokenFor,
+  GoogleAccessRevoked,
+  queryBusy,
+  READ_TIMEOUT_MS,
+} from "~/.server/google";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { pagePath } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
@@ -29,12 +35,14 @@ export async function googleClashes(
   // Back here after consent, without the notice of an earlier attempt.
   url.searchParams.delete("notice");
   const connectUrl = `/auth/google/calendar?scope=busy&returnTo=${encodeURIComponent(pagePath(url))}`;
+  const reconnect = () =>
+    ({ state: "connect", connectUrl, revoked: accessRevoked(capable.account.id) }) as const;
   if (!getStore().findGrant(capable.account.id)?.scopes.includes(CALENDAR_SCOPES.busy)) {
-    return { state: "connect", connectUrl };
+    return reconnect();
   }
   try {
     // One token refresh for every query that follows, not one each.
-    await accessTokenFor(capable.account.id);
+    await accessTokenFor(capable.account.id, new Date(), READ_TIMEOUT_MS);
     const answers = await Promise.all(
       busyQueries(range.from, range.to, group.timeZone).map((query) =>
         queryBusy(capable.account.id, query.timeMin, query.timeMax),
@@ -50,9 +58,9 @@ export async function googleClashes(
     }
     return { state: "ready", busy };
   } catch (error) {
-    if (error instanceof GoogleAccessRevoked) return { state: "connect", connectUrl };
-    if (!(error instanceof GoogleApiError)) throw error;
-    console.warn(`music-chairs: free/busy for clashes failed: ${error.message}`);
+    if (error instanceof GoogleAccessRevoked) return reconnect();
+    // Whatever went wrong, the page still opens, saying clashes couldn't be read (plan/phase-34.md).
+    console.warn(`music-chairs: free/busy for clashes failed: ${String(error)}`);
     return { state: "error" };
   }
 }

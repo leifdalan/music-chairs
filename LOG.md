@@ -4929,3 +4929,15 @@ Phase 33 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 33 ✅ and Phase 34 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: bouncy-bat filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 14:03 — START
+Phase 34 — Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network
+
+Execution trace: ed12601dcefd4b708de8c3f42c5fc0ac
+
+Planned work:
+- An inventory of every HTTP call the app makes or serves (page loads, form posts, in-page saves, the Google sign-in and consent round trips, and the app's own calls to Google), each with its failure outcomes, kept in the repository.
+- A clear, specific error state in the UI for each failure outcome: validation refusals, a missing or removed group, request or rehearsal, a closed request, not being allowed, the server failing, and a save the server never answered.
+- Google sign-in and permission outcomes each have their own state: cancelled, refused, a different Google account, an unverified email, no refresh token, only some permissions granted (Calendar busy times without writing, writing without busy times, contacts withheld), access later revoked, and Google itself failing or slow, both at sign-in and when the app reads or writes the calendar.
+- Failures in the browser itself — saving while offline, a request that times out, the server unreachable mid-save — say so and offer a retry, without losing what the person entered.
+- Every error state is covered by a test that drives it and checks what the person sees.

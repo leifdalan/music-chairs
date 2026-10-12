@@ -5,7 +5,7 @@ import { redirectWithToast } from "~/.server/flash";
 import {
   CONTACTS_SCOPES,
   GoogleAccessRevoked,
-  GoogleApiError,
+  accessRevoked,
   googleConfig,
   listContacts,
   type Contact,
@@ -14,7 +14,7 @@ import { findViewer, readAccount } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { groupPath } from "~/lib/group-address";
-import { calendarNotice } from "~/lib/calendar-notices";
+import { CONTACTS_NOTICE_KEYS, noticeText, type NoticeHandle } from "~/lib/notices";
 import { parsePerson } from "~/lib/contacts";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { sameName } from "~/lib/profile";
@@ -22,6 +22,8 @@ import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/members.add";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `Add members · ${loaderData.groupName}` : "Not found");
@@ -38,7 +40,7 @@ async function organizerGroup(request: Request, address: string): Promise<Group>
 
 type Suggestions =
   | { state: "sign-in" }
-  | { state: "connect"; connectUrl: string }
+  | { state: "connect"; connectUrl: string; revoked?: boolean }
   | { state: "error" }
   | { state: "ready"; contacts: Contact[] };
 
@@ -51,25 +53,30 @@ async function suggestions(request: Request, group: Group): Promise<Suggestions 
   const account = await readAccount(request);
   if (!account) return { state: "sign-in" };
   const connectUrl = `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`${groupPath(group)}/members/add`)}`;
+  const reconnect = () =>
+    ({ state: "connect", connectUrl, revoked: accessRevoked(account.id) }) as const;
   if (!getStore().findGrant(account.id)?.scopes.includes(CONTACTS_SCOPES.saved)) {
-    return { state: "connect", connectUrl };
+    return reconnect();
   }
   try {
     return { state: "ready", contacts: await listContacts(account.id) };
   } catch (error) {
-    if (error instanceof GoogleAccessRevoked) return { state: "connect", connectUrl };
-    if (!(error instanceof GoogleApiError)) throw error;
+    if (error instanceof GoogleAccessRevoked) return reconnect();
+    // Whatever went wrong, the page still opens, saying so (plan/phase-34.md).
     console.warn("music-chairs: reading Google contacts failed");
     return { state: "error" };
   }
 }
+
+/** Google contacts notices show above the suggestions they're about. */
+export const handle: NoticeHandle = { notices: CONTACTS_NOTICE_KEYS };
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const group = await organizerGroup(request, params.groupAddress);
   return {
     groupHref: groupPath(group),
     groupName: group.name,
-    notice: calendarNotice(request),
+    notice: noticeText(request, CONTACTS_NOTICE_KEYS),
     suggestions: await suggestions(request, group),
   };
 }
@@ -113,11 +120,20 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirectWithToast(`${groupPath(group)}/members/add`, `Added ${name.value}`);
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["(default)"] });
+}
+
 export default function AddMembers({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   const { groupHref, groupName, notice, suggestions: offered } = loaderData;
   const contacts = offered?.state === "ready" ? offered.contacts : [];
   return (
     <main>
+      <PageFailure failure={failure} />
       <p className="eyebrow">
         <Link to={groupHref}>{groupName}</Link>
       </p>
@@ -131,10 +147,16 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         Type a name: that person gets in by typing the same name on the invite link. Or pick someone
         from your Google contacts: they get in by signing in with that Google account.
       </p>
+      {offered?.state === "connect" && offered.revoked ? (
+        <p className="field-error" role="alert">
+          Google contacts access was removed, so there are no suggestions. Reconnect to see them
+          again.
+        </p>
+      ) : null}
       {offered?.state === "connect" ? (
         <p>
           <a className={buttonVariants({ variant: "outline" })} href={offered.connectUrl}>
-            Use your Google contacts
+            {offered.revoked ? "Reconnect your Google contacts" : "Use your Google contacts"}
           </a>
         </p>
       ) : null}
@@ -145,6 +167,9 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         <p className="field-error" role="alert">
           Couldn&apos;t read your Google contacts right now; you can still type a name.
         </p>
+      ) : null}
+      {offered?.state === "ready" && contacts.length === 0 ? (
+        <p className="hint">No contacts with an email address were found; type a name instead.</p>
       ) : null}
       <Form method="post" className="stack" replace preventScrollReset>
         <div className="field">
@@ -157,9 +182,9 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
             autoComplete="off"
             list={contacts.length > 0 ? "contact-suggestions" : undefined}
             placeholder={contacts.length > 0 ? "Start typing a name" : "Sam Smith"}
-            defaultValue={actionData?.value}
-            aria-invalid={actionData?.error ? true : undefined}
-            aria-describedby={actionData?.error ? "person-error" : undefined}
+            defaultValue={kept?.value}
+            aria-invalid={kept?.error ? true : undefined}
+            aria-describedby={kept?.error ? "person-error" : undefined}
           />
           {contacts.length > 0 ? (
             <datalist id="contact-suggestions">
@@ -171,9 +196,9 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
               ))}
             </datalist>
           ) : null}
-          {actionData?.error ? (
+          {kept?.error ? (
             <p className="field-error" id="person-error" role="alert">
-              {actionData.error}
+              {kept.error}
             </p>
           ) : null}
         </div>

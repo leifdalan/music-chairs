@@ -6,7 +6,6 @@ import {
   exchangeCode,
   forgetAccessToken,
   googleConfig,
-  GoogleSignInError,
   type GoogleTokens,
 } from "~/.server/google";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
@@ -23,6 +22,7 @@ import { redirectWithToast } from "~/.server/flash";
 import { findGroupByAddress } from "~/.server/group-address";
 import { getStore, type Group, type GoogleProfile } from "~/.server/store";
 import { inviteCodeOf } from "~/lib/group-address";
+import { withNotice } from "~/lib/notices";
 
 /** What a sign-in that switched calendar writing on says (plan/phase-32.md). */
 export const WRITING_ON_TOAST = "Your confirmed rehearsals will be added to your Google Calendar";
@@ -40,17 +40,25 @@ export async function loader({ request }: Route.LoaderArgs) {
   const saved = await readOAuthState(request);
   const headers = new Headers({ "Cache-Control": "no-store" });
   headers.append("Set-Cookie", await clearOAuthState());
-  const config = googleConfig();
-  const code = url.searchParams.get("code");
-  if (url.searchParams.get("error")) {
-    if (saved?.purpose === "calendar") {
-      return redirect(withNotice(saved.returnTo, `${consentKind(saved)}-declined`), { headers });
-    }
-    return redirect("/?notice=signin-cancelled", { headers });
+  // Every outcome goes back where it started, saying what happened
+  // (plan/phase-34.md); without the saved state there is nowhere to go back to.
+  if (!saved) {
+    console.warn("music-chairs: Google sign-in refused: no saved state (expired or never set)");
+    return redirect(withNotice("/", "signin-expired"), { headers });
   }
-  if (!config || !saved || !code || url.searchParams.get("state") !== saved.state) {
-    console.warn("music-chairs: Google sign-in refused: missing or mismatched state");
-    return redirect("/?notice=signin-failed", { headers });
+  const kind = consentKind(saved);
+  const back = (...notices: string[]) =>
+    redirect(withNotice(saved.returnTo, ...notices), { headers });
+  if (url.searchParams.get("error")) {
+    return back(saved.purpose === "calendar" ? `${kind}-declined` : "signin-cancelled");
+  }
+  const failed = saved.purpose === "calendar" ? `${kind}-failed` : "signin-failed";
+  const config = googleConfig();
+  if (!config) return back("google-unavailable");
+  const code = url.searchParams.get("code");
+  if (!code || url.searchParams.get("state") !== saved.state) {
+    console.warn("music-chairs: Google sign-in refused: missing code or mismatched state");
+    return back(failed);
   }
   let identity: GoogleProfile;
   let tokens: GoogleTokens;
@@ -62,9 +70,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       nonce: saved.nonce,
     }));
   } catch (error) {
-    if (!(error instanceof GoogleSignInError)) throw error;
-    console.warn(`music-chairs: Google sign-in refused: ${error.message}`);
-    return redirect("/?notice=signin-failed", { headers });
+    // A refusal, Google not answering, or anything unexpected: nothing was signed in.
+    console.warn(`music-chairs: Google sign-in refused: ${String(error)}`);
+    return back(failed);
   }
   if (saved.purpose === "calendar") {
     return redirect(await saveCalendarGrant(request, saved, identity, tokens), { headers });
@@ -74,19 +82,30 @@ export async function loader({ request }: Route.LoaderArgs) {
   headers.append("Set-Cookie", await startSession(account.id));
   // Calendar access granted with sign-in is kept (merged with earlier grants).
   // Google sends a refresh token only on a first authorization; without one
-  // and none stored nothing is saved, and the "connect" links remain.
-  if (
-    tokens.scopes.includes(CALENDAR_SCOPES.busy) ||
-    tokens.scopes.includes(CALENDAR_SCOPES.write)
-  ) {
-    if (store.saveGrant(account.id, tokens.refreshToken, tokens.scopes))
-      forgetAccessToken(account.id);
+  // and none stored nothing is saved, and the "connect" links remain. What
+  // was allowed, and what wasn't, is said (plan/phase-34.md).
+  const notices: string[] = [];
+  const busy = tokens.scopes.includes(CALENDAR_SCOPES.busy);
+  const write = tokens.scopes.includes(CALENDAR_SCOPES.write);
+  if (!busy && !write) {
+    notices.push("signin-calendar-declined");
+  } else if (!store.saveGrant(account.id, tokens.refreshToken, tokens.scopes)) {
+    console.warn("music-chairs: Google sign-in returned no refresh token and none is stored");
+    notices.push("calendar-unsaved");
+  } else {
+    forgetAccessToken(account.id);
+    if (!write) notices.push("calendar-partial-busy");
+    if (!busy) notices.push("calendar-partial-write");
   }
   const before = writingMembers(account.id);
-  const returnTo = await linkReturnGroup(request, saved.returnTo, account.id);
+  const linked = await linkReturnGroup(request, saved.returnTo, account.id);
   // Every place an organizer added for this verified email is now this
   // account's, so those groups show on home and Groups (plan/phase-30.md).
   store.claimInvitations(account.id);
+  if (!identity.emailVerified && store.hasInvitation(identity.email)) {
+    notices.push("unverified-email");
+  }
+  const returnTo = withNotice(saved.returnTo, ...(linked ? [linked] : []), ...notices);
   // Granting the Calendar write permission switches writing on in every group
   // not held off, releasing an added place in the group sign-in started from
   // (plan/phase-32.md). Linking this device's member can switch it on too.
@@ -110,21 +129,16 @@ function writingMembers(accountId: string): Set<string> {
   );
 }
 
-/** Links this device's member of the group sign-in started from; adds the outcome as a notice. */
+/** Links this device's member of the group sign-in started from; the outcome's notice, if any. */
 async function linkReturnGroup(request: Request, returnTo: string, accountId: string) {
   const address = /^\/g\/([^/?]+)/.exec(returnTo)?.[1];
   const store = getStore();
   const group = address ? findGroupByAddress(address) : null;
-  if (!group) return returnTo;
+  if (!group) return null;
   const member = await findDeviceMember(request, group);
-  if (!member || member.googleEmail !== null) return returnTo;
+  if (!member || member.googleEmail !== null) return null;
   const result = store.linkMember(group.id, member.id, accountId);
-  const notice =
-    result === "linked" ? "linked" : result === "account-taken" ? "account-taken" : null;
-  if (!notice) return returnTo;
-  const target = new URL(returnTo, "http://site.invalid");
-  target.searchParams.set("notice", notice);
-  return target.pathname + target.search;
+  return result === "linked" ? "linked" : result === "account-taken" ? "account-taken" : null;
 }
 
 /** The group a page belongs to: a group address, or a group's invite link. */
@@ -134,12 +148,6 @@ function groupOfPath(path: string): Group | null {
   const invite = /^\/join\/([^/?#]+)/.exec(path)?.[1];
   const code = invite ? inviteCodeOf(invite) : null;
   return code ? getStore().findGroupByInviteCode(code) : null;
-}
-
-function withNotice(path: string, notice: string): string {
-  const target = new URL(path, "http://site.invalid");
-  target.searchParams.set("notice", notice);
-  return target.pathname + target.search;
 }
 
 /**
@@ -170,6 +178,10 @@ async function saveCalendarGrant(
     return withNotice(saved.returnTo, `${kind}-failed`);
   }
   forgetAccessToken(session.id);
+  // Contacts are asked for together; Google lets people untick the "other" ones.
+  if (kind === "contacts" && !tokens.scopes.includes(CONTACTS_SCOPES.other)) {
+    return withNotice(saved.returnTo, "contacts-partial");
+  }
   if (saved.scope !== CALENDAR_SCOPES.write) return withNotice(saved.returnTo, `${kind}-connected`);
   // Asking for writing from a group's page is asking for it there: any hold
   // there is released, and every group not held off writes (plan/phase-32.md).

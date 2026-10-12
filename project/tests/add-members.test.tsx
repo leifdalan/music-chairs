@@ -202,6 +202,7 @@ describe("contact suggestions", () => {
     expect((await load(group.id, organizerCookie)).suggestions).toEqual({
       state: "connect",
       connectUrl: `/auth/google/calendar?scope=contacts&returnTo=${encodeURIComponent(`${groupPath(group)}/members/add`)}`,
+      revoked: false,
     });
     expect(google.peopleCalls()).toHaveLength(0);
     const token = store.deviceTokenFor(group.id, organizer.id)!;

@@ -6,6 +6,7 @@ import { createRoutesStub } from "react-router";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { whenSynced } from "../app/.server/calendar-sync";
+import { readToast } from "../app/.server/flash";
 import { readMemberships, rememberMembership } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
@@ -310,7 +311,7 @@ describe("managing a group from the groups page", () => {
     expect(Object.keys(left)).toEqual([other.group.id]);
   });
 
-  it("refuses to let the only organizer leave", async () => {
+  it("refuses to let the only organizer leave, back on the groups page with an error toast", async () => {
     const { group, organizer } = band("Needs Viola");
     const cookie = await deviceCookie(group.id, organizer.deviceToken);
 
@@ -318,11 +319,35 @@ describe("managing a group from the groups page", () => {
       intent: "leave",
       returnTo: "/groups",
       confirmed: "1",
-    })) as { data: { problem: string }; init: ResponseInit };
+    })) as Response;
 
-    expect(refused.init.status).toBe(400);
-    expect(refused.data.problem).toContain("at least one organizer");
+    // The groups page's forms post in the background (plan/phase-34.md).
+    expect(refused.headers.get("Location")).toBe("/groups");
+    const { toast } = await readToast(
+      new Request(ORIGIN, { headers: { Cookie: setCookies(refused).mc_toast } }),
+    );
+    expect(toast).toMatchObject({ kind: "error" });
+    expect(toast?.message).toContain("at least one organizer");
     expect(getStore().findMember(group.id, organizer.id)).not.toBeNull();
+  });
+
+  it("refuses an empty name from the groups page with an error toast there", async () => {
+    const { group, organizer } = band("Needs Cello");
+    const cookie = await deviceCookie(group.id, organizer.deviceToken);
+
+    const refused = (await post(group.id, cookie, {
+      intent: "update-group",
+      name: "   ",
+      timeZone: group.timeZone,
+      returnTo: "/groups",
+    })) as Response;
+
+    expect(refused.headers.get("Location")).toBe("/groups");
+    const { toast } = await readToast(
+      new Request(ORIGIN, { headers: { Cookie: setCookies(refused).mc_toast } }),
+    );
+    expect(toast?.kind).toBe("error");
+    expect(getStore().findGroup(group.id)?.name).toBe("Needs Cello");
   });
 
   it("cancels the confirm page back to the groups page when the form came from there", () => {

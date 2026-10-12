@@ -12,7 +12,9 @@ const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const PEOPLE_API = "https://people.googleapis.com/v1";
 // A stalled call to Google fails after this long instead of holding a page or a sync.
-const GOOGLE_TIMEOUT_MS = 10_000;
+export const GOOGLE_TIMEOUT_MS = 10_000;
+/** Reads a page waits on (clashes, contacts) give up sooner (plan/phase-34.md). */
+export const READ_TIMEOUT_MS = 5_000;
 // Sign-in asks for the basic profile only.
 const SIGN_IN_SCOPES = ["openid", "email", "profile"];
 
@@ -167,13 +169,25 @@ export async function exchangeCode(
 // Access tokens live only in memory, per account, until shortly before they expire.
 const accessTokens = new Map<string, { token: string; expiresAt: number }>();
 
+// Accounts whose access Google refused since their grant was saved, so the
+// pages can say it was removed rather than never given (plan/phase-34.md).
+// In memory: after a restart they read as never connected.
+const revoked = new Set<string>();
+
 /**
  * Forgets the cached access token and contacts, for example after the member
- * grants more scopes or Google refuses the grant.
+ * grants more scopes or Google refuses the grant; a new grant or a disconnect
+ * also forgets that access was removed.
  */
 export function forgetAccessToken(accountId: string): void {
   accessTokens.delete(accountId);
   contactsCache.delete(accountId);
+  revoked.delete(accountId);
+}
+
+/** Whether Google refused this account's access since it last granted any. */
+export function accessRevoked(accountId: string): boolean {
+  return revoked.has(accountId);
 }
 
 /**
@@ -202,7 +216,11 @@ export async function revokeGrant(refreshToken: string): Promise<boolean> {
  * needed. A refresh Google refuses as `invalid_grant` means the member revoked
  * access: the grant is deleted and `GoogleAccessRevoked` thrown.
  */
-export async function accessTokenFor(accountId: string, now: Date = new Date()): Promise<string> {
+export async function accessTokenFor(
+  accountId: string,
+  now: Date = new Date(),
+  timeoutMs: number = GOOGLE_TIMEOUT_MS,
+): Promise<string> {
   const cached = accessTokens.get(accountId);
   if (cached && cached.expiresAt > now.getTime()) return cached.token;
   const config = googleConfig();
@@ -212,7 +230,7 @@ export async function accessTokenFor(accountId: string, now: Date = new Date()):
   let response: Response;
   try {
     response = await fetch(TOKEN_ENDPOINT, {
-      signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -234,6 +252,7 @@ export async function accessTokenFor(accountId: string, now: Date = new Date()):
     // Only this token: a reconnect saved meanwhile must survive a late refusal.
     getStore().deleteGrant(accountId, grant.refreshToken);
     forgetAccessToken(accountId);
+    revoked.add(accountId);
     throw new GoogleAccessRevoked("Google refused the refresh token");
   }
   if (!response.ok || typeof body?.access_token !== "string") {
@@ -253,13 +272,14 @@ async function googleFetch(
   method: string,
   url: string,
   body?: unknown,
+  timeoutMs: number = GOOGLE_TIMEOUT_MS,
 ): Promise<Response> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await accessTokenFor(accountId);
+    const token = await accessTokenFor(accountId, new Date(), timeoutMs);
     let response: Response;
     try {
       response = await fetch(url, {
-        signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
         method,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -282,8 +302,9 @@ function calendarFetch(
   method: string,
   path: string,
   body?: unknown,
+  timeoutMs?: number,
 ): Promise<Response> {
-  return googleFetch(accountId, method, CALENDAR_API + path, body);
+  return googleFetch(accountId, method, CALENDAR_API + path, body, timeoutMs);
 }
 
 /** A contact suggestion: a name (empty when Google has none) and an email. */
@@ -311,7 +332,7 @@ async function readPeople(accountId: string, url: string): Promise<PeoplePerson[
   do {
     const page = new URL(url);
     if (pageToken) page.searchParams.set("pageToken", pageToken);
-    const response = await googleFetch(accountId, "GET", page.href);
+    const response = await googleFetch(accountId, "GET", page.href, undefined, READ_TIMEOUT_MS);
     if (!response.ok) throw new GoogleApiError(`contacts answered ${response.status}`);
     const body = (await response.json().catch(() => null)) as PeoplePage | null;
     if (!body) throw new GoogleApiError("contacts returned no usable answer");
@@ -375,11 +396,13 @@ export async function queryBusy(
   timeMin: Date,
   timeMax: Date,
 ): Promise<{ start: Date; end: Date }[]> {
-  const response = await calendarFetch(accountId, "POST", "/freeBusy", {
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    items: [{ id: "primary" }],
-  });
+  const response = await calendarFetch(
+    accountId,
+    "POST",
+    "/freeBusy",
+    { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString(), items: [{ id: "primary" }] },
+    READ_TIMEOUT_MS,
+  );
   if (!response.ok) throw new GoogleApiError(`freeBusy answered ${response.status}`);
   const body = (await response.json().catch(() => null)) as {
     calendars?: Record<string, { busy?: { start: string; end: string }[]; errors?: unknown[] }>;

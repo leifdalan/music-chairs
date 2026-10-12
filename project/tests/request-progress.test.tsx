@@ -502,9 +502,14 @@ describe("downloading a complete request", () => {
     const foreignDate = theirs.store.addRehearsal(theirs.group.id, foreign, once("2026-10-08"), "");
     theirs.store.confirmRehearsal(theirs.group.id, foreignDate.id);
 
-    for (const requestId of [open, empty, foreign]) {
-      expect(statusOf(await thrownBy(download(group.id, requestId, cellistCookie)))).toBe(404);
+    // An incomplete request's link goes to the request, saying why (plan/phase-34.md).
+    for (const requestId of [open, empty]) {
+      const sent = (await thrownBy(download(group.id, requestId, cellistCookie))) as Response;
+      expect(sent.headers.get("Location")).toBe(
+        `${requestHrefOf(group, requestId)}?notice=ics-unavailable`,
+      );
     }
+    expect(statusOf(await thrownBy(download(group.id, foreign, cellistCookie)))).toBe(404);
     const unknown = downloadLoader(
       routeArgs(
         `/g/${addressFor(group.id)}/no-such-request/calendar.ics`,

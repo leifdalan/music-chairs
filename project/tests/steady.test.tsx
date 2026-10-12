@@ -45,6 +45,9 @@ function sources(dir: string): string[] {
 
 type FoundForm = { file: string; line: number; action: string | null; staysPut: boolean };
 
+/** Forms that always post: to another page's action, in the background (plan/phase-34.md). */
+const POST_FORMS = new Set(["ElsewhereForm"]);
+
 /** Every `<Form method="post">` in the app, parsed, with how it treats scrolling. */
 function postForms(): FoundForm[] {
   const found: FoundForm[] = [];
@@ -60,8 +63,10 @@ function postForms(): FoundForm[] {
     const visit = (node: ts.Node) => {
       if (
         (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
-        node.tagName.getText(source) === "Form"
+        /^(Form|\w+Form)$/.test(node.tagName.getText(source)) &&
+        node.tagName.getText(source) !== "ConfirmForm"
       ) {
+        const tag = node.tagName.getText(source);
         const attributes = new Map<string, string | null>();
         for (const attribute of node.attributes.properties) {
           if (!ts.isJsxAttribute(attribute)) continue;
@@ -72,7 +77,9 @@ function postForms(): FoundForm[] {
             !value ? "" : ts.isStringLiteral(value) ? value.text : value.getText(source),
           );
         }
-        if (attributes.get("method") === "post") {
+        // A form that passes its caller's props on is checked where it is used.
+        const passesOn = node.attributes.properties.some(ts.isJsxSpreadAttribute);
+        if (!passesOn && (attributes.get("method") === "post" || POST_FORMS.has(tag))) {
           found.push({
             file,
             line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,

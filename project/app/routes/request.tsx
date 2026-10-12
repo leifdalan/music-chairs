@@ -19,6 +19,7 @@ import {
 } from "~/components/request-dates";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { CopyLink } from "~/components/copy-link";
+import { FailureAlert, PageFailure } from "~/components/failure-alert";
 import { ProblemAlert } from "~/components/problem-alert";
 import { FreeCalendar } from "~/components/free-calendar";
 import { FreeStretch, NotesField, OneTapTime, ProposeTimes } from "~/components/propose-times";
@@ -29,7 +30,7 @@ import { Switch, useSwitch } from "~/components/view-switch";
 import {
   addDays,
   formatDate,
-  formatMinutes,
+  formatInstant,
   isDate,
   parseTime,
   timeInputValue,
@@ -38,7 +39,8 @@ import {
   validateLocation,
   type Slot,
 } from "~/lib/availability";
-import { calendarNotice } from "~/lib/calendar-notices";
+import { CALENDAR_NOTICE_KEYS, noticeText, type NoticeHandle } from "~/lib/notices";
+import { isFailure, useActionResult, withFailures, type Failure } from "~/lib/client-failure";
 import { groupPath } from "~/lib/group-address";
 import { requestPath, withJoin } from "~/lib/request-address";
 import { dayHeat } from "~/lib/heat";
@@ -204,21 +206,12 @@ function readRequestStretch(form: FormData, windows: TimeWindow[]): TimeWindow |
   return overlapsWindows(read, windows) ? read : { startTime: OUTSIDE_WINDOWS };
 }
 
-/** "Sat 3 Oct, 2:05 PM" in the group's zone. */
-function formatAnsweredAt(instant: string, zone: string): string {
-  const at = new Date(instant);
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: zone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(at);
-  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
-  return `${formatDate(todayInZone(zone, at))}, ${formatMinutes(part("hour") * 60 + part("minute"))}`;
-}
-
 // A member gets the request, their own times in its span and their own answer
 // only; who else responded, their preferred numbers and the overlap are for organizers.
+
+/** Google Calendar notices show with "Your times", where clashes are. */
+export const handle: NoticeHandle = { notices: CALENDAR_NOTICE_KEYS };
+
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { group, viewer, scheduleRequest } = await load(
     request,
@@ -236,7 +229,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const answers = store.listAnswers(group.id, scheduleRequest.id);
   const own = answers.find((answer) => answer.memberId === viewer.id);
   const view = (answer: (typeof answers)[number]) => ({
-    answeredAt: formatAnsweredAt(answer.answeredAt, group.timeZone),
+    answeredAt: formatInstant(answer.answeredAt, group.timeZone),
     limit: answer.limit,
   });
   const members = isOrganizer ? store.listMembers(group.id) : [];
@@ -310,7 +303,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     clashes: answering
       ? await googleClashes(request, group, { from, to }, scheduleRequest.windows)
       : ({ state: "none" } as const),
-    notice: calendarNotice(request),
+    notice: noticeText(request, CALENDAR_NOTICE_KEYS),
     mine: own ? view(own) : null,
     // A first answer is a draft (plan/phase-31.md): nothing is saved until Send.
     draft: answering && own === undefined,
@@ -541,7 +534,15 @@ export async function action({ request, params }: Route.ActionArgs) {
   return problem("Something went wrong. Please try again.");
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["propose", "propose-times"] });
+}
+
 export default function RequestPage({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors, values and open sections (plan/phase-34.md).
+  const { result, failure } = useActionResult(actionData);
   const {
     groupHref,
     groupName,
@@ -571,15 +572,15 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     rehearsals,
   } = loaderData;
   const status = !open ? "Closed" : expired ? "Ended" : null;
-  const pickProblem =
-    actionData && "proposeProblem" in actionData ? actionData.proposeProblem : null;
-  const formResult = actionData && "errors" in actionData ? actionData : undefined;
-  const datesResult = actionData && "dateErrors" in actionData ? actionData : undefined;
-  const capProblem = actionData && "capProblem" in actionData ? actionData.capProblem : null;
+  const pickProblem = result && "proposeProblem" in result ? result.proposeProblem : null;
+  const formResult = result && "errors" in result ? result : undefined;
+  const datesResult = result && "dateErrors" in result ? result : undefined;
+  const capProblem = result && "capProblem" in result ? result.capProblem : null;
   const link = useSwitch(["notice"]);
   const datesCount = new Set(oneOffs.map((slot) => slot.date)).size;
   const yourTimes = (
     <RequestDates
+      requestId={requestId}
       from={dates.from}
       to={dates.to}
       windows={windows}
@@ -692,10 +693,11 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           </div>
         </details>
       ) : null}
-      {actionData && "problem" in actionData ? (
-        <ProblemAlert message={actionData.problem} response={actionData} />
+      {result && "problem" in result ? (
+        <ProblemAlert message={result.problem} response={result} />
       ) : null}
-      {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
+      {result && "confirm" in result ? <ConfirmPanel prompt={result.confirm} /> : null}
+      <PageFailure failure={failure} />
 
       {!canAnswer ? <p className="hint">{NOT_TAKING}</p> : null}
 
@@ -890,10 +892,14 @@ function CapForm({
   refused: string | null;
 }) {
   const hydrated = useHydrated();
-  const fetcher = useFetcher<{ capSaved?: boolean; capProblem?: string }>({
+  const fetcher = useFetcher<{ capSaved?: boolean; capProblem?: string } | { failure: Failure }>({
     key: "request-cap",
   });
-  const problem = fetcher.data?.capProblem ?? refused;
+  const result = fetcher.data;
+  // A save that failed in the browser leaves the fields as the member set them (plan/phase-34.md).
+  const failure = isFailure(result) ? result.failure : null;
+  const saved = result && !isFailure(result) ? result : undefined;
+  const problem = saved?.capProblem ?? refused;
   const form = useRef<HTMLFormElement>(null);
   const save = useRef<() => void>(() => {});
   useEffect(() => {
@@ -907,9 +913,9 @@ function CapForm({
   const status =
     fetcher.state !== "idle"
       ? "Saving…"
-      : fetcher.data?.capSaved
+      : saved?.capSaved
         ? "Saved"
-        : fetcher.data?.capProblem
+        : saved?.capProblem
           ? "Not saved"
           : "";
   return (
@@ -930,9 +936,18 @@ function CapForm({
         onSave={() => save.current()}
       />
       {hydrated ? (
-        <p className="hint save-status" aria-live="polite">
-          {status}
-        </p>
+        <>
+          <p className="hint save-status" aria-live="polite">
+            {status}
+          </p>
+          {failure ? (
+            <FailureAlert
+              failure={failure}
+              busy={fetcher.state !== "idle"}
+              onRetry={() => save.current()}
+            />
+          ) : null}
+        </>
       ) : (
         <SubmitButton feedbackKey="request-answer">Save</SubmitButton>
       )}

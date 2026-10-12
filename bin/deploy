@@ -567,7 +567,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def google_sign_in(origin: str) -> str:
-    """`available` when /auth/google sends the browser to Google, `unavailable` on its 503."""
+    """`available` when /auth/google sends the browser to Google, `unavailable` when it sends
+    it back saying Google isn't available (plan/phase-34.md)."""
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(origin + "/auth/google", timeout=20) as response:
@@ -578,7 +579,7 @@ def google_sign_in(origin: str) -> str:
         raise DeployError(f"smoke failed: GET /auth/google: {error}") from error
     if status == 302 and location.startswith("https://accounts.google.com/"):
         return "available"
-    if status == 503:
+    if status == 302 and "notice=google-unavailable" in location:
         return "unavailable"
     raise DeployError(f"smoke failed: GET /auth/google: HTTP {status} {location}".strip())
 

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Form, useFetcher, useFetchers } from "react-router";
+import { Form, useFetcher, useFetchers, useNavigation } from "react-router";
 
 import { addDays, formatDate, parseTimeText, timeInputValue } from "~/lib/availability";
 import { clashes, type Clashes } from "~/lib/busy";
+import { entriesForm, isFailure, type Failure } from "~/lib/client-failure";
 import { monthGrid, WEEKDAY_INITIALS } from "~/lib/calendar-grid";
 import { dateTicked, startingTicks, timesOn, type OneOff } from "~/lib/date-toggle";
 import type { TimeWindow } from "~/lib/requests";
@@ -10,6 +11,7 @@ import { useHydrated } from "~/lib/use-hydrated";
 
 import { buttonVariants } from "./ui/button";
 import { ConfirmForm } from "./confirm-form";
+import { FailureAlert } from "./failure-alert";
 import { SubmitButton } from "./submit-button";
 import { TimeRange } from "./time-range";
 import { Switch, useSwitch } from "./view-switch";
@@ -20,6 +22,16 @@ export type DateValues = { dates: string[]; startTime: string; endTime: string }
 export type LimitValues = { most: boolean; count: string };
 
 const SET_DATE = "set-date-";
+
+export type DateSaveResult = { dateProblem?: string; dateSaved?: boolean } | { failure: Failure };
+
+/** A date save's outcome, reported to the dates' status line. */
+type SaveOutcome = { problem: string | null; failure: Failure | null; retry: () => void };
+
+/** The submitted entry `name`, from a failed save's entries. */
+function sent(failure: Failure, name: string): string | null {
+  return failure.entries.find(([key]) => key === name)?.[1] ?? null;
+}
 
 /** The "are you sure" text for Clear all; the dialog and the server's confirm panel share it. */
 export const CLEAR_DATES_PROMPT = {
@@ -72,6 +84,7 @@ export function initialRange(
  * saved before it.
  */
 export function RequestDates({
+  requestId,
   from,
   to,
   windows,
@@ -84,6 +97,8 @@ export function RequestDates({
   draft,
   capFields,
 }: {
+  /** Fetchers are keyed by request, so a failure never follows to another request's page. */
+  requestId: string;
   from: string;
   to: string;
   windows: TimeWindow[];
@@ -106,8 +121,35 @@ export function RequestDates({
   const [initial] = useState(() => initialRange(windows, result));
   const [chosen, setChosen] = useState(initial.range);
   const [saveProblem, setSaveProblem] = useState<string | null>(null);
-  // The last save's outcome, for the status line; a failure also shows in the dates' alert.
+  // The last save's outcome, for the status line; a refusal also shows in the dates' alert.
   const [lastSave, setLastSave] = useState<"saved" | "failed" | null>(null);
+  // Saves that failed in the browser (plan/phase-34.md), by fetcher, until saved.
+  const [failed, setFailed] = useState<ReadonlyMap<string, SaveOutcome>>(new Map());
+  const report = (key: string, outcome: SaveOutcome) => {
+    setSaveProblem(outcome.problem);
+    setLastSave(outcome.problem || outcome.failure ? "failed" : "saved");
+    setFailed((current) => {
+      // Select all saved: it supersedes every date's failed change.
+      if (key === "all" && !outcome.failure && !outcome.problem) return new Map();
+      const next = new Map(current);
+      if (outcome.failure) next.set(key, outcome);
+      else next.delete(key);
+      return next;
+    });
+  };
+  // Clear all saved (the page reloaded its dates after it): it supersedes them too.
+  const clearing = useNavigation().formData?.get("intent") === "clear-dates";
+  const clearStart = useRef<OneOff[] | null>(null);
+  useEffect(() => {
+    if (clearing) {
+      clearStart.current = oneOffs;
+      return;
+    }
+    if (clearStart.current !== null && clearStart.current !== oneOffs) setFailed(new Map());
+    clearStart.current = null;
+  }, [clearing, oneOffs]);
+  const fetcherKey = (name: string) => `${SET_DATE}${requestId}-${name}`;
+  const failure = failed.values().next().value?.failure ?? null;
   const saving = useFetchers().some(
     (fetcher) => fetcher.key.startsWith(SET_DATE) && fetcher.state !== "idle",
   );
@@ -167,10 +209,9 @@ export function RequestDates({
         label={label}
         chosen={chosen}
         oneOffs={oneOffs}
-        onResult={(problem) => {
-          setSaveProblem(problem);
-          setLastSave(problem ? "failed" : "saved");
-        }}
+        fetcherKey={fetcherKey(date)}
+        failed={failed.has(date)}
+        onResult={(outcome) => report(date, outcome)}
       />
     ) : (
       <input
@@ -227,9 +268,14 @@ export function RequestDates({
               </p>
             ) : null}
             {clashState.state === "connect" ? (
-              <p className="hint">
+              <p className={clashState.revoked ? "field-error" : "hint"}>
+                {clashState.revoked
+                  ? "Google Calendar access was removed, so clashes can't be shown. "
+                  : null}
                 <a href={clashState.connectUrl} className="back-link">
-                  See clashes from your Google Calendar
+                  {clashState.revoked
+                    ? "Reconnect Google Calendar"
+                    : "See clashes from your Google Calendar"}
                 </a>
               </p>
             ) : null}
@@ -340,15 +386,27 @@ export function RequestDates({
             <SubmitButton feedbackKey="request-send-dates">Send these dates</SubmitButton>
           </>
         ) : !editable ? null : live ? (
-          <p className="hint save-status" aria-live="polite">
-            {saving
-              ? "Saving…"
-              : lastSave === "saved"
-                ? "Saved"
-                : lastSave === "failed"
-                  ? "Not saved"
-                  : ""}
-          </p>
+          <>
+            <p className="hint save-status" aria-live="polite">
+              {saving
+                ? "Saving…"
+                : failure
+                  ? ""
+                  : lastSave === "saved"
+                    ? "Saved"
+                    : lastSave === "failed"
+                      ? "Not saved"
+                      : ""}
+            </p>
+            {failure ? (
+              <FailureAlert
+                failure={failure}
+                busy={saving}
+                // Every failed date sends its own last change again.
+                onRetry={() => failed.forEach((outcome) => outcome.retry())}
+              />
+            ) : null}
+          </>
         ) : (
           <SubmitButton feedbackKey="request-save-dates">Save</SubmitButton>
         )}
@@ -356,10 +414,8 @@ export function RequestDates({
       {live && !drafting ? (
         <AllDates
           chosen={chosen}
-          onResult={(problem) => {
-            setSaveProblem(problem);
-            setLastSave(problem ? "failed" : "saved");
-          }}
+          fetcherKey={fetcherKey("all")}
+          onResult={(outcome) => report("all", outcome)}
         />
       ) : null}
     </>
@@ -374,18 +430,18 @@ export function RequestDates({
  */
 function AllDates({
   chosen,
+  fetcherKey,
   onResult,
 }: {
   chosen: TimeWindow | null;
-  onResult: (problem: string | null) => void;
+  fetcherKey: string;
+  onResult: (outcome: SaveOutcome) => void;
 }) {
-  const fetcher = useFetcher<{ dateProblem?: string; dateSaved?: boolean }>({
-    key: `${SET_DATE}all`,
-  });
+  const fetcher = useFetcher<DateSaveResult>({ key: fetcherKey });
   const result = fetcher.data;
   useEffect(() => {
     if (result === undefined) return;
-    onResult(result?.dateProblem ?? null);
+    onResult(outcomeOf(result, fetcher.submit));
     // Report each save's outcome once, when it arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
@@ -427,22 +483,25 @@ function DateToggle({
   label,
   chosen,
   oneOffs,
+  fetcherKey,
+  failed,
   onResult,
 }: {
   date: string;
   label: string;
   chosen: TimeWindow | null;
   oneOffs: OneOff[];
-  onResult: (problem: string | null) => void;
+  fetcherKey: string;
+  /** Its last change failed and nothing since has superseded it. */
+  failed: boolean;
+  onResult: (outcome: SaveOutcome) => void;
 }) {
-  const fetcher = useFetcher<{ dateProblem?: string; dateSaved?: boolean }>({
-    key: `${SET_DATE}${date}`,
-  });
-  const pending = fetcher.formData ? { on: fetcher.formData.get("on") === "1" } : null;
+  const fetcher = useFetcher<DateSaveResult>({ key: fetcherKey });
   const result = fetcher.data;
+  const pending = shownChange(fetcher.formData, result, failed);
   useEffect(() => {
     if (result === undefined) return;
-    onResult(result?.dateProblem ?? null);
+    onResult(outcomeOf(result, fetcher.submit));
     // Report each save's outcome once, when it arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
@@ -472,4 +531,34 @@ function DateToggle({
       }}
     />
   );
+}
+
+/**
+ * The change a date's box shows instead of what is saved (plan/phase-34.md):
+ * the one saving, or the one that failed until it's retried or superseded.
+ */
+export function shownChange(
+  saving: FormData | undefined,
+  result: DateSaveResult | undefined,
+  failed: boolean,
+): { on: boolean } | null {
+  if (saving) return { on: saving.get("on") === "1" };
+  if (failed && isFailure(result)) return { on: sent(result.failure, "on") === "1" };
+  return null;
+}
+
+/** What a date save's result means for the status line, and how to send it again. */
+export function outcomeOf(
+  result: DateSaveResult,
+  submit: (form: FormData, options: { method: "post" }) => Promise<void>,
+): SaveOutcome {
+  if (isFailure(result)) {
+    const { failure } = result;
+    return {
+      problem: null,
+      failure,
+      retry: () => void submit(entriesForm(failure.entries), { method: "post" }),
+    };
+  }
+  return { problem: result?.dateProblem ?? null, failure: null, retry: () => {} };
 }

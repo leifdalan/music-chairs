@@ -3,12 +3,13 @@ import { useRouteLoaderData } from "react-router";
 
 const SHOW_MS = 4000;
 
-type Toast = { id: string; message: string };
+type Toast = { id: string; message: string; kind: "success" | "error" };
 
 /**
  * The confirmation left by the last change, shown at the bottom of the screen
  * and faded after a few seconds. The live region is always mounted so screen
- * readers announce each new message.
+ * readers announce each new message. A refusal (plan/phase-34.md) is an alert
+ * and stays until dismissed.
  */
 export function Toaster() {
   const root = useRouteLoaderData("root") as { toast?: Toast | null } | undefined;
@@ -34,14 +35,16 @@ export function Toaster() {
 /** One message; keyed by id, so its hover/focus hold ends with it. */
 function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   const [held, setHeld] = useState(false);
+  const error = toast.kind === "error";
   useEffect(() => {
-    if (held) return;
+    if (held || error) return;
     const timer = setTimeout(onClose, SHOW_MS);
     return () => clearTimeout(timer);
-  }, [held, onClose]);
+  }, [held, error, onClose]);
   return (
     <div
-      className="toast"
+      className={error ? "toast toast-error" : "toast"}
+      role={error ? "alert" : undefined}
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}

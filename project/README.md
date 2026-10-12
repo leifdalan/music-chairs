@@ -53,7 +53,7 @@ To try the app from a phone on the same network, start the development server wi
 
 ## Google sign-in
 
-Members can sign in with Google besides joining by name. Sign-in is offered only when both `MUSIC_CHAIRS_GOOGLE_CLIENT_ID` and `MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET` are set; otherwise the buttons are hidden and `/auth/google` answers 503. To try it locally, set both in your shell before `corepack pnpm run dev` and open `http://localhost:5173` (the OAuth client lists `http://localhost:5173/auth/google/callback` as a redirect URI). Never commit the secret. The tests fake Google and need neither.
+Members can sign in with Google besides joining by name. Sign-in is offered only when both `MUSIC_CHAIRS_GOOGLE_CLIENT_ID` and `MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET` are set; otherwise the buttons are hidden and `/auth/google` sends the browser back with a notice that Google sign-in isn't available. To try it locally, set both in your shell before `corepack pnpm run dev` and open `http://localhost:5173` (the OAuth client lists `http://localhost:5173/auth/google/callback` as a redirect URI). Never commit the secret. The tests fake Google and need neither.
 
 ## Google Calendar and the calendar feed
 

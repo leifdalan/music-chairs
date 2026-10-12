@@ -5,7 +5,7 @@ import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { timeZoneChoices } from "~/.server/create-group";
 import { TimeZoneOptions } from "~/components/time-zone-options";
-import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT, noticeKeys, NOTICES, type NoticeHandle } from "~/lib/notices";
 import { zoneLabel } from "~/lib/time-zones";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
@@ -29,6 +29,8 @@ import { buttonVariants } from "~/components/ui/button";
 import { CopyLink } from "~/components/copy-link";
 
 import type { Route } from "./+types/group";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? loaderData.groupName : "Not found");
@@ -36,14 +38,14 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /** The sentence for a `notice` left by Google sign-in, if any. */
 async function signInNotice(request: Request, groupId: string, viewerName: string | undefined) {
-  const notice = new URL(request.url).searchParams.get("notice");
-  if (notice === "linked") return "Linked to your Google account.";
-  if (notice !== "account-taken") return null;
+  const keys = noticeKeys(request.url);
+  if (keys.includes("linked")) return NOTICES.linked;
+  if (!keys.includes("account-taken")) return null;
   const account = await readAccount(request);
   const taken = account ? getStore().findMemberByAccount(groupId, account.id) : null;
   return taken
     ? `This Google account is already ${taken.displayName} in this group, so ${viewerName ?? "this device's member"} stays name-only.`
-    : null;
+    : NOTICES["account-taken"];
 }
 
 // Device tokens identify a device's membership (see `.server/membership.ts`)
@@ -52,6 +54,10 @@ async function signInNotice(request: Request, groupId: string, viewerName: strin
 // roles and whether each member signs in with Google. A member sees their own
 // email only. Requests go to members only: each with whether the viewer has
 // answered, and for organizers how many have.
+
+/** Linking this device's member to Google is said here, with the names. */
+export const handle: NoticeHandle = { notices: ["linked", "account-taken"] };
+
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
   const group = groupFromAddress(request, params.groupAddress);
@@ -140,18 +146,21 @@ export async function action({ request, params }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
   // The groups page (plan/phase-19.2.md) gets its forms' results back there;
-  // only that exact page, never a path taken from the form.
+  // only that exact page, never a path taken from the form. Its forms post in
+  // the background (plan/phase-34.md), so a refusal goes back as an error toast.
   const toGroups = form.get("returnTo") === "/groups";
+  const refuse = (message: string) =>
+    toGroups ? redirectWithToast("/groups", message, { kind: "error" }) : problem(message);
   // Any member may leave: refuse the last organizer, confirm, then act.
   if (intent === "leave") {
     if (viewer.role === "organizer" && organizerCount(group.id) <= 1) {
-      return problem(LAST_ORGANIZER);
+      return refuse(LAST_ORGANIZER);
     }
     const prompt = confirmationNeeded(form, leavePrompt(group.name));
     if (prompt) return prompt;
     const result = store.removeMember(group.id, viewer.id);
     if (result === "unknown") throw data(null, { status: 404 });
-    if (result === "last-organizer") return problem(LAST_ORGANIZER);
+    if (result === "last-organizer") return refuse(LAST_ORGANIZER);
     scheduleRemovals();
     return redirectWithToast("/groups", `You left ${group.name}`, {
       headers: { "Set-Cookie": await forgetMembership(request, group.id) },
@@ -187,6 +196,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "update-group") {
     const name = validateName(form.get("name"), "Group name", GROUP_NAME_MAX);
     const timeZone = canonicalTimeZone(form.get("timeZone"));
+    if (toGroups && (!name.ok || !timeZone)) {
+      return refuse(name.ok ? "Choose the group's time zone." : name.error);
+    }
     if (!name.ok || !timeZone) {
       return data(
         {
@@ -244,6 +256,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   return problem("Something went wrong. Please try again.");
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md).
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args);
+}
+
 /**
  * The zones the settings offer, always including the group's own: a zone the
  * runtime accepts but does not list (an alias the browser reported) would
@@ -288,6 +305,8 @@ function removalPrompt(name: string) {
 }
 
 export default function GroupPage({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   const {
     groupName,
     timeZone,
@@ -303,11 +322,12 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
     settings,
     groupHref,
   } = loaderData;
-  const confirmPrompt = actionData && "confirm" in actionData ? actionData.confirm : null;
-  const settingsResult = actionData && "settingsErrors" in actionData ? actionData : null;
+  const confirmPrompt = kept && "confirm" in kept ? kept.confirm : null;
+  const settingsResult = kept && "settingsErrors" in kept ? kept : null;
   const soleMember = members.length < 2;
   return (
     <main>
+      <PageFailure failure={failure} />
       <h1>{groupName}</h1>
       <p className="hint">Times in {zoneLabel(timeZone)}</p>
       {viewer ? (
@@ -350,9 +370,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           {notice}
         </p>
       ) : null}
-      {actionData && "problem" in actionData ? (
-        <ProblemAlert message={actionData.problem} response={actionData} />
-      ) : null}
+      {kept && "problem" in kept ? <ProblemAlert message={kept.problem} response={kept} /> : null}
       {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
       {/* A group of one needs its invite before anything else (plan/phase-21.md). */}
       {inviteUrl && soleMember ? <InvitePanel inviteUrl={inviteUrl} groupName={groupName} /> : null}

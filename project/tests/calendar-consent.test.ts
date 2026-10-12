@@ -91,15 +91,26 @@ describe("asking for Calendar access", () => {
     expect((thrown as Response).headers.get("Location")).toBe("/auth/google?returnTo=%2Fg%2Fabc");
   });
 
-  it("refuses an unknown permission", async () => {
+  it("refuses an unknown permission, back where it started with a notice", async () => {
     const { cookie } = await signedIn(person());
 
     for (const scope of ["everything", "import"]) {
       const response = (await startConsent(
-        routeArgs(`/auth/google/calendar?scope=${scope}`, {}, { cookie }),
+        routeArgs(`/auth/google/calendar?scope=${scope}&returnTo=%2Fg%2Fabc`, {}, { cookie }),
       )) as Response;
-      expect(response.status).toBe(400);
+      expect(response.headers.get("Location")).toBe("/g/abc?notice=calendar-failed");
     }
+  });
+
+  it("goes back with Google unavailable when sign-in with Google is switched off", async () => {
+    const { cookie } = await signedIn(person());
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "");
+
+    const response = (await startConsent(
+      routeArgs("/auth/google/calendar?scope=busy&returnTo=%2Fg%2Fabc", {}, { cookie }),
+    )) as Response;
+
+    expect(response.headers.get("Location")).toBe("/g/abc?notice=google-unavailable");
   });
 
   it("asks only for the one Calendar scope, offline, keeping earlier grants", async () => {
@@ -397,5 +408,48 @@ describe("asking for contacts", () => {
       ),
     )) as Response;
     expect(response.headers.get("Location")).toBe(`${returnTo}?notice=contacts-declined`);
+  });
+});
+
+// Consent that fails or is only partly given says so where it started (plan/phase-34.md).
+describe("Calendar and contacts consent that doesn't fully work", () => {
+  it("goes back with Calendar failed when Google refuses the exchange, saving nothing", async () => {
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const { oauth, state } = await begin(cookie, "busy", "/g/abc/schedule");
+    google.codeAnswer = { status: 500, body: { error: "server_error" } };
+
+    const response = await finish(`${cookie}; ${oauth}`, state);
+
+    expect(response.headers.get("Location")).toBe("/g/abc/schedule?notice=calendar-failed");
+    expect(getStore().findGrant(account.id)).toBeNull();
+  });
+
+  it("goes back with contacts failed, not a sign-in notice, when Google doesn't answer", async () => {
+    const profile = person();
+    const { cookie } = await signedIn(profile);
+    const { oauth, state } = await begin(cookie, "contacts", "/g/abc/members/add");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    const response = await finish(`${cookie}; ${oauth}`, state);
+
+    expect(response.headers.get("Location")).toBe("/g/abc/members/add?notice=contacts-failed");
+  });
+
+  it("says contacts were connected for saved contacts only when the others weren't allowed", async () => {
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const { oauth, state, nonce } = await begin(cookie, "contacts", "/g/abc/members/add");
+    googleAnswers(profile.sub, nonce, `openid ${CONTACTS_SCOPES.saved}`);
+
+    const response = await finish(`${cookie}; ${oauth}`, state);
+
+    expect(response.headers.get("Location")).toBe("/g/abc/members/add?notice=contacts-partial");
+    expect(getStore().findGrant(account.id)?.scopes).toContain(CONTACTS_SCOPES.saved);
   });
 });

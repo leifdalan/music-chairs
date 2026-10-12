@@ -9,6 +9,7 @@ import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
 import { validateInstrument } from "~/lib/profile";
 
 import type { Route } from "./+types/profile";
+import { withFailures } from "~/lib/client-failure";
 
 /**
  * Saves the viewer's own name and instrumentation in a group, from the
@@ -24,10 +25,16 @@ export async function action({ request, params }: Route.ActionArgs) {
   const back = safeReturnTo(form.get("returnTo"), request);
   const name = validateName(form.get("displayName"), "Your name", DISPLAY_NAME_MAX);
   const instrument = validateInstrument(form.get("instrument"));
-  if (!name.ok) return redirectWithToast(back, name.error);
-  if (!instrument.ok) return redirectWithToast(back, instrument.error);
+  // A refusal comes back as an error toast, never as saved (plan/phase-34.md).
+  if (!name.ok) return redirectWithToast(back, name.error, { kind: "error" });
+  if (!instrument.ok) return redirectWithToast(back, instrument.error, { kind: "error" });
   store.setProfile(group.id, viewer.id, { displayName: name.value, instrument: instrument.value });
   return redirectWithToast(back, "Profile saved");
+}
+
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md).
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args);
 }
 
 export function loader({ request, params }: Route.LoaderArgs) {

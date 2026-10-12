@@ -1,4 +1,4 @@
-import { Form, Link } from "react-router";
+import { Link } from "react-router";
 
 import { createGroupAction, timeZoneChoices } from "~/.server/create-group";
 import { readAccount } from "~/.server/membership";
@@ -6,6 +6,7 @@ import { visitorGroups } from "~/.server/memberships";
 import { getStore } from "~/.server/store";
 import { ConfirmForm } from "~/components/confirm-form";
 import { CreateGroupForm } from "~/components/create-group-form";
+import { ElsewhereForm } from "~/components/elsewhere-form";
 import { SubmitButton } from "~/components/submit-button";
 import { buttonVariants } from "~/components/ui/button";
 import { groupPath } from "~/lib/group-address";
@@ -14,6 +15,8 @@ import { GROUP_NAME_MAX } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/groups";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta() {
   return pageMeta("Your groups");
@@ -46,12 +49,21 @@ export async function action({ request }: Route.ActionArgs) {
   return createGroupAction(request, await request.formData());
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["(default)"] });
+}
+
 type GroupItem = Route.ComponentProps["loaderData"]["groups"][number];
 
 export default function Groups({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   const { groups } = loaderData;
   return (
     <main>
+      <PageFailure failure={failure} />
       <h1>Your groups</h1>
       {groups.length === 0 ? (
         <p className="hint">
@@ -64,7 +76,7 @@ export default function Groups({ loaderData, actionData }: Route.ComponentProps)
           ))}
         </ul>
       )}
-      <CreateGroupForm timeZones={loaderData.timeZones} result={actionData} />
+      <CreateGroupForm timeZones={loaderData.timeZones} result={kept} />
     </main>
   );
 }
@@ -89,7 +101,12 @@ function GroupCard({ group }: { group: GroupItem }) {
         <summary>Manage this group</summary>
         <div className="stack">
           {organizer ? (
-            <Form method="post" action={group.path} preventScrollReset className="rename-form">
+            <ElsewhereForm
+              fetcherKey={`rename-${group.path.slice(3)}`}
+              action={group.path}
+              preventScrollReset
+              className="rename-form"
+            >
               <input type="hidden" name="intent" value="update-group" />
               <input type="hidden" name="timeZone" value={group.timeZone} />
               <input type="hidden" name="returnTo" value="/groups" />
@@ -112,7 +129,7 @@ function GroupCard({ group }: { group: GroupItem }) {
               >
                 Rename
               </SubmitButton>
-            </Form>
+            </ElsewhereForm>
           ) : null}
           <div className="group-actions">
             {group.lastOrganizer ? (
