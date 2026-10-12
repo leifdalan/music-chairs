@@ -9,17 +9,18 @@ import { readToast } from "../app/.server/flash";
 import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
 import { getStore } from "../app/.server/store";
 import { dateTicked, timesOn } from "../app/lib/date-toggle";
-import { groupPath } from "../app/lib/group-address";
 import RequestPage, { action, loader } from "../app/routes/request";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
 import {
   addressOf,
   deviceCookie,
   ORIGIN,
+  requestHrefOf,
   routeArgs,
   selectedOption,
   setCookies,
   signedIn,
+  slugFor,
   tempDatabase,
 } from "./routes";
 
@@ -92,14 +93,14 @@ function concert(groupId: string, windows = [MORNING, EVENING], endDate = "2026-
 }
 
 function pathOf(group: Group, requestId: string) {
-  return `${groupPath(group)}/requests/${requestId}`;
+  return requestHrefOf(group, requestId);
 }
 
 function load(group: Group, requestId: string, cookie: string, search = "") {
   return loader(
     routeArgs(
       `${pathOf(group, requestId)}${search}`,
-      { groupAddress: addressOf(group), requestId },
+      { groupAddress: addressOf(group), requestSlug: slugFor(requestId) },
       { cookie },
     ),
   ) as Promise<PageData>;
@@ -113,7 +114,7 @@ function post(group: Group, requestId: string, cookie: string, fields: [string, 
   });
   return action({
     request,
-    params: { groupAddress: addressOf(group), requestId },
+    params: { groupAddress: addressOf(group), requestSlug: slugFor(requestId) },
     context: {},
   } as never) as Promise<unknown>;
 }
@@ -138,9 +139,9 @@ function setDate(
   ]);
 }
 
-function render(data: PageData, actionData?: unknown, path = "/g/x/requests/r"): string {
+function render(data: PageData, actionData?: unknown, path = "/g/x/r"): string {
   const Stub = createRoutesStub([
-    { id: "request", path: "/g/:groupId/requests/:requestId", Component: RequestPage },
+    { id: "request", path: "/g/:groupId/:requestSlug", Component: RequestPage },
   ]);
   return renderToString(
     <Stub
@@ -467,7 +468,7 @@ describe("the organizer's own times", () => {
     const listed = render(
       await load(group, request.id, organizerCookie, "?times=list"),
       undefined,
-      "/g/x/requests/r?times=list",
+      "/g/x/r?times=list",
     );
 
     expect(html.indexOf('id="overlap-heading"')).toBeLessThan(
@@ -485,7 +486,7 @@ describe("the organizer's own times", () => {
       '<details class="your-times" open="">',
     );
     const noticed = await load(group, request.id, organizerCookie, "?notice=calendar-declined");
-    expect(render(noticed, undefined, "/g/x/requests/r?notice=calendar-declined")).toContain(
+    expect(render(noticed, undefined, "/g/x/r?notice=calendar-declined")).toContain(
       '<details class="your-times" open="">',
     );
   });
@@ -632,7 +633,7 @@ describe("clashes with Google Calendar", () => {
     const page = (await loader(
       routeArgs(
         `${pathOf(group, request.id)}.data?times=list&notice=calendar-declined&_routes=routes%2Frequest`,
-        { groupAddress: addressOf(group), requestId: request.id },
+        { groupAddress: addressOf(group), requestSlug: slugFor(request.id) },
         { cookie: cellistCookie },
       ),
     )) as PageData;
@@ -650,10 +651,10 @@ describe("clashes with Google Calendar", () => {
     const request = concert(group.id);
 
     const page = await load(group, request.id, cellistCookie, "?notice=calendar-declined");
-    const html = render(page, undefined, "/g/x/requests/r?notice=calendar-declined");
+    const html = render(page, undefined, "/g/x/r?notice=calendar-declined");
 
     expect(html).toContain("Google Calendar access wasn&#x27;t granted, so nothing changed.");
-    expect(html).toContain('href="/g/x/requests/r?times=list"');
+    expect(html).toContain('href="/g/x/r?times=list"');
     expect(html).not.toMatch(/href="[^"]*notice=/);
   });
 

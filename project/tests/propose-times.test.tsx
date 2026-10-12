@@ -12,16 +12,18 @@ import RequestPage, {
 } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
 import {
+  addressFor,
+  addressOf,
+  addSlots,
   deviceCookie,
   ORIGIN,
+  requestHrefOf,
   requestIn,
   routeArgs,
   setCookies,
+  slugFor,
   tempDatabase,
   thrownBy,
-  addressOf,
-  addressFor,
-  addSlots,
 } from "./routes";
 
 tempDatabase();
@@ -162,11 +164,11 @@ function renderSchedule(data: ScheduleData, actionData?: unknown): string {
 
 function renderRequest(data: RequestData, actionData?: unknown): string {
   const Stub = createRoutesStub([
-    { id: "request", path: "/g/:groupId/requests/:requestId", Component: RequestPage },
+    { id: "request", path: "/g/:groupId/:requestSlug", Component: RequestPage },
   ]);
   return renderToString(
     <Stub
-      initialEntries={["/g/x/requests/y"]}
+      initialEntries={["/g/x/y"]}
       hydrationData={{
         loaderData: { request: data },
         actionData: actionData ? { request: actionData } : undefined,
@@ -200,14 +202,14 @@ function requestPost(
   cookie: string | undefined,
   fields: [string, string][],
 ) {
-  const request = new Request(new URL(`/g/${addressFor(groupId)}/requests/${requestId}`, ORIGIN), {
+  const request = new Request(new URL(`/g/${addressFor(groupId)}/${slugFor(requestId)}`, ORIGIN), {
     method: "POST",
     headers: cookie ? { Cookie: cookie } : {},
     body: new URLSearchParams(fields),
   });
   return requestAction({
     request,
-    params: { groupAddress: addressFor(groupId), requestId },
+    params: { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
     context: {},
   } as never) as Promise<unknown>;
 }
@@ -271,8 +273,8 @@ describe("proposing ticked times on a request's page", () => {
     return renderRequest(
       (await requestLoader(
         routeArgs(
-          `/g/${addressFor(groupId)}/requests/${requestId}`,
-          { groupAddress: addressFor(groupId), requestId },
+          `/g/${addressFor(groupId)}/${slugFor(requestId)}`,
+          { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
           { cookie },
         ),
       )) as RequestData,
@@ -290,9 +292,7 @@ describe("proposing ticked times on a request's page", () => {
       ["notes", "  Bring the Brahms parts\r\nand a stand  "],
     ]);
 
-    expect((response as Response).headers.get("Location")).toBe(
-      `${groupPath(group)}/requests/${requestId}`,
-    );
+    expect((response as Response).headers.get("Location")).toBe(requestHrefOf(group, requestId));
     expect(await toastOf(response)).toBe("Rehearsal proposed");
     expect(times(store, group.id)).toEqual(["2026-10-05 1140-1260  proposed"]);
     expect(store.listRehearsals(group.id).map((r) => r.requestId)).toEqual([requestId]);
@@ -304,8 +304,8 @@ describe("proposing ticked times on a request's page", () => {
     const data = () =>
       requestLoader(
         routeArgs(
-          `${groupPath(group)}/requests/${requestId}`,
-          { groupAddress: addressOf(group), requestId },
+          requestHrefOf(group, requestId),
+          { groupAddress: addressOf(group), requestSlug: slugFor(requestId) },
           { cookie: organizerCookie },
         ),
       ) as Promise<RequestData>;
@@ -349,9 +349,7 @@ describe("proposing ticked times on a request's page", () => {
       organizerCookie,
       custom("10:00", "12:00", "Hall"),
     );
-    expect((response as Response).headers.get("Location")).toBe(
-      `${groupPath(group)}/requests/${requestId}`,
-    );
+    expect((response as Response).headers.get("Location")).toBe(requestHrefOf(group, requestId));
     expect(await toastOf(response)).toBe("Rehearsal proposed");
     expect(times(store, group.id)).toEqual(["2026-10-06 600-720 Hall proposed"]);
     expect(store.listRehearsals(group.id)[0].requestId).toBe(requestId);
@@ -362,8 +360,8 @@ describe("proposing ticked times on a request's page", () => {
     const data = (cookie: string) =>
       requestLoader(
         routeArgs(
-          `${groupPath(group)}/requests/${requestId}`,
-          { groupAddress: addressOf(group), requestId },
+          requestHrefOf(group, requestId),
+          { groupAddress: addressOf(group), requestSlug: slugFor(requestId) },
           { cookie },
         ),
       ) as Promise<RequestData>;

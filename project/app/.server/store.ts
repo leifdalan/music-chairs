@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { Slot, SlotInput } from "~/lib/availability";
 import { SHORT_ID_ALPHABET, SHORT_ID_LENGTH } from "~/lib/group-address";
+import { nextRequestSlug } from "~/lib/request-address";
 import { sameName } from "~/lib/profile";
 import type { RehearsalInput } from "~/lib/rehearsal";
 import type { TimeWindow } from "~/lib/requests";
@@ -15,7 +16,7 @@ export type Group = {
   id: string;
   /** The 8 characters that identify the group in its address (plan/phase-19.3.md). */
   shortId: string;
-  inviteToken: string;
+  inviteCode: string;
   name: string;
   timeZone: string;
   /** Whether members see who is free, or only counts (organizers always see names). */
@@ -95,6 +96,8 @@ export type RequestInput = {
 export type ScheduleRequest = RequestInput & {
   id: string;
   groupId: string;
+  /** Its address within the group (plan/phase-30.md), chosen when it was made. */
+  slug: string;
   open: boolean;
   answerCount: number;
   createdAt: string;
@@ -139,7 +142,8 @@ export type Store = {
   findGroup(id: string): Group | null;
   /** The group whose address ends with this short id (plan/phase-19.3.md). */
   findGroupByShortId(shortId: string): Group | null;
-  findGroupByInviteToken(token: string): Group | null;
+  /** The group whose invite code this is (plan/phase-30.md), any case; null otherwise. */
+  findGroupByInviteCode(code: string): Group | null;
   setShowNames(groupId: string, showNames: boolean): void;
   /** Renames the group and sets its time zone; false for an unknown group. */
   updateGroup(groupId: string, changes: { name: string; timeZone: string }): boolean;
@@ -179,6 +183,11 @@ export type Store = {
    * email claims; null when nothing matches or the account is already a member.
    */
   claimInvitation(groupId: string, accountId: string): Member | null;
+  /**
+   * `claimInvitation` in every group with a place for this account's verified
+   * email (plan/phase-30.md), all at once; the groups claimed.
+   */
+  claimInvitations(accountId: string): Group[];
   /**
    * Deletes a member and their availability, answers and RSVPs, queueing the
    * Google Calendar events the app wrote for them for removal. The group's
@@ -286,6 +295,8 @@ export type Store = {
   listRequests(groupId: string): ScheduleRequest[];
   /** An id from another group behaves as unknown. */
   findRequest(groupId: string, requestId: string): ScheduleRequest | null;
+  /** The group's request at this address (plan/phase-30.md); null otherwise. */
+  findRequestBySlug(groupId: string, slug: string): ScheduleRequest | null;
   /**
    * Records (or updates) a member's answer and limit. False for an unknown or
    * closed request, or a member who is not in the group.
@@ -386,7 +397,13 @@ const BASELINE_SCHEMA = `
  * § Amendments in force), so every later schema change is appended here with a
  * test that upgrades a database built at the previous version.
  */
-export const MIGRATIONS: readonly string[] = [
+/**
+ * One schema step: SQL, or a function for a step SQL alone can't do (a slug
+ * made by the app's own rules). Both run inside `migrate`'s transaction.
+ */
+export type Migration = string | ((db: DatabaseSync) => void);
+
+export const MIGRATIONS: readonly Migration[] = [
   BASELINE_SCHEMA,
   // Version 2 (Phase 6): Google accounts, sessions, and members linked to accounts.
   `
@@ -640,6 +657,42 @@ export const MIGRATIONS: readonly string[] = [
   CREATE INDEX rehearsals_by_group ON rehearsals (group_id);
   CREATE INDEX rehearsals_by_request ON rehearsals (request_id);
   `,
+  // Version 13 (Phase 30): invite links read as the group with an 8-character
+  // code from SHORT_ID_ALPHABET (the operator's ruling: old links stop working),
+  // kept in the invite_token column. Every group draws a fresh code, as version
+  // 10 drew short ids; a collision fails the unique constraint and rolls back.
+  `
+  UPDATE groups SET invite_token =
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1) ||
+    substr('23456789abcdefghijkmnpqrstuvwxyz', (random() & 31) + 1, 1);
+  `,
+  // Version 14 (Phase 30): each availability request's slug for its readable
+  // address, chosen once and kept through renames. Existing requests get theirs
+  // oldest first within each group, by the same rule a new request uses. That
+  // rule (`nextRequestSlug`, with `slugify` and `RESERVED_SLUGS`) is part of
+  // this migration: changing it changes what a fresh database backfills.
+  (db) => {
+    db.exec("ALTER TABLE requests ADD COLUMN slug TEXT;");
+    const rows = db
+      .prepare("SELECT id, group_id, name FROM requests ORDER BY group_id, created_at, rowid")
+      .all() as { id: string; group_id: string; name: string }[];
+    const setSlug = db.prepare("UPDATE requests SET slug = ? WHERE id = ?");
+    const taken = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const used = taken.get(row.group_id) ?? new Set<string>();
+      const slug = nextRequestSlug(row.name, used);
+      used.add(slug);
+      taken.set(row.group_id, used);
+      setSlug.run(slug, row.id);
+    }
+    db.exec("CREATE UNIQUE INDEX requests_by_slug ON requests (group_id, slug);");
+  },
 ];
 
 /**
@@ -648,7 +701,7 @@ export const MIGRATIONS: readonly string[] = [
  * and are checked before committing. A database newer than `migrations`
  * refuses to open.
  */
-export function migrate(db: DatabaseSync, migrations: readonly string[] = MIGRATIONS): void {
+export function migrate(db: DatabaseSync, migrations: readonly Migration[] = MIGRATIONS): void {
   const current = (db.prepare("PRAGMA user_version").get() as { user_version: number })
     .user_version;
   if (current > migrations.length) {
@@ -664,7 +717,9 @@ export function migrate(db: DatabaseSync, migrations: readonly string[] = MIGRAT
     let version = current;
     try {
       for (; version < migrations.length; version++) {
-        db.exec(migrations[version]);
+        const step = migrations[version];
+        if (typeof step === "string") db.exec(step);
+        else step(db);
       }
       const violations = db.prepare("PRAGMA foreign_key_check").all();
       if (violations.length > 0) {
@@ -692,6 +747,11 @@ export function migrate(db: DatabaseSync, migrations: readonly string[] = MIGRAT
 /** A new unguessable identifier: 16 random bytes, base64url (22 characters). */
 function newToken(): string {
   return randomBytes(16).toString("base64url");
+}
+
+/** A new invite code (plan/phase-30.md): the same shape as a short id, drawn separately. */
+function newInviteCode(): string {
+  return newShortId();
 }
 
 /** A new short id for a group's address: 8 characters from the 32-letter alphabet. */
@@ -741,7 +801,7 @@ function toGroup(row: GroupRow): Group {
   return {
     id: row.id,
     shortId: row.short_id,
-    inviteToken: row.invite_token,
+    inviteCode: row.invite_token,
     name: row.name,
     timeZone: row.time_zone,
     showNames: row.show_names === 1,
@@ -853,6 +913,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectInvited = db.prepare(
     `SELECT id FROM members
      WHERE group_id = ? AND invited_email = ? AND account_id IS NULL`,
+  );
+  const selectInvitedGroups = db.prepare(
+    `SELECT DISTINCT group_id FROM members
+     WHERE invited_email = ? AND account_id IS NULL ORDER BY group_id`,
   );
   const selectDeviceToken = db.prepare(
     "SELECT device_token FROM members WHERE group_id = ? AND id = ?",
@@ -998,7 +1062,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const removeCalendarEvent = db.prepare(
     "DELETE FROM calendar_events WHERE member_id = ? AND rehearsal_id = ? AND date = ?",
   );
-  const requestSelect = `SELECT requests.id, requests.group_id, requests.name, requests.start_date,
+  const requestSelect = `SELECT requests.id, requests.group_id, requests.slug, requests.name, requests.start_date,
       requests.end_date, requests.open, requests.created_at,
       (SELECT COUNT(*) FROM request_answers WHERE request_id = requests.id) AS answer_count
     FROM requests`;
@@ -1008,13 +1072,17 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const selectRequest = db.prepare(
     `${requestSelect} WHERE requests.group_id = ? AND requests.id = ?`,
   );
+  const selectRequestBySlug = db.prepare(
+    `${requestSelect} WHERE requests.group_id = ? AND requests.slug = ?`,
+  );
+  const selectRequestSlugs = db.prepare("SELECT slug FROM requests WHERE group_id = ?");
   const selectWindows = db.prepare(
     `SELECT start_minute, end_minute FROM request_windows WHERE request_id = ?
      ORDER BY start_minute, end_minute`,
   );
   const insertRequest = db.prepare(
-    `INSERT INTO requests (id, group_id, name, start_date, end_date, open, created_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?)`,
+    `INSERT INTO requests (id, group_id, slug, name, start_date, end_date, open, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
   );
   const changeRequest = db.prepare(
     "UPDATE requests SET name = ?, start_date = ?, end_date = ? WHERE group_id = ? AND id = ?",
@@ -1044,6 +1112,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   type RequestRow = {
     id: string;
     group_id: string;
+    slug: string;
     name: string;
     start_date: string;
     end_date: string;
@@ -1056,6 +1125,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     return {
       id: row.id,
       groupId: row.group_id,
+      slug: row.slug,
       name: row.name,
       startDate: row.start_date,
       endDate: row.end_date,
@@ -1290,10 +1360,12 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         let shortId = newShortId();
         // About one chance in 10^12 per existing group; draw again rather than fail.
         while (selectGroupByShortId.get(shortId)) shortId = newShortId();
+        let inviteCode = newInviteCode();
+        while (selectGroupByInvite.get(inviteCode)) inviteCode = newInviteCode();
         const group: Group = {
           id: newToken(),
           shortId,
-          inviteToken: newToken(),
+          inviteCode,
           name,
           timeZone,
           showNames: false,
@@ -1301,7 +1373,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         insertGroup.run(
           group.id,
           group.shortId,
-          group.inviteToken,
+          group.inviteCode,
           name,
           timeZone,
           new Date().toISOString(),
@@ -1319,9 +1391,15 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       const row = selectGroupByShortId.get(shortId) as GroupRow | undefined;
       return row ? toGroup(row) : null;
     },
-    findGroupByInviteToken(token) {
-      if (!isToken(token)) return null;
-      const row = selectGroupByInvite.get(token) as GroupRow | undefined;
+    findGroupByInviteCode(code) {
+      const lower = code.toLowerCase();
+      if (
+        lower.length !== SHORT_ID_LENGTH ||
+        ![...lower].every((c) => SHORT_ID_ALPHABET.includes(c))
+      ) {
+        return null;
+      }
+      const row = selectGroupByInvite.get(lower) as GroupRow | undefined;
       return row ? toGroup(row) : null;
     },
     setShowNames(groupId, showNames) {
@@ -1403,6 +1481,26 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         changeMemberAccount.run(accountId, groupId, row.id);
         changeInvitedEmail.run(null, groupId, row.id);
         return toMember(selectMember.get(groupId, row.id) as MemberRow);
+      });
+    },
+    claimInvitations(accountId) {
+      if (!isToken(accountId)) return [];
+      return transaction(() => {
+        const account = selectVerifiedEmail.get(accountId) as { email: string } | undefined;
+        const email = account?.email.trim().toLowerCase();
+        if (!email) return [];
+        const claimed: Group[] = [];
+        for (const { group_id: groupId } of selectInvitedGroups.all(email) as {
+          group_id: string;
+        }[]) {
+          if (selectMemberByAccount.get(groupId, accountId)) continue;
+          const row = selectInvited.get(groupId, email) as { id: string } | undefined;
+          if (!row) continue;
+          changeMemberAccount.run(accountId, groupId, row.id);
+          changeInvitedEmail.run(null, groupId, row.id);
+          claimed.push(toGroup(selectGroup.get(groupId) as GroupRow));
+        }
+        return claimed;
       });
     },
     deviceTokenFor(groupId, memberId) {
@@ -1653,9 +1751,13 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     createRequest(groupId, input) {
       const id = newToken();
       transaction(() => {
+        const taken = new Set(
+          (selectRequestSlugs.all(groupId) as { slug: string }[]).map((row) => row.slug),
+        );
         insertRequest.run(
           id,
           groupId,
+          nextRequestSlug(input.name, taken),
           input.name,
           input.startDate,
           input.endDate,
@@ -1681,6 +1783,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       return (selectRequests.all(groupId) as RequestRow[]).map(toRequest);
     },
     findRequest,
+    findRequestBySlug(groupId, slug) {
+      const row = selectRequestBySlug.get(groupId, slug.toLowerCase()) as RequestRow | undefined;
+      return row ? toRequest(row) : null;
+    },
     answerRequest(groupId, requestId, memberId, limit, now = new Date()) {
       const request = findRequest(groupId, requestId);
       if (!request?.open || !isToken(memberId) || !selectMember.get(groupId, memberId)) {

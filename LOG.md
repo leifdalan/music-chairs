@@ -4439,3 +4439,125 @@ Phase 29 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 29 ✅ and Phase 30 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-30.md gained "Inherited from Phase 29" (one date per rehearsal, the schedule card as the answer target, notes).
 - Lessons: dangerous-kittiwake filed (local): committing a file deletion moves the candidate identity; stage deletions with git rm. lively-salamander occurrence added (6 total). ./bin/lessons validate OK.
+
+## 2026-10-11 17:38 — START
+Phase 30 — Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to
+
+Execution trace: dec24d80471a4328a02d21e285326b09
+
+Planned work:
+- The invite link reads as the group, with a short secret so it can't be guessed (for example `/join/thursday-quartet-k7m2x9`).
+- A readable link to each availability request, and a link to each proposed rehearsal for the organizer to share, each landing the member directly on its call to action (ticking dates; answering Yes / No / Maybe), through joining first when needed.
+- A member an organizer added is already in the group, and when they sign in with Google with the email the organizer used, they see the groups they were added to, wherever they signed in.
+
+## 2026-10-11 18:20 — END
+Phase 30 — Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to
+
+Phase 30 is accepted on its gates. Invite links now read as the group's name and a short code, for example /join/thursday-quartet-k7m2x9pq. When this deploys, the database update gives every group a new code, so every invite link already shared stops working, as you chose: opening one says "This invite link has changed" and to ask the organizer for the new one. Availability requests have their own addresses, named after them (/g/<group>/winter-concert), and keep that address if renamed. A proposed rehearsal's link adds its date and time (…/winter-concert/tue-14-oct-7pm) and opens its card on the schedule, where people answer Yes, No or Maybe. Organizers can copy a request's link (under "Share this availability request") and each proposed rehearsal's link (on its schedule card). Those copied links include the group's invite code, so someone not yet in the group joins once and then lands on the request or rehearsal; a member goes straight there. Signing in with Google now claims every place an organizer added for that email, so those groups show on the home and Groups pages wherever the person signed in. How it feels on your phone, and a real Google sign-in, are yours to judge through the User Demo below; merging the pull request deploys it and runs the database update.
+
+Execution trace: dec24d80471a4328a02d21e285326b09
+
+Files changed:
+- plan/phase-30.md — your 2026-10-11 rulings and the User Demo, before capture
+- project/app/.server/store.ts — migration 13 (a fresh 8-character invite code for every group), migration 14 (request slugs, backfilled oldest first, unique per group); migrations may be functions; inviteCode, findGroupByInviteCode, findRequestBySlug, claimInvitations; request slugs assigned on creation
+- project/app/lib/request-address.ts (new) — request slugs (reserved words, -2…), rehearsal slugs from date and start time, request and rehearsal paths, copied-link join parameter
+- project/app/.server/request-address.ts (new) — resolving request and rehearsal addresses; sending a visitor with the group's code through joining, and dropping it for members
+- project/app/lib/group-address.ts — slugify fallback; invitePath, inviteCodeOf
+- project/app/routes.ts, project/app/routes/rehearsal-link.ts (new), request.tsx, request-calendar.ts — the new addresses; visitors sent on before an address is looked up; the request page's share link for organizers
+- project/app/routes/join.tsx — lookup by code, redirect to the current link, the "has changed" page (410), landing on a checked page of the group after every way of joining, remembering a Google-found member on this device
+- project/app/routes/auth.google.callback.ts, project/app/.server/memberships.ts — claiming every invited place at sign-in and on the home and Groups pages
+- project/app/components/copy-link.tsx (new), project/app/routes/group.tsx, schedule.tsx, home.tsx, requests.new.tsx, project/app/components/calendar-actions.tsx, project/app/.server/pending.ts, progress.ts — every request link built from its address; shared copy control; rehearsal share links on schedule cards
+- project/app/root.tsx — the not-found message covers every kind of link
+- project/app/app.css — share panel layout
+- project/scripts/smoke.sh — the readable invite, the 410 for an old link, request and rehearsal links, joining from a copied link
+- project/tests/links.test.tsx, project/tests/migration-13.test.ts (new); auth, store, join, request, schedule, home and about twenty other test files updated for the new addresses
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38191111861, check success for commit a8bdf3c (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — the changed-path selection against @{upstream} (origin/phase-30, the same commit as HEAD after the draft-PR push) ran only the governance family, pytest 54/54; the whole Vitest suite on these bytes passed in CI and locally (682/682)
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 336.4 s; first event 0.57 s; longest idle 51.6 s; success
+- Critic (code review): 213.2 s; first event 0.60 s; longest idle 38.9 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 2443.628 s; intelligence 549.575 s; gates 33.889 s; wait 548.587 s; orchestration 2397.063 s; unattributed 46.565 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 30 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=ea70dcb9… final=cf02bff08d093613807e13cdd96b28956ec292fa2770fb1afdec0ba1a97560c8 (the corrected candidate; the in-progress commit did not move it)
+- Findings: plan review 12 (all adopted); code critique 9 (all adopted)
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- Replacing every old request link touched about twenty-five test files; a scripted rewrite with small test helpers (slugFor, requestHrefOf, inviteOf) did most of it, and the rest were fixed by hand from the failures.
+- Two rounds of screenshots were spent on a stale local server that a stop command had missed (lesson arboreal-hippogriff).
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): migrations 13 and 14 on a real version-12 database and on a copy of the seeded data; invite links by code (any name, any case, a 22-character invite that is not an old token), the 410 page for old links, 404 for a group address used as an invite; request and rehearsal addresses, reserved words, twins and renames; copied links joining a visitor and landing on the request or the rehearsal's card, a member's code dropped, landing refused outside the group; visitors learning nothing from guessed addresses; codes only on organizers' pages; Google sign-in claiming every invited place after linking the device's member, and a real callback round trip from a copied link remembering the device and landing on the link.
+- Parked for you: the User Demo below, including a real Google sign-in; and accepting that every invite link already shared stops working on deploy (your ruling was "Stop working"), so organizers will need to share the new one.
+
+Delivery:
+- default — commit and delivery through pull request 22, merged when green, after the handoff gate; merging deploys and runs migrations 13 and 14 on the live database
+
+Ripple (per policies/phase-ripple.md):
+- none — Phase 30 is the last phase in plan/INDEX.md; no later phase depends on it
+- DECIDE (for you, not blocking; carried from Phase 29): should the brief record rehearsal notes (and later attachments) as rehearsal details, and narrow its "not a practice-material manager" non-goal?
+
+Lessons:
+- occurrence: loyal-dinosaur (a smoke rerun's redirect was refused by noclobber; its exit status was read first, so nothing was claimed) — 5 occurrences
+- new local lesson arboreal-hippogriff: stop a local server by its port, not by a command-line pattern; a survivor serves the old build
+- new methodology lesson ubiquitous-cuckoo: after the draft-PR push, @{upstream} is HEAD, so the changed-path gate selects almost nothing; for you to rule on
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (6), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=36); reviewer/claude opus — hard 1800 s, idle 600 s (n=33); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, as an organizer of a group with an open availability request and a proposed rehearsal, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On the group page, copy the invite link and look at it.
+    2. On the availability request's page, copy its link; on the schedule, copy a proposed rehearsal's link.
+    3. In a private window (not signed in, never joined), open the request link, join with a new name, and see where you land; then open the rehearsal link.
+    4. Open an old-style invite link you shared before this change.
+    5. If you can: have an organizer add someone by their Google email (Add members), then sign in with that Google account on the home page.
+  - **What to look for.**
+    - The invite link reads as the group with a short code (for example `/join/thursday-quartet-k7m2x9`).
+    - The request and rehearsal links read as the group, the request's name and the date.
+    - A newcomer joins once and lands on ticking dates (request link) or on Yes / No / Maybe (rehearsal link); a member lands there directly.
+    - The old invite link says it has changed and to ask for the new one.
+    - The added member's groups appear on the home page after Google sign-in, wherever they signed in.
+  - **Variations to explore.** Two requests with the same name; a request renamed after its link was shared; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo, the invite-link change on deploy and the brief question above. Every phase in plan/INDEX.md is now complete.
+
+## 2026-10-11 18:21 — NOTE
+Phase 30 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 30 ✅; every phase is complete, so no row holds the arrow (accepted ledger applied and verified).
+- Ripple: none (no later phase).
+- Lessons: arboreal-hippogriff (local) and ubiquitous-cuckoo (methodology) filed; loyal-dinosaur occurrence added (5 total). ./bin/lessons validate OK.

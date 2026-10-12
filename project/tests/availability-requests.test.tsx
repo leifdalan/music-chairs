@@ -12,7 +12,7 @@ import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import RequestForm, { loader as formLoader } from "../app/routes/requests.new";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase } from "./routes";
+import { addressOf, deviceCookie, requestHrefOf, routeArgs, slugFor, tempDatabase } from "./routes";
 
 tempDatabase();
 
@@ -120,11 +120,15 @@ async function groupPage(b: Band, cookie?: string) {
 }
 
 async function requestPage(b: Band, requestId: string, cookie: string) {
-  const path = `${groupPath(b.group)}/requests/${requestId}`;
+  const path = requestHrefOf(b.group, requestId);
   const data = await requestLoader(
-    routeArgs(path, { groupAddress: addressOf(b.group), requestId }, { cookie }),
+    routeArgs(
+      path,
+      { groupAddress: addressOf(b.group), requestSlug: slugFor(requestId) },
+      { cookie },
+    ),
   );
-  return render("request", "/g/:groupAddress/requests/:requestId", RequestPage, data, path);
+  return render("request", "/g/:groupAddress/:requestSlug", RequestPage, data, path);
 }
 
 async function schedulePage(b: Band, cookie: string, search = "") {

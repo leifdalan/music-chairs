@@ -11,7 +11,15 @@ import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import Groups, { loader as groupsLoader } from "../app/routes/groups";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase, addSlots } from "./routes";
+import {
+  addressOf,
+  addSlots,
+  deviceCookie,
+  requestHrefOf,
+  routeArgs,
+  slugFor,
+  tempDatabase,
+} from "./routes";
 
 tempDatabase();
 
@@ -75,11 +83,15 @@ function render(
 }
 
 async function requestPage(b: Awaited<ReturnType<typeof band>>, cookie: string) {
-  const path = `${groupPath(b.group)}/requests/${b.requestId}`;
+  const path = requestHrefOf(b.group, b.requestId);
   const data = await requestLoader(
-    routeArgs(path, { groupAddress: addressOf(b.group), requestId: b.requestId }, { cookie }),
+    routeArgs(
+      path,
+      { groupAddress: addressOf(b.group), requestSlug: slugFor(b.requestId) },
+      { cookie },
+    ),
   );
-  return render("request", "/g/:groupAddress/requests/:requestId", RequestPage, data, path);
+  return render("request", "/g/:groupAddress/:requestSlug", RequestPage, data, path);
 }
 
 async function groupPage(

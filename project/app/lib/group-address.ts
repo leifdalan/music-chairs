@@ -17,8 +17,8 @@ const LETTERS: Record<string, string> = {
   þ: "th",
 };
 
-/** A group name as the readable part of its address: "Café Trío" → "cafe-trio"; nothing Latin → "group". */
-export function slugify(name: string): string {
+/** A name as the readable part of an address: "Café Trío" → "cafe-trio"; nothing Latin → `fallback`. */
+export function slugify(name: string, fallback = "group"): string {
   const plain = name
     .toLowerCase()
     .replace(/[ßæœøłđþ]/g, (letter) => LETTERS[letter])
@@ -26,7 +26,7 @@ export function slugify(name: string): string {
     .replace(/\p{M}/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  if (plain.length <= SLUG_MAX) return plain || "group";
+  if (plain.length <= SLUG_MAX) return plain || fallback;
   const cut = plain.slice(0, SLUG_MAX);
   // Cut at a word boundary when one is in reach.
   const boundary = cut.lastIndexOf("-");
@@ -45,4 +45,14 @@ export function shortIdOf(address: string): string | null {
   const suffix = address.slice(hyphen + 1).toLowerCase();
   if (suffix.length !== SHORT_ID_LENGTH) return null;
   return [...suffix].every((character) => SHORT_ID_ALPHABET.includes(character)) ? suffix : null;
+}
+
+/** A group's invite link (plan/phase-30.md): its name, then its secret 8-character code. */
+export function invitePath(group: { name: string; inviteCode: string }): string {
+  return `/join/${slugify(group.name)}-${group.inviteCode}`;
+}
+
+/** The invite code an invite link's last part ends with, or null; the same shape as a short id. */
+export function inviteCodeOf(invite: string): string | null {
+  return shortIdOf(invite);
 }

@@ -86,7 +86,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       <h1>{notFound ? "Page not found" : "Something went wrong"}</h1>
       <p>
         {notFound
-          ? "This link doesn't match any group. Check that you copied the whole invite link, or ask an organizer for a new one."
+          ? "This link doesn't match anything here. Check that you copied the whole link, or ask an organizer for a new one."
           : "Please try again in a moment."}
       </p>
       <p>

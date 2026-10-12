@@ -24,6 +24,7 @@ import {
   ProgressFigures,
   type GoogleWriteState,
 } from "~/components/calendar-actions";
+import { CopyLink } from "~/components/copy-link";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { FreeCalendar } from "~/components/free-calendar";
 import { PayoffBody } from "~/components/payoff-card";
@@ -47,6 +48,7 @@ import {
   type OverlapMember,
 } from "~/lib/overlap";
 import { groupPath } from "~/lib/group-address";
+import { rehearsalPath, rehearsalSlugs, requestPath, withJoin } from "~/lib/request-address";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
@@ -142,12 +144,16 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       .filter((item) => answerable(item, today))
       .map((item) => ({
         id: item.id,
+        href: requestPath(groupPath(group), item.slug),
         name: item.name,
         responded: store.listAnswers(group.id, item.id).length,
       })),
   };
 
-  const requestNames = new Map(store.listRequests(group.id).map((item) => [item.id, item.name]));
+  const requestsById = new Map(store.listRequests(group.id).map((item) => [item.id, item]));
+  // Each proposed rehearsal's link, copied by organizers (plan/phase-30.md).
+  const slugs = rehearsalSlugs(rehearsals);
+  const origin = publicOrigin() ?? new URL(request.url).origin;
   const calendar = await calendarPanel(request, group, viewer);
   return {
     timesThatWorked: isOrganizer ? timesThatWorked(rehearsals, today) : null,
@@ -192,6 +198,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   function rehearsalView(rehearsal: Rehearsal) {
     const upcoming = isUpcoming(rehearsal, today);
+    const from = rehearsal.requestId ? requestsById.get(rehearsal.requestId) : undefined;
     const view = {
       id: rehearsal.id,
       status: rehearsal.status,
@@ -200,7 +207,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       startMinute: rehearsal.startMinute,
       endMinute: rehearsal.endMinute,
       requestId: rehearsal.requestId,
-      requestName: rehearsal.requestId ? (requestNames.get(rehearsal.requestId) ?? null) : null,
+      requestName: from?.name ?? null,
+      requestHref: from ? requestPath(groupPath(group), from.slug) : null,
       summary: describeRehearsal(rehearsal),
       // Members who answered it (plan/phase-24.md).
       answered: (answers.get(`${rehearsal.id}|${rehearsal.date}`) ?? new Map()).size,
@@ -219,7 +227,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     const missing = missingSummaries(
       missingNames.length > 0 ? [{ date: rehearsal.date, missing: missingNames }] : [],
     );
-    return { ...view, organizer: { missing } };
+    const slug = slugs.get(rehearsal.id);
+    const shareUrl =
+      from && slug && rehearsal.status === "proposed"
+        ? new URL(
+            withJoin(rehearsalPath(groupPath(group), from.slug, slug), group.inviteCode),
+            origin,
+          ).href
+        : null;
+    return { ...view, organizer: { missing, shareUrl } };
   }
 }
 
@@ -471,10 +487,14 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   const confirmed = linked.filter((item) => item.status === "confirmed");
   const proposed = linked.filter((item) => item.status === "proposed");
   // Proposed rehearsals under their request, in the order they first appear.
-  const byRequest = new Map<string, { name: string; items: RehearsalItem[] }>();
+  const byRequest = new Map<string, { name: string; href: string; items: RehearsalItem[] }>();
   for (const item of proposed) {
     const id = item.requestId as string;
-    const group = byRequest.get(id) ?? { name: item.requestName ?? "", items: [] };
+    const group = byRequest.get(id) ?? {
+      name: item.requestName ?? "",
+      href: item.requestHref ?? "",
+      items: [],
+    };
     group.items.push(item);
     byRequest.set(id, group);
   }
@@ -513,10 +533,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
           [...byRequest].map(([requestId, group]) => (
             <div key={requestId} className="request-group">
               <h3>
-                From{" "}
-                <Link to={`../requests/${requestId}`} relative="path">
-                  {group.name}
-                </Link>
+                From <Link to={group.href}>{group.name}</Link>
               </h3>
               <ul className="rehearsals">
                 {group.items.map((item) => (
@@ -570,10 +587,8 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
             <ul className="free-summary-requests">
               {summary.requests.map((item) => (
                 <li key={item.id}>
-                  <Link to={`../requests/${item.id}`} relative="path">
-                    {item.name}
-                  </Link>
-                  : {item.responded} of {summary.memberCount} responded
+                  <Link to={item.href}>{item.name}</Link>: {item.responded} of {summary.memberCount}{" "}
+                  responded
                 </li>
               ))}
             </ul>
@@ -733,6 +748,23 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               </SubmitButton>
             </Form>
           </details>
+          {organizer.shareUrl ? (
+            // A link that lands on this card, joining first if need be (plan/phase-30.md).
+            <details className="notes-edit">
+              <summary>Share a link to this rehearsal</summary>
+              <div className="share-link">
+                <p className="hint">
+                  It opens this rehearsal, where people answer. Anyone not yet in the group joins
+                  first.
+                </p>
+                <CopyLink
+                  url={organizer.shareUrl}
+                  label={`Link to ${item.summary}`}
+                  variant="outline"
+                />
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </li>
@@ -948,14 +980,14 @@ function ProgressSection({
         <ul className="request-progress">
           {progress.map((item) => (
             <li key={item.requestId}>
-              <Link to={`../requests/${item.requestId}`} relative="path" className="request-name">
+              <Link to={item.requestHref} className="request-name">
                 {item.name}
               </Link>
               <ProgressFigures item={item} />
               {item.complete ? (
                 <CalendarActions
                   groupHref={groupHref}
-                  requestId={item.requestId}
+                  requestHref={item.requestHref}
                   requestName={item.name}
                   google={google}
                   until={until}

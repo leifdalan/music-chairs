@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { data, Form, Link, redirect } from "react-router";
 
 import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
@@ -18,12 +18,14 @@ import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate, timeRange, todayInZone } from "~/lib/availability";
-import { groupPath } from "~/lib/group-address";
+import { groupPath, invitePath } from "~/lib/group-address";
+import { requestPath } from "~/lib/request-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
 import { pageMeta } from "~/lib/site";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
+import { CopyLink } from "~/components/copy-link";
 
 import type { Route } from "./+types/group";
 
@@ -73,6 +75,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
           );
           return {
             id: item.id,
+            href: requestPath(groupPath(group), item.slug),
             name: item.name,
             startDate: item.startDate,
             endDate: item.endDate,
@@ -124,9 +127,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       !(viewer && account && store.findMemberByAccount(group.id, account.id)),
     notice: await signInNotice(request, group.id, viewer?.displayName),
     showNames: isOrganizer ? group.showNames : null,
-    inviteUrl: isOrganizer
-      ? new URL(`/join/${group.inviteToken}`, publicOrigin() ?? request.url).href
-      : null,
+    inviteUrl: isOrganizer ? new URL(invitePath(group), publicOrigin() ?? request.url).href : null,
   };
 }
 
@@ -630,7 +631,7 @@ function RequestsSection({
         <ul className="requests">
           {current.map((item) => (
             <li key={item.id}>
-              <Link to={`requests/${item.id}`} relative="path" className="request-name">
+              <Link to={item.href} className="request-name">
                 {item.name}
               </Link>
               <span className="hint"> {span(item)}</span>
@@ -680,7 +681,7 @@ function RequestsSection({
               <ul className="requests">
                 {past.map((item) => (
                   <li key={item.id}>
-                    <Link to={`requests/${item.id}`} relative="path" className="request-name">
+                    <Link to={item.href} className="request-name">
                       {item.name}
                     </Link>
                     <span className="hint"> {span(item)}</span>
@@ -747,45 +748,18 @@ export function inviteMailto(groupName: string, inviteUrl: string): string {
 }
 
 function InvitePanel({ inviteUrl, groupName }: { inviteUrl: string; groupName: string }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState("");
-  async function copy() {
-    try {
-      // The Clipboard API exists only in secure contexts; over plain HTTP
-      // (a phone on the local network) this throws and the fallback runs.
-      await navigator.clipboard.writeText(inviteUrl);
-      setStatus("Link copied.");
-    } catch {
-      input.current?.focus();
-      // iOS Safari ignores select() on read-only inputs; a range works there.
-      input.current?.setSelectionRange(0, inviteUrl.length);
-      setStatus("Couldn't copy automatically. Press and hold the link above to copy it.");
-    }
-  }
   return (
     <section className="invite" aria-labelledby="invite-heading">
       <h2 id="invite-heading">Invite link</h2>
       <p className="hint">Share this link with your band. Anyone with it can join by name.</p>
-      <input
-        ref={input}
-        aria-label="Invite link"
-        type="text"
-        readOnly
-        value={inviteUrl}
-        onFocus={(event) => event.currentTarget.select()}
-      />
-      <button type="button" className={buttonVariants()} onClick={copy}>
-        Copy link
-      </button>
-      <a
-        className={buttonVariants({ variant: "outline" })}
-        href={inviteMailto(groupName, inviteUrl)}
-      >
-        Send link by email
-      </a>
-      <p className="hint" role="status">
-        {status}
-      </p>
+      <CopyLink url={inviteUrl} label="Invite link">
+        <a
+          className={buttonVariants({ variant: "outline" })}
+          href={inviteMailto(groupName, inviteUrl)}
+        >
+          Send link by email
+        </a>
+      </CopyLink>
     </section>
   );
 }

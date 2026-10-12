@@ -1,11 +1,20 @@
 import { data, Form, redirect } from "react-router";
 
 import { googleConfig } from "~/.server/google";
-import { findViewer, readAccount, rememberMembership } from "~/.server/membership";
+import {
+  findDeviceMember,
+  findViewer,
+  pagePath,
+  readAccount,
+  rememberMembership,
+  safeReturnTo,
+} from "~/.server/membership";
 import { redirectWithToast } from "~/.server/flash";
+import { findRehearsalBySlug } from "~/.server/request-address";
 import { todayInZone } from "~/lib/availability";
-import { groupPath } from "~/lib/group-address";
-import { getStore, type Group, type Member } from "~/.server/store";
+import { groupPath, inviteCodeOf, invitePath } from "~/lib/group-address";
+import { requestPath } from "~/lib/request-address";
+import { getStore, isToken, type Group, type Member } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { DISPLAY_NAME_MAX, validateName } from "~/lib/names";
@@ -16,11 +25,51 @@ import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/join";
 
-/** The invited group, or a 404 for an unknown or malformed token. */
-function invitedGroup(inviteToken: string): Group {
-  const group = getStore().findGroupByInviteToken(inviteToken);
-  if (!group) throw data(null, { status: 404 });
+/**
+ * The group an invite link names by its code (plan/phase-30.md), whatever name
+ * precedes it; a GET under another spelling than the current link redirects
+ * there. An unknown link is a 404, except one shaped like the long links every
+ * group had before Phase 30, which is `"changed"` (status 410).
+ */
+function invitedGroup(request: Request, invite: string): Group | "changed" {
+  const code = inviteCodeOf(invite);
+  const group = code ? getStore().findGroupByInviteCode(code) : null;
+  if (!group) {
+    if (isToken(invite)) return "changed";
+    throw data(null, { status: 404 });
+  }
+  const current = invitePath(group);
+  if (`/join/${invite}` !== current && (request.method === "GET" || request.method === "HEAD")) {
+    const page = new URL(pagePath(new URL(request.url)), request.url);
+    throw redirect(`${current}${page.search}`, {
+      status: 301,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   return group;
+}
+
+/**
+ * Where a link copied by an organizer asked to land after joining
+ * (plan/phase-30.md): a page of this group, else null. A rehearsal's link lands
+ * on its card on the schedule.
+ */
+function landing(request: Request, group: Group, then: unknown): string | null {
+  if (typeof then !== "string" || then === "") return null;
+  const target = safeReturnTo(then, request);
+  const base = groupPath(group);
+  const { pathname } = new URL(target, request.url);
+  if (pathname !== base && !pathname.startsWith(`${base}/`)) return null;
+  const [requestSlug, rehearsalSlug, ...rest] = pathname.slice(base.length + 1).split("/");
+  if (requestSlug && rehearsalSlug && rest.length === 0) {
+    const scheduleRequest = getStore().findRequestBySlug(group.id, requestSlug);
+    // Slugs are plain ASCII, so the segment is compared as it is, never decoded.
+    const rehearsal = scheduleRequest
+      ? findRehearsalBySlug(group, scheduleRequest.id, rehearsalSlug)
+      : null;
+    if (rehearsal) return `${base}/schedule#rehearsal-${rehearsal.id}`;
+  }
+  return target;
 }
 
 /** Whether this device already joined `group` as a member that still exists. */
@@ -29,23 +78,41 @@ async function alreadyJoined(request: Request, group: Group): Promise<boolean> {
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
+  if (loaderData && "changed" in loaderData) return pageMeta("Invite link changed");
   return pageMeta(loaderData ? `Join ${loaderData.groupName}` : "Not found");
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const group = invitedGroup(params.inviteToken);
-  if (await alreadyJoined(request, group)) throw redirect(groupPath(group));
+  const group = invitedGroup(request, params.invite);
+  if (group === "changed") return data({ changed: true as const }, { status: 410 });
+  const asked = new URL(request.url).searchParams.get("then");
+  const then = landing(request, group, asked);
+  const viewer = await findViewer(request, group);
+  if (viewer) {
+    // In the group through Google but not yet on this device (a place claimed
+    // at sign-in, plan/phase-30.md): remembered here and welcomed, as a claim is.
+    if (!(await findDeviceMember(request, group))) {
+      throw await welcomeBack(request, group, viewer, then, `Welcome, ${viewer.displayName}`);
+    }
+    throw redirect(then ?? groupPath(group));
+  }
   const account = await readAccount(request);
   // Signed in with the Google account an organizer added from their contacts:
   // that place is theirs (plan/phase-13.md). Only a Google-verified email claims.
   const claimed = account ? getStore().claimInvitation(group.id, account.id) : null;
-  if (claimed) throw await welcomeBack(request, group, claimed, `Welcome, ${claimed.displayName}`);
+  if (claimed) {
+    throw await welcomeBack(request, group, claimed, then, `Welcome, ${claimed.displayName}`);
+  }
+  // The link's own page, carried through joining and Google sign-in.
+  const keep = then && asked ? asked : "";
+  const here = invitePath(group) + (keep ? `?then=${encodeURIComponent(keep)}` : "");
   return {
     groupName: group.name,
+    then: keep,
     account: account ? { name: account.name, email: account.email } : null,
     signInUrl:
       !account && googleConfig() !== null
-        ? `/auth/google?returnTo=${encodeURIComponent(`/join/${params.inviteToken}`)}`
+        ? `/auth/google?returnTo=${encodeURIComponent(here)}`
         : null,
   };
 }
@@ -60,11 +127,12 @@ async function welcomeBack(
   request: Request,
   group: Group,
   member: Member,
+  then: string | null,
   message = `Welcome back, ${member.displayName}`,
 ) {
   const token = getStore().deviceTokenFor(group.id, member.id);
   if (!token) throw data(null, { status: 404 });
-  return redirectWithToast(firstStop(group), message, {
+  return redirectWithToast(then ?? firstStop(group), message, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, token) },
   });
 }
@@ -79,14 +147,17 @@ function firstStop(group: Group): string {
     .listRequests(group.id)
     .filter((item) => answerable(item, today))
     .sort((a, b) => a.endDate.localeCompare(b.endDate));
-  return next ? `${groupPath(group)}/requests/${next.id}` : groupPath(group);
+  return next ? requestPath(groupPath(group), next.slug) : groupPath(group);
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const group = invitedGroup(params.inviteToken);
-  if (await alreadyJoined(request, group)) return redirect(groupPath(group));
+  const group = invitedGroup(request, params.invite);
+  // A join page left open across the change: the same "has changed" page.
+  if (group === "changed") return data({ changed: true as const }, { status: 410 });
   const store = getStore();
   const form = await request.formData();
+  const then = landing(request, group, form.get("then"));
+  if (await alreadyJoined(request, group)) return redirect(then ?? groupPath(group));
   const displayName = validateName(form.get("displayName"), "Your name", DISPLAY_NAME_MAX);
   if (!displayName.ok) {
     return data(
@@ -114,9 +185,9 @@ export async function action({ request, params }: Route.ActionArgs) {
         { status: 400 },
       );
     }
-    return welcomeBack(request, group, picked);
+    return welcomeBack(request, group, picked, then);
   }
-  if (matches.length === 1 && !account) return welcomeBack(request, group, matches[0]);
+  if (matches.length === 1 && !account) return welcomeBack(request, group, matches[0], then);
   if (matches.length > 0) {
     return {
       value: displayName.value,
@@ -152,11 +223,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     // A second submission from the same signed-in browser lost the race to the
     // one-member-per-group rule: that account is already in the group.
     if (account && store.findMemberByAccount(group.id, account.id)) {
-      return redirect(groupPath(group));
+      return redirect(then ?? groupPath(group));
     }
     throw error;
   }
-  return redirectWithToast(firstStop(group), `You joined ${group.name}`, {
+  return redirectWithToast(then ?? firstStop(group), `You joined ${group.name}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
 }
@@ -165,8 +236,17 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
   // A second tap while the POST is in flight carries no membership cookie yet,
   // so it would add a second member; SubmitButton keeps the pressed button inert
   // until the next page loads.
+  if ("changed" in loaderData || (actionData && "changed" in actionData)) {
+    return (
+      <main>
+        <h1>This invite link has changed</h1>
+        <p>Invite links are shorter now. Ask your group's organizer for the new one.</p>
+      </main>
+    );
+  }
   const choices = actionData && "choices" in actionData ? actionData.choices : null;
   const error = actionData && "error" in actionData ? actionData.error : undefined;
+  const then = loaderData.then ? <input type="hidden" name="then" value={loaderData.then} /> : null;
   return (
     <main>
       <p className="eyebrow">You're invited to join</p>
@@ -191,6 +271,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
               <li key={choice.id}>
                 <Form method="post" replace>
                   <input type="hidden" name="intent" value="pick" />
+                  {then}
                   <input type="hidden" name="memberId" value={choice.id} />
                   <input type="hidden" name="displayName" value={actionData?.value ?? ""} />
                   <SubmitButton feedbackKey={`pick-${choice.id}`} variant="outline">
@@ -204,6 +285,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
               <li>
                 <Form method="post" replace>
                   <input type="hidden" name="intent" value="new" />
+                  {then}
                   <input type="hidden" name="displayName" value={actionData.value} />
                   <SubmitButton feedbackKey="join-new">
                     No, I&apos;m new: join as {actionData.value}
@@ -215,6 +297,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
         </section>
       ) : null}
       <Form method="post" className="stack">
+        {then}
         <TextField
           name="displayName"
           label="Your name"

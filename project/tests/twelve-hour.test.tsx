@@ -9,7 +9,7 @@ import { groupPath } from "../app/lib/group-address";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase, addSlots } from "./routes";
+import { addressOf, addSlots, deviceCookie, routeArgs, slugFor, tempDatabase } from "./routes";
 
 tempDatabase();
 
@@ -85,15 +85,19 @@ describe("12-hour times on every page (plan/phase-22.md)", () => {
       ["organizer", organizerCookie],
       ["member", cellistCookie],
     ] as const) {
-      const requestPath = `${base}/requests/${request.id}`;
+      const requestPath = `${base}/${slugFor(request.id)}`;
       pages.push([
         `request (${who})`,
         render(
           "request",
-          "/g/:groupAddress/requests/:requestId",
+          "/g/:groupAddress/:requestSlug",
           RequestPage,
           await requestLoader(
-            routeArgs(requestPath, { groupAddress: address, requestId: request.id }, { cookie }),
+            routeArgs(
+              requestPath,
+              { groupAddress: address, requestSlug: slugFor(request.id) },
+              { cookie },
+            ),
           ),
           requestPath,
         ),
@@ -114,12 +118,12 @@ describe("12-hour times on every page (plan/phase-22.md)", () => {
         `request list (${who})`,
         render(
           "request",
-          "/g/:groupAddress/requests/:requestId",
+          "/g/:groupAddress/:requestSlug",
           RequestPage,
           await requestLoader(
             routeArgs(
               `${requestPath}?times=list`,
-              { groupAddress: address, requestId: request.id },
+              { groupAddress: address, requestSlug: slugFor(request.id) },
               { cookie },
             ),
           ),

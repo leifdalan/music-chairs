@@ -12,12 +12,13 @@ import { addDays, todayInZone } from "../app/lib/availability";
 import {
   cookieFrom,
   deviceCookie,
+  groupAt,
   ORIGIN,
+  requestHrefOf,
   routeArgs,
   setCookies,
   signedIn,
   tempDatabase,
-  groupAt,
 } from "./routes";
 
 const count = tempDatabase();
@@ -254,6 +255,7 @@ describe("requests waiting for your answer", () => {
         groupHref: groupPath(mine.group),
         groupName: "Quartet",
         requestId: mine.open.id,
+        requestHref: requestHrefOf(mine.group, mine.open.id),
         name: "Quartet gig",
         waitingUntil: mine.open.endDate,
         progress: null,
@@ -328,7 +330,7 @@ describe("requests waiting for your answer", () => {
     const html = render({ loaderData: { home: data } });
     expect(html).toContain("Waiting on you");
     expect(html).toContain("Add your free times by");
-    expect(html).toContain(`href="${groupPath(mine.group)}/requests/${mine.open.id}"`);
+    expect(html).toContain(`href="${requestHrefOf(mine.group, mine.open.id)}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your groups"));
     expect(render({ loaderData: { home: await loader(routeArgs("/", {})) } })).not.toContain(
       "Waiting on you",
@@ -378,12 +380,12 @@ describe("everything waiting on you, first", () => {
     ]);
     const waiting = html.slice(html.indexOf("Waiting on you"), html.indexOf("</section>"));
     expect(waiting).toContain(`href="${groupPath(group)}/schedule#rehearsal-${rehearsal.id}"`);
-    expect(waiting).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
+    expect(waiting).toContain(`href="${requestHrefOf(group, request.id)}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your availability requests"));
     // The proposal also stays under its request, with the figures.
     const progress = html.slice(html.indexOf("Your availability requests"));
     expect(progress).toContain(`Proposed rehearsal: ${data.proposals[0].summary}`);
-    expect(progress).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
+    expect(progress).toContain(`href="${requestHrefOf(group, request.id)}"`);
   });
 
   it("drops a proposal the member answered", async () => {

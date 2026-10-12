@@ -6,9 +6,16 @@ import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
-import { groupPath } from "../app/lib/group-address";
 import Join, { action, loader } from "../app/routes/join";
-import { ORIGIN, routeArgs, setCookies, signedIn, tempDatabase } from "./routes";
+import {
+  inviteOf,
+  ORIGIN,
+  requestHrefOf,
+  routeArgs,
+  setCookies,
+  signedIn,
+  tempDatabase,
+} from "./routes";
 
 const count = tempDatabase();
 beforeAll(() => {
@@ -34,7 +41,7 @@ async function band() {
 
 function post(token: string, form: Record<string, string>, cookie?: string) {
   return action(
-    routeArgs(`/join/${token}`, { inviteToken: token }, { cookie, form }),
+    routeArgs(`/join/${token}`, { invite: token }, { cookie, form }),
   ) as Promise<unknown>;
 }
 
@@ -61,7 +68,7 @@ describe("getting back in by name", () => {
     const { store, group, spare } = await band();
     const before = count("members");
 
-    const response = await post(group.inviteToken, { displayName: "  SPARE " });
+    const response = await post(inviteOf(group), { displayName: "  SPARE " });
 
     expect(statusOf(response)).toBe(302);
     expect(await toastOf(response)).toBe("Welcome back, Spare");
@@ -78,7 +85,7 @@ describe("getting back in by name", () => {
     const { store, group } = await band();
     const zoe = store.addMember(group.id, "Zoé  Smith", "member");
 
-    const response = await post(group.inviteToken, { displayName: "zoé smith" });
+    const response = await post(inviteOf(group), { displayName: "zoé smith" });
 
     const viewer = await findViewer(
       new Request(ORIGIN, { headers: { Cookie: membershipOf(response) } }),
@@ -102,7 +109,7 @@ describe("getting back in by name", () => {
       name: "Spare",
     });
 
-    const offered = (await post(group.inviteToken, { displayName: "Spare" }, cookie)) as {
+    const offered = (await post(inviteOf(group), { displayName: "Spare" }, cookie)) as {
       choices: { id: string }[];
       canJoinAsNew: boolean;
     };
@@ -111,15 +118,13 @@ describe("getting back in by name", () => {
 
     // "That's me": this device becomes Spare, still unlinked.
     const picked = await post(
-      group.inviteToken,
+      inviteOf(group),
       { intent: "pick", memberId: spare.id, displayName: "Spare" },
       cookie,
     );
     expect(statusOf(picked)).toBe(302);
     // Picked members land on the open request, like new ones (plan/phase-23.md).
-    expect((picked as Response).headers.get("Location")).toBe(
-      `${groupPath(group)}/requests/${open.id}`,
-    );
+    expect((picked as Response).headers.get("Location")).toBe(requestHrefOf(group, open.id));
     const viewer = await findViewer(
       new Request(ORIGIN, { headers: { Cookie: membershipOf(picked) } }),
       group,
@@ -130,7 +135,7 @@ describe("getting back in by name", () => {
 
     // "No, I'm new": a new member linked to the account.
     const before = count("members");
-    const joined = await post(group.inviteToken, { intent: "new", displayName: "Spare" }, cookie);
+    const joined = await post(inviteOf(group), { intent: "new", displayName: "Spare" }, cookie);
     expect(await toastOf(joined)).toBe("You joined Quartet");
     expect(count("members")).toBe(before + 1);
     expect(store.findMemberByAccount(group.id, account.id)?.displayName).toBe("Spare");
@@ -144,7 +149,7 @@ describe("getting back in by name", () => {
       name: "Cellist",
     });
 
-    const response = await post(group.inviteToken, { displayName: "Cellist" }, cookie);
+    const response = await post(inviteOf(group), { displayName: "Cellist" }, cookie);
 
     expect(await toastOf(response)).toBe("You joined Quartet");
     expect(store.findMemberByAccount(group.id, account.id)?.displayName).toBe("Cellist");
@@ -153,7 +158,7 @@ describe("getting back in by name", () => {
   it("ignores joining as new without a signed-in account", async () => {
     const { group, spare } = await band();
 
-    const response = await post(group.inviteToken, { intent: "new", displayName: "Spare" });
+    const response = await post(inviteOf(group), { intent: "new", displayName: "Spare" });
 
     const viewer = await findViewer(
       new Request(ORIGIN, { headers: { Cookie: membershipOf(response) } }),
@@ -169,7 +174,7 @@ describe("getting back in by name", () => {
     const otherGroup = store.createGroup("Other", "Oboe", "Europe/London").group;
     const stranger = store.addMember(otherGroup.id, "Spare", "member");
 
-    const offered = (await post(group.inviteToken, { displayName: "Spare" })) as {
+    const offered = (await post(inviteOf(group), { displayName: "Spare" })) as {
       choices: { id: string; displayName: string; instrument: string }[];
     };
 
@@ -178,7 +183,7 @@ describe("getting back in by name", () => {
       { id: other.id, displayName: "spare", instrument: "tuba" },
     ]);
     // Neither device token is in the answer or on the page.
-    const Stub = createRoutesStub([{ id: "join", path: "/join/:inviteToken", Component: Join }]);
+    const Stub = createRoutesStub([{ id: "join", path: "/join/:invite", Component: Join }]);
     const html = renderToString(
       <Stub
         initialEntries={["/join/x"]}
@@ -194,7 +199,7 @@ describe("getting back in by name", () => {
       expect(text).not.toContain(store.deviceTokenFor(group.id, other.id)!);
     }
 
-    const picked = await post(group.inviteToken, {
+    const picked = await post(inviteOf(group), {
       intent: "pick",
       memberId: other.id,
       displayName: "Spare",
@@ -210,7 +215,7 @@ describe("getting back in by name", () => {
       { intent: "pick", memberId: other.id, displayName: "Somebody" },
       { intent: "pick", memberId: stranger.id, displayName: "Spare" },
     ]) {
-      const refused = await post(group.inviteToken, form);
+      const refused = await post(inviteOf(group), form);
       expect(statusOf(refused)).toBe(400);
       // A refusal is page data, not a redirect, so it sets no membership cookie.
       expect(refused).not.toBeInstanceOf(Response);
@@ -221,10 +226,10 @@ describe("getting back in by name", () => {
     const { group } = await band();
     const before = count("members");
 
-    const google = (await post(group.inviteToken, { displayName: "cellist" })) as {
+    const google = (await post(inviteOf(group), { displayName: "cellist" })) as {
       data: { error: string };
     };
-    const organizer = (await post(group.inviteToken, { displayName: "VIOLA" })) as {
+    const organizer = (await post(inviteOf(group), { displayName: "VIOLA" })) as {
       data: { error: string };
     };
 
@@ -241,7 +246,7 @@ describe("getting back in by name", () => {
     const { group } = await band();
     const before = count("members");
 
-    const response = await post(group.inviteToken, { displayName: "Newcomer" });
+    const response = await post(inviteOf(group), { displayName: "Newcomer" });
 
     expect(await toastOf(response)).toBe("You joined Quartet");
     expect(count("members")).toBe(before + 1);
@@ -253,10 +258,10 @@ describe("getting back in by name", () => {
     process.env.MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET = "secret";
     try {
       const page = (await loader(
-        routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }),
+        routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }),
       )) as { signInUrl: string | null };
       expect(page.signInUrl).toBe(
-        `/auth/google?returnTo=${encodeURIComponent(`/join/${group.inviteToken}`)}`,
+        `/auth/google?returnTo=${encodeURIComponent(`/join/${inviteOf(group)}`)}`,
       );
     } finally {
       delete process.env.MUSIC_CHAIRS_GOOGLE_CLIENT_ID;

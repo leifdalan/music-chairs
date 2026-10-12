@@ -8,13 +8,16 @@ import { addDays, todayInZone } from "../app/lib/availability";
 import { groupPath } from "../app/lib/group-address";
 import Join, { action, loader } from "../app/routes/join";
 import {
+  addressOf,
   cookieFrom,
+  inviteOf,
   ORIGIN,
+  requestHrefOf,
   routeArgs,
   setCookies,
   signedIn,
-  thrownBy,
   tempDatabase,
+  thrownBy,
 } from "./routes";
 
 const count = tempDatabase();
@@ -29,7 +32,7 @@ function newGroup() {
 
 function joinAs(inviteToken: string, displayName: string, cookie?: string) {
   return action(
-    routeArgs(`/join/${inviteToken}`, { inviteToken }, { cookie, form: { displayName } }),
+    routeArgs(`/join/${inviteToken}`, { invite: inviteToken }, { cookie, form: { displayName } }),
   );
 }
 
@@ -49,7 +52,7 @@ describe("join route", () => {
   it("welcomes the new member by the group's name", async () => {
     const group = newGroup();
 
-    const response = await joinAs(group.inviteToken, "Cellist");
+    const response = await joinAs(inviteOf(group), "Cellist");
 
     expect(await toastOf(response)).toBe("You joined Thursday Quartet");
     expect(cookieFrom(response as Response)).toMatch(/^mc_members=/);
@@ -63,19 +66,17 @@ describe("join route", () => {
       name: "Joan",
     });
 
-    const page = await loader(
-      routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
-    );
-    const response = await joinAs(group.inviteToken, "Joan", cookie);
+    const page = (await loader(
+      routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }, { cookie }),
+    )) as { account: unknown };
+    const response = await joinAs(inviteOf(group), "Joan", cookie);
 
     expect(page.account).toEqual({ name: "Joan", email: "joiner@example.test" });
     expect(statusOf(response)).toBe(302);
     expect(getStore().findMemberByAccount(group.id, account.id)?.displayName).toBe("Joan");
     // Back on the invite link later, the signed-in account goes straight to the group.
     const again = await thrownBy(
-      loader(
-        routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
-      ),
+      loader(routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }, { cookie })),
     );
     expect((again as Response).headers.get("Location")).toBe(groupPath(group));
   });
@@ -98,10 +99,10 @@ describe("join route", () => {
     request("Ended", -20, -1);
     store.addMember(group.id, "Spare", "member");
 
-    const joined = (await joinAs(group.inviteToken, "Oboe")) as Response;
-    const returning = (await joinAs(group.inviteToken, "Spare")) as Response;
+    const joined = (await joinAs(inviteOf(group), "Oboe")) as Response;
+    const returning = (await joinAs(inviteOf(group), "Spare")) as Response;
 
-    const target = `${groupPath(group)}/requests/${soonest.id}`;
+    const target = requestHrefOf(group, soonest.id);
     expect(joined.headers.get("Location")).toBe(target);
     expect(await toastOf(joined)).toBe("You joined Thursday Quartet");
     expect(returning.headers.get("Location")).toBe(target);
@@ -111,19 +112,22 @@ describe("join route", () => {
   it("shows the invited group's name", async () => {
     const group = newGroup();
 
-    const loaded = await loader(
-      routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }),
-    );
+    const loaded = await loader(routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }));
 
     // Google is not configured in this test, so no sign-in link.
-    expect(loaded).toEqual({ groupName: "Thursday Quartet", account: null, signInUrl: null });
+    expect(loaded).toEqual({
+      groupName: "Thursday Quartet",
+      then: "",
+      account: null,
+      signInUrl: null,
+    });
   });
 
   it("adds exactly one member and remembers them on this device", async () => {
     const group = newGroup();
     const members = count("members");
 
-    const response = await joinAs(group.inviteToken, "  Cellist ");
+    const response = await joinAs(inviteOf(group), "  Cellist ");
 
     expect(statusOf(response)).toBe(302);
     const joined = response as Response;
@@ -142,15 +146,13 @@ describe("join route", () => {
 
   it("recognizes a returning member on the same device without rejoining", async () => {
     const group = newGroup();
-    const cookie = cookieFrom((await joinAs(group.inviteToken, "Cellist")) as Response);
+    const cookie = cookieFrom((await joinAs(inviteOf(group), "Cellist")) as Response);
     const members = count("members");
 
     const revisit = await thrownBy(
-      loader(
-        routeArgs(`/join/${group.inviteToken}`, { inviteToken: group.inviteToken }, { cookie }),
-      ),
+      loader(routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }, { cookie })),
     );
-    const repost = await joinAs(group.inviteToken, "Cellist again", cookie);
+    const repost = await joinAs(inviteOf(group), "Cellist again", cookie);
 
     expect(revisit).toBeInstanceOf(Response);
     expect((revisit as Response).headers.get("Location")).toBe(groupPath(group));
@@ -161,18 +163,14 @@ describe("join route", () => {
   it("keeps a device's memberships in other groups when it joins another", async () => {
     const first = newGroup();
     const second = newGroup();
-    const cookie = cookieFrom((await joinAs(first.inviteToken, "Cellist")) as Response);
+    const cookie = cookieFrom((await joinAs(inviteOf(first), "Cellist")) as Response);
 
-    const both = cookieFrom((await joinAs(second.inviteToken, "Cellist", cookie)) as Response);
+    const both = cookieFrom((await joinAs(inviteOf(second), "Cellist", cookie)) as Response);
 
     for (const group of [first, second]) {
       const revisit = await thrownBy(
         loader(
-          routeArgs(
-            `/join/${group.inviteToken}`,
-            { inviteToken: group.inviteToken },
-            { cookie: both },
-          ),
+          routeArgs(`/join/${inviteOf(group)}`, { invite: inviteOf(group) }, { cookie: both }),
         ),
       );
       expect((revisit as Response).headers.get("Location")).toBe(groupPath(group));
@@ -185,7 +183,7 @@ describe("join route", () => {
       const group = newGroup();
       const members = count("members");
 
-      const result = await joinAs(group.inviteToken, name);
+      const result = await joinAs(inviteOf(group), name);
 
       expect(statusOf(result)).toBe(400);
       expect((result as { data: { error: string } }).data.error).toBe("Your name is required.");
@@ -194,14 +192,16 @@ describe("join route", () => {
   );
 
   it.each([
-    ["unknown", "A".repeat(22)],
+    ["unknown code", "quartet-aaaaaaaa"],
     ["malformed", "not-a-real-invite"],
-    ["a group id instead of an invite token", null],
-  ])("gives a 404 for an %s token from the loader and the action", async (_kind, token) => {
-    const inviteToken = token ?? newGroup().id;
+    ["the group's address instead of its invite", null],
+  ])("gives a 404 for an %s from the loader and the action", async (_kind, token) => {
+    const inviteToken = token ?? addressOf(newGroup());
     const members = count("members");
 
-    const loaded = await thrownBy(loader(routeArgs(`/join/${inviteToken}`, { inviteToken })));
+    const loaded = await thrownBy(
+      loader(routeArgs(`/join/${inviteToken}`, { invite: inviteToken })),
+    );
     const posted = await thrownBy(joinAs(inviteToken, "Cellist"));
 
     expect(statusOf(loaded)).toBe(404);
@@ -210,7 +210,7 @@ describe("join route", () => {
   });
 
   it("renders the join form with the group name", () => {
-    const Stub = createRoutesStub([{ id: "join", path: "/join/:inviteToken", Component: Join }]);
+    const Stub = createRoutesStub([{ id: "join", path: "/join/:invite", Component: Join }]);
 
     const html = renderToString(
       <Stub

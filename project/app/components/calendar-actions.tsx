@@ -17,7 +17,7 @@ export type GoogleWriteState = "unlinked" | "other-account" | "connect" | "off" 
  */
 export function CalendarActions({
   groupHref,
-  requestId,
+  requestHref,
   requestName,
   google,
   until,
@@ -25,14 +25,15 @@ export function CalendarActions({
 }: {
   /** The group's path (`groupPath`). */
   groupHref: string;
-  requestId: string;
+  /** The request's address (plan/phase-30.md). */
+  requestHref: string;
   requestName: string;
   google: GoogleWriteState | null;
   until: string;
   returnTo: string;
 }) {
   // A plain link: the file is a download, not a page the router can show.
-  const download = `${groupHref}/requests/${requestId}/calendar.ics`;
+  const download = `${requestHref}/calendar.ics`;
   const connect = `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(returnTo)}`;
   // Google first (plan/phase-19.1.md): the switch, the connect link, or why
   // there is neither; then the one-time download.
@@ -52,7 +53,7 @@ export function CalendarActions({
           <input type="hidden" name="value" value="on" />
           <input type="hidden" name="returnTo" value={returnTo} />
           <SubmitButton
-            feedbackKey={`set-calendar-${requestId}`}
+            feedbackKey={`set-calendar-${requestHref}`}
             variant="outline"
             size="sm"
             label={`Add ${requestName} to Google Calendar`}

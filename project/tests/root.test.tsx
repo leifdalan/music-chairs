@@ -6,7 +6,7 @@ import { ErrorBoundary } from "../app/root";
 
 function renderError(error: unknown): string {
   const Stub = createRoutesStub([
-    { id: "page", path: "/join/:inviteToken", Component: () => null, ErrorBoundary },
+    { id: "page", path: "/join/:invite", Component: () => null, ErrorBoundary },
   ]);
   return renderToString(
     <Stub initialEntries={["/join/x"]} hydrationData={{ errors: { page: error } }} />,
@@ -18,7 +18,7 @@ describe("root error boundary", () => {
     const html = renderError({ status: 404, statusText: "Not Found", internal: false, data: null });
 
     expect(html).toContain("Page not found");
-    expect(html).toContain("whole invite link");
+    expect(html).toContain("copied the whole link");
   });
 
   it("renders a generic message without details for other errors", () => {

@@ -9,10 +9,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getStore } from "../app/.server/store";
 import { initialRange } from "../app/components/request-dates";
-import { groupPath } from "../app/lib/group-address";
 import { preferenceEntry, preferenceText } from "../app/lib/preference";
 import RequestPage, { loader } from "../app/routes/request";
-import { addressOf, deviceCookie, routeArgs, selectedOption, tempDatabase } from "./routes";
+import {
+  addressOf,
+  deviceCookie,
+  requestHrefOf,
+  routeArgs,
+  selectedOption,
+  slugFor,
+  tempDatabase,
+} from "./routes";
 
 tempDatabase();
 
@@ -84,12 +91,16 @@ async function band(windows = [EVENING]) {
 }
 
 async function page(b: Awaited<ReturnType<typeof band>>, cookie: string) {
-  const path = `${groupPath(b.group)}/requests/${b.request.id}`;
+  const path = requestHrefOf(b.group, b.request.id);
   const data = await loader(
-    routeArgs(path, { groupAddress: addressOf(b.group), requestId: b.request.id }, { cookie }),
+    routeArgs(
+      path,
+      { groupAddress: addressOf(b.group), requestSlug: slugFor(b.request.id) },
+      { cookie },
+    ),
   );
   const Stub = createRoutesStub([
-    { id: "request", path: "/g/:groupAddress/requests/:requestId", Component: RequestPage },
+    { id: "request", path: "/g/:groupAddress/:requestSlug", Component: RequestPage },
   ]);
   return renderToString(
     <Stub initialEntries={[path]} hydrationData={{ loaderData: { request: data } }} />,

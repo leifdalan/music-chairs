@@ -2,12 +2,16 @@
 // produced and how far along they are, for the schedule page and the home
 // screen. Counts only, so members and organizers see the same figures.
 
+import { groupPath } from "~/lib/group-address";
 import { describeRehearsal, isUpcoming } from "~/lib/rehearsal";
+import { requestPath } from "~/lib/request-address";
 
 import { getStore, type Group } from "./store";
 
 export type RequestProgress = {
   requestId: string;
+  /** The request's address (plan/phase-30.md). */
+  requestHref: string;
   name: string;
   /** Of every rehearsal proposed from the request, past ones included. */
   confirmed: number;
@@ -48,6 +52,7 @@ export function requestProgress(group: Group, today: string): RequestProgress[] 
     if (proposed.length === 0 && !upcoming) continue;
     progress.push({
       requestId: request.id,
+      requestHref: requestPath(groupPath(group), request.slug),
       name: request.name,
       confirmed: confirmed.length,
       total: own.length,

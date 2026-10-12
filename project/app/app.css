@@ -985,6 +985,14 @@
     @apply mt-2;
   }
 
+  .share-link {
+    @apply mt-2 grid gap-2;
+  }
+
+  .share-link p {
+    @apply m-0;
+  }
+
   .rsvp-heading {
     @apply mt-0 mb-1.5;
   }

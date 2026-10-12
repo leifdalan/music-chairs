@@ -6,11 +6,13 @@ import { requestRehearsals } from "~/.server/upcoming";
 import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
-import { findViewer } from "~/.server/membership";
+import { findViewer, publicOrigin } from "~/.server/membership";
+import { landOrJoin, requestFromSlug } from "~/.server/request-address";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ProposedList } from "~/components/proposed-list";
 import { RequestDates, type DateErrors, type DateValues } from "~/components/request-dates";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
+import { CopyLink } from "~/components/copy-link";
 import { ProblemAlert } from "~/components/problem-alert";
 import { FreeCalendar } from "~/components/free-calendar";
 import { FreeStretch, NotesField, OneTapTime, ProposeTimes } from "~/components/propose-times";
@@ -32,6 +34,7 @@ import {
 } from "~/lib/availability";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { groupPath } from "~/lib/group-address";
+import { requestPath, withJoin } from "~/lib/request-address";
 import { dayHeat } from "~/lib/heat";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes } from "~/lib/propose";
@@ -57,19 +60,22 @@ export function meta({ loaderData }: Route.MetaArgs) {
 /** The largest preferred number of rehearsals a member can give. */
 const LIMIT_MAX = 99;
 
-/** The group, the member viewing it and the request; visitors go back to the group page. */
+/**
+ * The group, the member viewing it and the request its address names
+ * (plan/phase-30.md). A visitor goes back to the group page, or joins first
+ * when the link carries the group's invite code; a member's `?join` is dropped.
+ */
 async function load(
   request: Request,
   address: string,
-  requestId: string,
+  slug: string,
 ): Promise<{ group: Group; viewer: Member; scheduleRequest: ScheduleRequest }> {
-  const store = getStore();
   const group = groupFromAddress(request, address);
   const viewer = await findViewer(request, group);
+  // Visitors are sent on before the address is looked up, so it reveals nothing.
+  if (request.method === "GET" || request.method === "HEAD") landOrJoin(request, group, !!viewer);
   if (!viewer) throw redirect(groupPath(group));
-  const scheduleRequest = store.findRequest(group.id, requestId);
-  if (!scheduleRequest) throw data(null, { status: 404 });
-  return { group, viewer, scheduleRequest };
+  return { group, viewer, scheduleRequest: requestFromSlug(group, slug) };
 }
 
 const DATE_GONE = "One of the dates isn't on offer any more. Reload the page and try again.";
@@ -173,7 +179,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const { group, viewer, scheduleRequest } = await load(
     request,
     params.groupAddress,
-    params.requestId,
+    params.requestSlug,
   );
   const store = getStore();
   const isOrganizer = viewer.role === "organizer";
@@ -233,6 +239,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     expired: scheduleRequest.endDate < today,
     canAnswer: answering,
     isOrganizer,
+    // Organizers share a request still taking times (plan/phase-30.md).
+    shareUrl:
+      isOrganizer && answering
+        ? new URL(
+            withJoin(requestPath(groupPath(group), scheduleRequest.slug), group.inviteCode),
+            publicOrigin() ?? request.url,
+          ).href
+        : null,
     dates,
     // The viewer's times on the request's dates and within its windows (plan/phase-23.md).
     oneOffs: store
@@ -280,12 +294,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   const { group, viewer, scheduleRequest } = await load(
     request,
     params.groupAddress,
-    params.requestId,
+    params.requestSlug,
   );
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
-  const here = `${groupPath(group)}/requests/${scheduleRequest.id}`;
+  const here = requestPath(groupPath(group), scheduleRequest.slug);
 
   const today = todayInZone(group.timeZone, new Date());
   // A date ticked or unticked on the request's calendar, saved straight away
@@ -460,6 +474,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     expired,
     canAnswer,
     isOrganizer,
+    shareUrl,
     dates,
     oneOffs,
     timesView,
@@ -572,6 +587,19 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         {windows.map((window) => timeRange(window.startMinute, window.endMinute)).join(", ")} (
         {zoneLabel(timeZone)})
       </p>
+      {shareUrl ? (
+        // A link that lands on this page, joining first if need be (plan/phase-30.md).
+        <details className="notes-edit">
+          <summary>Share this availability request</summary>
+          <div className="share-link">
+            <p className="hint">
+              It opens this page, where people give their times. Anyone not yet in the group joins
+              first.
+            </p>
+            <CopyLink url={shareUrl} label="Link to this availability request" variant="outline" />
+          </div>
+        </details>
+      ) : null}
       {actionData && "problem" in actionData ? (
         <ProblemAlert message={actionData.problem} response={actionData} />
       ) : null}

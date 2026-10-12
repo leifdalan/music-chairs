@@ -13,7 +13,15 @@ import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import Home, { loader as homeLoader } from "../app/routes/home";
 import RequestPage, { loader as requestLoader } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { deviceCookie, requestIn, routeArgs, tempDatabase, addressOf } from "./routes";
+import {
+  addressOf,
+  deviceCookie,
+  requestHrefOf,
+  requestIn,
+  routeArgs,
+  slugFor,
+  tempDatabase,
+} from "./routes";
 
 tempDatabase();
 beforeAll(() => {
@@ -29,7 +37,7 @@ function actions(google: GoogleWriteState | null): string {
   return renderAt(() => (
     <CalendarActions
       groupHref="/g/g"
-      requestId="r"
+      requestHref="/g/g/r"
       requestName="Gig"
       google={google}
       until="2026-11-26"
@@ -38,7 +46,7 @@ function actions(google: GoogleWriteState | null): string {
   ));
 }
 
-const DOWNLOAD = 'href="/g/g/requests/r/calendar.ics" download=""';
+const DOWNLOAD = 'href="/g/g/r/calendar.ics" download=""';
 
 describe("a complete request's calendar options", () => {
   it.each([
@@ -145,12 +153,12 @@ describe("buttons", () => {
     );
     const requestHtml = stub(
       "request",
-      "/g/:groupId/requests/:requestId",
+      "/g/:groupId/:requestSlug",
       RequestPage,
       await requestLoader(
         routeArgs(
-          `${groupPath(group)}/requests/${requestId}`,
-          { groupAddress: addressOf(group), requestId },
+          requestHrefOf(group, requestId),
+          { groupAddress: addressOf(group), requestSlug: slugFor(requestId) },
           { cookie },
         ),
       ),

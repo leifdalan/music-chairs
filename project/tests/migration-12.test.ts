@@ -78,7 +78,7 @@ describe("migration 12", () => {
     const rows = (sql: string) => db.prepare(sql).all();
 
     expect((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(
-      12,
+      MIGRATIONS.length,
     );
     // The weekly rehearsal, its answers and its event rows are gone; the one-off stays.
     expect(store.listRehearsals("g")).toEqual([
