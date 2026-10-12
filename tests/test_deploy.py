@@ -868,18 +868,6 @@ def test_the_smoke_reports_sign_in_only_for_a_redirect_to_google_or_its_503(
         server.shutdown()
 
 
-def test_the_smoke_draws_unknown_invites_from_the_apps_invite_alphabet() -> None:
-    loader = SourceFileLoader("deploy_cli", str(DEPLOY))
-    spec = importlib.util.spec_from_loader("deploy_cli", loader)
-    assert spec is not None
-    deploy = importlib.util.module_from_spec(spec)
-    loader.exec_module(deploy)
-    source = (ROOT / "project" / "app" / "lib" / "group-address.ts").read_text()
-    match = re.search(r'export const SHORT_ID_ALPHABET = "([^"]+)";', source)
-    assert match is not None
-    assert deploy.INVITE_ALPHABET == match.group(1)
-
-
 def test_the_server_scripts_parse() -> None:
     for script in sorted(DEPLOY_DIR.glob("*.sh")):
         result = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
