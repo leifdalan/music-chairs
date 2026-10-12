@@ -340,6 +340,29 @@
     animation: spin 0.7s linear infinite;
   }
 
+  /* A progress button's labels in one cell: only the current one shows, the
+     others keep their space (plan/phase-33.md). */
+  .button-labels {
+    @apply inline-grid items-center justify-items-center;
+  }
+
+  .button-label {
+    grid-area: 1 / 1;
+  }
+
+  .button-label[data-shown="false"] {
+    @apply invisible;
+  }
+
+  .button-label-saving {
+    @apply inline-flex items-center gap-2;
+  }
+
+  /* "Saving…" and "Saved" appear in a line that already holds their space. */
+  .save-status {
+    min-height: 1lh;
+  }
+
   .toast-region {
     @apply fixed left-1/2 z-10 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2;
     bottom: max(1rem, env(safe-area-inset-bottom));
@@ -1003,19 +1026,22 @@
   }
 
   .rsvp-heading {
-    @apply mt-0 mb-1.5;
+    @apply m-0;
   }
 
   .rsvp-form {
-    @apply flex flex-wrap items-center gap-2;
+    @apply grid gap-1.5;
   }
 
+  /* The counts, with Clear beside them (plan/phase-33.md). */
+  .rsvp-top {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  /* Three equal columns, so choosing an answer (a solid button without a
+     border) never changes their widths (plan/phase-33.md). */
   .answers {
-    @apply flex flex-[1_1_14rem] gap-1.5;
-  }
-
-  .answers .answer {
-    @apply flex-1;
+    @apply grid grid-cols-3 gap-1.5;
   }
 
   .rsvp-names {

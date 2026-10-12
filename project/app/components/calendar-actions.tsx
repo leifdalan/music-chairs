@@ -53,7 +53,13 @@ export function CalendarActions({
   return (
     <div className="calendar-actions">
       {google === "off" ? (
-        <Form method="post" action={`${groupHref}/schedule`} replace>
+        <Form
+          method="post"
+          // From the schedule, the page's own address, so its view comes back too (plan/phase-33.md).
+          action={returnTo.startsWith(`${groupHref}/schedule`) ? returnTo : `${groupHref}/schedule`}
+          replace
+          preventScrollReset
+        >
           <input type="hidden" name="intent" value="set-calendar" />
           <input type="hidden" name="value" value="on" />
           <input type="hidden" name="returnTo" value={returnTo} />

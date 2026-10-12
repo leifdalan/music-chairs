@@ -26,6 +26,7 @@ export function ConfirmForm({
   triggerLabel,
   className,
   action,
+  leavesPage = false,
 }: {
   /** Hidden fields posted with the action. */
   fields: Record<string, string>;
@@ -41,6 +42,8 @@ export function ConfirmForm({
   className?: string;
   /** Where the form posts, when not to the current page. */
   action?: string;
+  /** The action goes to another page; otherwise the page keeps its scroll (plan/phase-33.md). */
+  leavesPage?: boolean;
 }) {
   const hydrated = useHydrated();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -58,6 +61,7 @@ export function ConfirmForm({
     <Form
       method="post"
       action={action}
+      preventScrollReset={!leavesPage}
       replace
       className={className ? `confirm-form ${className}` : "confirm-form"}
       onSubmit={() => {
@@ -126,7 +130,12 @@ export function ConfirmPanel({ prompt }: { prompt: ConfirmPrompt }) {
     <section className="confirm-panel" role="alertdialog" aria-labelledby={titleId}>
       <h2 id={titleId}>{prompt.title}</h2>
       <p>{prompt.body}</p>
-      <Form method="post" replace className="confirm-actions">
+      <Form
+        method="post"
+        replace
+        preventScrollReset={!prompt.leavesPage}
+        className="confirm-actions"
+      >
         {prompt.fields.map(([name, value], index) => (
           <input key={`${name}-${index}`} type="hidden" name={name} value={value} />
         ))}

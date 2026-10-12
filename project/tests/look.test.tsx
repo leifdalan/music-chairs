@@ -69,6 +69,24 @@ describe("a complete request's calendar options", () => {
     expect(html).not.toMatch(/Add to Google Calendar|Connect Google Calendar|Being added/);
   });
 
+  it("post from the schedule's own address, keeping its view, and to the schedule from home (plan/phase-33.md)", () => {
+    const form = (returnTo: string) =>
+      /<form[^>]*action="([^"]*)"/.exec(
+        renderAt(() => (
+          <CalendarActions
+            groupHref="/g/g"
+            requestHref="/g/g/r"
+            requestName="Gig"
+            google="off"
+            until="2026-11-26"
+            returnTo={returnTo}
+          />
+        )),
+      )?.[1];
+    expect(form("/g/g/schedule?free=list")).toBe("/g/g/schedule?free=list");
+    expect(form("/")).toBe("/g/g/schedule");
+  });
+
   it("offer a way to stop when writing is on, and say what connecting does", () => {
     expect(actions("on")).toContain('href="/g/g/schedule#calendar-heading">Stop adding them</a>');
     expect(actions("off")).not.toContain("Stop adding them");

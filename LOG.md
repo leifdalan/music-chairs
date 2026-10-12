@@ -4818,3 +4818,114 @@ Phase 32 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 32 ✅; every phase is complete, so no row holds the arrow (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: malachite-mandrill filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 12:14 — START
+Phase 33 — A steady page: answering and confirming without the page jumping, and buttons that keep their size
+
+Execution trace: 8cc57b90db5f40a298681cda0007ddb6
+
+Planned work:
+- Answering Yes / No / Maybe, confirming a proposed rehearsal, and every other in-page action leave the page where it was, with the changed item in view and focus kept sensibly, instead of jumping to the top.
+- Every button that shows its progress ("Saving…", "Saved ✓") keeps the same width and height through every state.
+- Nothing else on the page shifts while a change is saving or after it saves, beyond the change itself.
+
+## 2026-10-12 12:47 — END
+Phase 33 — A steady page: answering and confirming without the page jumping, and buttons that keep their size
+
+Phase 33 is accepted on its gates. Answering Yes, No or Maybe, confirming or deleting a rehearsal, saving notes, changing your preferred number, proposing, and every other action that comes back to the same page now leave the page where it was, and keep its List or Calendar view; nothing jumps to the top. When an action removes the button you pressed (confirming moves a rehearsal up to "Confirmed"; deleting removes it), the page stays put as you ruled, and focus goes to the "Proposed rehearsals" heading without scrolling, so keyboard and screen-reader users aren't dropped at the top. Buttons that say "Saving…" and "Saved ✓" now keep exactly the same size throughout. Two other shifts the browser check found are fixed too: your chosen answer used to come out 2 px narrower than the others, and the Clear button appearing after your first answer squeezed the row; the three answers are now equal columns, and Clear sits beside the "0 yes · 0 no · 0 maybe" line, keeping its place even before there's anything to clear. How it feels on your phone is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 8cc57b90db5f40a298681cda0007ddb6
+
+Files changed:
+- plan/phase-33.md — your 2026-10-12 ruling, before capture
+- project/app/components/submit-button.tsx — the label, "Saving…" and "Saved ✓" share one footprint (ButtonLabels)
+- project/app/components/confirm-form.tsx, project/app/.server/confirm.ts — confirm dialogs and the confirm page keep the scroll position unless the action leaves the page
+- project/app/.server/membership.ts — keptView: the List/Calendar view kept on same-page redirects (not one-off notices)
+- project/app/routes/schedule.tsx — same-page forms keep scroll; focus after a removed button; the answers row and Clear's place; the calendar action keeps the view
+- project/app/routes/request.tsx, group.tsx, groups.tsx, members.add.tsx, project/app/components/propose-times.tsx, request-dates.tsx, calendar-actions.tsx, profile-menu.tsx — same-page forms keep scroll; proposals return to the page's own view
+- project/app/app.css — the label grid, status lines holding their line, equal answer columns, Clear beside the counts
+- project/tests/steady.test.tsx (new); submit-button, schedule, look and free-calendar tests updated
+
+Build status:
+- smoke.local: OK
+- browser.steady: OK — headless Chrome on the built app (answers: scroll unchanged, one button box through Saving… and Saved ✓; confirm: the next rehearsal stays put on screen, never to the top, focus on the heading; Saving… fits at 320 px; status lines hold their height)
+- ci.check: OK — CI run 38299265607, check success for commit 0636b60 (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 722/722, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 334.3 s; first event 0.66 s; longest idle 50.7 s; success
+- Critic (code review): 256.9 s; first event 0.66 s; longest idle 38.7 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 1958.979 s; intelligence 591.293 s; gates 177.962 s; wait 590.282 s; orchestration 1931.852 s; unattributed 27.127 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 33 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=62120523… final=db1de47fb7228f23c4e44e85f509c351f10e0dd1863be6d5bedbb762906978b8 (the corrected candidate; the in-progress commit did not move it)
+- Findings: plan review 9 (all adopted); code critique 7 (5 adopted, 1 measured and disproved then added to the gate, 1 deferred: a refused submission from a form that posts to another page's action shows that page — Phase 34's error states own refusals)
+- Plan deviations: the RSVP row changed beyond the plan (equal answer columns, Clear beside the counts), found by the browser gate
+- Gates: 4 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The headless browser gate found two layout shifts the static tests could not (a border-less pressed answer, Clear appearing); measuring early saved a critique round.
+- One gate run was refused because a zsh loop passed the command as a single argument (lesson bouncy-bat); rerun directly.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): every same-page post form keeps scroll and every page-leaving one doesn't (parsed scan); scroll held through the action's redirect (router premise test); the view kept and notices dropped on redirects; button labels in one footprint in every state; on the built app in Chrome, no jump, the next rehearsal held on screen after confirming, focus on the heading, button boxes unchanged through Saving… and Saved ✓, also at 320 px.
+- Parked for you: the User Demo below on your phone (iPhone Safari has no scroll anchoring, so after confirming, the content may shift by the moved card's height there even though nothing scrolls to the top); and, without JavaScript, the browser still loads the page anew at the top after a post.
+
+Delivery:
+- default — commit and delivery through pull request 28, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phase 34 (error states) inherits the deferred cross-route refusal case, already within its "every failure" scope
+
+Lessons:
+- new local lesson bouncy-bat: zsh doesn't split an unquoted variable into words; never pass a command line through one (written before this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (6), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=39); reviewer/claude opus — hard 1800 s, idle 600 s (n=36); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the schedule of a group with at least two proposed rehearsals further down the page:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Scroll to a proposed rehearsal near the bottom and tap Yes, then No, then Maybe.
+    2. As an organizer, confirm a proposed rehearsal.
+    3. On an availability request, change your preferred number of rehearsals and save notes on a rehearsal.
+  - **What to look for.**
+    - The page stays where you were after each tap; nothing jumps to the top.
+    - Buttons don't grow or shrink while they say "Saving…" or "Saved ✓".
+  - **Variations to explore.** A slow connection; landscape; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo and the two notes above.
+
+## 2026-10-12 12:47 — NOTE
+Phase 33 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 33 ✅ and Phase 34 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: bouncy-bat filed (local). ./bin/lessons validate OK.

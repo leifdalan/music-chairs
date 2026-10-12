@@ -12,6 +12,8 @@ export type ConfirmPrompt = {
   label: string;
   /** The submitted fields, to post again with `confirmed=1`. */
   fields: [string, string][];
+  /** The action goes to another page, so the page doesn't keep its scroll (plan/phase-33.md). */
+  leavesPage?: boolean;
 };
 
 /**

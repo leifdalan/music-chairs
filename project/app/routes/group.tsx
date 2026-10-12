@@ -232,7 +232,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     return back(member.id === viewer.id ? "You left the group" : `${member.displayName} removed`);
   }
   if (intent === "delete-group") {
-    const prompt = confirmationNeeded(form, deletionPrompt(group.name));
+    const prompt = confirmationNeeded(form, {
+      ...deletionPrompt(group.name),
+      leavesPage: !toGroups,
+    });
     if (prompt) return prompt;
     store.deleteGroup(group.id);
     scheduleRemovals();
@@ -408,7 +411,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
                     {member.manage.invitedEmail ? (
                       <p className="hint member-email">Invited as {member.manage.invitedEmail}</p>
                     ) : null}
-                    <Form method="post" replace className="rename-form">
+                    <Form method="post" replace preventScrollReset className="rename-form">
                       <input type="hidden" name="intent" value="rename-member" />
                       <input type="hidden" name="memberId" value={member.manage.id} />
                       <input
@@ -517,7 +520,7 @@ function GroupSettings({
       <details open={opened || undefined}>
         <summary>Show group settings</summary>
         <div className="stack">
-          <Form method="post" replace className="stack">
+          <Form method="post" replace preventScrollReset className="stack">
             <input type="hidden" name="intent" value="update-group" />
             <TextField
               name="name"
@@ -560,6 +563,7 @@ function GroupSettings({
           </div>
           <ConfirmForm
             fields={{ intent: "delete-group" }}
+            leavesPage
             trigger="Delete group"
             triggerVariant="outline-destructive"
             {...deletionPrompt(groupName)}
@@ -722,7 +726,7 @@ function Toggle({
   children: string;
 }) {
   return (
-    <Form method="post" replace>
+    <Form method="post" replace preventScrollReset>
       <input type="hidden" name="intent" value={intent} />
       {memberId ? <input type="hidden" name="memberId" value={memberId} /> : null}
       <input type="hidden" name="value" value={setTo ? "on" : "off"} />

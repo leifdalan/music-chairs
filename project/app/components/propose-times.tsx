@@ -48,7 +48,7 @@ function ProposeTimesForm({
 }) {
   const [form, setForm] = useState<HTMLFormElement | null>(null);
   return (
-    <Form ref={setForm} method="post" className="propose-times" replace>
+    <Form ref={setForm} method="post" className="propose-times" replace preventScrollReset>
       <input type="hidden" name="intent" value="propose-times" />
       {children}
       {hasTimes ? (

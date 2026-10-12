@@ -146,7 +146,7 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
           Couldn&apos;t read your Google contacts right now; you can still type a name.
         </p>
       ) : null}
-      <Form method="post" className="stack" replace>
+      <Form method="post" className="stack" replace preventScrollReset>
         <div className="field">
           <label htmlFor="person">Name, or a contact</label>
           <input

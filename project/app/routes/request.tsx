@@ -6,7 +6,7 @@ import { requestRehearsals } from "~/.server/upcoming";
 import { groupFromAddress } from "~/.server/group-address";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
-import { findViewer, publicOrigin } from "~/.server/membership";
+import { findViewer, keptView, publicOrigin } from "~/.server/membership";
 import { landOrJoin, requestFromSlug } from "~/.server/request-address";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ProposedList } from "~/components/proposed-list";
@@ -345,7 +345,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const store = getStore();
   const form = await request.formData();
   const intent = form.get("intent");
-  const here = requestPath(groupPath(group), scheduleRequest.slug);
+  const here = `${requestPath(groupPath(group), scheduleRequest.slug)}${keptView(request)}`;
 
   const today = todayInZone(group.timeZone, new Date());
   // A date ticked or unticked on the request's calendar, saved straight away
@@ -473,8 +473,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     return viaFetcher ? { capSaved: true } : redirectWithToast(here, "Saved");
   }
   // Proposing from the request's free times, whether it is open, closed or over.
-  // Back to the List view when the proposal came from it (plan/phase-20.md).
-  const proposedFrom = form.get("free") === "list" ? `${here}?free=list` : here;
+  // Back to the view it came from (plan/phase-20.md), as every action here does.
   if (intent === "propose-times") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
     const location = validateLocation(form.get("location"));
@@ -486,7 +485,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     store.addRehearsals(group.id, scheduleRequest.id, times.inputs, location.value, notes.value);
     const count = times.inputs.length;
     return redirectWithToast(
-      proposedFrom,
+      here,
       count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`,
     );
   }
@@ -523,7 +522,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
     store.addRehearsal(group.id, scheduleRequest.id, parsed.value, location.value, notes.value);
-    return redirectWithToast(proposedFrom, "Rehearsal proposed");
+    return redirectWithToast(here, "Rehearsal proposed");
   }
   if (intent === "close" || intent === "reopen") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
@@ -654,7 +653,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                 feedbackKey={`request-open-${requestId}`}
               />
             ) : (
-              <Form method="post" replace>
+              <Form method="post" replace preventScrollReset>
                 <input type="hidden" name="intent" value="reopen" />
                 <SubmitButton
                   feedbackKey={`request-open-${requestId}`}
@@ -734,7 +733,6 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                 problem={pickProblem}
                 resetKey={rehearsalCount ?? 0}
               >
-                {freeView === "list" ? <input type="hidden" name="free" value="list" /> : null}
                 {overlap.length === 0 ? (
                   <p className="hint">Nobody is free at these times yet.</p>
                 ) : freeView === "calendar" && freeRange ? (
@@ -776,11 +774,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
               </ProposeTimes>
               <details className="custom-proposal" open={formResult !== undefined}>
                 <summary>Propose a different time</summary>
-                <ProposeForm
-                  key={rehearsalCount ?? 0}
-                  result={formResult}
-                  fromList={freeView === "list"}
-                />
+                <ProposeForm key={rehearsalCount ?? 0} result={formResult} />
               </details>
             </section>
           ) : null}
@@ -851,11 +845,8 @@ type ProposeErrors = RehearsalErrors & { location?: string; notes?: string };
 
 function ProposeForm({
   result,
-  fromList,
 }: {
   result: { errors: ProposeErrors; values: ProposeValues } | undefined;
-  /** Shown in the List view, so the proposal returns there. */
-  fromList: boolean;
 }) {
   const values: ProposeValues = result?.values ?? {
     date: "",
@@ -867,9 +858,8 @@ function ProposeForm({
   const errors = result?.errors ?? {};
   // Named by the disclosure's summary, "Propose a different time".
   return (
-    <Form method="post" className="stack slot-form" replace>
+    <Form method="post" className="stack slot-form" replace preventScrollReset>
       <input type="hidden" name="intent" value="propose" />
-      {fromList ? <input type="hidden" name="free" value="list" /> : null}
       <RehearsalFields values={values} errors={errors} />
       <TextField
         name="location"
@@ -925,6 +915,7 @@ function CapForm({
   return (
     <Form
       method="post"
+      preventScrollReset
       className="stack"
       replace
       ref={form}

@@ -247,6 +247,27 @@ describe("schedule route", () => {
     expect(optional.rehearsals[0].organizer?.missing).toEqual([]);
   });
 
+  it("keeps Clear's place hidden and out of reach until there is an answer (plan/phase-33.md)", async () => {
+    const { group, organizerCookie, cellistCookie } = await band();
+    await propose(group.id, organizerCookie, nextThursday);
+    const [rehearsal] = getStore().listRehearsals(group.id);
+    const clear = (html: string) =>
+      /<span class="rsvp-clear[^"]*"[^>]*>/.exec(
+        html.slice(html.indexOf(`rehearsal-${rehearsal.id}`)),
+      )?.[0] ?? "";
+
+    const before = clear(render(await load(group.id, cellistCookie)));
+    await post(group.id, cellistCookie, {
+      intent: "rsvp",
+      rehearsalId: rehearsal.id,
+      answer: "yes",
+    });
+    const after = clear(render(await load(group.id, cellistCookie)));
+
+    expect(before).toBe('<span class="rsvp-clear invisible" inert="">');
+    expect(after).toBe('<span class="rsvp-clear">');
+  });
+
   it("shows members proposed and confirmed rehearsals without warnings or member ids", async () => {
     const { group, organizer, pianist, organizerCookie, cellistCookie } = await band();
     await propose(group.id, organizerCookie, nextThursday);
