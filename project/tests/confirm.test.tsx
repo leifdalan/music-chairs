@@ -62,7 +62,7 @@ async function band() {
   const rehearsal = store.addRehearsal(
     group.id,
     requestIn(group.id),
-    { kind: "weekly", startDate: "2026-10-08", endDate: null, startMinute: 1140, endMinute: 1260 },
+    { date: "2026-10-08", startMinute: 1140, endMinute: 1260 },
     "Studio",
   );
   const request = store.createRequest(group.id, {
@@ -114,17 +114,6 @@ const destructive: {
         "deleting a rehearsal",
         (b: Band) => ({ intent: "delete", rehearsalId: b.rehearsal.id }),
         (b: Band) => b.store.findRehearsal(b.group.id, b.rehearsal.id) === null,
-      ],
-      [
-        "ending a weekly rehearsal",
-        (b: Band) => ({ intent: "end", rehearsalId: b.rehearsal.id, endDate: "2026-10-22" }),
-        (b: Band) => b.store.findRehearsal(b.group.id, b.rehearsal.id)?.endDate === "2026-10-22",
-      ],
-      [
-        "cancelling a date",
-        (b: Band) => ({ intent: "cancel-date", rehearsalId: b.rehearsal.id, date: "2026-10-15" }),
-        (b: Band) =>
-          b.store.findRehearsal(b.group.id, b.rehearsal.id)?.skips.includes("2026-10-15") === true,
       ],
     ] as const
   ).map(([name, form, done]) => ({
@@ -233,25 +222,19 @@ describe("are you sure", () => {
         ),
       );
 
-    const past = (await schedule({
-      intent: "end",
-      rehearsalId: b.rehearsal.id,
-      endDate: "2026-09-01",
-    })) as {
-      data: unknown;
-    };
-    expect(past.data).toEqual({ problem: "Choose a last date from today onwards." });
     expect(
       statusOf(
         await thrownBy(schedule({ intent: "delete", rehearsalId: "AAAAAAAAAAAAAAAAAAAAAA" })),
       ),
     ).toBe(404);
-    const wrongDate = (await schedule({
-      intent: "cancel-date",
-      rehearsalId: b.rehearsal.id,
-      date: "2026-10-16",
-    })) as { data: { problem?: string } };
-    expect(wrongDate.data.problem).toContain("isn't one of this rehearsal's weeks");
+    // Weekly intents are gone with weekly rehearsals (plan/phase-29.md).
+    for (const intent of ["end", "cancel-date", "restore-date", "rsvp-all"]) {
+      const answer = (await schedule({ intent, rehearsalId: b.rehearsal.id })) as {
+        data: { problem?: string };
+      };
+      expect(answer.data.problem).toBe("Something went wrong. Please try again.");
+    }
+    expect(b.store.findRehearsal(b.group.id, b.rehearsal.id)).not.toBeNull();
   });
 
   it("names only the posted fields and takes nothing but an explicit confirmation", () => {

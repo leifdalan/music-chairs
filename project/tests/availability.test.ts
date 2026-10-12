@@ -2,18 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   canonicalTimeZone,
-  describeSlot,
   expandOccurrences,
   formatDate,
   formatMinutes,
-  isOccurrence,
-  parseSlotInput,
   parseTimeText,
   timeInputValue,
   timeRange,
   todayInZone,
   type Slot,
 } from "../app/lib/availability";
+import { describeRehearsal, parseRehearsalInput } from "../app/lib/rehearsal";
 
 const thursdays: Slot = {
   id: "weekly",
@@ -31,13 +29,7 @@ function form(fields: Record<string, string>): FormData {
   return data;
 }
 
-const valid = {
-  kind: "weekly",
-  startDate: "2026-10-01",
-  endDate: "",
-  startTime: "19:00",
-  endTime: "22:00",
-};
+const valid = { date: "2026-10-01", startTime: "19:00", endTime: "22:00" };
 
 describe("expandOccurrences", () => {
   it("repeats a weekly slot and leaves out a skipped date", () => {
@@ -100,34 +92,16 @@ describe("expandOccurrences", () => {
   });
 });
 
-describe("isOccurrence", () => {
-  it("is true only for the pattern's weekday within its dates", () => {
-    const ended = { ...thursdays, endDate: "2026-10-15" };
-
-    expect(isOccurrence(ended, "2026-10-08")).toBe(true);
-    expect(isOccurrence(ended, "2026-10-09")).toBe(false);
-    expect(isOccurrence(ended, "2026-09-24")).toBe(false);
-    expect(isOccurrence(ended, "2026-10-22")).toBe(false);
-    expect(isOccurrence({ ...ended, kind: "once" }, "2026-10-01")).toBe(false);
-  });
-});
-
-describe("parseSlotInput", () => {
-  it("accepts a weekly slot and an optional end date", () => {
-    expect(parseSlotInput(form({ ...valid, endDate: "2026-12-31" }))).toEqual({
+describe("parseRehearsalInput", () => {
+  it("accepts a date with a start and an end", () => {
+    expect(parseRehearsalInput(form(valid))).toEqual({
       ok: true,
-      value: {
-        kind: "weekly",
-        startDate: "2026-10-01",
-        endDate: "2026-12-31",
-        startMinute: 1140,
-        endMinute: 1320,
-      },
+      value: { date: "2026-10-01", startMinute: 1140, endMinute: 1320 },
     });
   });
 
   it("reads 00:00 as an end time as midnight at the end of the day", () => {
-    const parsed = parseSlotInput(form({ ...valid, endTime: "00:00" }));
+    const parsed = parseRehearsalInput(form({ ...valid, endTime: "00:00" }));
 
     expect(parsed.ok && parsed.value.endMinute).toBe(1440);
     // Round trip back into the form for editing.
@@ -136,29 +110,21 @@ describe("parseSlotInput", () => {
   });
 
   it("rounds typed times to the nearest quarter hour instead of refusing them", () => {
-    const parsed = parseSlotInput(form({ ...valid, startTime: "9:02", endTime: "9:52pm" }));
+    const parsed = parseRehearsalInput(form({ ...valid, startTime: "9:02", endTime: "9:52pm" }));
 
     expect(parsed.ok && [parsed.value.startMinute, parsed.value.endMinute]).toEqual([540, 1305]);
-  });
-
-  it("drops an end date from a one-off slot", () => {
-    const parsed = parseSlotInput(form({ ...valid, kind: "once", endDate: "2026-12-31" }));
-
-    expect(parsed.ok && parsed.value.endDate).toBeNull();
   });
 
   it.each([
     [{ startTime: "23:53" }, "startTime", "Start time is too late; the latest start is 11:45 PM."],
     [{ endTime: "18:30" }, "endTime", "End time must be after the start time."],
     [{ endTime: "19:00" }, "endTime", "End time must be after the start time."],
-    [{ startDate: "2026-02-30" }, "startDate", "Enter a valid date."],
-    [{ startDate: "" }, "startDate", "Date is required."],
-    [{ endDate: "2026-09-30" }, "endDate", "The end date can't be before the first date."],
-    [{ kind: "daily" }, "kind", "Choose one-off or every week."],
+    [{ date: "2026-02-30" }, "date", "Enter a valid date."],
+    [{ date: "" }, "date", "Date is required."],
     [{ startTime: "" }, "startTime", "Start time is required."],
     [{ startTime: "7 o'clock" }, "startTime", "Start time is not a valid time."],
   ])("rejects %j with a readable error", (change, field, message) => {
-    const parsed = parseSlotInput(form({ ...valid, ...change }));
+    const parsed = parseRehearsalInput(form({ ...valid, ...change }));
 
     expect(parsed.ok).toBe(false);
     expect(!parsed.ok && parsed.errors).toMatchObject({ [field]: message });
@@ -201,14 +167,14 @@ describe("group time zone", () => {
           .map((o) => o.date)
           .join(),
         formatDate("2026-10-08"),
-        describeSlot({ ...thursdays, endDate: "2026-12-24" }),
+        describeRehearsal({ date: "2026-10-01", startMinute: 1140, endMinute: 1320 }),
       ].join("|");
     });
     process.env.TZ = original;
 
     expect(new Set(results).size).toBe(1);
     expect(results[0]).toBe(
-      "2026-10-15,2026-10-22,2026-10-29,2026-11-05,2026-11-12|Thu 8 Oct|Every Thursday from 1 Oct until 24 Dec, 7–10 PM",
+      "2026-10-15,2026-10-22,2026-10-29,2026-11-05,2026-11-12|Thu 8 Oct|Thu 1 Oct, 7–10 PM",
     );
   });
 });

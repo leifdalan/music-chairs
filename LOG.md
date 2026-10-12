@@ -4316,3 +4316,126 @@ Phase 28 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 28 ✅ and Phase 29 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-29.md gained "Inherited from Phase 28" (the time chosen on arrival, the preference wording and helper, the summary's place).
 - Lessons: versed-lorikeet filed (local): a CSS rule inserted by anchoring on one line of a selector list split the list; ./bin/lessons validate OK.
+
+## 2026-10-11 16:16 — START
+Phase 29 — Proposing simply: every rehearsal one date, no rehearsal length, one-tap dates and notes
+
+Execution trace: 90590a46325d45d380b2b77c15fcd687
+
+Planned work:
+- No one-time or weekly choice: every rehearsal is one date and time. Weekly rehearsals and everything attached to them are deleted by a forward-only migration, and every place that offered or showed weekly rehearsals (forms, the schedule, cancelling a date, answering every date, calendar exports and feeds) changes to match.
+- No "Rehearsal length": proposing a free time proposes that time.
+- On "When people are free", tapping a date with only one free time ticks that time directly, with no panel.
+- An optional notes field on a proposed rehearsal, shown in the app and in the Google Calendar event and calendar feeds, shaped so materials to prepare (attachments) can join it later.
+- `project/PRODUCT.md` no longer lists recurring rehearsals.
+
+## 2026-10-11 17:02 — END
+Phase 29 — Proposing simply: every rehearsal one date, no rehearsal length, one-tap dates and notes
+
+Phase 29 is accepted on its gates. Every rehearsal is now one date and time. There is no one-time/weekly choice, and nowhere to cancel a single date or set a last date: Delete is how a rehearsal is cancelled. When this deploys, the database update deletes the weekly rehearsals already saved, as you chose, with their answers; the Google Calendar events music-chairs wrote for their upcoming dates are removed, and past ones stay, as Delete does. "Rehearsal length" is gone: ticking a free time on the heat map proposes that whole free time. A date with only one free time is now itself the tick box, showing its time; tapping it ticks it without a panel, and a ticked date is ringed. Rehearsals can carry notes (for example "Bring the Brahms parts"): written when proposing, editable by organizers on the schedule, shown on the schedule, the request page and the home page, and at the top of the event in members' Google Calendars and calendar feeds. How it works on your phone is yours to judge through the User Demo below; merging the pull request deploys it and runs the database update.
+
+Execution trace: 90590a46325d45d380b2b77c15fcd687
+
+Files changed:
+- plan/phase-29.md — your 2026-10-11 rulings and the User Demo, before capture
+- project/app/.server/store.ts — migration 12 (weekly rehearsals and their answers and event rows deleted, their upcoming events queued for Google removal, cancellations dropped, rehearsals rebuilt with one date and notes); one-date rehearsal type; setNotes; answers without a date; weekly methods removed
+- project/app/lib/rehearsal.ts (new) — the rehearsal's shape, description, "still to come" rule, notes and the "Propose a different time" form
+- project/app/lib/propose.ts, project/app/lib/heat.ts, project/app/components/propose-times.tsx — no length; notes when proposing; the one-tap tick box; heat keeps its own hour
+- project/app/components/free-calendar.tsx — one-time dates as tick boxes (request page only)
+- project/app/components/rehearsal-fields.tsx (new; replaces slot-fields.tsx, deleted) — date and times for "Propose a different time"
+- project/app/routes/schedule.tsx — one date per card; the answer row in the card; notes shown and edited; weekly intents, prompts and controls removed
+- project/app/routes/request.tsx, home.tsx, calendar-feed.ts, request-calendar.ts; project/app/.server/calendar-sync.ts, upcoming.ts, pending.ts, progress.ts; project/app/components/proposed-list.tsx, confirm-form.tsx — one date; notes in lists and calendar descriptions
+- project/app/lib/availability.ts — weekly rehearsal helpers removed (availability's own reading unchanged)
+- project/app/app.css — weekly styles removed; notes, one-tap and answer-row styles
+- project/scripts/smoke.sh — proposes one date with notes and checks them on the schedule and in the .ics
+- project/PRODUCT.md, project/README.md — recurring rehearsals and cancelled dates no longer mentioned
+- project/tests/migration-12.test.ts, one-date.test.tsx (new); about twenty test files rewritten to one-date rehearsals
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38186028476, check success for commit fd4965c (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — Vitest 659/659, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 273.8 s; first event 0.56 s; longest idle 49.6 s; success
+- Critic (code review): 247.1 s; first event 0.58 s; longest idle 36.2 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 2755.048 s; intelligence 520.876 s; gates 159.207 s; wait 519.932 s; orchestration 2752.283 s; unattributed 2.765 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 29 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=6d69b912… corrected=aefd8635… final=e2bdc6bc5dade460187d7253c282fe15f694faea3751848eb40fa86e4f516f95 (no byte change from the corrected candidate; committing the deletion of slot-fields.tsx moved the identity, recorded as a third capture and a renewed acceptance)
+- Findings: plan review 11 (10 adopted, 1 deferred to you below); code critique 7 (all adopted)
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The test rewrite (about twenty files) was the bulk of the work; a narrow scripted rewrite handled the simple one-date fixtures and the rest were done by hand, so rehearsal and availability fixtures (which share a shape) were never confused.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): migration 12 on a real version-11 database (what is deleted, what is queued for Google, what stays, the rebuilt table's checks, indexes and references) and on a copy of the seeded data; no weekly/length/cancel controls or intents; whole free times proposed; one-tap dates (with the ticked count updating); notes stored, edited by organizers only, shown in the app, and leading Google, feed and .ics descriptions with a rewrite on change.
+- Parked for you: the User Demo below, including checking a real Google Calendar event's description; and confirming you're happy for the live weekly rehearsals to be deleted on deploy (your ruling was "Delete them").
+
+Delivery:
+- default — commit and delivery through pull request 21, merged when green, after the handoff gate; merging deploys and runs migration 12 on the live database
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: plan/phase-30.md — "Inherited from Phase 29": each rehearsal is one date, its schedule card (#rehearsal-<id>) is where members answer, and notes ride along (pending, applied after this block)
+- DECIDE (for you, not blocking): the brief's "Rehearsal details" lists only a location, and its non-goals say music-chairs is "not a setlist, chart or practice-material manager". Notes now exist, and you mentioned attachments for material to prepare later. Should the brief record notes (and, when you want them, attachments) as rehearsal details, and narrow that non-goal?
+
+Lessons:
+- pending: a new local lesson — committing a file deletion moves the candidate identity, so capture after the commit; and stage deletions with git rm, never git add -A (written after this block)
+- occurrence pending: lively-salamander (bin/python resolves relative paths at the repository root; it bit a fixture-rewrite script again)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (5, 6 after this phase), loyal-dinosaur (4) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=35); reviewer/claude opus — hard 1800 s, idle 600 s (n=32); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, as an organizer of a group with an open availability request that some members have answered, open:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Open the availability request and look under "When people are free".
+    2. Tap a date that has one free time; then tap a date with several and tick one.
+    3. Type a location and a note (for example "Bring the Brahms parts"), then "Propose selected".
+    4. Open the schedule, edit the note on one proposed rehearsal, and confirm it.
+    5. With Google Calendar writing on (or the calendar feed added), open the confirmed rehearsal's event.
+    6. Open "Propose a different time".
+  - **What to look for.**
+    - There is no "Rehearsal length" and no one-time/weekly choice anywhere.
+    - Tapping a date with one free time ticks it without opening a panel; a date with several opens the panel as before.
+    - Each proposed rehearsal covers the whole free time, on one date.
+    - The note shows on the schedule and the request page, and in the calendar event's description; the edit replaces it.
+    - Earlier weekly rehearsals are gone, and so are their events in members' Google Calendars.
+  - **Variations to explore.** A member's view of the note; deleting a confirmed rehearsal; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo and the brief question above.
+
+## 2026-10-11 17:02 — NOTE
+Phase 29 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 29 ✅ and Phase 30 ⬅️ (accepted ledger applied and verified).
+- Ripple AUTO applied: plan/phase-30.md gained "Inherited from Phase 29" (one date per rehearsal, the schedule card as the answer target, notes).
+- Lessons: dangerous-kittiwake filed (local): committing a file deletion moves the candidate identity; stage deletions with git rm. lively-salamander occurrence added (6 total). ./bin/lessons validate OK.

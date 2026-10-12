@@ -13,8 +13,8 @@ import { RequestDates, type DateErrors, type DateValues } from "~/components/req
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { ProblemAlert } from "~/components/problem-alert";
 import { FreeCalendar } from "~/components/free-calendar";
-import { FreeStretch, ProposeTimes } from "~/components/propose-times";
-import { SlotFields } from "~/components/slot-fields";
+import { FreeStretch, NotesField, OneTapTime, ProposeTimes } from "~/components/propose-times";
+import { RehearsalFields } from "~/components/rehearsal-fields";
 import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { Switch, useSwitch } from "~/components/view-switch";
@@ -23,21 +23,24 @@ import {
   formatDate,
   formatMinutes,
   isDate,
-  parseSlotInput,
   parseTime,
   timeInputValue,
   timeRange,
   todayInZone,
   validateLocation,
   type Slot,
-  type SlotErrors,
-  type SlotFormValues,
 } from "~/lib/availability";
 import { calendarNotice } from "~/lib/calendar-notices";
 import { groupPath } from "~/lib/group-address";
 import { dayHeat } from "~/lib/heat";
 import { buildCells, freeStretches, type OverlapMember } from "~/lib/overlap";
 import { parseProposedTimes } from "~/lib/propose";
+import {
+  parseRehearsalInput,
+  validateNotes,
+  type RehearsalErrors,
+  type RehearsalFormValues,
+} from "~/lib/rehearsal";
 import { answerable, clipToWindows, type TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { useHydrated } from "~/lib/use-hydrated";
@@ -79,9 +82,9 @@ function overlapsWindows(range: TimeWindow, windows: TimeWindow[]): boolean {
   );
 }
 
-/** A one-off time within the request's windows: one of the member's times for it. */
+/** A time within the request's windows: one of the member's times for it. */
 function inWindows(slot: Slot, windows: TimeWindow[]): boolean {
-  return slot.kind === "once" && overlapsWindows(slot, windows);
+  return overlapsWindows(slot, windows);
 }
 
 /** The dates a member can still give times for: the rest of the request's span. */
@@ -380,41 +383,50 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
     const location = validateLocation(form.get("location"));
     if (!location.ok) return data({ proposeProblem: location.error }, { status: 400 });
+    const notes = validateNotes(form.get("notes"));
+    if (!notes.ok) return data({ proposeProblem: notes.error }, { status: 400 });
     const times = parseProposedTimes(form, todayInZone(group.timeZone, new Date()));
     if (!times.ok) return data({ proposeProblem: times.error }, { status: 400 });
-    store.addRehearsals(group.id, scheduleRequest.id, times.inputs, location.value);
+    store.addRehearsals(group.id, scheduleRequest.id, times.inputs, location.value, notes.value);
     const count = times.inputs.length;
     return redirectWithToast(
       proposedFrom,
       count === 1 ? "Rehearsal proposed" : `${count} rehearsals proposed`,
     );
   }
-  // A time the free times don't show, or a weekly rehearsal, still from this request.
+  // A time the free times don't show, still from this request.
   if (intent === "propose") {
     if (viewer.role !== "organizer") throw data(null, { status: 403 });
-    const parsed = parseSlotInput(form);
+    const parsed = parseRehearsalInput(form);
     const location = validateLocation(form.get("location"));
+    const notes = validateNotes(form.get("notes"));
     const errors: ProposeErrors = parsed.ok ? {} : { ...parsed.errors };
-    if (parsed.ok && parsed.value.startDate < todayInZone(group.timeZone, new Date())) {
-      errors.startDate = "Pick today or a later date.";
+    if (parsed.ok && parsed.value.date < todayInZone(group.timeZone, new Date())) {
+      errors.date = "Pick today or a later date.";
     }
     if (!location.ok) errors.location = location.error;
-    if (!parsed.ok || !location.ok || Object.keys(errors).length > 0) {
+    if (!notes.ok) errors.notes = notes.error;
+    if (!parsed.ok || !location.ok || !notes.ok || Object.keys(errors).length > 0) {
       const values = parsed.ok
         ? {
-            kind: parsed.value.kind,
-            startDate: parsed.value.startDate,
-            endDate: parsed.value.endDate ?? "",
+            date: parsed.value.date,
             startTime: timeInputValue(parsed.value.startMinute),
             endTime: timeInputValue(parsed.value.endMinute),
           }
         : parsed.values;
       return data(
-        { errors, values: { ...values, location: String(form.get("location") ?? "") } },
+        {
+          errors,
+          values: {
+            ...values,
+            location: String(form.get("location") ?? ""),
+            notes: String(form.get("notes") ?? ""),
+          },
+        },
         { status: 400 },
       );
     }
-    store.addRehearsal(group.id, scheduleRequest.id, parsed.value, location.value);
+    store.addRehearsal(group.id, scheduleRequest.id, parsed.value, location.value, notes.value);
     return redirectWithToast(proposedFrom, "Rehearsal proposed");
   }
   if (intent === "close" || intent === "reopen") {
@@ -610,11 +622,14 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                     to={freeRange.to}
                     days={overlap}
                     total={answers?.length ?? 0}
-                    legend="Tap a date to see who is free and tick times to propose."
+                    legend="Tap a date to tick its free time; a date with several opens them, with who is free."
                     renderStretch={(date, stretch) => (
                       <li key={stretch.startMinute} className="stretch">
                         <FreeStretch date={date} stretch={stretch} total={answers?.length ?? 0} />
                       </li>
+                    )}
+                    tickOne={(date, stretch, heat) => (
+                      <OneTapTime date={date} stretch={stretch} heat={heat} />
                     )}
                   />
                 ) : (
@@ -709,8 +724,8 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   );
 }
 
-type ProposeValues = SlotFormValues & { location: string };
-type ProposeErrors = SlotErrors & { location?: string };
+type ProposeValues = RehearsalFormValues & { location: string; notes: string };
+type ProposeErrors = RehearsalErrors & { location?: string; notes?: string };
 
 function ProposeForm({
   result,
@@ -721,12 +736,11 @@ function ProposeForm({
   fromList: boolean;
 }) {
   const values: ProposeValues = result?.values ?? {
-    kind: "once",
-    startDate: "",
-    endDate: "",
+    date: "",
     startTime: "",
     endTime: "",
     location: "",
+    notes: "",
   };
   const errors = result?.errors ?? {};
   // Named by the disclosure's summary, "Propose a different time".
@@ -734,7 +748,7 @@ function ProposeForm({
     <Form method="post" className="stack slot-form" replace>
       <input type="hidden" name="intent" value="propose" />
       {fromList ? <input type="hidden" name="free" value="list" /> : null}
-      <SlotFields values={values} errors={errors} />
+      <RehearsalFields values={values} errors={errors} />
       <TextField
         name="location"
         label="Location (optional)"
@@ -742,6 +756,7 @@ function ProposeForm({
         error={errors.location}
         optional
       />
+      <NotesField id="propose-other-notes" defaultValue={values.notes} error={errors.notes} />
       <SubmitButton feedbackKey="propose">Propose</SubmitButton>
     </Form>
   );

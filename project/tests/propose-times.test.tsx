@@ -48,14 +48,13 @@ function formOf(fields: [string, string][]): FormData {
 describe("reading ticked free times", () => {
   const today = "2026-10-02";
 
-  it("starts each at its free time, lasting the chosen length or cut to the free time", () => {
+  it("proposes each ticked free time whole, once", () => {
     const parsed = parseProposedTimes(
       formOf([
-        ["time", "2026-10-08 1140 1320"], // 7–10 PM → 7–9 PM
-        ["time", "2026-10-09 1140 1200"], // 7–8 PM → cut to 20:00
-        ["time", "2026-10-10 1320 1440"], // 10 PM–12 AM → cut at midnight
+        ["time", "2026-10-08 1140 1320"], // 7–10 PM
+        ["time", "2026-10-09 1140 1200"], // 7–8 PM
+        ["time", "2026-10-10 1320 1440"], // 10 PM–12 AM
         ["time", "2026-10-08 1140 1320"], // the same tick again
-        ["length", "120"],
       ]),
       today,
     );
@@ -63,36 +62,17 @@ describe("reading ticked free times", () => {
     expect(parsed).toEqual({
       ok: true,
       inputs: [
-        {
-          kind: "once",
-          startDate: "2026-10-08",
-          endDate: null,
-          startMinute: 1140,
-          endMinute: 1260,
-        },
-        {
-          kind: "once",
-          startDate: "2026-10-09",
-          endDate: null,
-          startMinute: 1140,
-          endMinute: 1200,
-        },
-        {
-          kind: "once",
-          startDate: "2026-10-10",
-          endDate: null,
-          startMinute: 1320,
-          endMinute: 1440,
-        },
+        { date: "2026-10-08", startMinute: 1140, endMinute: 1320 },
+        { date: "2026-10-09", startMinute: 1140, endMinute: 1200 },
+        { date: "2026-10-10", startMinute: 1320, endMinute: 1440 },
       ],
     });
   });
 
-  it("refuses no ticks, too many, an unknown length, and malformed, past or impossible times", () => {
+  it("refuses no ticks, too many, and malformed, past or impossible times", () => {
     const refused = (fields: [string, string][]) => parseProposedTimes(formOf(fields), today).ok;
-    const length: [string, string] = ["length", "120"];
 
-    expect(parseProposedTimes(formOf([length]), today)).toEqual({
+    expect(parseProposedTimes(formOf([]), today)).toEqual({
       ok: false,
       error: "Tick at least one free time.",
     });
@@ -100,15 +80,7 @@ describe("reading ticked free times", () => {
       "time",
       `2026-10-${String(10 + (index % 18)).padStart(2, "0")} ${index * 15} ${index * 15 + 60}`,
     ]);
-    expect(refused([...many, length])).toBe(false);
-    for (const value of ["whole", "0", "45", ""]) {
-      expect(
-        refused([
-          ["time", "2026-10-08 1140 1320"],
-          ["length", value],
-        ]),
-      ).toBe(false);
-    }
+    expect(refused(many)).toBe(false);
     for (const tick of [
       "2026-10-08",
       "2026-10-08 19:00 22:00",
@@ -120,9 +92,9 @@ describe("reading ticked free times", () => {
       "2026-10-08 1140 1455",
       "2026-10-08 1140 1320 extra",
     ]) {
-      expect(refused([["time", tick], length])).toBe(false);
+      expect(refused([["time", tick]])).toBe(false);
     }
-    expect(refused([["time", "2026-10-02 1140 1320"], length])).toBe(true);
+    expect(refused([["time", "2026-10-02 1140 1320"]])).toBe(true);
   });
 });
 
@@ -212,7 +184,10 @@ function pickerOf(html: string): string {
 /** The value of the tick box whose label names `label`, read from the page. */
 function tickFor(html: string, label: string): string {
   for (const input of html.match(/<input type="checkbox"[^>]*>/g) ?? []) {
-    if (!input.includes(`aria-label="${label}"`)) continue;
+    // A one-time date's box adds who is free after a colon (plan/phase-29.md).
+    if (!input.includes(`aria-label="${label}"`) && !input.includes(`aria-label="${label}:`)) {
+      continue;
+    }
     const value = /value="([^"]+)"/.exec(input)?.[1];
     if (value && input.includes('name="time"')) return value;
   }
@@ -251,9 +226,7 @@ async function toastOf(response: unknown): Promise<string | undefined> {
 const times = (store: ReturnType<typeof getStore>, groupId: string) =>
   store
     .listRehearsals(groupId)
-    .map(
-      (r) => `${r.kind} ${r.startDate} ${r.startMinute}-${r.endMinute} ${r.location} ${r.status}`,
-    )
+    .map((r) => `${r.date} ${r.startMinute}-${r.endMinute} ${r.location} ${r.status}`)
     .sort();
 
 describe("free times on the schedule page", () => {
@@ -306,23 +279,24 @@ describe("proposing ticked times on a request's page", () => {
     );
   }
 
-  it("proposes the clipped free times and returns to the request", async () => {
+  it("proposes the whole free time with its notes and returns to the request", async () => {
     const { store, group, organizerCookie, requestId } = await withRequest();
     const html = await page(group.id, requestId, organizerCookie);
 
     const response = await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
       ["time", tickFor(html, "Propose Mon 5 Oct, 7–9 PM")],
-      ["length", "180"],
       ["location", ""],
+      ["notes", "  Bring the Brahms parts\r\nand a stand  "],
     ]);
 
     expect((response as Response).headers.get("Location")).toBe(
       `${groupPath(group)}/requests/${requestId}`,
     );
     expect(await toastOf(response)).toBe("Rehearsal proposed");
-    expect(times(store, group.id)).toEqual(["once 2026-10-05 1140-1260  proposed"]);
+    expect(times(store, group.id)).toEqual(["2026-10-05 1140-1260  proposed"]);
     expect(store.listRehearsals(group.id).map((r) => r.requestId)).toEqual([requestId]);
+    expect(store.listRehearsals(group.id)[0].notes).toBe("Bring the Brahms parts\nand a stand");
   });
 
   it("keeps a custom proposal folded under the free times until refused, and links it to the request", async () => {
@@ -338,9 +312,7 @@ describe("proposing ticked times on a request's page", () => {
     const custom = (startTime: string, endTime: string, location: string) =>
       [
         ["intent", "propose"],
-        ["kind", "weekly"],
-        ["startDate", "2026-10-06"],
-        ["endDate", ""],
+        ["date", "2026-10-06"],
         ["startTime", startTime],
         ["endTime", endTime],
         ["location", location],
@@ -381,7 +353,7 @@ describe("proposing ticked times on a request's page", () => {
       `${groupPath(group)}/requests/${requestId}`,
     );
     expect(await toastOf(response)).toBe("Rehearsal proposed");
-    expect(times(store, group.id)).toEqual(["weekly 2026-10-06 600-720 Hall proposed"]);
+    expect(times(store, group.id)).toEqual(["2026-10-06 600-720 Hall proposed"]);
     expect(store.listRehearsals(group.id)[0].requestId).toBe(requestId);
   });
 
@@ -398,7 +370,6 @@ describe("proposing ticked times on a request's page", () => {
 
     const refused = await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
-      ["length", "120"],
       ["location", "x".repeat(121)],
     ]);
     expect(statusOf(refused)).toBe(400);
@@ -410,7 +381,6 @@ describe("proposing ticked times on a request's page", () => {
     await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
       ["time", tickFor(renderRequest(await data(organizerCookie)), "Propose Mon 5 Oct, 7–9 PM")],
-      ["length", "120"],
     ]);
     expect((await data(organizerCookie)).rehearsalCount).toBe((before ?? 0) + 1);
     expect((await data(cellistCookie)).rehearsalCount).toBeNull();
@@ -426,7 +396,6 @@ describe("proposing ticked times on a request's page", () => {
       requestPost(group.id, requestId, cellistCookie, [
         ["intent", "propose-times"],
         ["time", tick],
-        ["length", "120"],
       ]),
     );
     expect(statusOf(thrown)).toBe(403);
@@ -435,9 +404,8 @@ describe("proposing ticked times on a request's page", () => {
     await requestPost(group.id, requestId, organizerCookie, [
       ["intent", "propose-times"],
       ["time", tick],
-      ["length", "120"],
     ]);
-    expect(times(store, group.id)).toEqual(["once 2026-10-12 1140-1260  proposed"]);
+    expect(times(store, group.id)).toEqual(["2026-10-12 1140-1260  proposed"]);
   });
 });
 
@@ -445,28 +413,17 @@ describe("adding several rehearsals in the store", () => {
   it("adds all or none", () => {
     const store = getStore();
     const { group } = store.createGroup("Duo", "A", "Europe/London");
-    const good = {
-      kind: "once" as const,
-      startDate: "2026-10-08",
-      endDate: null,
-      startMinute: 600,
-      endMinute: 660,
-    };
+    const good = { date: "2026-10-08", startMinute: 600, endMinute: 660 };
 
     expect(() =>
-      store.addRehearsals(
-        group.id,
-        requestIn(group.id),
-        [good, { ...good, kind: "never" as never }],
-        "X",
-      ),
+      store.addRehearsals(group.id, requestIn(group.id), [good, { ...good, endMinute: 599 }], "X"),
     ).toThrow();
     expect(store.listRehearsals(group.id)).toEqual([]);
     expect(
       store.addRehearsals(
         group.id,
         requestIn(group.id),
-        [good, { ...good, startDate: "2026-10-09" }],
+        [good, { ...good, date: "2026-10-09" }],
         "X",
       ),
     ).toHaveLength(2);

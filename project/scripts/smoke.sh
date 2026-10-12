@@ -174,14 +174,14 @@ availability_ok() {
 availability_ok || fail "the request page does not show the date saved on it"
 echo "  a date saved on the request shows there with its time"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
-  --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
-  --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \
-  --data-urlencode "endTime=21:30" --data-urlencode "location=Studio B")"
+  --data-urlencode "intent=propose" --data-urlencode "date=$rehearsal_date" \
+  --data-urlencode "startTime=19:30" --data-urlencode "endTime=21:30" \
+  --data-urlencode "location=Studio B" --data-urlencode "notes=Bring the Brahms parts")"
 [ "$code" = 404 ] || fail "proposing on the schedule page returned HTTP $code, not 404"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$request_path" \
-  --data-urlencode "intent=propose" --data-urlencode "kind=weekly" \
-  --data-urlencode "startDate=$rehearsal_date" --data-urlencode "startTime=19:30" \
-  --data-urlencode "endTime=21:30" --data-urlencode "location=Studio B")"
+  --data-urlencode "intent=propose" --data-urlencode "date=$rehearsal_date" \
+  --data-urlencode "startTime=19:30" --data-urlencode "endTime=21:30" \
+  --data-urlencode "location=Studio B" --data-urlencode "notes=Bring the Brahms parts")"
 [ "$code" = 302 ] || fail "proposing a rehearsal from the request returned HTTP $code"
 rehearsal="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
   grep -o 'name="intent" value="confirm"/><input type="hidden" name="rehearsalId" value="[A-Za-z0-9_-]\{22\}"' |
@@ -192,13 +192,14 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$or
 [ "$code" = 302 ] || fail "confirming the rehearsal returned HTTP $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=rsvp" --data-urlencode "rehearsalId=$rehearsal" \
-  --data-urlencode "date=$rehearsal_date" --data-urlencode "answer=yes")"
+  --data-urlencode "answer=yes")"
 [ "$code" = 302 ] || fail "answering yes returned HTTP $code"
 schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
   grep -q "<li class=\"rehearsal confirmed\" id=\"rehearsal-$rehearsal\"><div class=\"payoff\">" "$work/schedule.html" &&
     grep -q "You&#x27;re on" "$work/schedule.html" &&
-    grep -q "<p class=\"slot-summary\">Every Thursday from $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
+    grep -q "<p class=\"slot-summary\">Thu $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
+    grep -q "<p class=\"notes\">Bring the Brahms parts</p>" "$work/schedule.html" &&
     grep -q "7:30–9:30 PM · Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&
     grep -q "1 yes · 0 no · 0 maybe" "$work/schedule.html" &&
@@ -207,12 +208,13 @@ schedule_ok() {
     grep -q "Complete" "$work/schedule.html"
 }
 schedule_ok || fail "schedule page does not show the confirmed rehearsal, its RSVP and the overlap"
-echo "  confirmed weekly rehearsal, its request, a yes answer and the overlap listed on the schedule page"
+echo "  confirmed rehearsal with its notes, its request, a yes answer and the overlap listed on the schedule page"
 download_headers="$(curl -s -D - -o "$work/request.ics" -H "Cookie: $cookie" "$origin$request_path/calendar.ics" | tr -d '\r')"
 printf '%s\n' "$download_headers" | grep -qi '^content-type: text/calendar' \
   || fail "the request's calendar download is not a calendar file"
 grep -q "BEGIN:VEVENT" "$work/request.ics" || fail "the request's calendar download holds no rehearsal"
-echo "  the complete request downloads as a calendar file"
+grep -q "DESCRIPTION:Bring the Brahms parts" "$work/request.ics" || fail "the calendar download lacks the rehearsal's notes"
+echo "  the complete request downloads as a calendar file, with the notes"
 
 for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope" "/g/thursday-quartet-zzzzzzzz"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"

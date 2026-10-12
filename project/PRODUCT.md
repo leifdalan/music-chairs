@@ -18,7 +18,7 @@ Get everyone into the same room. music-chairs replaces scheduling by group text,
 
 ## Positioning
 
-Built around rehearsals rather than generic meeting polls: availability requests that own their proposed rehearsals, a who-is-free heat map, required and optional players with warnings when a required player can't come, recurring rehearsals, and confirmed dates written to members' calendars.
+Built around rehearsals rather than generic meeting polls: availability requests that own their proposed rehearsals, a who-is-free heat map, required and optional players with warnings when a required player can't come, rehearsal notes, and confirmed dates written to members' calendars.
 
 ## Operating Context
 

@@ -1,7 +1,8 @@
-// What a group has coming up (plan/phase-24.md): its confirmed rehearsal dates
+// What a group has coming up (plan/phase-24.md): its confirmed rehearsals
 // for the group page, and each availability request's own rehearsals.
 
-import { describeSlot, offeredDates, todayInZone, windowEnd } from "~/lib/availability";
+import { todayInZone } from "~/lib/availability";
+import { describeRehearsal, isUpcoming } from "~/lib/rehearsal";
 
 import type { PayoffData } from "~/components/payoff-card";
 
@@ -16,27 +17,21 @@ export type UpcomingDate = {
   requestName: string | null;
 };
 
-/**
- * Every date a confirmed rehearsal meets from `today` to the end of the answer
- * window (a one-off further out included), cancelled dates left out, in order.
- */
+/** Every confirmed rehearsal from `today` on, in order. */
 export function upcomingRehearsals(group: Group, today: string): UpcomingDate[] {
   const store = getStore();
   const names = new Map(store.listRequests(group.id).map((item) => [item.id, item.name]));
-  const until = windowEnd(today);
   return store
     .listRehearsals(group.id)
-    .filter((rehearsal) => rehearsal.status === "confirmed")
-    .flatMap((rehearsal) =>
-      offeredDates(rehearsal, today, until).map((date) => ({
-        rehearsalId: rehearsal.id,
-        date,
-        startMinute: rehearsal.startMinute,
-        endMinute: rehearsal.endMinute,
-        location: rehearsal.location,
-        requestName: rehearsal.requestId ? (names.get(rehearsal.requestId) ?? null) : null,
-      })),
-    )
+    .filter((rehearsal) => rehearsal.status === "confirmed" && isUpcoming(rehearsal, today))
+    .map((rehearsal) => ({
+      rehearsalId: rehearsal.id,
+      date: rehearsal.date,
+      startMinute: rehearsal.startMinute,
+      endMinute: rehearsal.endMinute,
+      location: rehearsal.location,
+      requestName: rehearsal.requestId ? (names.get(rehearsal.requestId) ?? null) : null,
+    }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.startMinute - b.startMinute);
 }
 
@@ -45,18 +40,18 @@ export type RequestRehearsal = {
   status: "proposed" | "confirmed";
   summary: string;
   location: string;
-  /** Members who answered at least one of its dates. */
+  notes: string;
+  /** Members who answered it. */
   answered: number;
   memberCount: number;
 };
 
 /**
  * Each availability request's rehearsals, keyed by request id: every proposed
- * one, and confirmed ones that still meet from `today`.
+ * one, and confirmed ones from `today` on.
  */
 export function requestRehearsals(group: Group, today: string): Map<string, RequestRehearsal[]> {
   const store = getStore();
-  const until = windowEnd(today);
   const memberCount = store.listMembers(group.id).length;
   const answeredBy = new Map<string, Set<string>>();
   for (const rsvp of store.listRsvps(group.id)) {
@@ -68,15 +63,14 @@ export function requestRehearsals(group: Group, today: string): Map<string, Requ
   const byRequest = new Map<string, RequestRehearsal[]>();
   for (const rehearsal of store.listRehearsals(group.id)) {
     if (!rehearsal.requestId) continue;
-    if (rehearsal.status === "confirmed" && offeredDates(rehearsal, today, until).length === 0) {
-      continue;
-    }
+    if (rehearsal.status === "confirmed" && !isUpcoming(rehearsal, today)) continue;
     const list = byRequest.get(rehearsal.requestId) ?? [];
     list.push({
       id: rehearsal.id,
       status: rehearsal.status,
-      summary: describeSlot(rehearsal),
+      summary: describeRehearsal(rehearsal),
       location: rehearsal.location,
+      notes: rehearsal.notes,
       answered: answeredBy.get(rehearsal.id)?.size ?? 0,
       memberCount,
     });
@@ -86,7 +80,7 @@ export function requestRehearsals(group: Group, today: string): Map<string, Requ
 }
 
 /**
- * A member's next confirmed rehearsal date in a group, from that group's own
+ * A member's next confirmed rehearsal in a group, from that group's own
  * today, with their answer and who said yes (names when the member may see
  * names: organizers, or a group that shows them), or null when none is coming.
  */
@@ -98,9 +92,7 @@ export function nextRehearsalFor(
   const store = getStore();
   const [next] = upcomingRehearsals(group, todayInZone(group.timeZone, now));
   if (!next) return null;
-  const answers = store
-    .listRsvps(group.id)
-    .filter((rsvp) => rsvp.rehearsalId === next.rehearsalId && rsvp.date === next.date);
+  const answers = store.listRsvps(group.id).filter((rsvp) => rsvp.rehearsalId === next.rehearsalId);
   const yes = answers.filter((rsvp) => rsvp.answer === "yes");
   const yesIds = new Set(yes.map((rsvp) => rsvp.memberId));
   const showNames = member.role === "organizer" || group.showNames;

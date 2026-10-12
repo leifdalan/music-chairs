@@ -6,7 +6,7 @@ import { requestProgress } from "~/.server/progress";
 import { groupFromAddress } from "~/.server/group-address";
 import { getStore } from "~/.server/store";
 import { groupPath } from "~/lib/group-address";
-import { addDays, todayInZone, windowEnd } from "~/lib/availability";
+import { addDays, todayInZone } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
 
 import type { Route } from "./+types/request-calendar";
@@ -24,8 +24,7 @@ function fileName(name: string): string {
 /**
  * A complete request's confirmed rehearsals as a calendar file to download
  * (plan/phase-17.md, Add to calendar): the dates the viewer's own feed holds
- * for this request (minus dates they said No to and cancelled dates), from
- * four weeks back to the end of the answer window.
+ * for this request (minus those they said No to), from four weeks back on.
  */
 export async function loader({ request, params }: Route.LoaderArgs) {
   const store = getStore();
@@ -40,7 +39,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     (item) => item.requestId === scheduleRequest.id,
   );
   if (!progress?.complete) throw data(null, { status: 404 });
-  const dates = calendarDates(group, viewer.id, addDays(today, -28), windowEnd(today)).filter(
+  const dates = calendarDates(group, viewer.id, addDays(today, -28)).filter(
     ({ rehearsal }) => rehearsal.requestId === scheduleRequest.id,
   );
   const body = renderFeed(

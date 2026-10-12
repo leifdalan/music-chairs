@@ -75,7 +75,7 @@ describe("who isn't free, once per set of people", () => {
   });
 });
 
-/** Viola free every Thursday evening, Cellist on 8 and 15 Oct, Pianist on 8 Oct; a weekly Thursday rehearsal proposed. */
+/** Viola free every Thursday evening, Cellist on 8 and 15 Oct, Pianist on 8 Oct; a rehearsal on Thu 15 Oct proposed. */
 async function band() {
   const store = getStore();
   const { group, organizer } = store.createGroup("Calm Band", "Viola", "Europe/London");
@@ -87,7 +87,7 @@ async function band() {
   const rehearsal = store.addRehearsal(
     group.id,
     requestIn(group.id, { store }),
-    { ...evening("2026-10-08"), kind: "weekly", endMinute: 1260 },
+    { date: "2026-10-15", startMinute: 1140, endMinute: 1260 },
     "Hall",
   );
   return {
@@ -112,7 +112,7 @@ async function schedule(b: Awaited<ReturnType<typeof band>>, cookie: string) {
 }
 
 describe("the schedule card", () => {
-  it("says who isn't free in one calm status region, then the unchecked-dates hint", async () => {
+  it("says who isn't free in one calm status region", async () => {
     const b = await band();
     const html = await schedule(b, b.organizerCookie);
     const card = html.slice(html.indexOf(`id="rehearsal-${b.rehearsal.id}"`));
@@ -121,12 +121,9 @@ describe("the schedule card", () => {
 
     expect(organizer.match(/role="status"/g)).toHaveLength(1);
     expect(organizer).toContain(
-      '<div class="warnings" role="status" aria-label="Who isn&#x27;t free"><ul><li>Pianist isn&#x27;t free on Thu 15 Oct.</li><li>Cellist and Pianist aren&#x27;t free on 6 dates, Thu 22 Oct to Thu 26 Nov.</li></ul></div>',
+      '<div class="warnings" role="status" aria-label="Who isn&#x27;t free"><ul><li>Pianist isn&#x27;t free on Thu 15 Oct.</li></ul></div>',
     );
-    // The weekly rehearsal runs past the window: the hint follows, outside the region.
-    expect(organizer.indexOf("</div>")).toBeLessThan(
-      organizer.indexOf("Dates after Thu 26 Nov aren&#x27;t checked yet."),
-    );
+    expect(organizer).not.toContain("aren&#x27;t checked yet");
   });
 
   it("keeps Delete quieter and after Confirm for everyone", async () => {
@@ -148,7 +145,7 @@ describe("the schedule card", () => {
     getStore().confirmRehearsal(b.group.id, b.rehearsal.id);
     const html = await schedule(b, b.organizerCookie);
     const actions = html.slice(html.indexOf('class="slot-actions"'));
-    // The row ends where the weekly rehearsal's "Cancel a date" disclosure begins.
+    // The row ends where the notes disclosure begins.
     const row = actions.slice(0, actions.indexOf("<details"));
 
     expect(row).not.toContain("Confirm for everyone");

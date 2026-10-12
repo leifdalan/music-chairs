@@ -3,9 +3,10 @@ import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { isOccurrence, type Slot, type SlotInput } from "~/lib/availability";
+import type { Slot, SlotInput } from "~/lib/availability";
 import { SHORT_ID_ALPHABET, SHORT_ID_LENGTH } from "~/lib/group-address";
 import { sameName } from "~/lib/profile";
+import type { RehearsalInput } from "~/lib/rehearsal";
 import type { TimeWindow } from "~/lib/requests";
 
 export type Role = "organizer" | "member";
@@ -108,12 +109,15 @@ export const SESSION_DAYS = 90;
 export type RehearsalStatus = "proposed" | "confirmed";
 
 /**
- * A rehearsal reuses the availability slot shape; `skips` are its cancelled
- * dates. `requestId` is the request it was proposed from (plan/phase-17.md);
- * null only for rehearsals made before every proposal belonged to a request.
+ * A rehearsal is one date and time (plan/phase-29.md) with a location and the
+ * organizer's notes. `requestId` is the request it was proposed from
+ * (plan/phase-17.md); null only for rehearsals made before every proposal
+ * belonged to a request.
  */
-export type Rehearsal = Slot & {
+export type Rehearsal = RehearsalInput & {
+  id: string;
   location: string;
+  notes: string;
   status: RehearsalStatus;
   requestId: string | null;
 };
@@ -190,40 +194,36 @@ export type Store = {
   listGroupSlots(groupId: string): Map<string, Slot[]>;
   // Rehearsals belong to a group; an id from another group behaves as unknown.
   /** A proposal from one of the group's requests; another group's request throws. */
-  addRehearsal(groupId: string, requestId: string, input: SlotInput, location: string): Rehearsal;
-  /** Several proposals from one request at once, all at one location: all or none. */
+  addRehearsal(
+    groupId: string,
+    requestId: string,
+    input: RehearsalInput,
+    location: string,
+    notes?: string,
+  ): Rehearsal;
+  /** Several proposals from one request at once, all with one location and notes: all or none. */
   addRehearsals(
     groupId: string,
     requestId: string,
-    inputs: SlotInput[],
+    inputs: RehearsalInput[],
     location: string,
+    notes?: string,
   ): Rehearsal[];
   listRehearsals(groupId: string): Rehearsal[];
   findRehearsal(groupId: string, rehearsalId: string): Rehearsal | null;
   confirmRehearsal(groupId: string, rehearsalId: string): boolean;
-  /** Sets a weekly rehearsal's last date, dropping cancellations after it; null if not applicable. */
-  endRehearsal(groupId: string, rehearsalId: string, endDate: string): Rehearsal | null;
-  /** Cancels or restores one date; false when the rehearsal is unknown or does not meet that day. */
-  setCancelled(groupId: string, rehearsalId: string, date: string, cancelled: boolean): boolean;
+  /** Replaces a rehearsal's notes; null when the rehearsal is not in the group. */
+  setNotes(groupId: string, rehearsalId: string, notes: string): Rehearsal | null;
   deleteRehearsal(groupId: string, rehearsalId: string): boolean;
   /**
-   * Sets (or, with null, clears) a member's answer for one date of a rehearsal.
-   * False when the rehearsal or member is not in the group, or the rehearsal
-   * does not meet on that date (including cancelled dates).
+   * Sets (or, with null, clears) a member's answer to a rehearsal, recorded
+   * on its date. False when the rehearsal or member is not in the group.
+   * Whether the date is still open to answers is the caller's (`isUpcoming`).
    */
   setRsvp(
     groupId: string,
     rehearsalId: string,
     memberId: string,
-    date: string,
-    answer: RsvpAnswer | null,
-  ): boolean;
-  /** `setRsvp` for several dates at once, all or nothing. */
-  setRsvps(
-    groupId: string,
-    rehearsalId: string,
-    memberId: string,
-    dates: string[],
     answer: RsvpAnswer | null,
   ): boolean;
   /** Every answer on the group's rehearsals. */
@@ -595,6 +595,51 @@ export const MIGRATIONS: readonly string[] = [
   DROP TABLE availability_skips;
   DELETE FROM availability WHERE kind = 'weekly';
   `,
+  // Version 12 (Phase 29): every rehearsal is one date. Weekly rehearsals are
+  // deleted (the operator's ruling), as Delete would: Google events
+  // music-chairs wrote for their dates from UTC yesterday on are queued for
+  // removal, past ones stay, and their calendar-event rows and answers go.
+  // Cancellations only ever applied to weekly dates, so that table goes too.
+  // The rehearsals table is rebuilt with one date (start_date becomes date)
+  // and the organizer's notes. Answers and calendar events keep their date,
+  // which for every kept rehearsal is its own.
+  `
+  INSERT OR IGNORE INTO calendar_event_removals (account_id, event_id)
+    SELECT members.account_id, calendar_events.event_id
+    FROM calendar_events
+    JOIN members ON members.id = calendar_events.member_id
+    JOIN rehearsals ON rehearsals.id = calendar_events.rehearsal_id
+    WHERE rehearsals.kind = 'weekly' AND members.account_id IS NOT NULL
+      AND calendar_events.date >= date('now', '-1 day');
+  DELETE FROM calendar_events
+    WHERE rehearsal_id IN (SELECT id FROM rehearsals WHERE kind = 'weekly');
+  DELETE FROM rsvps WHERE rehearsal_id IN (SELECT id FROM rehearsals WHERE kind = 'weekly');
+  DELETE FROM rehearsals WHERE kind = 'weekly';
+  DROP TABLE rehearsal_cancellations;
+  CREATE TABLE rehearsals_v12 (
+    id TEXT PRIMARY KEY,
+    group_id TEXT NOT NULL REFERENCES groups(id),
+    request_id TEXT REFERENCES requests(id),
+    date TEXT NOT NULL,
+    start_minute INTEGER NOT NULL CHECK (start_minute % 15 = 0 AND start_minute >= 0),
+    end_minute INTEGER NOT NULL CHECK (
+      end_minute % 15 = 0 AND end_minute > start_minute AND end_minute <= 1440
+    ),
+    location TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK (status IN ('proposed', 'confirmed')),
+    created_at TEXT NOT NULL
+  );
+  INSERT INTO rehearsals_v12
+    (id, group_id, request_id, date, start_minute, end_minute, location, status, created_at)
+    SELECT id, group_id, request_id, start_date, start_minute, end_minute, location, status,
+      created_at
+    FROM rehearsals;
+  DROP TABLE rehearsals;
+  ALTER TABLE rehearsals_v12 RENAME TO rehearsals;
+  CREATE INDEX rehearsals_by_group ON rehearsals (group_id);
+  CREATE INDEX rehearsals_by_request ON rehearsals (request_id);
+  `,
 ];
 
 /**
@@ -816,7 +861,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     "UPDATE members SET display_name = ? WHERE group_id = ? AND id = ?",
   );
   // Deleting a member or a group: every row that refers to them, children first.
-  // Skips, windows, answers, cancellations and RSVPs of deleted parents cascade.
+  // Windows, answers and RSVPs of deleted parents cascade.
   const queueMemberRemovals = db.prepare(
     `INSERT OR IGNORE INTO calendar_event_removals (account_id, event_id)
      SELECT members.account_id, calendar_events.event_id
@@ -1062,16 +1107,17 @@ function buildStore(db: DatabaseSync, filename: string): Store {
      ORDER BY availability.start_date, availability.start_minute, availability.created_at`,
   );
 
-  const rehearsalColumns = `${slotColumns}, location, status, request_id`;
+  const rehearsalColumns =
+    "id, date, start_minute, end_minute, location, notes, status, request_id";
   const insertRehearsal = db.prepare(
     `INSERT INTO rehearsals
-     (id, group_id, kind, start_date, end_date, start_minute, end_minute, location, status,
-      created_at, request_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
+     (id, group_id, date, start_minute, end_minute, location, notes, status, created_at,
+      request_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
   );
   const selectRehearsals = db.prepare(
     `SELECT ${rehearsalColumns} FROM rehearsals WHERE group_id = ?
-     ORDER BY start_date, start_minute, created_at, rowid`,
+     ORDER BY date, start_minute, created_at, rowid`,
   );
   const selectRehearsal = db.prepare(
     `SELECT ${rehearsalColumns} FROM rehearsals WHERE group_id = ? AND id = ?`,
@@ -1079,19 +1125,10 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const changeRehearsalStatus = db.prepare(
     "UPDATE rehearsals SET status = 'confirmed' WHERE group_id = ? AND id = ?",
   );
-  const changeRehearsalEnd = db.prepare(
-    "UPDATE rehearsals SET end_date = ? WHERE group_id = ? AND id = ?",
+  const changeRehearsalNotes = db.prepare(
+    "UPDATE rehearsals SET notes = ? WHERE group_id = ? AND id = ?",
   );
   const removeRehearsal = db.prepare("DELETE FROM rehearsals WHERE group_id = ? AND id = ?");
-  const selectCancellations = db.prepare(
-    "SELECT date FROM rehearsal_cancellations WHERE rehearsal_id = ? ORDER BY date",
-  );
-  const insertCancellation = db.prepare(
-    "INSERT OR IGNORE INTO rehearsal_cancellations (rehearsal_id, date) VALUES (?, ?)",
-  );
-  const removeCancellation = db.prepare(
-    "DELETE FROM rehearsal_cancellations WHERE rehearsal_id = ? AND date = ?",
-  );
   const upsertRsvp = db.prepare(
     `INSERT INTO rsvps (rehearsal_id, member_id, date, answer, updated_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (rehearsal_id, member_id, date)
@@ -1100,7 +1137,6 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   const removeRsvp = db.prepare(
     "DELETE FROM rsvps WHERE rehearsal_id = ? AND member_id = ? AND date = ?",
   );
-  const removeRsvpsAfter = db.prepare("DELETE FROM rsvps WHERE rehearsal_id = ? AND date > ?");
   const selectGroupRsvps = db.prepare(
     `SELECT rsvps.rehearsal_id, rsvps.member_id, rsvps.date, rsvps.answer
      FROM rsvps JOIN rehearsals ON rehearsals.id = rsvps.rehearsal_id
@@ -1116,13 +1152,18 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       endDate: row.end_date,
       startMinute: row.start_minute,
       endMinute: row.end_minute,
-      // Availability has no skips since migration 11; rehearsals keep cancellations.
+      // Availability has no skips since migration 11.
       skips: [],
     };
   }
 
-  type RehearsalRow = SlotRow & {
+  type RehearsalRow = {
+    id: string;
+    date: string;
+    start_minute: number;
+    end_minute: number;
     location: string;
+    notes: string;
     status: RehearsalStatus;
     request_id: string | null;
   };
@@ -1130,15 +1171,13 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   function toRehearsal(row: RehearsalRow): Rehearsal {
     return {
       id: row.id,
-      kind: row.kind,
-      startDate: row.start_date,
-      endDate: row.end_date,
+      date: row.date,
       startMinute: row.start_minute,
       endMinute: row.end_minute,
       location: row.location,
+      notes: row.notes,
       status: row.status,
       requestId: row.request_id,
-      skips: (selectCancellations.all(row.id) as { date: string }[]).map((item) => item.date),
     };
   }
 
@@ -1173,15 +1212,6 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       db.exec("ROLLBACK");
       throw error;
     }
-  }
-
-  /** Whether `memberId` may answer for `date` of the group's rehearsal. */
-  function canAnswer(groupId: string, rehearsalId: string, memberId: string, date: string) {
-    const rehearsal = findRehearsal(groupId, rehearsalId);
-    if (!rehearsal || !isToken(memberId) || !selectMember.get(groupId, memberId)) return false;
-    const meets =
-      rehearsal.kind === "once" ? date === rehearsal.startDate : isOccurrence(rehearsal, date);
-    return meets && !rehearsal.skips.includes(date);
   }
 
   function writeRsvp(
@@ -1231,26 +1261,27 @@ function buildStore(db: DatabaseSync, filename: string): Store {
   function addRehearsal(
     groupId: string,
     requestId: string,
-    input: SlotInput,
+    input: RehearsalInput,
     location: string,
+    notes = "",
   ): Rehearsal {
     if (!findRequest(groupId, requestId)) {
       throw new Error("A rehearsal can only be proposed from one of its group's requests.");
     }
     const id = newToken();
+    const { date, startMinute, endMinute } = input;
     insertRehearsal.run(
       id,
       groupId,
-      input.kind,
-      input.startDate,
-      input.endDate,
-      input.startMinute,
-      input.endMinute,
+      date,
+      startMinute,
+      endMinute,
       location,
+      notes,
       new Date().toISOString(),
       requestId,
     );
-    return { ...input, id, location, status: "proposed", requestId, skips: [] };
+    return { id, date, startMinute, endMinute, location, notes, status: "proposed", requestId };
   }
 
   return {
@@ -1422,9 +1453,9 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       return slots;
     },
     addRehearsal,
-    addRehearsals(groupId, requestId, inputs, location) {
+    addRehearsals(groupId, requestId, inputs, location, notes = "") {
       return transaction(() =>
-        inputs.map((input) => addRehearsal(groupId, requestId, input, location)),
+        inputs.map((input) => addRehearsal(groupId, requestId, input, location, notes)),
       );
     },
     listRehearsals(groupId) {
@@ -1435,41 +1466,19 @@ function buildStore(db: DatabaseSync, filename: string): Store {
       if (!isToken(rehearsalId)) return false;
       return Number(changeRehearsalStatus.run(groupId, rehearsalId).changes) > 0;
     },
-    endRehearsal(groupId, rehearsalId, endDate) {
-      const existing = findRehearsal(groupId, rehearsalId);
-      if (!existing || existing.kind !== "weekly" || endDate < existing.startDate) return null;
-      return transaction(() => {
-        changeRehearsalEnd.run(endDate, groupId, rehearsalId);
-        // Cancellations and answers after the new last date no longer mean anything.
-        for (const date of existing.skips) {
-          if (date > endDate) removeCancellation.run(rehearsalId, date);
-        }
-        removeRsvpsAfter.run(rehearsalId, endDate);
-        return findRehearsal(groupId, rehearsalId);
-      });
-    },
-    setCancelled(groupId, rehearsalId, date, cancelled) {
-      const rehearsal = findRehearsal(groupId, rehearsalId);
-      if (!rehearsal || !isOccurrence(rehearsal, date)) return false;
-      if (cancelled) insertCancellation.run(rehearsalId, date);
-      else removeCancellation.run(rehearsalId, date);
-      return true;
+    setNotes(groupId, rehearsalId, notes) {
+      if (!isToken(rehearsalId)) return null;
+      if (Number(changeRehearsalNotes.run(notes, groupId, rehearsalId).changes) === 0) return null;
+      return findRehearsal(groupId, rehearsalId);
     },
     deleteRehearsal(groupId, rehearsalId) {
       if (!isToken(rehearsalId)) return false;
       return Number(removeRehearsal.run(groupId, rehearsalId).changes) > 0;
     },
-    setRsvp(groupId, rehearsalId, memberId, date, answer) {
-      if (!canAnswer(groupId, rehearsalId, memberId, date)) return false;
-      writeRsvp(rehearsalId, memberId, date, answer);
-      return true;
-    },
-    setRsvps(groupId, rehearsalId, memberId, dates, answer) {
-      if (dates.length === 0) return false;
-      if (!dates.every((date) => canAnswer(groupId, rehearsalId, memberId, date))) return false;
-      transaction(() => {
-        for (const date of dates) writeRsvp(rehearsalId, memberId, date, answer);
-      });
+    setRsvp(groupId, rehearsalId, memberId, answer) {
+      const rehearsal = findRehearsal(groupId, rehearsalId);
+      if (!rehearsal || !isToken(memberId) || !selectMember.get(groupId, memberId)) return false;
+      writeRsvp(rehearsalId, memberId, rehearsal.date, answer);
       return true;
     },
     listRsvps(groupId) {

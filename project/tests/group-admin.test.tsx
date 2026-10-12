@@ -60,19 +60,18 @@ async function band() {
   store.setCalendarSync(group.id, cellist.id, true);
   const today = todayInZone(ZONE, new Date());
   const firstDate = addDays(today, 7);
-  const rehearsal = store.addRehearsal(
+  const [rehearsal, second] = store.addRehearsals(
     group.id,
     requestIn(group.id),
-    {
-      kind: "weekly",
-      startDate: firstDate,
-      endDate: addDays(firstDate, 7),
+    [0, 7].map((days) => ({
+      date: addDays(firstDate, days),
       startMinute: 19 * 60,
       endMinute: 21 * 60,
-    },
+    })),
     "Studio",
   );
   store.confirmRehearsal(group.id, rehearsal.id);
+  store.confirmRehearsal(group.id, second.id);
   store.addSlot(cellist.id, {
     kind: "once",
     startDate: firstDate,
@@ -80,7 +79,7 @@ async function band() {
     startMinute: 1140,
     endMinute: 1260,
   });
-  store.setRsvp(group.id, rehearsal.id, cellist.id, firstDate, "yes");
+  store.setRsvp(group.id, rehearsal.id, cellist.id, "yes");
   const target = { memberId: cellist.id, groupId: group.id, accountId: account.id };
   await syncMember(target);
   return {
@@ -156,8 +155,9 @@ describe("group settings", () => {
   });
 
   it("keeps a pending removal through a rename, so the next sync still removes it", async () => {
-    const { store, group, organizerCookie, rehearsal, firstDate, target } = await band();
-    store.setCancelled(group.id, rehearsal.id, firstDate, true);
+    const { store, group, organizerCookie, rehearsal, cellist, firstDate, target } = await band();
+    // Saying No takes the first date off the member's calendar.
+    store.setRsvp(group.id, rehearsal.id, cellist.id, "no");
     // The removal fails once and stays recorded.
     google.queue.set("DELETE /calendars/primary/events/", [{ status: 500 }]);
     await syncMember(target).catch(() => {});

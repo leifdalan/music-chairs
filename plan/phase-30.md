@@ -28,3 +28,7 @@ Links are "name + short secret": readable as the group but not guessable; reques
 ## Brief refs
 
 - [`../briefs/BRIEF.md`](../briefs/BRIEF.md) — "Joining and identity".
+
+## Inherited from Phase 29
+
+Pinned by [Phase 29](phase-29.md): every rehearsal is one date and time; a member answers it on its schedule card (`#rehearsal-<id>` on the group's schedule), which is where a proposed-rehearsal link should land; rehearsals carry an organizer's notes. Weekly rehearsals and per-date cancelling no longer exist.

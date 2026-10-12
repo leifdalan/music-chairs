@@ -1,5 +1,5 @@
-// Availability rules: parsing a slot form, expanding weekly patterns into
-// dates, and the group-zone calendar helpers. Every date is a YYYY-MM-DD
+// Availability: members' times (one-off dates since plan/phase-23.md) and
+// the group-zone calendar helpers. Every date is a YYYY-MM-DD
 // calendar date and every time is minutes after midnight, both meaning
 // wall-clock time in the group's time zone (plan/phase-2.md, Decisions).
 
@@ -16,19 +16,6 @@ export type SlotInput = {
 export type Slot = SlotInput & { id: string; skips: string[] };
 
 export type Occurrence = { slotId: string; date: string; startMinute: number; endMinute: number };
-
-export type SlotFormValues = {
-  kind: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-};
-
-export type SlotErrors = Partial<Record<keyof SlotFormValues, string>>;
-
-export type SlotParse =
-  { ok: true; value: SlotInput } | { ok: false; errors: SlotErrors; values: SlotFormValues };
 
 export const LOCATION_MAX = 120;
 
@@ -216,60 +203,6 @@ export function parseTime(value: string, label: string, end: boolean): number | 
   return `${label} is not a valid time.`;
 }
 
-/** Validates the add/edit form; one-off slots ignore any end date. */
-export function parseSlotInput(form: FormData): SlotParse {
-  const field = (name: string) => {
-    const value = form.get(name);
-    return typeof value === "string" ? value.trim() : "";
-  };
-  const values: SlotFormValues = {
-    kind: field("kind"),
-    startDate: field("startDate"),
-    endDate: field("endDate"),
-    startTime: field("startTime"),
-    endTime: field("endTime"),
-  };
-  const errors: SlotErrors = {};
-  const kind = values.kind === "once" || values.kind === "weekly" ? values.kind : null;
-  if (!kind) errors.kind = "Choose one-off or every week.";
-  if (!isDate(values.startDate)) {
-    errors.startDate = values.startDate ? "Enter a valid date." : "Date is required.";
-  }
-  const start = parseTime(values.startTime, "Start time", false);
-  const end = parseTime(values.endTime, "End time", true);
-  if (typeof start === "string") errors.startTime = start;
-  if (typeof end === "string") errors.endTime = end;
-  if (typeof start === "number" && typeof end === "number" && end <= start) {
-    errors.endTime = "End time must be after the start time.";
-  }
-  let endDate: string | null = null;
-  if (kind === "weekly" && values.endDate) {
-    if (!isDate(values.endDate)) errors.endDate = "Enter a valid end date.";
-    else if (isDate(values.startDate) && values.endDate < values.startDate) {
-      errors.endDate = "The end date can't be before the first date.";
-    } else endDate = values.endDate;
-  }
-  if (
-    Object.keys(errors).length > 0 ||
-    !kind ||
-    typeof start !== "number" ||
-    typeof end !== "number"
-  ) {
-    return { ok: false, errors, values };
-  }
-  return {
-    ok: true,
-    value: { kind, startDate: values.startDate, endDate, startMinute: start, endMinute: end },
-  };
-}
-
-/** Whether a weekly slot meets on `date`, before skips are applied. */
-export function isOccurrence(slot: SlotInput, date: string): boolean {
-  if (slot.kind !== "weekly" || !isDate(date)) return false;
-  if (date < slot.startDate || (slot.endDate !== null && date > slot.endDate)) return false;
-  return daysBetween(slot.startDate, date) % 7 === 0;
-}
-
 /** Every unskipped occurrence between `from` and `to`, both inclusive. */
 export function expandOccurrences(slots: Slot[], from: string, to: string): Occurrence[] {
   const occurrences: Occurrence[] = [];
@@ -302,23 +235,4 @@ export function expandOccurrences(slots: Slot[], from: string, to: string): Occu
 /** The last date of the overlap and answer window that starts `today`. */
 export function windowEnd(today: string): string {
   return addDays(today, UPCOMING_WEEKS * 7 - 1);
-}
-
-/**
- * The dates members can answer for (and that go on their calendars): from
- * `today` to `until` (or a one-off's own date beyond it), skipped dates
- * excluded. Answers, Google writes and the feed share this one definition.
- */
-export function offeredDates(slot: Slot, today: string, until: string): string[] {
-  const last = slot.kind === "once" && slot.startDate > until ? slot.startDate : until;
-  return expandOccurrences([slot], today, last).map((occurrence) => occurrence.date);
-}
-
-/** "Every Thursday from 1 Oct until 24 Dec" or "Thu 8 Oct". */
-export function describeSlot(slot: SlotInput): string {
-  const times = timeRange(slot.startMinute, slot.endMinute);
-  if (slot.kind === "once") return `${formatDate(slot.startDate)}, ${times}`;
-  const from = formatDate(slot.startDate).slice(4);
-  const until = slot.endDate ? ` until ${formatDate(slot.endDate).slice(4)}` : "";
-  return `Every ${weekdayName(slot.startDate)} from ${from}${until}, ${times}`;
 }

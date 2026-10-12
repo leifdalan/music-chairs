@@ -9,34 +9,28 @@ function fetchFeed(feedFile: string) {
   return loader(routeArgs(`/calendar/${feedFile}`, { feedFile })) as Response;
 }
 
-/** A UTC group with a confirmed weekly rehearsal; Cellist said No to week 2 and week 3 is cancelled. */
+/** A UTC group with three confirmed rehearsals a week apart, with notes; Cellist said No to the second. */
 function band() {
   const store = getStore();
   const { group } = store.createGroup("Quartet", "Viola", "UTC");
   const cellist = store.addMember(group.id, "Cellist", "member");
   const first = addDays(todayInZone("UTC", new Date()), 2);
-  const rehearsal = store.addRehearsal(
+  const rehearsals = store.addRehearsals(
     group.id,
     requestIn(group.id),
-    {
-      kind: "weekly",
-      startDate: first,
-      endDate: addDays(first, 21),
-      startMinute: 1140,
-      endMinute: 1260,
-    },
+    [0, 7, 21].map((days) => ({ date: addDays(first, days), startMinute: 1140, endMinute: 1260 })),
     "Studio B",
+    "Bring the Brahms parts; tune early, please.\nA long note: " + "x".repeat(80),
   );
-  store.confirmRehearsal(group.id, rehearsal.id);
-  store.setRsvp(group.id, rehearsal.id, cellist.id, addDays(first, 7), "no");
-  store.setCancelled(group.id, rehearsal.id, addDays(first, 14), true);
-  return { store, cellist, rehearsal, first };
+  for (const item of rehearsals) store.confirmRehearsal(group.id, item.id);
+  store.setRsvp(group.id, rehearsals[1].id, cellist.id, "no");
+  return { store, cellist, rehearsal: rehearsals[0], first };
 }
 
 const stamp = (date: string, time: string) => `${date.replace(/-/g, "")}T${time}Z`;
 
 describe("a member's calendar feed", () => {
-  it("lists their confirmed dates, without dates they said No to or cancelled dates", async () => {
+  it("lists their confirmed rehearsals with notes, without those they said No to", async () => {
     const { store, cellist, rehearsal, first } = band();
     const token = store.feedTokenFor(cellist.id);
 
@@ -50,9 +44,17 @@ describe("a member's calendar feed", () => {
     expect(text).toContain(`DTSTART:${stamp(first, "190000")}`);
     expect(text).toContain(`DTSTART:${stamp(addDays(first, 21), "190000")}`);
     expect(text).not.toContain(stamp(addDays(first, 7), "190000"));
-    expect(text).not.toContain(stamp(addDays(first, 14), "190000"));
     expect(text).toContain(`UID:${rehearsal.id}-${first}@music-chairs`);
     expect(text).toContain("LOCATION:Studio B");
+    // Notes lead the description, escaped (comma, semicolon, line break) and folded.
+    const unfolded = text.replace(/\r\n /g, "");
+    expect(unfolded).toContain(
+      "DESCRIPTION:Bring the Brahms parts\\; tune early\\, please.\\nA long note: " +
+        "x".repeat(80),
+    );
+    expect(text.split("\r\n").every((line) => new TextEncoder().encode(line).length <= 75)).toBe(
+      true,
+    );
   });
 
   it("carries quarter-hour times", async () => {
@@ -61,13 +63,7 @@ describe("a member's calendar feed", () => {
     const later = store.addRehearsal(
       group.id,
       requestIn(group.id),
-      {
-        kind: "once",
-        startDate: addDays(first, 1),
-        endDate: null,
-        startMinute: 1155,
-        endMinute: 1305,
-      },
+      { date: addDays(first, 1), startMinute: 1155, endMinute: 1305 },
       "Hall",
     );
     store.confirmRehearsal(group.id, later.id);

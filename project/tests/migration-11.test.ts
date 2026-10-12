@@ -54,7 +54,7 @@ describe("migration 11", () => {
         ('wd2', 'd', 'weekly', '${later}', NULL, 1140, 1320, '2026-10-01');
     `);
 
-    migrate(db);
+    migrate(db, MIGRATIONS.slice(0, 11));
 
     expect((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(
       11,

@@ -38,8 +38,8 @@ const once = (date: string, location = "Hall") => ({
 
 /**
  * Viola (organizer), Cellist and Pianist. "Autumn concert" (open) has a
- * proposed rehearsal Cellist answered, a weekly confirmed one with a cancelled
- * date, and a past confirmed one; "Summer tour" is closed with a proposed one;
+ * proposed rehearsal Cellist answered, confirmed ones on Tue 6 and Tue 20 Oct
+ * (none on the 13th), and a past confirmed one; "Summer tour" is closed with a proposed one;
  * "Spring" ended with nothing.
  */
 async function band() {
@@ -56,22 +56,25 @@ async function band() {
     endDate: "2026-10-31",
     windows: [EVENING],
   });
-  const add = (requestId: string, slot: ReturnType<typeof once>) => {
-    const { location, ...input } = slot;
-    return store.addRehearsal(group.id, requestId, input, location);
-  };
+  const add = (requestId: string, slot: ReturnType<typeof once>) =>
+    store.addRehearsal(
+      group.id,
+      requestId,
+      { date: slot.startDate, startMinute: slot.startMinute, endMinute: slot.endMinute },
+      slot.location,
+    );
   const proposed = add(autumn.id, once("2026-10-08"));
-  store.setRsvp(group.id, proposed.id, cellist.id, "2026-10-08", "yes");
-  const weekly = store.addRehearsal(
+  store.setRsvp(group.id, proposed.id, cellist.id, "yes");
+  const [tuesday, later] = store.addRehearsals(
     group.id,
     autumn.id,
-    { kind: "weekly", startDate: "2026-10-06", endDate: null, startMinute: 1140, endMinute: 1260 },
+    ["2026-10-06", "2026-10-20"].map((date) => ({ date, startMinute: 1140, endMinute: 1260 })),
     "Studio",
   );
-  store.confirmRehearsal(group.id, weekly.id);
-  store.setCancelled(group.id, weekly.id, "2026-10-13", true);
+  store.confirmRehearsal(group.id, tuesday.id);
+  store.confirmRehearsal(group.id, later.id);
   // An answer on another rehearsal, which the proposed one's count must not include.
-  store.setRsvp(group.id, weekly.id, pianist.id, "2026-10-06", "no");
+  store.setRsvp(group.id, tuesday.id, pianist.id, "no");
   const past = add(autumn.id, once("2026-09-29", "Old hall"));
   store.confirmRehearsal(group.id, past.id);
   const summer = store.createRequest(group.id, {
@@ -95,7 +98,7 @@ async function band() {
     summer,
     spring,
     proposed,
-    weekly,
+    tuesday,
     touring,
     organizerCookie: await deviceCookie(group.id, organizer.deviceToken),
     cellistCookie: await deviceCookie(group.id, cellist.deviceToken),
@@ -204,7 +207,7 @@ describe("the group page", () => {
     expect(upcoming).toContain("Tue 20 Oct, 7–9 PM");
     expect(upcoming).toContain("Studio");
     expect(upcoming).toContain("Autumn concert");
-    // Cancelled, past and proposed dates aren't upcoming rehearsals.
+    // Missing, past and proposed dates aren't upcoming rehearsals.
     expect(upcoming).not.toContain("Tue 13 Oct");
     expect(upcoming).not.toContain("29 Sep");
     expect(upcoming).not.toContain("Thu 8 Oct");
@@ -251,7 +254,7 @@ describe("the group page", () => {
     const far = store.addRehearsal(
       b.group.id,
       b.autumn.id,
-      { kind: "once", startDate: "2026-12-10", endDate: null, startMinute: 1140, endMinute: 1260 },
+      { date: "2026-12-10", startMinute: 1140, endMinute: 1260 },
       "Far hall",
     );
     store.confirmRehearsal(b.group.id, far.id);
@@ -271,7 +274,7 @@ describe("the request page", () => {
     const list = section(asMember, "proposed-heading");
     expect(list).toContain("Thu 8 Oct, 7–9 PM");
     expect(list).toContain("1 of 3 answered");
-    expect(list).toContain("Every Tuesday from 6 Oct, 7–9 PM");
+    expect(list).toContain("Tue 6 Oct, 7–9 PM");
     expect(list).toContain("Confirmed");
     expect(list).not.toContain("29 Sep");
     expect(list).toContain(

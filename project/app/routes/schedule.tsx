@@ -1,7 +1,12 @@
 import { data, Form, Link, redirect } from "react-router";
 
 import { groupFromAddress } from "~/.server/group-address";
-import { calendarViewer, googleWriteState, scheduleSync } from "~/.server/calendar-sync";
+import {
+  calendarViewer,
+  googleWriteState,
+  rewriteGroupEvents,
+  scheduleSync,
+} from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { CALENDAR_SCOPES } from "~/.server/google";
@@ -22,16 +27,13 @@ import {
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { FreeCalendar } from "~/components/free-calendar";
 import { PayoffBody } from "~/components/payoff-card";
+import { NotesField } from "~/components/propose-times";
 import { ProblemAlert } from "~/components/problem-alert";
 import { SubmitButton } from "~/components/submit-button";
 import {
   addDays,
-  describeSlot,
   expandOccurrences,
   formatDate,
-  isDate,
-  isOccurrence,
-  offeredDates,
   timeRange,
   todayInZone,
   weekdayName,
@@ -51,6 +53,7 @@ import { buttonVariants } from "~/components/ui/button";
 import { Switch, useSwitch } from "~/components/view-switch";
 import { dayHeat } from "~/lib/heat";
 import { answerable, nextWeekday } from "~/lib/requests";
+import { describeRehearsal, isUpcoming, validateNotes } from "~/lib/rehearsal";
 import { missingSentence, missingSummaries } from "~/lib/warnings";
 import { zoneLabel } from "~/lib/time-zones";
 
@@ -94,10 +97,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const today = todayInZone(group.timeZone, new Date());
   const until = windowEnd(today);
   const rehearsals = store.listRehearsals(group.id);
-  // Warnings reach past the overlap window for one-off rehearsals further out.
+  // Warnings reach past the overlap window for rehearsals further out.
   const laterDates = rehearsals
-    .filter((rehearsal) => rehearsal.kind === "once" && rehearsal.startDate > until)
-    .map((rehearsal) => rehearsal.startDate);
+    .filter((rehearsal) => rehearsal.date > until)
+    .map((rehearsal) => rehearsal.date);
   const cells = buildCells(members, today, until, laterDates);
 
   const days = [];
@@ -188,55 +191,35 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   function rehearsalView(rehearsal: Rehearsal) {
-    const dates = offeredDates(rehearsal, today, until);
+    const upcoming = isUpcoming(rehearsal, today);
     const view = {
       id: rehearsal.id,
-      kind: rehearsal.kind,
       status: rehearsal.status,
       location: rehearsal.location,
+      notes: rehearsal.notes,
       startMinute: rehearsal.startMinute,
       endMinute: rehearsal.endMinute,
       requestId: rehearsal.requestId,
       requestName: rehearsal.requestId ? (requestNames.get(rehearsal.requestId) ?? null) : null,
-      summary: describeSlot(rehearsal),
-      // Members who answered at least one of its dates (plan/phase-24.md).
-      answered: new Set(
-        [...answers]
-          .filter(([key]) => key.startsWith(`${rehearsal.id}|`))
-          .flatMap(([, byMember]) => [...byMember.keys()]),
-      ).size,
+      summary: describeRehearsal(rehearsal),
+      // Members who answered it (plan/phase-24.md).
+      answered: (answers.get(`${rehearsal.id}|${rehearsal.date}`) ?? new Map()).size,
       memberCount: members.length,
-      dates: dates.map((date) => dateView(rehearsal, date)),
+      // Its one date while it can still be answered (plan/phase-29.md).
+      date: upcoming ? dateView(rehearsal, rehearsal.date) : null,
     };
     if (!isOrganizer) return { ...view, organizer: null };
-    // One summary per set of required members who aren't free (plan/phase-25.md).
+    // Who required isn't free, said once (plan/phase-25.md).
+    const missingNames = upcoming
+      ? missingRequired(
+          members,
+          freeDuring(cells, rehearsal.date, rehearsal.startMinute, rehearsal.endMinute),
+        ).map((member) => member.displayName)
+      : [];
     const missing = missingSummaries(
-      dates
-        .map((date) => ({
-          date,
-          missing: missingRequired(
-            members,
-            freeDuring(cells, date, rehearsal.startMinute, rehearsal.endMinute),
-          ).map((member) => member.displayName),
-        }))
-        .filter((warning) => warning.missing.length > 0),
+      missingNames.length > 0 ? [{ date: rehearsal.date, missing: missingNames }] : [],
     );
-    const runsPastWindow =
-      rehearsal.kind === "weekly" && (rehearsal.endDate === null || rehearsal.endDate > until);
-    return {
-      ...view,
-      organizer: {
-        missing,
-        uncheckedAfter: runsPastWindow ? until : null,
-        // Every date in the window the pattern meets, cancelled or not, for the toggles.
-        weeks:
-          rehearsal.kind === "weekly"
-            ? expandOccurrences([{ ...rehearsal, skips: [] }], today, until).map((o) => o.date)
-            : [],
-        cancelled: rehearsal.skips,
-        endDate: rehearsal.endDate,
-      },
-    };
+    return { ...view, organizer: { missing } };
   }
 }
 
@@ -261,14 +244,9 @@ const TIMES_THAT_WORKED = 6;
  * most recent first, each with the next date on its weekday from today.
  */
 function timesThatWorked(rehearsals: Rehearsal[], today: string) {
-  const yesterday = addDays(today, -1);
   const met = rehearsals
-    .filter((rehearsal) => rehearsal.status === "confirmed" && rehearsal.startDate <= yesterday)
-    .map((rehearsal) => ({
-      rehearsal,
-      last: expandOccurrences([rehearsal], rehearsal.startDate, yesterday).at(-1)?.date,
-    }))
-    .filter((item): item is { rehearsal: Rehearsal; last: string } => item.last !== undefined)
+    .filter((rehearsal) => rehearsal.status === "confirmed" && rehearsal.date < today)
+    .map((rehearsal) => ({ rehearsal, last: rehearsal.date }))
     .sort((a, b) => b.last.localeCompare(a.last));
   const seen = new Set<string>();
   const times = [];
@@ -369,31 +347,18 @@ export async function action({ request, params }: Route.ActionArgs) {
     return form.get("returnTo") === "/" ? redirectWithToast("/", message) : back(message);
   }
 
-  if (intent === "rsvp" || intent === "rsvp-all") {
+  if (intent === "rsvp") {
     const rehearsal = store.findRehearsal(group.id, rehearsalId);
     if (!rehearsal) throw data(null, { status: 404 });
     const raw = form.get("answer");
     const answer = ANSWERS.find((value) => value === raw) ?? null;
     if (answer === null && raw !== "clear") return problem("Choose yes, no or maybe.");
-    const offered = offeredDates(rehearsal, today, windowEnd(today));
     // The answering member is always the viewer, never a form field.
-    if (intent === "rsvp-all") {
-      if (
-        rehearsal.kind !== "weekly" ||
-        !store.setRsvps(group.id, rehearsal.id, viewer.id, offered, answer)
-      ) {
-        return problem("There are no dates to answer for this rehearsal.");
-      }
-      syncViewer();
-      return back(answer ? `Answered ${ANSWER_LABELS[answer]} for every date` : "Answers cleared");
-    }
-    const date = form.get("date");
     if (
-      !isDate(date) ||
-      !offered.includes(date) ||
-      !store.setRsvp(group.id, rehearsal.id, viewer.id, date, answer)
+      !isUpcoming(rehearsal, today) ||
+      !store.setRsvp(group.id, rehearsal.id, viewer.id, answer)
     ) {
-      return problem("That date can't be answered. Reload the page and try again.");
+      return problem("That rehearsal can't be answered any more. Reload the page.");
     }
     syncViewer();
     return back(answer ? `Answer saved: ${ANSWER_LABELS[answer]}` : "Answer cleared");
@@ -403,51 +368,28 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   const rehearsal = store.findRehearsal(group.id, rehearsalId);
   if (!rehearsal) throw data(null, { status: 404 });
-  const what = describeSlot(rehearsal);
   if (intent === "confirm") {
     store.confirmRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
     return back("Rehearsal confirmed");
   }
   if (intent === "delete") {
-    const prompt = confirmationNeeded(form, deleteRehearsalPrompt(what));
+    const prompt = confirmationNeeded(form, deleteRehearsalPrompt(describeRehearsal(rehearsal)));
     if (prompt) return prompt;
     store.deleteRehearsal(group.id, rehearsalId);
     syncGroup(group.id);
     return back("Rehearsal deleted");
   }
-  if (intent === "end") {
-    const endDate = form.get("endDate");
-    if (!isDate(endDate) || endDate < today) {
-      return problem("Choose a last date from today onwards.");
+  // Notes (plan/phase-29.md): a confirmed rehearsal's written events are put
+  // again so members' calendars carry the new notes.
+  if (intent === "notes") {
+    const notes = validateNotes(form.get("notes"));
+    if (!notes.ok) return problem(notes.error);
+    if (notes.value !== rehearsal.notes) {
+      store.setNotes(group.id, rehearsalId, notes.value);
+      if (rehearsal.status === "confirmed") rewriteGroupEvents(group.id);
     }
-    if (endDate < rehearsal.startDate) {
-      return problem("The last date can't be before the rehearsal's first date.");
-    }
-    const prompt = confirmationNeeded(form, endPrompt(what));
-    if (prompt) return prompt;
-    if (!store.endRehearsal(group.id, rehearsalId, endDate)) {
-      return problem("The last date can't be before the rehearsal's first date.");
-    }
-    syncGroup(group.id);
-    return back("Last date set");
-  }
-  if (intent === "cancel-date" || intent === "restore-date") {
-    const date = form.get("date");
-    if (intent === "cancel-date" && isDate(date) && isOccurrence(rehearsal, date)) {
-      const prompt = confirmationNeeded(form, cancelDatePrompt(what, date));
-      if (prompt) return prompt;
-    }
-    if (
-      !isDate(date) ||
-      !store.setCancelled(group.id, rehearsalId, date, intent === "cancel-date")
-    ) {
-      return problem(
-        "That date isn't one of this rehearsal's weeks. Reload the page and try again.",
-      );
-    }
-    syncGroup(group.id);
-    return back(intent === "cancel-date" ? "Date cancelled" : "Date restored");
+    return back(notes.value ? "Notes saved" : "Notes removed");
   }
   return problem("Something went wrong. Please try again.");
 }
@@ -694,9 +636,7 @@ function RehearsalList({
 
 function RehearsalCard({ item }: { item: RehearsalItem }) {
   const organizer = item.organizer;
-  const shown = item.dates.slice(0, 4);
-  const next = item.dates[0];
-  const more = item.dates.slice(4);
+  const next = item.date;
   return (
     <li className={`rehearsal ${item.status}`} id={`rehearsal-${item.id}`}>
       {/* The payoff leads a confirmed rehearsal's card (plan/phase-26.md). */}
@@ -719,50 +659,23 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
       {item.location && !(item.status === "confirmed" && next) ? (
         <p className="hint">At {item.location}</p>
       ) : null}
+      {item.notes ? <p className="notes">{item.notes}</p> : null}
       {item.requestName ? <p className="hint">From {item.requestName}</p> : null}
       {item.status === "proposed" ? (
         <p className="hint">
           {item.answered} of {item.memberCount} answered
         </p>
       ) : null}
-      {/* The viewer's own answers, which save on each tap (plan/phase-20.md). */}
+      {/* The viewer's own answer, which saves on each tap (plan/phase-20.md). */}
       <div className="your-answer" role="group" aria-labelledby={`answer-${item.id}`}>
         <p className="area-label" id={`answer-${item.id}`}>
           Your answer
         </p>
-        {item.dates.length === 0 ? (
-          <p className="hint">No dates in the coming weeks.</p>
+        {next ? (
+          <RsvpRow rehearsalId={item.id} summary={item.summary} date={next} />
         ) : (
-          <ul className="rsvp-dates">
-            {shown.map((date) => (
-              <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
-            ))}
-          </ul>
+          <p className="hint">This date has passed.</p>
         )}
-        {more.length > 0 ? (
-          <details>
-            <summary>More dates ({more.length})</summary>
-            <ul className="rsvp-dates">
-              {more.map((date) => (
-                <RsvpRow key={date.date} rehearsalId={item.id} summary={item.summary} date={date} />
-              ))}
-            </ul>
-          </details>
-        ) : null}
-        {item.kind === "weekly" && item.dates.length > 1 ? (
-          <Form method="post" replace className="rsvp-all">
-            <input type="hidden" name="intent" value="rsvp-all" />
-            <input type="hidden" name="rehearsalId" value={item.id} />
-            <span>
-              Answer every date until {formatDate(item.dates[item.dates.length - 1].date)}:
-            </span>
-            <AnswerButtons
-              label={`every date of ${item.summary}`}
-              current={undefined}
-              feedbackPrefix={`rsvp-all-${item.id}`}
-            />
-          </Form>
-        ) : null}
       </div>
       {/* Changes for the whole group, apart from the viewer's own answer. */}
       {organizer ? (
@@ -771,7 +684,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
             For organizers
           </p>
           {organizer.missing.length > 0 ? (
-            // One calm region for the whole card, not one live region per date.
+            // One calm region for the whole card.
             <div className="warnings" role="status" aria-label="Who isn't free">
               <ul>
                 {organizer.missing.map((summary) => (
@@ -779,11 +692,6 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
                 ))}
               </ul>
             </div>
-          ) : null}
-          {organizer.uncheckedAfter ? (
-            <p className="hint">
-              Dates after {formatDate(organizer.uncheckedAfter)} aren't checked yet.
-            </p>
           ) : null}
           {item.status === "proposed" ? (
             <p className="hint">Confirming makes it a rehearsal on everyone's schedule.</p>
@@ -810,71 +718,28 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               feedbackKey={`delete-${item.id}`}
             />
           </div>
-          {item.kind === "weekly" ? (
-            <details>
-              <summary>Cancel a date or set a last date</summary>
-              <ul className="weeks">
-                {organizer.weeks.map((date) => {
-                  const cancelled = organizer.cancelled.includes(date);
-                  return (
-                    <li key={date}>
-                      <span className={cancelled ? "skipped" : undefined}>
-                        {formatDate(date)}
-                        {cancelled ? " — cancelled" : ""}
-                      </span>
-                      {cancelled ? (
-                        <Form method="post" replace>
-                          <input type="hidden" name="intent" value="restore-date" />
-                          <input type="hidden" name="rehearsalId" value={item.id} />
-                          <input type="hidden" name="date" value={date} />
-                          <SubmitButton
-                            feedbackKey={`date-${item.id}-${date}`}
-                            variant="outline"
-                            size="sm"
-                            label={`Restore ${formatDate(date)}`}
-                          >
-                            Restore
-                          </SubmitButton>
-                        </Form>
-                      ) : (
-                        <ConfirmForm
-                          fields={{ intent: "cancel-date", rehearsalId: item.id, date }}
-                          trigger="Cancel this date"
-                          triggerLabel={`Cancel ${formatDate(date)}`}
-                          triggerSize="sm"
-                          {...cancelDatePrompt(item.summary, date)}
-                          feedbackKey={`date-${item.id}-${date}`}
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-              <ConfirmForm
-                className="end-form"
-                fields={{ intent: "end", rehearsalId: item.id }}
-                trigger="Set last date"
-                {...endPrompt(item.summary)}
-                feedbackKey={`end-${item.id}`}
+          <details className="notes-edit">
+            <summary>{item.notes ? "Edit notes" : "Add notes"}</summary>
+            <Form method="post" replace className="stack">
+              <input type="hidden" name="intent" value="notes" />
+              <input type="hidden" name="rehearsalId" value={item.id} />
+              <NotesField id={`notes-${item.id}`} defaultValue={item.notes} />
+              <SubmitButton
+                feedbackKey={`notes-${item.id}`}
+                variant="outline"
+                label={`Save notes for ${item.summary}`}
               >
-                <label htmlFor={`end-${item.id}`}>Last date</label>
-                <input
-                  id={`end-${item.id}`}
-                  name="endDate"
-                  type="date"
-                  required
-                  defaultValue={organizer.endDate ?? ""}
-                />
-              </ConfirmForm>
-            </details>
-          ) : null}
+                Save notes
+              </SubmitButton>
+            </Form>
+          </details>
         </div>
       ) : null}
     </li>
   );
 }
 
-type DateItem = RehearsalItem["dates"][number];
+type DateItem = NonNullable<RehearsalItem["date"]>;
 
 const ANSWER_LABELS: Record<RsvpAnswer, string> = { yes: "Yes", no: "No", maybe: "Maybe" };
 
@@ -885,7 +750,7 @@ function AnswerButtons({
   feedbackPrefix,
 }: {
   label: string;
-  current: RsvpAnswer | null | undefined;
+  current: RsvpAnswer | null;
   feedbackPrefix: string;
 }) {
   return (
@@ -898,8 +763,7 @@ function AnswerButtons({
           value={answer}
           variant={current === answer ? "default" : "outline"}
           className={current === answer ? "answer chosen" : "answer"}
-          // Per-date buttons toggle a current answer; answer-all buttons are plain actions.
-          pressed={current === undefined ? undefined : current === answer}
+          pressed={current === answer}
           label={`${ANSWER_LABELS[answer]} for ${label}`}
         >
           {ANSWER_LABELS[answer]}
@@ -919,25 +783,21 @@ function RsvpRow({
   date: DateItem;
 }) {
   const { counts, names } = date;
-  // Names the rehearsal too, so two rehearsals on one date stay distinguishable.
-  const subject = `${formatDate(date.date)} (${summary})`;
+  // The rehearsal's date and time, so two rehearsals on one date stay distinguishable.
+  const subject = summary;
   const lines = names
     ? ANSWERS.filter((answer) => names[answer].length > 0)
         .map((answer) => `${ANSWER_LABELS[answer]}: ${names[answer].join(", ")}`)
         .concat(names.none && names.none.length > 0 ? [`No answer: ${names.none.join(", ")}`] : [])
     : [];
   return (
-    <li className="rsvp-date">
-      <p className="rsvp-heading">
-        <strong>{formatDate(date.date)}</strong>
-        <span className="hint">
-          {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
-        </span>
+    <div className="rsvp">
+      <p className="rsvp-heading hint">
+        {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
       </p>
       <Form method="post" replace className="rsvp-form">
         <input type="hidden" name="intent" value="rsvp" />
         <input type="hidden" name="rehearsalId" value={rehearsalId} />
-        <input type="hidden" name="date" value={date.date} />
         <AnswerButtons
           label={subject}
           current={date.mine}
@@ -961,7 +821,7 @@ function RsvpRow({
           {line}
         </p>
       ))}
-    </li>
+    </div>
   );
 }
 
@@ -1054,22 +914,6 @@ function deleteRehearsalPrompt(summary: string) {
     title: "Delete this rehearsal?",
     body: `${summary} and everyone's answers to it will be deleted, and it comes off members' calendars.`,
     label: "Delete rehearsal",
-  };
-}
-
-function endPrompt(summary: string) {
-  return {
-    title: "End this rehearsal?",
-    body: `${summary} won't happen after the last date you chose; later dates and their answers go, and they come off members' calendars.`,
-    label: "Set last date",
-  };
-}
-
-function cancelDatePrompt(summary: string, date: string) {
-  return {
-    title: `Cancel ${formatDate(date)}?`,
-    body: `${summary} won't happen on ${formatDate(date)}, and that date comes off members' calendars. You can restore it later.`,
-    label: "Cancel this date",
   };
 }
 

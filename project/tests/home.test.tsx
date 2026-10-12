@@ -353,7 +353,7 @@ describe("everything waiting on you, first", () => {
     const rehearsal = store.addRehearsal(
       group.id,
       request.id,
-      { kind: "once", startDate: date, endDate: null, startMinute: 1140, endMinute: 1260 },
+      { date: date, startMinute: 1140, endMinute: 1260 },
       "Hall",
     );
     return { store, group, member, request, rehearsal, date };
@@ -372,6 +372,7 @@ describe("everything waiting on you, first", () => {
         groupName: "Waiting Band",
         rehearsalId: rehearsal.id,
         summary: expect.any(String),
+        notes: "",
         requestName: "Waiting Band gig",
       },
     ]);
@@ -385,9 +386,9 @@ describe("everything waiting on you, first", () => {
     expect(progress).toContain(`href="${groupPath(group)}/requests/${request.id}"`);
   });
 
-  it("drops a proposal the member answered on any date", async () => {
-    const { store, group, member, rehearsal, date } = proposal("Answered Band");
-    store.setRsvp(group.id, rehearsal.id, member.id, date, "no");
+  it("drops a proposal the member answered", async () => {
+    const { store, group, member, rehearsal } = proposal("Answered Band");
+    store.setRsvp(group.id, rehearsal.id, member.id, "no");
 
     expect((await home(await deviceCookie(group.id, member.deviceToken))).proposals).toEqual([]);
   });
