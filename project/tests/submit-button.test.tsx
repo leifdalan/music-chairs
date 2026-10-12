@@ -2,7 +2,13 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import { IDLE, nextFeedback, SAVED_MS, SubmitButton } from "../app/components/submit-button";
+import {
+  ButtonLabels,
+  IDLE,
+  SAVED_MS,
+  SubmitButton,
+  nextFeedback,
+} from "../app/components/submit-button";
 
 const pressed = nextFeedback(IDLE, { type: "press", key: "save", toastId: "t1", now: 1000 });
 
@@ -58,9 +64,38 @@ describe("submit button feedback", () => {
     ]);
     const html = renderToString(<Stub initialEntries={["/"]} />);
 
-    expect(html).toContain(">Save</button>");
+    // The label shows; "Saving…" and "Saved ✓" keep their space, hidden (plan/phase-33.md).
+    expect(html).toContain('<span class="button-label" data-shown="true">Save</span>');
+    expect(html).toMatch(
+      /<span class="button-label button-label-saving" data-shown="false" aria-hidden="true">.*Saving…<\/span>/,
+    );
+    expect(html).toContain(
+      '<span class="button-label" data-shown="false" aria-hidden="true">Saved ✓</span>',
+    );
     expect(html).toContain('aria-label="Save Thursday"');
     // The attribute, not the `disabled:` utility variants in the class.
     expect(html).not.toMatch(/\sdisabled(=|\s|>)/);
+  });
+});
+
+describe("a progress button's labels (plan/phase-33.md)", () => {
+  it.each([
+    [null, "Save"],
+    ["saving", "Saving…"],
+    ["saved", "Saved ✓"],
+  ] as const)("show only the current one in %s, keeping the others' space", (status, current) => {
+    const html = renderToString(<ButtonLabels status={status}>Save</ButtonLabels>);
+    const cells = [
+      ...html.matchAll(
+        /<span class="button-label[^"]*" data-shown="(true|false)"( aria-hidden="true")?>(.*?)<\/span>(?=<span class="button-label|<\/span>$)/g,
+      ),
+    ].map((match) => ({
+      shown: match[1] === "true",
+      hidden: Boolean(match[2]),
+      text: match[3].replace(/<[^>]+>/g, ""),
+    }));
+    expect(cells.map((cell) => cell.text)).toEqual(["Save", "Saving…", "Saved ✓"]);
+    expect(cells.filter((cell) => cell.shown).map((cell) => cell.text)).toEqual([current]);
+    for (const cell of cells) expect(cell.hidden).toBe(!cell.shown);
   });
 });

@@ -89,7 +89,7 @@ function GroupCard({ group }: { group: GroupItem }) {
         <summary>Manage this group</summary>
         <div className="stack">
           {organizer ? (
-            <Form method="post" action={group.path} className="rename-form">
+            <Form method="post" action={group.path} preventScrollReset className="rename-form">
               <input type="hidden" name="intent" value="update-group" />
               <input type="hidden" name="timeZone" value={group.timeZone} />
               <input type="hidden" name="returnTo" value="/groups" />

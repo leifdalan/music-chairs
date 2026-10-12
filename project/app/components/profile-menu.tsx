@@ -44,6 +44,7 @@ export function ProfileMenu() {
         {profile.member ? (
           <Form
             method="post"
+            preventScrollReset
             action={`${profile.member.groupHref}/profile`}
             className="stack"
             key={`${profile.member.groupHref}-${profile.member.displayName}-${profile.member.instrument}`}

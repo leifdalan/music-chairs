@@ -1,4 +1,5 @@
-import { data, Form, Link, redirect } from "react-router";
+import { useEffect, useRef } from "react";
+import { data, Form, Link, redirect, useLocation, useNavigation } from "react-router";
 
 import { groupFromAddress } from "~/.server/group-address";
 import {
@@ -10,7 +11,7 @@ import {
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
-import { findViewer, publicOrigin } from "~/.server/membership";
+import { findViewer, keptView, publicOrigin } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
 import {
   getStore,
@@ -338,7 +339,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
-  const back = (message: string) => redirectWithToast(`${groupPath(group)}/schedule`, message);
+  const back = (message: string) =>
+    redirectWithToast(`${groupPath(group)}/schedule${keptView(request)}`, message);
   const syncViewer = () =>
     scheduleSync(store.listSyncingMembers(group.id).filter((m) => m.memberId === viewer.id));
 
@@ -410,7 +412,51 @@ export async function action({ request, params }: Route.ActionArgs) {
   return problem("Something went wrong. Please try again.");
 }
 
+/**
+ * After an action, focus goes somewhere sensible without scrolling
+ * (plan/phase-33.md, the page stays put). The pressed button is remembered when
+ * its form is sent: if the action removed it (confirming or deleting a
+ * rehearsal), focus goes to the heading of the list it was in; if it is still
+ * there but out of reach (Clear, once nothing is left to clear), to the first
+ * answer beside it. Otherwise focus is left alone: some browsers never focus a
+ * tapped button, and that is not a removal.
+ */
+function useFocusAfterRemoval() {
+  const navigation = useNavigation();
+  const pressed = useRef<{ button: HTMLElement; heading: HTMLElement | null } | null>(null);
+  useEffect(() => {
+    const remember = (event: SubmitEvent) => {
+      const button = event.submitter;
+      if (!(button instanceof HTMLElement)) return;
+      const heading = button.closest("section")?.querySelector<HTMLElement>("h2[id]") ?? null;
+      pressed.current = { button, heading };
+    };
+    document.addEventListener("submit", remember, true);
+    return () => document.removeEventListener("submit", remember, true);
+  }, []);
+  useEffect(() => {
+    if (navigation.state !== "idle" || !pressed.current) return;
+    const { button, heading } = pressed.current;
+    pressed.current = null;
+    // After the confirm dialog has closed and handed focus back, if it can.
+    const timer = setTimeout(() => {
+      if (!button.isConnected) {
+        if (!heading?.isConnected) return;
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      } else if (button.closest("[inert]") && document.activeElement === document.body) {
+        button
+          .closest("form")
+          ?.querySelector<HTMLElement>(".answers button")
+          ?.focus({ preventScroll: true });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [navigation.state]);
+}
+
 export default function Schedule({ loaderData, actionData }: Route.ComponentProps) {
+  useFocusAfterRemoval();
   const {
     groupName,
     timeZone,
@@ -713,7 +759,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
           ) : null}
           <div className="slot-actions">
             {item.status === "proposed" ? (
-              <Form method="post" replace>
+              <Form method="post" replace preventScrollReset>
                 <input type="hidden" name="intent" value="confirm" />
                 <input type="hidden" name="rehearsalId" value={item.id} />
                 <SubmitButton
@@ -735,7 +781,7 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
           </div>
           <details className="notes-edit">
             <summary>{item.notes ? "Edit notes" : "Add notes"}</summary>
-            <Form method="post" replace className="stack">
+            <Form method="post" replace preventScrollReset className="stack">
               <input type="hidden" name="intent" value="notes" />
               <input type="hidden" name="rehearsalId" value={item.id} />
               <NotesField id={`notes-${item.id}`} defaultValue={item.notes} />
@@ -824,29 +870,34 @@ function RsvpRow({
     : [];
   return (
     <div className="rsvp">
-      <p className="rsvp-heading hint">
-        {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
-      </p>
-      <Form method="post" replace className="rsvp-form">
+      <Form method="post" replace preventScrollReset className="rsvp-form">
         <input type="hidden" name="intent" value="rsvp" />
         <input type="hidden" name="rehearsalId" value={rehearsalId} />
+        <div className="rsvp-top">
+          <p className="rsvp-heading hint">
+            {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
+          </p>
+          {/* Clear holds its place beside the counts before there is an answer
+              to clear, hidden and out of reach, so the first answer moves
+              nothing (plan/phase-33.md). */}
+          <span className={date.mine ? "rsvp-clear" : "rsvp-clear invisible"} inert={!date.mine}>
+            <SubmitButton
+              feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
+              name="answer"
+              value="clear"
+              variant="outline"
+              size="sm"
+              label={`Clear my answer for ${subject}`}
+            >
+              Clear
+            </SubmitButton>
+          </span>
+        </div>
         <AnswerButtons
           label={subject}
           current={date.mine}
           feedbackPrefix={`rsvp-${rehearsalId}-${date.date}`}
         />
-        {date.mine ? (
-          <SubmitButton
-            feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
-            name="answer"
-            value="clear"
-            variant="outline"
-            size="sm"
-            label={`Clear my answer for ${subject}`}
-          >
-            Clear
-          </SubmitButton>
-        ) : null}
       </Form>
       {lines.map((line) => (
         <p key={line} className="hint rsvp-names">
@@ -891,7 +942,7 @@ function CalendarPanel({
         </>
       ) : null}
       {google?.state === "off" ? (
-        <Form method="post" replace>
+        <Form method="post" replace preventScrollReset>
           <input type="hidden" name="intent" value="set-calendar" />
           <input type="hidden" name="value" value="on" />
           <p className="hint">
@@ -972,6 +1023,8 @@ function ProgressSection({
   google: GoogleWriteState | null;
   until: string;
 }) {
+  // The view the page is showing, so turning writing on brings it back.
+  const listView = new URLSearchParams(useLocation().search).get("free") === "list";
   return (
     <section aria-labelledby="progress-heading">
       <h2 id="progress-heading">Availability requests</h2>
@@ -992,7 +1045,7 @@ function ProgressSection({
                   requestName={item.name}
                   google={google}
                   until={until}
-                  returnTo={`${groupHref}/schedule`}
+                  returnTo={`${groupHref}/schedule${listView ? "?free=list" : ""}`}
                 />
               ) : null}
             </li>

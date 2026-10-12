@@ -175,6 +175,22 @@ export function pagePath(url: URL): string {
 }
 
 /**
+ * The view choices (`?free=list`, `?times=list`) the page was posted from, as
+ * a query to keep when an action returns to the same page (plan/phase-33.md);
+ * nothing else of the query (a one-off notice) is carried over.
+ */
+export function keptView(request: Request): string {
+  const from = new URL(pagePath(new URL(request.url)), request.url).searchParams;
+  const kept = new URLSearchParams();
+  for (const name of ["free", "times"]) {
+    const value = from.get(name);
+    if (value) kept.set(name, value);
+  }
+  const query = kept.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
  * `value` as a page on this site to return to after signing in, or `/`. It is
  * resolved the way a browser would (which drops tabs and newlines), so nothing
  * that would leave the site survives, and a data request becomes its page.

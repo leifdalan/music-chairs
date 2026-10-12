@@ -190,6 +190,7 @@ export function RequestDates({
     <>
       <Form
         method="post"
+        preventScrollReset
         className="stack calendar-entry"
         replace
         // Once interactive, each tick saves itself; nothing posts the whole form,

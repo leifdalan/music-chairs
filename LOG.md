@@ -4818,3 +4818,13 @@ Phase 32 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 32 ✅; every phase is complete, so no row holds the arrow (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: malachite-mandrill filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 12:14 — START
+Phase 33 — A steady page: answering and confirming without the page jumping, and buttons that keep their size
+
+Execution trace: 8cc57b90db5f40a298681cda0007ddb6
+
+Planned work:
+- Answering Yes / No / Maybe, confirming a proposed rehearsal, and every other in-page action leave the page where it was, with the changed item in view and focus kept sensibly, instead of jumping to the top.
+- Every button that shows its progress ("Saving…", "Saved ✓") keeps the same width and height through every state.
+- Nothing else on the page shifts while a change is saving or after it saves, beyond the change itself.

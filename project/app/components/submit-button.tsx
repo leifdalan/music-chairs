@@ -158,8 +158,39 @@ export function SubmitButton({
         press(feedbackKey);
       }}
     >
-      {saving ? <span className="spinner" aria-hidden="true" /> : null}
-      {status ?? children}
+      <ButtonLabels status={saving ? "saving" : saved ? "saved" : null}>{children}</ButtonLabels>
     </button>
+  );
+}
+
+/**
+ * A progress button's labels in one grid cell (plan/phase-33.md): its own
+ * label, "Saving…" and "Saved ✓" all take space, only the current one shows,
+ * so the button keeps the size of its widest label in every state.
+ */
+export function ButtonLabels({
+  status,
+  children,
+}: {
+  status: "saving" | "saved" | null;
+  children: ReactNode;
+}) {
+  const cell = (shown: boolean) => ({
+    "data-shown": shown,
+    "aria-hidden": shown ? undefined : true,
+  });
+  return (
+    <span className="button-labels">
+      <span className="button-label" {...cell(status === null)}>
+        {children}
+      </span>
+      <span className="button-label button-label-saving" {...cell(status === "saving")}>
+        <span className="spinner" aria-hidden="true" />
+        Saving…
+      </span>
+      <span className="button-label" {...cell(status === "saved")}>
+        Saved ✓
+      </span>
+    </span>
   );
 }

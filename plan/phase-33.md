@@ -19,7 +19,9 @@ informs: ["34"]
 
 From the operator's feedback after Phase 32 ("the page 'jumps' when a user confirms/denies a proposed time, it is really jarring"; "when a button's text changes due to state change 'Saving/Saved' the button size should not change"). Cause found at planning: these actions post a whole form and the server redirects back, so the browser treats the result as a new page and scrolls to the top; the pressed button's text is swapped for its progress text, which has a different width. Order: this phase first, then error states (Phase 34), then the screenshot catalogue (Phase 35).
 
-To settle at phase start: where the page should be after an action moves its item (for example, confirming moves a rehearsal from "Proposed" to "Confirmed"): stay put, or follow the item.
+Ruling at phase start (operator, 2026-10-12), the recommended option:
+
+- **Stay put:** after an action that moves its item (confirming moves a rehearsal from "Proposed" to "Confirmed"; deleting removes it), the page keeps its scroll position; the item appears in its new place and the usual short message confirms the change. Nothing scrolls on its own.
 
 ## Acceptance
 

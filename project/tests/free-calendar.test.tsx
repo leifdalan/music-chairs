@@ -228,12 +228,12 @@ describe("the request page's calendar of who is free", () => {
     for (const tickValues of ticks(calendar).values()) expect(tickValues).toHaveLength(1);
     expect(list).toContain('class="days"');
     expect(list).not.toContain('class="free-calendar"');
-    // The picker form itself carries the List view back to the action.
+    // The picker form posts from the List view's own address, which every
+    // action returns to (plan/phase-33.md).
     const picker = list.slice(list.indexOf('class="propose-times"'));
-    expect(picker.slice(0, picker.indexOf("</form>"))).toContain(
-      '<input type="hidden" name="free" value="list"/>',
-    );
-    expect(calendar).not.toContain('name="free" value="list"');
+    expect(picker.slice(0, picker.indexOf(">"))).toMatch(/action="[^"]*\?free=list"/);
+    const calendarPicker = calendar.slice(calendar.indexOf('class="propose-times"'));
+    expect(calendarPicker.slice(0, calendarPicker.indexOf(">"))).not.toContain("free=list");
   });
 
   it("is for organizers only", async () => {
@@ -247,8 +247,8 @@ describe("the request page's calendar of who is free", () => {
 });
 
 describe("proposing from the calendar or the list", () => {
-  function post(b: Band, fields: [string, string][]) {
-    const path = requestHrefOf(b.group, b.requestId);
+  function post(b: Band, fields: [string, string][], search = "") {
+    const path = `${requestHrefOf(b.group, b.requestId)}${search}`;
     const request = new Request(new URL(path, ORIGIN), {
       method: "POST",
       headers: { Cookie: b.organizerCookie },
@@ -285,12 +285,15 @@ describe("proposing from the calendar or the list", () => {
     const b = await band();
     const found = ticks(await requestPage(b, b.organizerCookie, "?free=list"));
 
-    const response = await post(b, [
-      ["intent", "propose-times"],
-      ["free", "list"],
-      ["time", tickOf(found, "Propose Tue 6 Oct, 7–10 PM")],
-      ["location", ""],
-    ]);
+    const response = await post(
+      b,
+      [
+        ["intent", "propose-times"],
+        ["time", tickOf(found, "Propose Tue 6 Oct, 7–10 PM")],
+        ["location", ""],
+      ],
+      "?free=list",
+    );
 
     expect(response.headers.get("Location")).toBe(
       `${requestHrefOf(b.group, b.requestId)}?free=list`,
