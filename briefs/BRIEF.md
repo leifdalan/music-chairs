@@ -31,6 +31,7 @@ The hardest part of playing music with other people is getting everyone into the
 
 - Members enter the times they are available.
 - **Optional Google Calendar import:** a signed-in member can fill in their availability from their Google Calendar free/busy information instead of entering it by hand.
+- Answering an availability request starts from **every date ticked except those that clash with the member's Google Calendar** (every date, for a member without one), with a way to select or clear them all; nothing is sent until the member confirms (operator ruling, 2026-10-11).
 - Every rehearsal is **one date and time**. There are no recurring rehearsals: a band that meets every Thursday proposes each Thursday it wants (operator ruling, 2026-10-11, which removed the earlier one-off/recurring choice).
 
 ### Choosing rehearsal times
@@ -46,7 +47,7 @@ The hardest part of playing music with other people is getting everyone into the
 
 ### Calendar output
 
-- Confirmed rehearsals can be **written to members' Google Calendars**.
+- Confirmed rehearsals can be **written to members' Google Calendars**. Granting the Google Calendar permission is the member's choice to have them written: it switches writing on, and the app says so plainly (operator ruling, 2026-10-11).
 
 ### Notifications
 
