@@ -7,7 +7,8 @@ import { createRoutesStub } from "react-router";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
-import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
+import { forgetAccessToken } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { getStore } from "../app/.server/store";
 import { startingTicks } from "../app/lib/date-toggle";
 import RequestPage, { action, loader } from "../app/routes/request";

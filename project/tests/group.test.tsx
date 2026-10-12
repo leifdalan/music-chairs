@@ -1,9 +1,10 @@
 import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { readToast } from "../app/.server/flash";
 import { getStore } from "../app/.server/store";
+import { CALENDAR_ACCESS_HINT } from "../app/lib/calendar-notices";
 import { groupPath } from "../app/lib/group-address";
 import GroupPage, { action, loader } from "../app/routes/group";
 import {
@@ -49,6 +50,19 @@ async function toastOf(response: unknown): Promise<string | undefined> {
 }
 
 describe("group route", () => {
+  it("says what Google Calendar access does beside a name-only member's sign-in (plan/phase-32.md)", async () => {
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "secret");
+    try {
+      const { group, cellist } = band();
+      const html = render(await load(group.id, await deviceCookie(group.id, cellist.deviceToken)));
+      expect(html).toContain(">Sign in with Google<");
+      expect(html.replaceAll("&#x27;", "'")).toContain(CALENDAR_ACCESS_HINT);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("confirms the organizer's settings with a toast", async () => {
     const { group, organizer, cellist } = band();
     const cookie = await deviceCookie(group.id, organizer.deviceToken);

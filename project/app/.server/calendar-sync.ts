@@ -11,13 +11,8 @@ import type { FeedEvent } from "~/lib/ics";
 import { isUpcoming } from "~/lib/rehearsal";
 import { zonedInstant } from "~/lib/zoned-time";
 
-import {
-  CALENDAR_SCOPES,
-  GoogleAccessRevoked,
-  googleConfig,
-  putEvent,
-  removeEvent,
-} from "./google";
+import { GoogleAccessRevoked, googleConfig, putEvent, removeEvent } from "./google";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { findViewer, publicOrigin, readAccount } from "./membership";
 import {
   getStore,
@@ -202,6 +197,15 @@ export async function syncMember(
 // One chain per member, so syncs of the same calendar never overlap.
 const chains = new Map<string, Promise<void>>();
 
+/** Queues a sync of every membership the account writes to (plan/phase-32.md), at once. */
+export function syncAccount(accountId: string): void {
+  scheduleSync(
+    getStore()
+      .listSyncingMembers()
+      .filter((target) => target.accountId === accountId),
+  );
+}
+
 /** Queues syncs and returns at once; failures are logged and retried by the next sweep. */
 export function scheduleSync(targets: SyncingMember[], options: { rewrite?: boolean } = {}): void {
   for (const target of targets) {
@@ -297,7 +301,9 @@ export async function stopWritingFor(accountId: string): Promise<boolean> {
   const targets: SyncingMember[] = store
     .listAccountMemberships(accountId)
     .map(({ group, member }) => ({ memberId: member.id, groupId: group.id, accountId }));
-  for (const target of targets) store.setCalendarSync(target.groupId, target.memberId, false);
+  // Withdrawing access is not the member choosing to stop: their holds stay as
+  // they were, so a later grant writes again (plan/phase-32.md).
+  store.stopAccountWriting(accountId);
   const work = targets.map((target) => {
     const next = (chains.get(target.memberId) ?? Promise.resolve())
       .catch(() => {})

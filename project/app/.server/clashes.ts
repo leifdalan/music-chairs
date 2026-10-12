@@ -3,13 +3,8 @@
 // plan/phase-23.md).
 
 import { calendarViewer } from "~/.server/calendar-sync";
-import {
-  accessTokenFor,
-  CALENDAR_SCOPES,
-  GoogleAccessRevoked,
-  GoogleApiError,
-  queryBusy,
-} from "~/.server/google";
+import { accessTokenFor, GoogleAccessRevoked, GoogleApiError, queryBusy } from "~/.server/google";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { pagePath } from "~/.server/membership";
 import { getStore, type Group } from "~/.server/store";
 import { addDays } from "~/lib/availability";

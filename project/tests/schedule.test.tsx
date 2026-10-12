@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { whenSynced } from "../app/.server/calendar-sync";
 import { readToast } from "../app/.server/flash";
-import { CALENDAR_SCOPES } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
 import { action as requestAction } from "../app/routes/request";

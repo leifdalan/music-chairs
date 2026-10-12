@@ -329,6 +329,9 @@ describe("the profile menu", () => {
       profile: { initials: null, gravatar: null, signedIn: null, canSignIn: true, member: null },
     });
     expect(visitor).toContain('href="/auth/google?returnTo=%2Fg%2Fabc"');
+    expect(visitor).toContain(
+      "If you allow Google Calendar access, music-chairs adds confirmed rehearsals",
+    );
     expect(visitor).not.toContain("<img");
     // No name at all: a person icon, never "?".
     expect(visitor).toMatch(/<span class="avatar" aria-hidden="true"><svg/);

@@ -1,7 +1,6 @@
 import { redirect } from "react-router";
 
 import {
-  CALENDAR_SCOPES,
   callbackUrl,
   CONTACTS_SCOPES,
   exchangeCode,
@@ -10,6 +9,7 @@ import {
   GoogleSignInError,
   type GoogleTokens,
 } from "~/.server/google";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import {
   clearOAuthState,
   findDeviceMember,
@@ -18,8 +18,14 @@ import {
   startSession,
   type OAuthState,
 } from "~/.server/membership";
+import { syncAccount } from "~/.server/calendar-sync";
+import { redirectWithToast } from "~/.server/flash";
 import { findGroupByAddress } from "~/.server/group-address";
-import { getStore, type GoogleProfile } from "~/.server/store";
+import { getStore, type Group, type GoogleProfile } from "~/.server/store";
+import { inviteCodeOf } from "~/lib/group-address";
+
+/** What a sign-in that switched calendar writing on says (plan/phase-32.md). */
+export const WRITING_ON_TOAST = "Your confirmed rehearsals will be added to your Google Calendar";
 
 import type { Route } from "./+types/auth.google.callback";
 
@@ -76,11 +82,32 @@ export async function loader({ request }: Route.LoaderArgs) {
     if (store.saveGrant(account.id, tokens.refreshToken, tokens.scopes))
       forgetAccessToken(account.id);
   }
+  const before = writingMembers(account.id);
   const returnTo = await linkReturnGroup(request, saved.returnTo, account.id);
   // Every place an organizer added for this verified email is now this
   // account's, so those groups show on home and Groups (plan/phase-30.md).
   store.claimInvitations(account.id);
-  return redirect(returnTo, { headers });
+  // Granting the Calendar write permission switches writing on in every group
+  // not held off, releasing an added place in the group sign-in started from
+  // (plan/phase-32.md). Linking this device's member can switch it on too.
+  if (tokens.scopes.includes(CALENDAR_SCOPES.write)) {
+    store.switchOnWriting(account.id, { groupId: groupOfPath(saved.returnTo)?.id });
+  }
+  const switched = [...writingMembers(account.id)].some((id) => !before.has(id));
+  if (!switched) return redirect(returnTo, { headers });
+  // The calendar fills at once rather than at the next sweep.
+  syncAccount(account.id);
+  return redirectWithToast(returnTo, WRITING_ON_TOAST, { headers });
+}
+
+/** The account's memberships that write to its Google Calendar. */
+function writingMembers(accountId: string): Set<string> {
+  return new Set(
+    getStore()
+      .listAccountMemberships(accountId)
+      .filter(({ member }) => member.calendarSync)
+      .map(({ member }) => member.id),
+  );
 }
 
 /** Links this device's member of the group sign-in started from; adds the outcome as a notice. */
@@ -98,6 +125,15 @@ async function linkReturnGroup(request: Request, returnTo: string, accountId: st
   const target = new URL(returnTo, "http://site.invalid");
   target.searchParams.set("notice", notice);
   return target.pathname + target.search;
+}
+
+/** The group a page belongs to: a group address, or a group's invite link. */
+function groupOfPath(path: string): Group | null {
+  const address = /^\/g\/([^/?#]+)/.exec(path)?.[1];
+  if (address) return findGroupByAddress(address);
+  const invite = /^\/join\/([^/?#]+)/.exec(path)?.[1];
+  const code = invite ? inviteCodeOf(invite) : null;
+  return code ? getStore().findGroupByInviteCode(code) : null;
 }
 
 function withNotice(path: string, notice: string): string {
@@ -134,7 +170,15 @@ async function saveCalendarGrant(
     return withNotice(saved.returnTo, `${kind}-failed`);
   }
   forgetAccessToken(session.id);
-  return withNotice(saved.returnTo, `${kind}-connected`);
+  if (saved.scope !== CALENDAR_SCOPES.write) return withNotice(saved.returnTo, `${kind}-connected`);
+  // Asking for writing from a group's page is asking for it there: any hold
+  // there is released, and every group not held off writes (plan/phase-32.md).
+  store.switchOnWriting(session.id, { groupId: groupOfPath(saved.returnTo)?.id, explicit: true });
+  syncAccount(session.id);
+  const writing = store
+    .listAccountMemberships(session.id)
+    .some(({ member }) => member.calendarSync);
+  return withNotice(saved.returnTo, writing ? "calendar-writing" : "calendar-connected");
 }
 
 /** Whether a consent was for contacts or Calendar, which their notices name. */

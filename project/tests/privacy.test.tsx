@@ -5,11 +5,14 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
+import { CALENDAR_ACCESS_HINT } from "../app/lib/calendar-notices";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { LIMITED_USE, POLICY } from "../app/lib/privacy";
 import { ErrorBoundary, Layout } from "../app/root";
 import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as startConsent } from "../app/routes/auth.google.calendar";
 import Home, { loader as homeLoader } from "../app/routes/home";
+import Join from "../app/routes/join";
 import Privacy from "../app/routes/privacy";
 import { routeArgs, signedIn, tempDatabase } from "./routes";
 
@@ -134,6 +137,44 @@ describe("the home page", () => {
     expect(text).toContain("Google Calendar");
     expect(text).toContain("contacts");
     expect(html).toContain('href="/privacy"');
+  });
+});
+
+describe("Google Calendar writing (plan/phase-32.md)", () => {
+  it("is described as starting once allowed, until stopped, in the policy", () => {
+    const write = POLICY.googleScopes.find((row) => row.scope === CALENDAR_SCOPES.write);
+    expect(write?.purpose).toContain(
+      "Once you allow it, adds the confirmed rehearsals of your groups to your calendar until you stop it",
+    );
+    expect(POLICY.updated).toBe("12 October 2026");
+  });
+
+  it("is said beside the home page's sign-in and the invite's", async () => {
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "secret");
+    try {
+      const home = await homeLoader(routeArgs("/", {}));
+      const HomeStub = createRoutesStub([{ id: "home", path: "/", Component: Home }]);
+      const homeHtml = renderToString(
+        <HomeStub initialEntries={["/"]} hydrationData={{ loaderData: { home } }} />,
+      );
+      const JoinStub = createRoutesStub([{ id: "join", path: "/join/:invite", Component: Join }]);
+      const joinHtml = renderToString(
+        <JoinStub
+          initialEntries={["/join/x"]}
+          hydrationData={{
+            loaderData: {
+              join: { groupName: "Q", then: "", account: null, signInUrl: "/auth/google" },
+            },
+          }}
+        />,
+      );
+      for (const html of [homeHtml, joinHtml]) {
+        expect(textOf(html)).toContain(CALENDAR_ACCESS_HINT);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

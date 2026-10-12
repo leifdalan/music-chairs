@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Form, useLocation, useRouteLoaderData } from "react-router";
 
 import type { HeaderProfile } from "~/.server/profile";
+import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
 import { DISCONNECT_PROMPT } from "~/lib/privacy";
 import { INSTRUMENT_MAX } from "~/lib/profile";
 import { buttonVariants } from "~/components/ui/button";
@@ -97,12 +98,15 @@ export function ProfileMenu() {
             />
           </>
         ) : profile.canSignIn ? (
-          <a
-            className={buttonVariants({ variant: "outline" })}
-            href={`/auth/google?returnTo=${encodeURIComponent(here)}`}
-          >
-            Sign in with Google
-          </a>
+          <>
+            <a
+              className={buttonVariants({ variant: "outline" })}
+              href={`/auth/google?returnTo=${encodeURIComponent(here)}`}
+            >
+              Sign in with Google
+            </a>
+            <p className="hint">{CALENDAR_ACCESS_HINT}</p>
+          </>
         ) : null}
       </div>
     </details>

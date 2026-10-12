@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import type { Slot, SlotInput } from "~/lib/availability";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { SHORT_ID_ALPHABET, SHORT_ID_LENGTH } from "~/lib/group-address";
 import { nextRequestSlug } from "~/lib/request-address";
 import { sameName } from "~/lib/profile";
@@ -263,7 +264,20 @@ export type Store = {
   findGrant(accountId: string): GoogleGrant | null;
   /** Deletes the grant; with `refreshToken`, only if it still holds that token. */
   deleteGrant(accountId: string, refreshToken?: string): void;
+  /**
+   * The member's own choice to write rehearsals to Google Calendar or stop
+   * (plan/phase-32.md): stopping holds writing off through later grants.
+   */
   setCalendarSync(groupId: string, memberId: string, on: boolean): boolean;
+  /**
+   * Switches writing on for every membership of the account that isn't held
+   * off, when its grant includes writing (plan/phase-32.md). In `groupId`, an
+   * organizer's added place is released first; with `explicit`, any hold there
+   * (the member asked for it from that group). The number switched on.
+   */
+  switchOnWriting(accountId: string, options?: { groupId?: string; explicit?: boolean }): number;
+  /** Turns writing off on every membership of the account, keeping holds (Disconnect Google). */
+  stopAccountWriting(accountId: string): void;
   /**
    * Members with Google writing on, or with events the app wrote that may still
    * need removing (in one group, or everywhere), with their linked account.
@@ -693,6 +707,26 @@ export const MIGRATIONS: readonly Migration[] = [
     }
     db.exec("CREATE UNIQUE INDEX requests_by_slug ON requests (group_id, slug);");
   },
+  // Version 15 (Phase 32): granting the Google Calendar permission switches
+  // writing on. A hold keeps it off: 'stopped' (the member turned it off) or
+  // 'added' (a place an organizer added that its member hasn't acted on). Every
+  // member whose account's grant already includes writing is switched on now,
+  // by the operator's ruling; the scopes are read as `findGrant` reads them.
+  (db) => {
+    db.exec(
+      "ALTER TABLE members ADD COLUMN calendar_hold TEXT CHECK (calendar_hold IN ('stopped', 'added'));",
+    );
+    const grants = db.prepare("SELECT account_id, scopes FROM google_tokens").all() as {
+      account_id: string;
+      scopes: string;
+    }[];
+    const switchOn = db.prepare("UPDATE members SET calendar_sync = 1 WHERE account_id = ?");
+    // The write permission's name as of this migration, frozen here.
+    const write = "https://www.googleapis.com/auth/calendar.events.owned";
+    for (const grant of grants) {
+      if (grant.scopes.split(" ").includes(write)) switchOn.run(grant.account_id);
+    }
+  },
 ];
 
 /**
@@ -1034,7 +1068,26 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     "DELETE FROM google_tokens WHERE account_id = ? AND (? IS NULL OR refresh_token = ?)",
   );
   const changeCalendarSync = db.prepare(
-    "UPDATE members SET calendar_sync = ? WHERE group_id = ? AND id = ?",
+    "UPDATE members SET calendar_sync = ?, calendar_hold = ? WHERE group_id = ? AND id = ?",
+  );
+  // Writing on wherever nothing holds it off (plan/phase-32.md).
+  const switchOnAccount = db.prepare(
+    `UPDATE members SET calendar_sync = 1
+     WHERE account_id = ? AND calendar_hold IS NULL AND calendar_sync = 0`,
+  );
+  const switchOnMember = db.prepare(
+    `UPDATE members SET calendar_sync = 1
+     WHERE group_id = ? AND id = ? AND calendar_hold IS NULL`,
+  );
+  const releaseAdded = db.prepare(
+    `UPDATE members SET calendar_hold = NULL
+     WHERE group_id = ? AND account_id = ? AND calendar_hold = 'added'`,
+  );
+  const releaseHold = db.prepare(
+    "UPDATE members SET calendar_hold = NULL WHERE group_id = ? AND account_id = ?",
+  );
+  const holdAdded = db.prepare(
+    "UPDATE members SET calendar_hold = 'added', calendar_sync = 0 WHERE group_id = ? AND id = ?",
   );
   const stopAccountSync = db.prepare("UPDATE members SET calendar_sync = 0 WHERE account_id = ?");
   const removeAccountCalendarEvents = db.prepare(
@@ -1294,6 +1347,20 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     else upsertRsvp.run(rehearsalId, memberId, date, answer, new Date().toISOString());
   }
 
+  /** Whether the account's grant includes writing to Google Calendar. */
+  function grantWrites(accountId: string): boolean {
+    const row = selectGrant.get(accountId) as GrantRow | undefined;
+    return row ? row.scopes.split(" ").includes(CALENDAR_SCOPES.write) : false;
+  }
+
+  /**
+   * A granted account newly meeting a membership (joining, linking) writes
+   * there unless something holds it off. Runs inside the caller's transaction.
+   */
+  function writeIfGranted(groupId: string, memberId: string, accountId: string): boolean {
+    return grantWrites(accountId) && Number(switchOnMember.run(groupId, memberId).changes) > 0;
+  }
+
   function addMember(
     groupId: string,
     displayName: string,
@@ -1324,6 +1391,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     if (accountId) {
       const row = selectMember.get(groupId, member.id) as MemberRow;
       member.googleEmail = row.google_email;
+      member.calendarSync = writeIfGranted(groupId, member.id, accountId);
     }
     return member;
   }
@@ -1480,6 +1548,8 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         if (!row) return null;
         changeMemberAccount.run(accountId, groupId, row.id);
         changeInvitedEmail.run(null, groupId, row.id);
+        // A place someone else added writes only once its member acts (plan/phase-32.md).
+        holdAdded.run(groupId, row.id);
         return toMember(selectMember.get(groupId, row.id) as MemberRow);
       });
     },
@@ -1498,6 +1568,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
           if (!row) continue;
           changeMemberAccount.run(accountId, groupId, row.id);
           changeInvitedEmail.run(null, groupId, row.id);
+          holdAdded.run(groupId, row.id);
           claimed.push(toGroup(selectGroup.get(groupId) as GroupRow));
         }
         return claimed;
@@ -1645,6 +1716,7 @@ function buildStore(db: DatabaseSync, filename: string): Store {
         if (row.account_id) return "other-account";
         if (selectMemberByAccount.get(groupId, accountId)) return "account-taken";
         changeMemberAccount.run(accountId, groupId, memberId);
+        writeIfGranted(groupId, memberId, accountId);
         return "linked";
       });
     },
@@ -1682,7 +1754,22 @@ function buildStore(db: DatabaseSync, filename: string): Store {
     },
     setCalendarSync(groupId, memberId, on) {
       if (!isToken(memberId)) return false;
-      return Number(changeCalendarSync.run(on ? 1 : 0, groupId, memberId).changes) > 0;
+      return (
+        Number(
+          changeCalendarSync.run(on ? 1 : 0, on ? null : "stopped", groupId, memberId).changes,
+        ) > 0
+      );
+    },
+    switchOnWriting(accountId, { groupId, explicit = false } = {}) {
+      if (!isToken(accountId)) return 0;
+      return transaction(() => {
+        if (!grantWrites(accountId)) return 0;
+        if (groupId) (explicit ? releaseHold : releaseAdded).run(groupId, accountId);
+        return Number(switchOnAccount.run(accountId).changes);
+      });
+    },
+    stopAccountWriting(accountId) {
+      stopAccountSync.run(accountId);
     },
     listSyncingMembers(groupId) {
       const scope = groupId ?? null;

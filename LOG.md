@@ -4706,3 +4706,115 @@ Phase 31 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 31 ✅ and Phase 32 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: warping-fox filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 01:02 — START
+Phase 32 — Google Calendar permission means your calendar: granting it adds rehearsals, and the app says so
+
+Execution trace: 3b8f2ed3cfcb473a9180216ab7be88d7
+
+Planned work:
+- Granting the Google Calendar permission, whether while signing in with Google or through "Connect Google Calendar", switches calendar writing on for that member, so their confirmed rehearsals appear in their Google Calendar with no further button.
+- Before going to Google, the app says plainly what granting the permission does ("Confirmed rehearsals will be added to your Google Calendar and kept up to date"); on return, it confirms that rehearsals are now being added.
+- Wherever calendar writing shows (the schedule's calendar panel, a complete request's "Add to calendar"), it reads as on, with the way to stop it, rather than as a step still to take.
+
+## 2026-10-12 09:43 — END
+Phase 32 — Google Calendar permission means your calendar: granting it adds rehearsals, and the app says so
+
+Phase 32 is accepted on its gates. Granting music-chairs permission to your Google Calendar, whether while signing in with Google or with "Connect Google Calendar", now switches on adding confirmed rehearsals to it in every group you're in with that Google account, at once, with no second button. Two things keep a group off: you turned it off there yourself (signing in again doesn't undo that; only your own "Add rehearsals to my Google Calendar" does), or an organizer added your email to that group and you haven't acted there yet (your ruling during planning: it switches on once you turn it on on that group's schedule, or grant the permission from one of its pages). When this deploys, everyone who has already granted the permission gets writing switched on, as you chose, including anyone who had turned it off before, since today's data can't tell them apart. Next to every "Sign in with Google" and "Connect Google Calendar" the app now says: "If you allow Google Calendar access, music-chairs adds confirmed rehearsals from the groups you've joined to it and keeps them up to date. You can stop that anytime." After signing in it confirms "Your confirmed rehearsals will be added to your Google Calendar" when something switched on, and a complete request's calendar box says they're being added, with "Stop adding them". The privacy policy now says writing starts once you allow it. How it feels with your real Google account is yours to judge through the User Demo below; merging the pull request deploys it and switches existing grants on.
+
+Execution trace: 3b8f2ed3cfcb473a9180216ab7be88d7
+
+Files changed:
+- plan/phase-32.md — your 2026-10-12 rulings, before capture (the ruling on added places came during planning and is recorded here and in the plan's revisions)
+- project/app/.server/store.ts — migration 15 (the hold: "stopped" or "added"; members of accounts whose grant writes switched on); switching writing on; your own on/off recorded; joining and linking write when the account's grant does; claimed places start held
+- project/app/lib/google-scopes.ts (new) — Google's permission names, shared by the store and the Google client (moved out of google.ts; every importer updated)
+- project/app/routes/auth.google.callback.ts — sign-in switches writing on only when this sign-in granted it, releases an added place in the group sign-in started from, syncs at once and confirms; Connect from a group releases any hold there
+- project/app/.server/calendar-sync.ts — syncing an account at once; Disconnect stops writing without recording it as your choice
+- project/app/routes/join.tsx — joining while signed in fills the calendar at once
+- project/app/lib/calendar-notices.ts, project/app/routes/group.tsx, home.tsx, join.tsx, project/app/components/profile-menu.tsx, calendar-actions.tsx, project/app/routes/schedule.tsx — the hint, the return notice, "Stop adding them", Connect returning to the request's page
+- project/app/lib/privacy.ts — the write permission's purpose and the policy date
+- project/tests/migration-15.test.ts (new); auth, calendar-consent, store, group, profile, privacy, look and request-progress tests extended
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38278585781, check success for commit 62be128 (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 712/712, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 203.4 s; first event 0.59 s; longest idle 46.5 s; success
+- Critic (code review): 183.3 s; first event 0.62 s; longest idle 30.6 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 31251.166 s, of which 29694.970 s was waiting for your decision on added places (one operator-input park, exact monotonic); intelligence 386.734 s; gates 148.970 s; wait 385.802 s; unattributed 40.174 s; failed work 0; retry 0
+- Awaiting user input: 1 interval, 29694.970 s (reason: decision), closed
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=51daaae1… final=999e9b753c1378f2cda42f9c2ad725f7efcc67cddd75db0a2e9e57e2672f3a0f (the corrected candidate; the in-progress commit did not move it); an extra capture of the critiqued candidate corrected its recorded test count (709, not 710), with no byte change
+- Findings: plan review 10 (9 adopted, one by your ruling; 1 declined: a single hold column plus the stored switch stays, since added places need a per-member state anyway); code critique 5 (all adopted)
+- Plan deviations: switchOnWriting is the transactional entry point and writeIfGranted the helper inside store transactions (the plan described one helper); the planned calendar-on test file was not created, its cases live in the auth, consent, store, group, profile and privacy tests
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- Moving the Google permission names to their own module avoided an import cycle between the store and the Google client; fourteen importers were updated by script.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): migration 15 on a version-14 database (who switches on, lookalike scopes, no account, no grant, already on, the hold's CHECK); switching on after sign-in (all groups, toast, linking this device's member) and after Connect (explicit release in its group, notice only when writing); nothing switched on by busy-only or contacts consents or a sign-in that didn't grant writing; your own off holding through sign-ins and grants; added places held until acted on; Disconnect then a new grant writing again; the hint beside every sign-in and Connect; "Stop adding them"; the privacy policy.
+- Parked for you: the User Demo below with a real Google account, including checking a real Google Calendar; and accepting that merging writes confirmed rehearsals into the calendars of everyone who has already granted the permission (your ruling).
+
+Delivery:
+- default — commit and delivery through pull request 26, merged when green, after the handoff gate; merging deploys and runs migration 15 on the live database
+
+Ripple (per policies/phase-ripple.md):
+- none — Phase 32 is the last phase in plan/INDEX.md
+
+Lessons:
+- new local lesson malachite-mandrill: a mutant that stops the code compiling is a false kill (written before this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (6), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=38); reviewer/claude opus — hard 1800 s, idle 600 s (n=35); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the site as a member of a group with a confirmed rehearsal still to come, signed out of Google on the site (or using a Google account that hasn't granted Calendar permission):
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On the group page, sign in with Google and grant the Calendar permission when Google asks.
+    2. Open the schedule and look at the calendar panel.
+    3. Open Google Calendar on the date of the confirmed rehearsal.
+    4. Back on the schedule, stop adding rehearsals to your Google Calendar.
+  - **What to look for.**
+    - Before going to Google, the app says what granting the permission will do.
+    - After granting it, the app says rehearsals are being added, with no further button to press.
+    - The rehearsal appears in your Google Calendar; after stopping, it is removed.
+  - **Variations to explore.** "Connect Google Calendar" from a complete request on the home page; unticking the Calendar permission on Google's screen; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo and the deploy-time switch-on above. Every phase in plan/INDEX.md is now complete.
+
+## 2026-10-12 09:43 — NOTE
+Phase 32 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 32 ✅; every phase is complete, so no row holds the arrow (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: malachite-mandrill filed (local). ./bin/lessons validate OK.

@@ -13,7 +13,7 @@ import { CreateGroupForm } from "~/components/create-group-form";
 import { SubmitButton } from "~/components/submit-button";
 import { formatDate } from "~/lib/availability";
 import { groupPath } from "~/lib/group-address";
-import { calendarNotice } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT, calendarNotice } from "~/lib/calendar-notices";
 import { pageMeta, siteName, siteTagline } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
@@ -219,6 +219,7 @@ function AccountPanel({
         <a className={buttonVariants({ variant: "outline" })} href="/auth/google">
           Sign in with Google
         </a>
+        <p className="hint">{CALENDAR_ACCESS_HINT}</p>
       </section>
     ) : null;
   }

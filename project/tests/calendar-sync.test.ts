@@ -8,7 +8,8 @@ import {
   syncMember,
   whenSynced,
 } from "../app/.server/calendar-sync";
-import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
+import { forgetAccessToken } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
 import { groupPath } from "../app/lib/group-address";

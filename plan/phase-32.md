@@ -22,7 +22,11 @@ From the operator's feedback after Phase 30 ("it should be made more clear that 
 - **Granting turns syncing on:** accepting the Google Calendar permission is the member's choice to have rehearsals written; it switches writing on rather than waiting for "Add rehearsals to my Google Calendar".
 - **Order:** this phase comes after Phase 31.
 
-To settle at phase start: which of the member's groups switch on when they grant the permission (the group they started from, or every group they're in with that Google account); and what happens to members who already granted the permission but left writing off.
+Rulings at phase start (operator, 2026-10-12), each the recommended option:
+
+- **All their groups:** the permission is for the whole Google account, so granting it switches writing on in every group the member is in with that account.
+- **Existing grants switch on at deploy:** members who already granted the permission (anyone who signed in with Google so far) but have writing off get it switched on when this ships; today's data can't tell someone who turned it off from someone who never turned it on, so both are switched on.
+- **Off stays off:** once a member turns writing off after this ships, signing in again (which grants the permission again) doesn't switch it back on; only their own "Add rehearsals to my Google Calendar" does.
 
 ## Acceptance
 

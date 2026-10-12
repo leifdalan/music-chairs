@@ -2,6 +2,7 @@ import { Download } from "lucide-react";
 import { Form } from "react-router";
 
 import { formatDate } from "~/lib/availability";
+import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
 import { Badge } from "~/components/ui/badge";
 import { buttonVariants } from "~/components/ui/button";
 
@@ -34,17 +35,21 @@ export function CalendarActions({
 }) {
   // A plain link: the file is a download, not a page the router can show.
   const download = `${requestHref}/calendar.ics`;
-  const connect = `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(returnTo)}`;
+  // Connecting comes back to the request's own page, so the consent is made
+  // in its group and releases any hold there (plan/phase-32.md).
+  const connect = `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(requestHref)}`;
   // Google first (plan/phase-19.1.md): the switch, the connect link, or why
   // there is neither; then the one-time download.
   const googleHint =
     google === "on"
-      ? "Already in your Google Calendar."
-      : google === "unlinked"
-        ? "To add them to Google Calendar, sign in with Google from the group page."
-        : google === "other-account"
-          ? "To add them to Google Calendar, sign in with Google as this member."
-          : null;
+      ? "Being added to your Google Calendar."
+      : google === "connect"
+        ? CALENDAR_ACCESS_HINT
+        : google === "unlinked"
+          ? "To add them to Google Calendar, sign in with Google from the group page."
+          : google === "other-account"
+            ? "To add them to Google Calendar, sign in with Google as this member."
+            : null;
   return (
     <div className="calendar-actions">
       {google === "off" ? (
@@ -68,6 +73,12 @@ export function CalendarActions({
         </a>
       ) : null}
       {googleHint ? <p className="hint">{googleHint}</p> : null}
+      {google === "on" ? (
+        // Writing is on by default now (plan/phase-32.md); stopping it lives on the schedule.
+        <a className="back-link" href={`${groupHref}/schedule#calendar-heading`}>
+          Stop adding them
+        </a>
+      ) : null}
       <a
         className={buttonVariants({ variant: "outline", size: "sm" })}
         href={download}
