@@ -11,15 +11,17 @@ import { action as requestAction } from "../app/routes/request";
 import Schedule, { action, loader } from "../app/routes/schedule";
 import { fakeGoogle } from "./google-fake";
 import {
+  addressFor,
   deviceCookie,
   ORIGIN,
+  requestHrefOf,
   requestIn,
   routeArgs,
   setCookies,
   signedIn,
+  slugFor,
   tempDatabase,
   thrownBy,
-  addressFor,
 } from "./routes";
 
 const count = tempDatabase();
@@ -87,8 +89,8 @@ function propose(groupId: string, cookie: string | undefined, form: Record<strin
   requests.set(groupId, requestId);
   return requestAction(
     routeArgs(
-      `/g/${addressFor(groupId)}/requests/${requestId}`,
-      { groupAddress: addressFor(groupId), requestId },
+      `/g/${addressFor(groupId)}/${slugFor(requestId)}`,
+      { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
       { cookie, form },
     ),
   );
@@ -262,6 +264,7 @@ describe("schedule route", () => {
         endMinute: 1290,
         requestId: rehearsal.requestId,
         requestName: "Autumn rehearsals",
+        requestHref: requestHrefOf(group, rehearsal.requestId as string),
         summary: "Thu 8 Oct, 7:30–9:30 PM",
         answered: 0,
         memberCount: 3,

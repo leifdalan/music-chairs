@@ -4,7 +4,7 @@ import { calendarDates, feedEvents } from "~/.server/calendar-sync";
 import { findViewer, publicOrigin } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
 import { groupFromAddress } from "~/.server/group-address";
-import { getStore } from "~/.server/store";
+import { requestFromSlug } from "~/.server/request-address";
 import { groupPath } from "~/lib/group-address";
 import { addDays, todayInZone } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
@@ -27,12 +27,10 @@ function fileName(name: string): string {
  * for this request (minus those they said No to), from four weeks back on.
  */
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const store = getStore();
   const group = groupFromAddress(request, params.groupAddress);
   const viewer = await findViewer(request, group);
   if (!viewer) throw redirect(groupPath(group));
-  const scheduleRequest = store.findRequest(group.id, params.requestId);
-  if (!scheduleRequest) throw data(null, { status: 404 });
+  const scheduleRequest = requestFromSlug(group, params.requestSlug);
   const now = new Date();
   const today = todayInZone(group.timeZone, now);
   const progress = requestProgress(group, today).find(

@@ -123,8 +123,9 @@ printf '%s\n' "$stale_headers" | grep -qi '^cache-control: no-store' \
   || fail "the out-of-date address redirect may be cached"
 echo "  readable address; an out-of-date name redirects (301, not cached) to it"
 
-invite="$(curl -s -H "Cookie: $cookie" "$origin$location" | grep -o "$origin/join/[A-Za-z0-9_-]\{22\}" | head -1)"
-[ -n "$invite" ] || fail "organizer's group page shows no invite URL"
+invite="$(curl -s -H "Cookie: $cookie" "$origin$location" | grep -o "$origin/join/thursday-quartet-[23456789a-km-np-z]\{8\}" | head -1)"
+[ -n "$invite" ] || fail "organizer's group page shows no readable invite URL"
+invite_code="${invite##*-}"
 echo "  organizer sees invite URL $invite"
 curl -s "$origin$location" | grep -q "$invite" && fail "a visitor's group page shows the invite URL"
 join_page="$(curl -s "$invite")"
@@ -159,7 +160,7 @@ request_path="$(curl -s -D - -o /dev/null -X POST -H "Cookie: $cookie" "$origin$
   --data-urlencode "endDate=$rehearsal_date" --data-urlencode "windowStart-0=19:00" \
   --data-urlencode "windowEnd-0=22:00" | tr -d '\r' |
   awk -F': ' 'tolower($1) == "location" { print $2 }')"
-case "$request_path" in "$location/requests/"*) ;; *) fail "creating a request did not redirect to it: $request_path" ;; esac
+[ "$request_path" = "$location/autumn-rehearsals" ] || fail "creating a request did not redirect to its readable address: $request_path"
 # Times are given on the request's own page (plan/phase-23.md); this is its Save without JavaScript.
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$request_path" \
   --data-urlencode "intent=save-dates" --data-urlencode "date=$rehearsal_date" \
@@ -187,6 +188,14 @@ rehearsal="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
   grep -o 'name="intent" value="confirm"/><input type="hidden" name="rehearsalId" value="[A-Za-z0-9_-]\{22\}"' |
   grep -o '[A-Za-z0-9_-]\{22\}' | head -1)"
 [ -n "$rehearsal" ] || fail "schedule page shows no confirm button for the proposed rehearsal"
+# Organizers copy a proposed rehearsal's link; it lands on the rehearsal's card.
+rehearsal_link="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
+  grep -o "value=\"$origin$request_path/[a-z0-9-]*?join=$invite_code\"" | head -1 | sed 's/^value="//; s/"$//')"
+[ -n "$rehearsal_link" ] || fail "the schedule offers organizers no link to the proposed rehearsal"
+card="$(curl -s -D - -o /dev/null -H "Cookie: $cookie" "${rehearsal_link%%\?*}" | tr -d '\r' |
+  awk -F': ' 'tolower($1) == "location" { print $2 }')"
+[ "$card" = "$location/schedule#rehearsal-$rehearsal" ] || fail "the rehearsal link went to $card"
+echo "  ${rehearsal_link%%\?*} lands a member on the rehearsal's card"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=confirm" --data-urlencode "rehearsalId=$rehearsal")"
 [ "$code" = 302 ] || fail "confirming the rehearsal returned HTTP $code"
@@ -216,12 +225,25 @@ grep -q "BEGIN:VEVENT" "$work/request.ics" || fail "the request's calendar downl
 grep -q "DESCRIPTION:Bring the Brahms parts" "$work/request.ics" || fail "the calendar download lacks the rehearsal's notes"
 echo "  the complete request downloads as a calendar file, with the notes"
 
-for path in "/join/AAAAAAAAAAAAAAAAAAAAAA" "/join/not-a-token" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope" "/g/thursday-quartet-zzzzzzzz"; do
+# Invite links from before Phase 30 say they have changed.
+code="$(curl -s -o "$work/changed.html" -w '%{http_code}' "$origin/join/AAAAAAAAAAAAAAAAAAAAAA")"
+[ "$code" = 410 ] || fail "an old invite link returned HTTP $code, not 410"
+grep -q "This invite link has changed" "$work/changed.html" || fail "an old invite link does not say it has changed"
+echo "  /join/AAAAAAAAAAAAAAAAAAAAAA -> 410 This invite link has changed"
+
+for path in "/join/not-a-token" "/join/${location#/g/}" "/g/AAAAAAAAAAAAAAAAAAAAAA" "/g/nope" "/g/thursday-quartet-zzzzzzzz"; do
   code="$(curl -s -o "$work/not-found.html" -w '%{http_code}' "$origin$path")"
   [ "$code" = 404 ] || fail "$path returned HTTP $code"
   grep -q "Page not found" "$work/not-found.html" || fail "$path did not render the not-found page"
   echo "  $path -> 404 Page not found"
 done
+
+# An unknown request address is a 404 for a member; a visitor learns nothing and goes to the group.
+code="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $cookie" "$origin$location/no-such-request")"
+[ "$code" = 404 ] || fail "an unknown request address returned HTTP $code to a member"
+code="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$origin$location/no-such-request")"
+[ "$code" = "302 $origin$location" ] || fail "an unknown request address answered a visitor with $code"
+echo "  $location/no-such-request -> 404 for a member, the group page for a visitor"
 
 echo "+ restart server"
 stop_server
@@ -233,5 +255,15 @@ curl -s "$invite" | grep -q "Thursday Quartet" || fail "invite link stopped work
 availability_ok || fail "availability lost after restart"
 schedule_ok || fail "rehearsal lost after restart"
 echo "  group, organizer, invite link, availability and rehearsal present after restart"
+
+echo "+ join from a copied link"
+# A copied request link joins a visitor first, then lands on the request (plan/phase-30.md).
+to_join="$(curl -s -D - -o /dev/null "$origin$request_path?join=$invite_code" | tr -d '\r' |
+  awk -F': ' 'tolower($1) == "location" { print $2 }')"
+case "$to_join" in "/join/thursday-quartet-$invite_code?then="*) ;; *) fail "a visitor's copied request link did not go through joining: $to_join" ;; esac
+landed="$(curl -s -D - -o /dev/null -X POST "$origin$to_join" --data-urlencode "displayName=Cellist" \
+  --data-urlencode "then=$request_path" | tr -d '\r' | awk -F': ' 'tolower($1) == "location" { print $2 }')"
+[ "$landed" = "$request_path" ] || fail "joining from a copied request link landed on $landed"
+echo "  a copied request link joins a visitor, then lands on $request_path"
 
 echo "SMOKE PASS"

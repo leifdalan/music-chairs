@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { groupPath } from "../app/lib/group-address";
-import { routeArgs, addressOf } from "./routes";
+import { addressOf, inviteOf, routeArgs } from "./routes";
 
 // The cookie flag is fixed when the module loads (the shared test helpers load it
 // early), so each case resets the module cache after setting the variable.
@@ -34,7 +34,7 @@ describe("public URL", () => {
     );
 
     expect(setCookie).toMatch(/; Secure/);
-    expect(page.inviteUrl).toBe(`https://rehearse.dalan.dev/join/${group.inviteToken}`);
+    expect(page.inviteUrl).toBe(`https://rehearse.dalan.dev/join/${inviteOf(group)}`);
   });
 
   it("leaves the cookie usable over plain HTTP when no public URL is set", async () => {

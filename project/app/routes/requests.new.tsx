@@ -8,6 +8,7 @@ import { getStore, type Group, type ScheduleRequest } from "~/.server/store";
 import { SubmitButton } from "~/components/submit-button";
 import { TimeRange, type NamedWindow } from "~/components/time-range";
 import { groupPath } from "~/lib/group-address";
+import { requestPath } from "~/lib/request-address";
 import { addDays, parseTimeText, timeInputValue, timeRange, todayInZone } from "~/lib/availability";
 import {
   MAX_WINDOWS,
@@ -68,10 +69,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     endDate: addDays(today, 27),
     windows: [],
   };
-  let editing: { id: string; open: boolean } | null = null;
+  let editing: { id: string; slug: string; open: boolean } | null = null;
   if (editId) {
     const stored = existing(group, editId);
-    editing = { id: stored.id, open: stored.open };
+    editing = { id: stored.id, slug: stored.slug, open: stored.open };
     values = formValues(stored, stored);
   } else if (repeatId) {
     const stored = existing(group, repeatId);
@@ -119,13 +120,13 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
     return redirectWithToast(
-      `${groupPath(group)}/requests/${stored.id}`,
+      requestPath(groupPath(group), stored.slug),
       "Availability request updated",
     );
   }
   const created = store.createRequest(group.id, parsed.value);
   return redirectWithToast(
-    `${groupPath(group)}/requests/${created.id}`,
+    requestPath(groupPath(group), created.slug),
     "Availability request created",
   );
 }
@@ -141,7 +142,7 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
   // lost), plus one after "Add another time". At least two, up to the limit.
   const sent = result ? values.windows.length + (result.extraRow ? 1 : 0) : null;
   const rowCount = Math.min(MAX_WINDOWS, Math.max(2, sent ?? values.windows.length + 1));
-  const backTo = editing ? `${groupHref}/requests/${editing.id}` : groupHref;
+  const backTo = editing ? requestPath(groupHref, editing.slug) : groupHref;
 
   return (
     <main>

@@ -63,19 +63,25 @@ describe("store", () => {
     const store = memoryStore();
     const { group, organizer } = store.createGroup("Quartet", "Viola", "Europe/London");
 
-    for (const id of [group.id, group.inviteToken, organizer.id]) expect(isToken(id)).toBe(true);
-    expect(new Set([group.id, group.inviteToken, organizer.id]).size).toBe(3);
+    for (const id of [group.id, organizer.id]) expect(isToken(id)).toBe(true);
+    expect(group.id).not.toBe(organizer.id);
+    // The invite code (plan/phase-30.md): 8 characters of the address alphabet, not the short id.
+    expect(group.inviteCode).toMatch(/^[23456789abcdefghijkmnpqrstuvwxyz]{8}$/);
+    expect(group.inviteCode).not.toBe(group.shortId);
   });
 
-  it("finds a group by its invite token, and nothing for unknown or malformed tokens", () => {
+  it("finds a group by its invite code in any case, and nothing for anything else", () => {
     const store = memoryStore();
     const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
 
-    expect(store.findGroupByInviteToken(group.inviteToken)).toEqual(group);
-    expect(store.findGroupByInviteToken("A".repeat(22))).toBeNull();
-    expect(store.findGroupByInviteToken("not a token")).toBeNull();
-    expect(store.findGroupByInviteToken(group.id)).toBeNull();
-    expect(store.findGroup(group.inviteToken)).toBeNull();
+    expect(store.findGroupByInviteCode(group.inviteCode)).toEqual(group);
+    expect(store.findGroupByInviteCode(group.inviteCode.toUpperCase())).toEqual(group);
+    expect(store.findGroupByInviteCode("A".repeat(22))).toBeNull();
+    expect(store.findGroupByInviteCode("not a code")).toBeNull();
+    expect(store.findGroupByInviteCode("aaaaaaaa")).toBeNull();
+    expect(store.findGroupByInviteCode(group.shortId)).toBeNull();
+    expect(store.findGroupByInviteCode(group.id)).toBeNull();
+    expect(store.findGroup(group.inviteCode)).toBeNull();
   });
 
   it("lists members in joining order and supports more than one organizer", () => {
@@ -1010,18 +1016,18 @@ describe("schema migrations", () => {
     expect(store.listRehearsals("g")).toHaveLength(1);
     expect(store.listRequests("g")).toEqual([]);
     db.exec(`
-      INSERT INTO requests VALUES ('q', 'g', 'Concert', '2026-11-01', '2026-11-30', 1, 'x');
+      INSERT INTO requests VALUES ('q', 'g', 'Concert', '2026-11-01', '2026-11-30', 1, 'x', 'concert');
       INSERT INTO request_windows VALUES ('q', 1140, 1320);
       INSERT INTO request_answers VALUES ('q', 'm', 'x', NULL);
-      INSERT INTO requests VALUES ('q2', 'g', 'Weekly', '2026-11-01', '2026-11-01', 1, 'x');
+      INSERT INTO requests VALUES ('q2', 'g', 'Weekly', '2026-11-01', '2026-11-01', 1, 'x', 'weekly');
     `);
     for (const bad of [
-      "INSERT INTO requests VALUES ('b', 'g', 'B', '2026-11-30', '2026-11-01', 1, 'x')",
+      "INSERT INTO requests VALUES ('b', 'g', 'B', '2026-11-30', '2026-11-01', 1, 'x', 'b')",
       "INSERT INTO request_windows VALUES ('q', 1150, 1320)",
       "INSERT INTO request_windows VALUES ('q', 1320, 1320)",
       "INSERT INTO request_answers VALUES ('q2', 'm', 'x', 0)",
       "INSERT INTO request_answers VALUES ('q2', 'm', 'x', 100)",
-      "INSERT INTO requests VALUES ('n', 'no-group', 'N', '2026-11-01', '2026-11-01', 1, 'x')",
+      "INSERT INTO requests VALUES ('n', 'no-group', 'N', '2026-11-01', '2026-11-01', 1, 'x', 'n')",
       "INSERT INTO request_answers VALUES ('q2', 'no-member', 'x', NULL)",
       "INSERT INTO request_windows VALUES ('no-request', 1140, 1320)",
     ]) {
@@ -1334,6 +1340,32 @@ describe("members added from contacts", () => {
     expect(
       store.listMembers(group.id).find((member) => member.displayName === "Amy"),
     ).toMatchObject({ invitedEmail: "amy@example.test", googleEmail: null });
+  });
+
+  it("is claimed in every group at once by that verified account (plan/phase-30.md)", () => {
+    const store = memoryStore();
+    const first = store.createGroup("Quartet", "Viola", "Europe/London").group;
+    const second = store.createGroup("Trio", "Oboe", "Europe/London").group;
+    const joined = store.createGroup("Duo", "Harp", "Europe/London").group;
+    const amyFirst = store.addInvitedMember(first.id, "Amy", "amy@example.test");
+    const amySecond = store.addInvitedMember(second.id, "Amy", "AMY@example.test");
+    store.addInvitedMember(joined.id, "Amy", "amy@example.test");
+    const unverified = store.upsertAccount({ ...amy, emailVerified: false });
+    expect(store.claimInvitations(unverified.id)).toEqual([]);
+
+    const account = store.upsertAccount(amy);
+    store.addMember(joined.id, "Amy B", "member", account.id);
+    const claimed = store.claimInvitations(account.id);
+
+    expect(claimed.map((group) => group.id).sort()).toEqual([first.id, second.id].sort());
+    expect(store.findMemberByAccount(first.id, account.id)?.id).toBe(amyFirst.id);
+    expect(store.findMemberByAccount(second.id, account.id)?.id).toBe(amySecond.id);
+    // Already in the Duo: its place for that email stays unclaimed.
+    expect(
+      store.listMembers(joined.id).find((member) => member.displayName === "Amy"),
+    ).toMatchObject({ invitedEmail: "amy@example.test", googleEmail: null });
+    expect(store.claimInvitations(account.id)).toEqual([]);
+    expect(store.claimInvitations("not a token")).toEqual([]);
   });
 
   it("is never matched by name alone", () => {

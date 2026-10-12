@@ -13,14 +13,15 @@ import { ConfirmPanel } from "../app/components/confirm-form";
 import { action as groupAction } from "../app/routes/group";
 import Groups, { action, loader } from "../app/routes/groups";
 import {
+  addressFor,
   deviceCookie,
+  groupAt,
+  inviteOf,
   ORIGIN,
   routeArgs,
   setCookies,
   signedIn,
   tempDatabase,
-  addressFor,
-  groupAt,
 } from "./routes";
 
 const count = tempDatabase();
@@ -118,8 +119,8 @@ describe("the groups page", () => {
       trio.organizer.id,
       quartet.pianist.deviceToken,
       quartet.pianist.id,
-      trio.group.inviteToken,
-      quartet.group.inviteToken,
+      inviteOf(trio.group),
+      inviteOf(quartet.group),
       "groups1@example.test",
     ]) {
       expect(serialized).not.toContain(secret);

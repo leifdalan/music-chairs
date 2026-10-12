@@ -12,15 +12,16 @@ import RequestForm, {
   loader as formLoader,
 } from "../app/routes/requests.new";
 import {
+  addressFor,
+  addressOf,
   deviceCookie,
   ORIGIN,
   routeArgs,
+  selectedOption,
   setCookies,
+  slugFor,
   tempDatabase,
   thrownBy,
-  addressOf,
-  addressFor,
-  selectedOption,
 } from "./routes";
 
 const count = tempDatabase();
@@ -98,8 +99,8 @@ function loadForm(groupId: string, cookie: string | undefined, search = "") {
 function load(groupId: string, requestId: string, cookie?: string) {
   return loader(
     routeArgs(
-      `/g/${addressFor(groupId)}/requests/${requestId}`,
-      { groupAddress: addressFor(groupId), requestId },
+      `/g/${addressFor(groupId)}/${slugFor(requestId)}`,
+      { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
       { cookie },
     ),
   ) as Promise<RequestData>;
@@ -113,8 +114,8 @@ function post(
 ) {
   return action(
     routeArgs(
-      `/g/${addressFor(groupId)}/requests/${requestId}`,
-      { groupAddress: addressFor(groupId), requestId },
+      `/g/${addressFor(groupId)}/${slugFor(requestId)}`,
+      { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
       { cookie, form },
     ),
   ) as Promise<unknown>;
@@ -134,10 +135,10 @@ async function toastOf(response: unknown): Promise<string | undefined> {
 
 function render(data: RequestData): string {
   const Stub = createRoutesStub([
-    { id: "request", path: "/g/:groupId/requests/:requestId", Component: RequestPage },
+    { id: "request", path: "/g/:groupId/:requestSlug", Component: RequestPage },
   ]);
   return renderToString(
-    <Stub initialEntries={["/g/x/requests/y"]} hydrationData={{ loaderData: { request: data } }} />,
+    <Stub initialEntries={["/g/x/y"]} hydrationData={{ loaderData: { request: data } }} />,
   ).replaceAll("<!-- -->", "");
 }
 
@@ -167,9 +168,9 @@ function renderGroup(data: GroupData): string {
 async function created(groupId: string, cookie: string, form = november): Promise<string> {
   const response = (await newForm(groupId, cookie, form)) as Response;
   const location = response.headers.get("Location") ?? "";
-  const id = location.split("/").at(-1) ?? "";
-  expect(location).toBe(`/g/${addressFor(groupId)}/requests/${id}`);
-  return id;
+  const slug = location.split("/").at(-1) ?? "";
+  expect(location).toBe(`/g/${addressFor(groupId)}/${slug}`);
+  return getStore().findRequestBySlug(groupId, slug)?.id ?? "";
 }
 
 describe("creating and editing requests", () => {

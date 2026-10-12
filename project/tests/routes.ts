@@ -8,7 +8,8 @@ import { afterAll } from "vitest";
 
 import { findGroupByAddress } from "../app/.server/group-address";
 import { rememberMembership, startSession } from "../app/.server/membership";
-import { groupPath } from "../app/lib/group-address";
+import { groupPath, invitePath } from "../app/lib/group-address";
+import { requestPath } from "../app/lib/request-address";
 import {
   getStore,
   type Account,
@@ -139,6 +140,28 @@ export function requestIn(
     endDate: "2026-12-31",
     windows: [{ startMinute: 0, endMinute: 1440 }],
   }).id;
+}
+
+/** A request's address slug (plan/phase-30.md), read from the test database. */
+export function slugFor(requestId: string): string {
+  const db = new DatabaseSync(process.env.MUSIC_CHAIRS_DB as string);
+  try {
+    const row = db.prepare("SELECT slug FROM requests WHERE id = ?").get(requestId);
+    if (!row) throw new Error(`no request ${requestId}`);
+    return (row as { slug: string }).slug;
+  } finally {
+    db.close();
+  }
+}
+
+/** A request's page path (plan/phase-30.md). */
+export function requestHrefOf(group: { name: string; shortId: string }, requestId: string): string {
+  return requestPath(groupPath(group), slugFor(requestId));
+}
+
+/** A group's invite as the `:invite` route parameter carries it (plan/phase-30.md). */
+export function inviteOf(group: { name: string; inviteCode: string }): string {
+  return invitePath(group).slice("/join/".length);
 }
 
 /** A group's address as the `:groupAddress` route parameter carries it (plan/phase-19.3.md). */

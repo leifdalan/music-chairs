@@ -95,7 +95,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             ))}
             {waiting.map((item) => (
               <li key={item.requestId}>
-                <Link to={`${item.groupHref}/requests/${item.requestId}`}>
+                <Link to={item.requestHref}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">
                     {item.groupName} · Add your free times by{" "}
@@ -128,7 +128,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <ul className="pending-requests">
             {inProgress.map((item) => (
               <li key={item.requestId}>
-                <Link to={`${item.groupHref}/requests/${item.requestId}`}>
+                <Link to={item.requestHref}>
                   <span className="pending-name">{item.name}</span>
                   <span className="hint">{item.groupName}</span>
                 </Link>
@@ -149,7 +149,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                     {item.progress.complete ? (
                       <CalendarActions
                         groupHref={item.groupHref}
-                        requestId={item.requestId}
+                        requestHref={item.requestHref}
                         requestName={item.name}
                         google={item.google}
                         until={item.until}

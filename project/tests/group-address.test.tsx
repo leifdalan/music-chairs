@@ -20,6 +20,7 @@ import {
   groupAt,
   requestIn,
   routeArgs,
+  slugFor,
   tempDatabase,
   thrownBy,
 } from "./routes";
@@ -253,8 +254,8 @@ describe("links", () => {
       ),
       request: await requestLoader(
         routeArgs(
-          `${path}/requests/${requestId}`,
-          { groupAddress: address, requestId },
+          `${path}/${slugFor(requestId)}`,
+          { groupAddress: address, requestSlug: slugFor(requestId) },
           { cookie },
         ),
       ),
@@ -266,10 +267,10 @@ describe("links", () => {
       stub("schedule", "/g/:groupAddress/schedule", Schedule, loaded.schedule, `${path}/schedule`),
       stub(
         "request",
-        "/g/:groupAddress/requests/:requestId",
+        "/g/:groupAddress/:requestSlug",
         RequestPage,
         loaded.request,
-        `${path}/requests/${requestId}`,
+        `${path}/${slugFor(requestId)}`,
       ),
     ];
 

@@ -17,7 +17,7 @@ import Schedule, {
   action as scheduleAction,
   loader as scheduleLoader,
 } from "../app/routes/schedule";
-import { addressOf, deviceCookie, routeArgs, tempDatabase } from "./routes";
+import { addressOf, deviceCookie, requestHrefOf, routeArgs, slugFor, tempDatabase } from "./routes";
 
 tempDatabase();
 
@@ -113,11 +113,15 @@ async function schedulePage(b: Band, cookie: string) {
 }
 
 async function requestPage(b: Band, cookie: string) {
-  const path = `${groupPath(b.group)}/requests/${b.request.id}`;
+  const path = requestHrefOf(b.group, b.request.id);
   const data = await requestLoader(
-    routeArgs(path, { groupAddress: addressOf(b.group), requestId: b.request.id }, { cookie }),
+    routeArgs(
+      path,
+      { groupAddress: addressOf(b.group), requestSlug: slugFor(b.request.id) },
+      { cookie },
+    ),
   );
-  return render("request", "/g/:groupAddress/requests/:requestId", RequestPage, data, path);
+  return render("request", "/g/:groupAddress/:requestSlug", RequestPage, data, path);
 }
 
 describe("notes", () => {
@@ -232,11 +236,11 @@ describe("one date at a time", () => {
 
   it("marks a refused note on its field, and shows a ticked one-time date inside the cell", async () => {
     const b = await band();
-    const path = `${groupPath(b.group)}/requests/${b.request.id}`;
+    const path = requestHrefOf(b.group, b.request.id);
     const data = await requestLoader(
       routeArgs(
         path,
-        { groupAddress: addressOf(b.group), requestId: b.request.id },
+        { groupAddress: addressOf(b.group), requestSlug: slugFor(b.request.id) },
         {
           cookie: b.organizerCookie,
         },
@@ -253,7 +257,7 @@ describe("one date at a time", () => {
       },
     };
     const Stub = createRoutesStub([
-      { id: "request", path: "/g/:groupAddress/requests/:requestId", Component: RequestPage },
+      { id: "request", path: "/g/:groupAddress/:requestSlug", Component: RequestPage },
     ]);
     const html = renderToString(
       <Stub

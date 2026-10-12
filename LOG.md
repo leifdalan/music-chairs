@@ -4439,3 +4439,13 @@ Phase 29 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 29 ✅ and Phase 30 ⬅️ (accepted ledger applied and verified).
 - Ripple AUTO applied: plan/phase-30.md gained "Inherited from Phase 29" (one date per rehearsal, the schedule card as the answer target, notes).
 - Lessons: dangerous-kittiwake filed (local): committing a file deletion moves the candidate identity; stage deletions with git rm. lively-salamander occurrence added (6 total). ./bin/lessons validate OK.
+
+## 2026-10-11 17:38 — START
+Phase 30 — Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to
+
+Execution trace: dec24d80471a4328a02d21e285326b09
+
+Planned work:
+- The invite link reads as the group, with a short secret so it can't be guessed (for example `/join/thursday-quartet-k7m2x9`).
+- A readable link to each availability request, and a link to each proposed rehearsal for the organizer to share, each landing the member directly on its call to action (ticking dates; answering Yes / No / Maybe), through joining first when needed.
+- A member an organizer added is already in the group, and when they sign in with Google with the email the organizer used, they see the groups they were added to, wherever they signed in.

@@ -7,14 +7,15 @@ import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
 import GroupPage, { action, loader } from "../app/routes/group";
 import {
+  addressFor,
+  addressOf,
   deviceCookie,
+  inviteOf,
   ORIGIN,
   routeArgs,
   setCookies,
   signedIn,
   thrownBy,
-  addressOf,
-  addressFor,
 } from "./routes";
 
 type GroupData = Awaited<ReturnType<typeof loader>>;
@@ -133,7 +134,7 @@ describe("group route", () => {
       signInAvailable: false,
       notice: null,
       showNames: false,
-      inviteUrl: `${ORIGIN}/join/${group.inviteToken}`,
+      inviteUrl: `${ORIGIN}/join/${inviteOf(group)}`,
       requests: [],
       upcoming: [],
       memberCount: 2,
@@ -147,7 +148,7 @@ describe("group route", () => {
 
     const loaded = await load(group.id, await deviceCookie(group.id, pianist.deviceToken));
 
-    expect(loaded.inviteUrl).toBe(`${ORIGIN}/join/${group.inviteToken}`);
+    expect(loaded.inviteUrl).toBe(`${ORIGIN}/join/${inviteOf(group)}`);
   });
 
   it("withholds the invite link from members and visitors", async () => {
@@ -188,7 +189,7 @@ describe("group route", () => {
         cellist.deviceToken,
         organizer.id,
         cellist.id,
-        group.inviteToken,
+        inviteOf(group),
       ]) {
         expect(page).not.toContain(hidden);
       }
@@ -239,7 +240,7 @@ describe("group route", () => {
     });
     expect(getStore().findGroup(group.id)?.showNames).toBe(true);
     const asCellist = await load(group.id, await deviceCookie(group.id, cellist.deviceToken));
-    expect(asCellist.inviteUrl).toBe(`${ORIGIN}/join/${group.inviteToken}`);
+    expect(asCellist.inviteUrl).toBe(`${ORIGIN}/join/${inviteOf(group)}`);
   });
 
   it("refuses to remove the last organizer", async () => {
@@ -301,7 +302,7 @@ describe("group route", () => {
     expect(html).toContain("<h1>Thursday Quartet</h1>");
     expect(html).toMatch(/Viola.*\(you\).*organizer/s);
     expect(html).toMatch(/Cellist.*member/s);
-    expect(html).toContain(`value="${ORIGIN}/join/${group.inviteToken}"`);
+    expect(html).toContain(`value="${ORIGIN}/join/${inviteOf(group)}"`);
     expect(html).toContain("Copy link");
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-label="Make optional: Cellist"');

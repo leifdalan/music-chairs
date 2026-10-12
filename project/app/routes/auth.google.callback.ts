@@ -77,6 +77,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       forgetAccessToken(account.id);
   }
   const returnTo = await linkReturnGroup(request, saved.returnTo, account.id);
+  // Every place an organizer added for this verified email is now this
+  // account's, so those groups show on home and Groups (plan/phase-30.md).
+  store.claimInvitations(account.id);
   return redirect(returnTo, { headers });
 }
 

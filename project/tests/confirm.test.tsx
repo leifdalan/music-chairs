@@ -11,13 +11,15 @@ import { action as groupAction } from "../app/routes/group";
 import { action as requestAction } from "../app/routes/request";
 import { action as scheduleAction } from "../app/routes/schedule";
 import {
+  addressOf,
   deviceCookie,
+  requestHrefOf,
   requestIn,
   routeArgs,
   signedIn,
+  slugFor,
   tempDatabase,
   thrownBy,
-  addressOf,
 } from "./routes";
 
 const count = tempDatabase();
@@ -100,8 +102,8 @@ const destructive: {
     run: (b, form) =>
       requestAction(
         routeArgs(
-          `${groupPath(b.group)}/requests/${b.request.id}`,
-          { groupAddress: addressOf(b.group), requestId: b.request.id },
+          requestHrefOf(b.group, b.request.id),
+          { groupAddress: addressOf(b.group), requestSlug: slugFor(b.request.id) },
           { cookie: b.organizerCookie, form },
         ),
       ),

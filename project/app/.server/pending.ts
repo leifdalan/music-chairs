@@ -7,6 +7,7 @@ import type { GoogleWriteState } from "~/components/calendar-actions";
 import { todayInZone, windowEnd } from "~/lib/availability";
 import { describeRehearsal, isUpcoming } from "~/lib/rehearsal";
 import { groupPath } from "~/lib/group-address";
+import { requestPath } from "~/lib/request-address";
 import { answerable } from "~/lib/requests";
 
 import { googleWriteState } from "./calendar-sync";
@@ -18,6 +19,8 @@ export type HomeRequest = {
   groupHref: string;
   groupName: string;
   requestId: string;
+  /** The request's address (plan/phase-30.md). */
+  requestHref: string;
   name: string;
   /** The answer-by date when the viewer's member can still answer and hasn't. */
   waitingUntil: string | null;
@@ -70,6 +73,7 @@ export async function homeRequests(
         groupHref: groupPath(group),
         groupName: group.name,
         requestId: scheduleRequest.id,
+        requestHref: requestPath(groupPath(group), scheduleRequest.slug),
         name: scheduleRequest.name,
         waitingUntil: pending ? scheduleRequest.endDate : null,
         progress: shown,

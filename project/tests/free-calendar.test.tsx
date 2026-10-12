@@ -14,7 +14,16 @@ import RequestPage, {
   loader as requestLoader,
 } from "../app/routes/request";
 import Schedule, { loader as scheduleLoader } from "../app/routes/schedule";
-import { addressOf, deviceCookie, ORIGIN, routeArgs, tempDatabase, addSlots } from "./routes";
+import {
+  addressOf,
+  addSlots,
+  deviceCookie,
+  ORIGIN,
+  requestHrefOf,
+  routeArgs,
+  slugFor,
+  tempDatabase,
+} from "./routes";
 
 tempDatabase();
 
@@ -137,12 +146,16 @@ async function band() {
 type Band = Awaited<ReturnType<typeof band>>;
 
 async function requestPage(b: Band, cookie: string, search = "") {
-  const path = `${groupPath(b.group)}/requests/${b.requestId}${search}`;
+  const path = `${requestHrefOf(b.group, b.requestId)}${search}`;
   const data = await requestLoader(
-    routeArgs(path, { groupAddress: addressOf(b.group), requestId: b.requestId }, { cookie }),
+    routeArgs(
+      path,
+      { groupAddress: addressOf(b.group), requestSlug: slugFor(b.requestId) },
+      { cookie },
+    ),
   );
   const Stub = createRoutesStub([
-    { id: "request", path: "/g/:groupAddress/requests/:requestId", Component: RequestPage },
+    { id: "request", path: "/g/:groupAddress/:requestSlug", Component: RequestPage },
   ]);
   return renderToString(
     <Stub initialEntries={[path]} hydrationData={{ loaderData: { request: data } }} />,
@@ -235,7 +248,7 @@ describe("the request page's calendar of who is free", () => {
 
 describe("proposing from the calendar or the list", () => {
   function post(b: Band, fields: [string, string][]) {
-    const path = `${groupPath(b.group)}/requests/${b.requestId}`;
+    const path = requestHrefOf(b.group, b.requestId);
     const request = new Request(new URL(path, ORIGIN), {
       method: "POST",
       headers: { Cookie: b.organizerCookie },
@@ -243,7 +256,7 @@ describe("proposing from the calendar or the list", () => {
     });
     return requestAction({
       request,
-      params: { groupAddress: addressOf(b.group), requestId: b.requestId },
+      params: { groupAddress: addressOf(b.group), requestSlug: slugFor(b.requestId) },
       context: {},
     } as never) as Promise<Response>;
   }
@@ -259,7 +272,7 @@ describe("proposing from the calendar or the list", () => {
       ["location", ""],
     ]);
 
-    expect(response.headers.get("Location")).toBe(`${groupPath(b.group)}/requests/${b.requestId}`);
+    expect(response.headers.get("Location")).toBe(requestHrefOf(b.group, b.requestId));
     expect(
       b.store
         .listRehearsals(b.group.id)
@@ -280,7 +293,7 @@ describe("proposing from the calendar or the list", () => {
     ]);
 
     expect(response.headers.get("Location")).toBe(
-      `${groupPath(b.group)}/requests/${b.requestId}?free=list`,
+      `${requestHrefOf(b.group, b.requestId)}?free=list`,
     );
   });
 });

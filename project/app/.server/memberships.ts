@@ -16,6 +16,9 @@ export async function visitorGroups(
 ): Promise<{ group: Group; member: Member }[]> {
   const store = getStore();
   const devices = await readMemberships(request);
+  // Places an organizer added for this account's email since it signed in
+  // (plan/phase-30.md); claiming is idempotent.
+  if (account) store.claimInvitations(account.id);
   const linked = new Map<string, Member>(
     account
       ? store.listAccountMemberships(account.id).map(({ group, member }) => [group.id, member])

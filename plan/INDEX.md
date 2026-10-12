@@ -103,7 +103,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 27](phase-27.md) | Fit and finish, then measure: the remaining audit fixes, polish, and a second critique and audit | ✅     |
 | [Phase 28](phase-28.md) | Answering at once: the request's time already chosen, and members' preferred number of rehearsals shown to organizers | ✅     |
 | [Phase 29](phase-29.md) | Proposing simply: every rehearsal one date, no rehearsal length, one-tap dates and notes | ✅     |
-| [Phase 30](phase-30.md) | Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to | ⬅️     |
+| [Phase 30](phase-30.md) | Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to | 🚧     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 

@@ -4,7 +4,7 @@ import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore, type Group } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
-import { groupPath } from "../app/lib/group-address";
+import { groupPath, invitePath } from "../app/lib/group-address";
 import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as callback } from "../app/routes/auth.google.callback";
 import { action as signOut } from "../app/routes/auth.sign-out";
@@ -12,15 +12,20 @@ import { loader as requestLoader } from "../app/routes/request";
 import { loader as schedulePage } from "../app/routes/schedule";
 import { loader as groupPage } from "../app/routes/group";
 import { loader as homePage } from "../app/routes/home";
+import { loader as joinLoader } from "../app/routes/join";
 import { fakeGoogle as calendarFake } from "./google-fake";
 import {
+  addressOf,
   deviceCookie,
+  inviteOf,
   ORIGIN,
+  requestHrefOf,
   routeArgs,
   setCookies,
   signedIn,
+  slugFor,
   tempDatabase,
-  addressOf,
+  thrownBy,
 } from "./routes";
 
 const count = tempDatabase();
@@ -51,7 +56,7 @@ function band() {
 
 /** Google's token endpoint, answering for `profile` with whatever nonce the flow sent. */
 function fakeGoogle(
-  profile: { sub: string; email: string; name: string },
+  profile: { sub: string; email: string; name: string; email_verified?: boolean },
   nonce: () => string,
   tokens: { scope?: string; refresh_token?: string } = {},
 ) {
@@ -73,7 +78,7 @@ function fakeGoogle(
 
 /** Runs the whole sign-in from `returnTo` on a device carrying `cookie`; returns the final response. */
 async function signInThroughGoogle(
-  profile: { sub: string; email: string; name: string },
+  profile: { sub: string; email: string; name: string; email_verified?: boolean },
   options: {
     returnTo?: string;
     cookie?: string;
@@ -105,8 +110,8 @@ async function requestPage(group: Group, cookie: string) {
   });
   return requestLoader(
     routeArgs(
-      `${groupPath(group)}/requests/${id}`,
-      { groupAddress: addressOf(group), requestId: id },
+      requestHrefOf(group, id),
+      { groupAddress: addressOf(group), requestSlug: slugFor(id) },
       { cookie },
     ),
   );
@@ -191,6 +196,98 @@ describe("Google's callback", () => {
       name: "Thursday Quartet",
       displayName: "Cellist",
     });
+  });
+
+  it("claims every place an organizer added for that verified email, wherever sign-in started (plan/phase-30.md)", async () => {
+    const store = getStore();
+    const first = band().group;
+    const second = store.createGroup("Claimed Trio", "Oboe", "Europe/London").group;
+    store.addInvitedMember(first.id, "Amy", "amy-claims@example.test");
+    store.addInvitedMember(second.id, "Amy", "amy-claims@example.test");
+    const amy = { sub: "amy-claims", email: "amy-claims@example.test", name: "Amy" };
+
+    const response = await signInThroughGoogle({ ...amy, email_verified: true }, { returnTo: "/" });
+
+    expect(response.headers.get("Location")).toBe("/");
+    // Claimed by the callback itself, before any page lists them.
+    const account = store.findAccountBySub("amy-claims")!;
+    expect(store.findMemberByAccount(first.id, account.id)?.displayName).toBe("Amy");
+    expect(store.findMemberByAccount(second.id, account.id)?.displayName).toBe("Amy");
+    const cookie = Object.values(setCookies(response)).join("; ");
+    const home = (await homePage(routeArgs("/", {}, { cookie }))) as {
+      groups: { name: string }[];
+    };
+    expect(home.groups.map((group) => group.name).sort()).toEqual([
+      "Claimed Trio",
+      "Thursday Quartet",
+    ]);
+  });
+
+  it("links the device's member before claiming, so an invited place in that group stays unclaimed", async () => {
+    const store = getStore();
+    const { group, cellist } = band();
+    const other = store.createGroup("Claimed Duo", "Harp", "Europe/London").group;
+    const profile = { sub: "cel-both", email: "cel-both@example.test", name: "Cel" };
+    store.addInvitedMember(group.id, "Cello Two", profile.email);
+    store.addInvitedMember(other.id, "Cello", profile.email);
+    const device = await deviceCookie(group.id, cellist.deviceToken);
+
+    const response = await signInThroughGoogle(
+      { ...profile, email_verified: true },
+      { returnTo: groupPath(group), cookie: device },
+    );
+
+    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=linked`);
+    const account = store.findAccountBySub(profile.sub)!;
+    expect(store.findMemberByAccount(group.id, account.id)?.id).toBe(cellist.id);
+    expect(store.findMemberByAccount(other.id, account.id)?.displayName).toBe("Cello");
+    expect(
+      store.listMembers(group.id).find((member) => member.displayName === "Cello Two"),
+    ).toMatchObject({ invitedEmail: profile.email, googleEmail: null });
+  });
+
+  it("returns a sign-in from a copied link to joining, which remembers the claimed place here and lands on the link", async () => {
+    const store = getStore();
+    const { group } = band();
+    const today = todayInZone(group.timeZone, new Date());
+    const { id } = store.createRequest(group.id, {
+      name: "Round trip",
+      startDate: today,
+      endDate: addDays(today, 10),
+      windows: [{ startMinute: 1140, endMinute: 1320 }],
+    });
+    const then = requestHrefOf(group, id);
+    store.addInvitedMember(group.id, "Dee", "dee-trip@example.test");
+    const invite = `${invitePath(group)}?then=${encodeURIComponent(then)}`;
+
+    const signedInResponse = await signInThroughGoogle(
+      { sub: "dee-trip", email: "dee-trip@example.test", name: "Dee", email_verified: true },
+      { returnTo: invite },
+    );
+    expect(signedInResponse.headers.get("Location")).toBe(invite);
+
+    const session = setCookies(signedInResponse).mc_session;
+    const back = (await thrownBy(
+      joinLoader(routeArgs(invite, { invite: inviteOf(group) }, { cookie: session })),
+    )) as Response;
+    expect(back.headers.get("Location")).toBe(then);
+    expect(setCookies(back).mc_members).toMatch(/^mc_members=.+/);
+    const toast = await readToast(
+      new Request(ORIGIN, { headers: { Cookie: setCookies(back).mc_toast } }),
+    );
+    expect(toast.toast?.message).toBe("Welcome, Dee");
+  });
+
+  it("claims nothing for an email Google hasn't verified", async () => {
+    const store = getStore();
+    const { group } = band();
+    store.addInvitedMember(group.id, "Bea", "bea-claims@example.test");
+
+    await signInThroughGoogle({ sub: "bea-claims", email: "bea-claims@example.test", name: "Bea" });
+
+    expect(
+      store.listMembers(group.id).find((member) => member.displayName === "Bea"),
+    ).toMatchObject({ invitedEmail: "bea-claims@example.test", googleEmail: null });
   });
 
   it("refuses a second member of the same group for one Google account, and says so", async () => {

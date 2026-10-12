@@ -20,15 +20,17 @@ import Schedule, {
 } from "../app/routes/schedule";
 import { fakeGoogle } from "./google-fake";
 import {
+  addressFor,
+  addressOf,
   deviceCookie,
   ORIGIN,
+  requestHrefOf,
   requestIn,
   routeArgs,
   signedIn,
+  slugFor,
   tempDatabase,
   thrownBy,
-  addressOf,
-  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -100,8 +102,8 @@ function renderHome(data: HomeData): string {
 function download(groupId: string, requestId: string, cookie?: string) {
   return downloadLoader(
     routeArgs(
-      `/g/${addressFor(groupId)}/requests/${requestId}/calendar.ics`,
-      { groupAddress: addressFor(groupId), requestId },
+      `/g/${addressFor(groupId)}/${slugFor(requestId)}/calendar.ics`,
+      { groupAddress: addressFor(groupId), requestSlug: slugFor(requestId) },
       { cookie },
     ),
   );
@@ -132,6 +134,7 @@ describe("request progress", () => {
     expect(requestProgress(group, TODAY)).toEqual([
       {
         requestId: concert,
+        requestHref: requestHrefOf(group, concert),
         name: "Concert",
         confirmed: 1,
         total: 3,
@@ -215,7 +218,7 @@ describe("the schedule page by request", () => {
         html.indexOf('id="proposed-heading"'),
         html.indexOf('id="progress-heading"'),
       );
-      expect(proposed).toContain(`href="/g/x/requests/${concert}"`);
+      expect(proposed).toContain(`href="${requestHrefOf(group, concert)}"`);
       expect(proposed).toContain(">Concert</a></h3>");
       expect(proposed).toContain("Thu 8 Oct, 7–9 PM");
       expect(proposed).not.toContain("Gig");
@@ -233,10 +236,8 @@ describe("the schedule page by request", () => {
       expect(progress).toContain("1 of 2 confirmed · 0 of 3 answered all");
       expect(progress).toContain("Complete");
       // The download only for the complete request, as a plain link.
-      expect(progress).toContain(
-        `href="${groupPath(group)}/requests/${gig}/calendar.ics" download=""`,
-      );
-      expect(progress).not.toContain(`/requests/${concert}/calendar.ics`);
+      expect(progress).toContain(`href="${requestHrefOf(group, gig)}/calendar.ics" download=""`);
+      expect(progress).not.toContain(`/${slugFor(concert)}/calendar.ics`);
     }
   });
 
@@ -320,8 +321,8 @@ describe("your requests on the home screen", () => {
     expect(html).toContain(`href="${groupPath(group)}/schedule#rehearsal-${proposed.id}"`);
     expect(html).toContain("0 of 1 confirmed · 0 of 3 answered all");
     expect(html).toContain("1 of 1 confirmed");
-    expect(html).toContain(`href="${groupPath(group)}/requests/${gig}/calendar.ics" download=""`);
-    expect(html).not.toContain(`/requests/${concert}/calendar.ics`);
+    expect(html).toContain(`href="${requestHrefOf(group, gig)}/calendar.ics" download=""`);
+    expect(html).not.toContain(`/${slugFor(concert)}/calendar.ics`);
     expect(JSON.stringify(data.requests)).not.toContain(organizer.id);
     expect(JSON.stringify(data.requests)).not.toContain("Viola");
     void proposed;
@@ -500,9 +501,17 @@ describe("downloading a complete request", () => {
     const foreignDate = theirs.store.addRehearsal(theirs.group.id, foreign, once("2026-10-08"), "");
     theirs.store.confirmRehearsal(theirs.group.id, foreignDate.id);
 
-    for (const requestId of [open, empty, foreign, "Q".repeat(22)]) {
+    for (const requestId of [open, empty, foreign]) {
       expect(statusOf(await thrownBy(download(group.id, requestId, cellistCookie)))).toBe(404);
     }
+    const unknown = downloadLoader(
+      routeArgs(
+        `/g/${addressFor(group.id)}/no-such-request/calendar.ics`,
+        { groupAddress: addressFor(group.id), requestSlug: "no-such-request" },
+        { cookie: cellistCookie },
+      ),
+    );
+    expect(statusOf(await thrownBy(unknown))).toBe(404);
     const visitor = await thrownBy(download(theirs.group.id, foreign));
     expect((visitor as Response).headers.get("Location")).toBe(groupPath(theirs.group));
   });

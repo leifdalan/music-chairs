@@ -12,15 +12,16 @@ import { action as joinAction, loader as joinLoader } from "../app/routes/join";
 import { action, loader } from "../app/routes/members.add";
 import { fakeGoogle, type GoogleFake } from "./google-fake";
 import {
+  addressFor,
+  addressOf,
   deviceCookie,
+  inviteOf,
   ORIGIN,
   routeArgs,
   setCookies,
   signedIn,
   tempDatabase,
   thrownBy,
-  addressOf,
-  addressFor,
 } from "./routes";
 
 tempDatabase();
@@ -283,14 +284,14 @@ describe("claiming a place added from contacts", () => {
   }
 
   function openInvite(inviteToken: string, cookie?: string) {
-    return joinLoader(routeArgs(`/join/${inviteToken}`, { inviteToken }, { cookie }));
+    return joinLoader(routeArgs(`/join/${inviteToken}`, { invite: inviteToken }, { cookie }));
   }
 
   it("links the place when that verified Google account opens the invite", async () => {
     const { store, group, member, amy } = await invited();
     const { account, cookie } = await signedIn(amy);
 
-    const response = (await thrownBy(openInvite(group.inviteToken, cookie))) as Response;
+    const response = (await thrownBy(openInvite(inviteOf(group), cookie))) as Response;
 
     expect(response.headers.get("Location")).toBe(groupPath(group));
     expect(await toastOf(response)).toBe("Welcome, Amy Adams");
@@ -315,8 +316,8 @@ describe("claiming a place added from contacts", () => {
     // Google treats dots in Gmail addresses as the same mailbox; this app does not.
     const other = await signedIn({ ...profile("bob"), email: "a.my@contacts.test" });
 
-    const page = await openInvite(group.inviteToken, cookie);
-    await openInvite(group.inviteToken, other.cookie);
+    const page = await openInvite(inviteOf(group), cookie);
+    await openInvite(inviteOf(group), other.cookie);
 
     expect(page).toMatchObject({ groupName: "Quartet" });
     expect(store.findMember(group.id, member.id)).toMatchObject({
@@ -330,8 +331,8 @@ describe("claiming a place added from contacts", () => {
 
     const result = await joinAction(
       routeArgs(
-        `/join/${group.inviteToken}`,
-        { inviteToken: group.inviteToken },
+        `/join/${inviteOf(group)}`,
+        { invite: inviteOf(group) },
         { form: { displayName: "amy ADAMS" } },
       ),
     );
@@ -350,8 +351,8 @@ describe("claiming a place added from contacts", () => {
     await add(group.id, organizerCookie, "Amy Adams");
     const response = await joinAction(
       routeArgs(
-        `/join/${group.inviteToken}`,
-        { inviteToken: group.inviteToken },
+        `/join/${inviteOf(group)}`,
+        { invite: inviteOf(group) },
         { form: { displayName: "amy adams" } },
       ),
     );
