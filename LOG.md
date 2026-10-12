@@ -4561,3 +4561,37 @@ Phase 30 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 30 ✅; every phase is complete, so no row holds the arrow (accepted ledger applied and verified).
 - Ripple: none (no later phase).
 - Lessons: arboreal-hippogriff (local) and ubiquitous-cuckoo (methodology) filed; loyal-dinosaur occurrence added (5 total). ./bin/lessons validate OK.
+
+## 2026-10-11 18:46 — END (correction)
+Phase 30 — deploy smoke expects the changed invite links
+
+Phase 30's merge deployed a healthy release: migrations 13 and 14 ran and the site serves the new links. The deploy job's final live check then failed, because it still asked for "Page not found" from a random long invite link, which Phase 30 deliberately answers with "This invite link has changed". The check now asks an unknown short invite for "Page not found" and an old long link for "This invite link has changed"; both answers were confirmed on the live site, and merging this correction reruns the check. No app code changed, and Phase 30 stays complete.
+
+Execution trace: c51b4916793843f8a104f1446f01096c
+
+Files changed:
+- bin/deploy — the post-release smoke checks an unknown 8-character invite (404) and an old long link (410)
+
+Build status:
+- ci.check: OK — CI run 38192755042, check success for commit 8ddb9bd (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main, pytest 134/134
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Follow-up route (per policies/review-lanes.md):
+- direct-fix (small, low risk, outside the app; no independent critique)
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 750.795 s; no role work
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: final=244db76e9272a68203b278892a0631d9c408f1f290160fe06e5208d5d9684cfa; a first candidate added a root test that CI refused as an unadmitted proof, and it was removed and recaptured
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Delivery:
+- default — pull request 23, merged when green, after the handoff gate; merging reruns the deploy and its live smoke
+
+Lessons:
+- new local lesson strict-lynx: a changed HTTP answer is also asserted by bin/deploy's live smoke, outside project/; prefer no new root tests in a direct fix
+
+Remaining:
+- None beyond Phase 30's parked User Demo and decisions.
