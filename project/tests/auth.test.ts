@@ -441,7 +441,8 @@ describe("Calendar access with every sign-in", () => {
     )) as { calendar: { google: { state: string } | null } };
 
     expect(availability.clashes.state).toBe("ready");
-    expect(schedule.calendar.google?.state).toBe("off");
+    // Joining with an account that granted writing writes straight away (plan/phase-32.md).
+    expect(schedule.calendar.google?.state).toBe("on");
   });
 
   it("offers to connect Calendar after a sign-in that brought no refresh token", async () => {
@@ -471,6 +472,109 @@ describe("Calendar access with every sign-in", () => {
       refreshToken: "refresh-old",
       scopes: expect.arrayContaining([BUSY, WRITE]),
     });
+  });
+
+  it("switches writing on in every group the account is in, except where held off, and says so", async () => {
+    const store = getStore();
+    const profile = { ...person(), email_verified: true };
+    const first = await signedIn(profile);
+    const account = first.account;
+    const quartet = store.createGroup("Hold Quartet", "Viola", "Europe/London").group;
+    const trio = store.createGroup("Hold Trio", "Oboe", "Europe/London").group;
+    const duo = store.createGroup("Hold Duo", "Harp", "Europe/London").group;
+    const added = store.createGroup("Hold Added", "Horn", "Europe/London").group;
+    store.addMember(quartet.id, "Cal", "member", account.id);
+    store.addMember(trio.id, "Cal", "member", account.id);
+    const stopped = store.addMember(duo.id, "Cal", "member", account.id);
+    // Cal turned writing off in the Duo; an organizer added Cal's email to "Hold Added".
+    store.setCalendarSync(duo.id, stopped.id, false);
+    store.addInvitedMember(added.id, "Cal", profile.email);
+    const writes = () =>
+      Object.fromEntries(
+        store
+          .listAccountMemberships(account.id)
+          .map(({ group, member }) => [group.name, member.calendarSync]),
+      );
+
+    const response = await signInThroughGoogle(profile, {
+      returnTo: `${groupPath(quartet)}/schedule`,
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "refresh-hold" },
+    });
+
+    expect(writes()).toEqual({
+      "Hold Quartet": true,
+      "Hold Trio": true,
+      "Hold Duo": false,
+      "Hold Added": false,
+    });
+    const cookie = setCookies(response).mc_toast;
+    expect(
+      (await readToast(new Request(ORIGIN, { headers: { Cookie: cookie } }))).toast?.message,
+    ).toBe("Your confirmed rehearsals will be added to your Google Calendar");
+
+    // Signing in from the added group's page is acting there: its place writes too.
+    await signInThroughGoogle(profile, {
+      returnTo: groupPath(added),
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}` },
+    });
+    expect(writes()["Hold Added"]).toBe(true);
+    expect(writes()["Hold Duo"]).toBe(false);
+  });
+
+  it("says rehearsals will be added when signing in from a group links this device's member", async () => {
+    const store = getStore();
+    const profile = person();
+    const { group } = store.createGroup("Link Quartet", "Viola", "Europe/London");
+    const device = store.addMember(group.id, "Cal", "member");
+
+    const response = await signInThroughGoogle(profile, {
+      returnTo: groupPath(group),
+      cookie: await deviceCookie(group.id, device.deviceToken),
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "refresh-link" },
+    });
+
+    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=linked`);
+    expect(store.findMember(group.id, device.id)?.calendarSync).toBe(true);
+    expect(
+      (await readToast(new Request(ORIGIN, { headers: { Cookie: setCookies(response).mc_toast } })))
+        .toast?.message,
+    ).toBe("Your confirmed rehearsals will be added to your Google Calendar");
+  });
+
+  it("switches nothing on, and says nothing, when the write permission was unticked", async () => {
+    const store = getStore();
+    const profile = person();
+    const { account } = await signedIn(profile);
+    const { group } = store.createGroup("Busy Quartet", "Viola", "Europe/London");
+    const member = store.addMember(group.id, "Cal", "member", account.id);
+    // An earlier grant already holds writing; this sign-in's permission didn't include it.
+    store.saveGrant(account.id, "refresh-earlier", [WRITE]);
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(false);
+
+    const response = await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY}`, refresh_token: "refresh-busy" },
+    });
+
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(false);
+    expect(setCookies(response).mc_toast).toBeUndefined();
+  });
+
+  it("writes again after Disconnect and a new sign-in, since withdrawing isn't stopping", async () => {
+    const store = getStore();
+    const profile = person();
+    const { account } = await signedIn(profile);
+    const { group } = store.createGroup("Again Quartet", "Viola", "Europe/London");
+    store.saveGrant(account.id, "refresh-again", [WRITE]);
+    const member = store.addMember(group.id, "Cal", "member", account.id);
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(true);
+
+    store.disconnectGoogle(account.id);
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(false);
+    await signInThroughGoogle(profile, {
+      tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "refresh-new" },
+    });
+
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(true);
   });
 });
 

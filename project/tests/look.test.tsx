@@ -52,7 +52,7 @@ describe("a complete request's calendar options", () => {
   it.each([
     ["off", "Add to Google Calendar"],
     ["connect", "Connect Google Calendar"],
-    ["on", "Already in your Google Calendar."],
+    ["on", "Being added to your Google Calendar."],
     ["unlinked", "sign in with Google from the group page"],
     ["other-account", "sign in with Google as this member"],
   ] as const)("put Google first when it is %s", (state, google) => {
@@ -66,7 +66,15 @@ describe("a complete request's calendar options", () => {
     const html = actions(null);
 
     expect(html).toContain(DOWNLOAD);
-    expect(html).not.toMatch(/Add to Google Calendar|Connect Google Calendar|Already in your/);
+    expect(html).not.toMatch(/Add to Google Calendar|Connect Google Calendar|Being added/);
+  });
+
+  it("offer a way to stop when writing is on, and say what connecting does", () => {
+    expect(actions("on")).toContain('href="/g/g/schedule#calendar-heading">Stop adding them</a>');
+    expect(actions("off")).not.toContain("Stop adding them");
+    expect(actions("connect")).toContain(
+      "If you allow Google Calendar access, music-chairs adds confirmed rehearsals from the groups you&#x27;ve joined",
+    );
   });
 
   it("show the download as an icon and .ics, named for what it downloads", () => {

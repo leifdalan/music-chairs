@@ -3,7 +3,7 @@ import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { confirmationNeeded } from "../app/.server/confirm";
-import { CALENDAR_SCOPES } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { getStore } from "../app/.server/store";
 import { groupPath } from "../app/lib/group-address";
 import { ConfirmForm, ConfirmPanel } from "../app/components/confirm-form";

@@ -8,7 +8,7 @@ export type PolicyScope = { scope: string; name: string; purpose: string };
 export const POLICY = {
   operator: "music-chairs is run by Leif Dalan as a personal, non-commercial project.",
   contact: "leifdalan+rtc@gmail.com",
-  updated: "3 October 2026",
+  updated: "12 October 2026",
   googleScopes: [
     {
       scope: "openid",
@@ -36,7 +36,7 @@ export const POLICY = {
       scope: "https://www.googleapis.com/auth/calendar.events.owned",
       name: "Events on calendars you own",
       purpose:
-        "Adds your group's confirmed rehearsals to your calendar when you turn that on, and updates or removes only the events music-chairs added.",
+        "Once you allow it, adds the confirmed rehearsals of your groups to your calendar until you stop it (a group someone else added you to starts only when you turn it on there), and updates or removes only the events music-chairs added.",
     },
     {
       scope: "https://www.googleapis.com/auth/contacts.readonly",

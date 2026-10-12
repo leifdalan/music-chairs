@@ -1368,6 +1368,54 @@ describe("members added from contacts", () => {
     expect(store.claimInvitations("not a token")).toEqual([]);
   });
 
+  it("starts an added place with writing off, and a member's own choice decides after (plan/phase-32.md)", () => {
+    const store = memoryStore();
+    const write = "https://www.googleapis.com/auth/calendar.events.owned";
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const other = store.createGroup("Trio", "Oboe", "Europe/London").group;
+    const invited = store.addInvitedMember(group.id, "Amy", "amy@example.test");
+    const account = store.upsertAccount(amy);
+    store.saveGrant(account.id, "refresh", [write]);
+    const writes = (groupId: string, memberId: string) =>
+      store.findMember(groupId, memberId)?.calendarSync;
+
+    // Claimed: held as an organizer's added place, even through a later grant.
+    store.claimInvitation(group.id, account.id);
+    expect(writes(group.id, invited.id)).toBe(false);
+    expect(store.switchOnWriting(account.id)).toBe(0);
+    expect(writes(group.id, invited.id)).toBe(false);
+    // Joining with the granted account writes at once.
+    const joined = store.addMember(other.id, "Amy", "member", account.id);
+    expect(writes(other.id, joined.id)).toBe(true);
+    // The member's own off holds through grants; their own on releases it.
+    store.setCalendarSync(other.id, joined.id, false);
+    expect(store.switchOnWriting(account.id)).toBe(0);
+    expect(writes(other.id, joined.id)).toBe(false);
+    expect(store.switchOnWriting(account.id, { groupId: other.id })).toBe(0);
+    expect(writes(other.id, joined.id)).toBe(false);
+    expect(store.switchOnWriting(account.id, { groupId: other.id, explicit: true })).toBe(1);
+    expect(writes(other.id, joined.id)).toBe(true);
+    // Granting from the added place's group releases it.
+    expect(store.switchOnWriting(account.id, { groupId: group.id })).toBe(1);
+    expect(writes(group.id, invited.id)).toBe(true);
+  });
+
+  it("switches nothing on for an account without the write permission, and links write like joins", () => {
+    const store = memoryStore();
+    const { group } = store.createGroup("Quartet", "Viola", "Europe/London");
+    const account = store.upsertAccount(amy);
+    store.saveGrant(account.id, "refresh", ["https://www.googleapis.com/auth/calendar.freebusy"]);
+    const busyOnly = store.addMember(group.id, "Amy", "member", account.id);
+    expect(store.findMember(group.id, busyOnly.id)?.calendarSync).toBe(false);
+    expect(store.switchOnWriting(account.id)).toBe(0);
+
+    const other = store.createGroup("Trio", "Oboe", "Europe/London").group;
+    const device = store.addMember(other.id, "Amy", "member");
+    store.saveGrant(account.id, null, ["https://www.googleapis.com/auth/calendar.events.owned"]);
+    expect(store.linkMember(other.id, device.id, account.id)).toBe("linked");
+    expect(store.findMember(other.id, device.id)?.calendarSync).toBe(true);
+  });
+
   it("is never matched by name alone", () => {
     const store = memoryStore();
     const { group } = store.createGroup("Quartet", "Viola", "Europe/London");

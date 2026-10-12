@@ -4706,3 +4706,13 @@ Phase 31 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 31 ✅ and Phase 32 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: warping-fox filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 01:02 — START
+Phase 32 — Google Calendar permission means your calendar: granting it adds rehearsals, and the app says so
+
+Execution trace: 3b8f2ed3cfcb473a9180216ab7be88d7
+
+Planned work:
+- Granting the Google Calendar permission, whether while signing in with Google or through "Connect Google Calendar", switches calendar writing on for that member, so their confirmed rehearsals appear in their Google Calendar with no further button.
+- Before going to Google, the app says plainly what granting the permission does ("Confirmed rehearsals will be added to your Google Calendar and kept up to date"); on return, it confirms that rehearsals are now being added.
+- Wherever calendar writing shows (the schedule's calendar panel, a complete request's "Add to calendar"), it reads as on, with the way to stop it, rather than as a step still to take.

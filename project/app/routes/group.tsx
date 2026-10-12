@@ -5,6 +5,7 @@ import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { timeZoneChoices } from "~/.server/create-group";
 import { TimeZoneOptions } from "~/components/time-zone-options";
+import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
 import { zoneLabel } from "~/lib/time-zones";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
@@ -328,6 +329,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
               to open this group on your other devices.
             </p>
           ) : null}
+          {!viewer.email && signInAvailable ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
           <p className="group-links">
             {/* Not the primary look: nothing here is "selected" (plan/phase-24.md). */}
             <Link to="schedule" relative="path" className={buttonVariants({ variant: "outline" })}>

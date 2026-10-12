@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { accessTokenFor, CALENDAR_SCOPES, CONTACTS_SCOPES } from "../app/.server/google";
+import { accessTokenFor, CONTACTS_SCOPES } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { safeReturnTo } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { loader as startConsent } from "../app/routes/auth.google.calendar";
@@ -148,6 +149,84 @@ describe("Google's answer to Calendar consent", () => {
     });
     expect(Object.keys(setCookies(response))).toEqual(["mc_oauth"]);
     expect(getStore().listAccountMemberships(account.id)).toHaveLength(accounts);
+  });
+
+  it("switches writing on after a write consent, releasing any hold in the group it came from", async () => {
+    const store = getStore();
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const first = store.createGroup("Consent Trio", "Viola", "Europe/London").group;
+    const second = store.createGroup("Consent Duo", "Harp", "Europe/London").group;
+    const here = store.addMember(first.id, "Cel", "member", account.id);
+    store.addMember(second.id, "Cel", "member", account.id);
+    // Cel turned writing off in the Trio, earlier.
+    store.setCalendarSync(first.id, here.id, false);
+    const writes = (groupId: string) =>
+      store.listAccountMemberships(account.id).find(({ group }) => group.id === groupId)?.member
+        .calendarSync;
+    expect([writes(first.id), writes(second.id)]).toEqual([false, false]);
+
+    const started = await begin(cookie, "write", `/g/consent-trio-${first.shortId}/schedule`);
+    googleAnswers(profile.sub, started.nonce, CALENDAR_SCOPES.write);
+    const response = await finish(`${started.oauth}; ${cookie}`, started.state);
+
+    expect(response.headers.get("Location")).toBe(
+      `/g/consent-trio-${first.shortId}/schedule?notice=calendar-writing`,
+    );
+    expect([writes(first.id), writes(second.id)]).toEqual([true, true]);
+  });
+
+  it("releases an added place when Connect comes from a request page in its group", async () => {
+    const store = getStore();
+    const profile = { ...person(), email_verified: true };
+    const { account, cookie } = await signedIn({ ...profile, emailVerified: true });
+    const { group } = store.createGroup("Added Trio", "Viola", "Europe/London");
+    const placed = store.addInvitedMember(group.id, "Cel", profile.email);
+    store.claimInvitations(account.id);
+    expect(store.findMember(group.id, placed.id)?.calendarSync).toBe(false);
+    const request = store.createRequest(group.id, {
+      name: "Gig",
+      startDate: "2026-10-01",
+      endDate: "2026-10-31",
+      windows: [{ startMinute: 1140, endMinute: 1320 }],
+    });
+
+    const started = await begin(cookie, "write", `/g/added-trio-${group.shortId}/${request.slug}`);
+    googleAnswers(profile.sub, started.nonce, CALENDAR_SCOPES.write);
+    await finish(`${started.oauth}; ${cookie}`, started.state);
+
+    expect(store.findMember(group.id, placed.id)?.calendarSync).toBe(true);
+  });
+
+  it("says only 'connected' after a write consent that left every group held off", async () => {
+    const store = getStore();
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const { group } = store.createGroup("Held Trio", "Viola", "Europe/London");
+    const member = store.addMember(group.id, "Cel", "member", account.id);
+    store.setCalendarSync(group.id, member.id, false);
+
+    const started = await begin(cookie, "write", "/");
+    googleAnswers(profile.sub, started.nonce, CALENDAR_SCOPES.write);
+    const response = await finish(`${started.oauth}; ${cookie}`, started.state);
+
+    expect(response.headers.get("Location")).toBe("/?notice=calendar-connected");
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(false);
+  });
+
+  it("says only 'connected' after a busy-time consent, and switches nothing on", async () => {
+    const store = getStore();
+    const profile = person();
+    const { account, cookie } = await signedIn(profile);
+    const { group } = store.createGroup("Busy Trio", "Viola", "Europe/London");
+    const member = store.addMember(group.id, "Cel", "member", account.id);
+
+    const started = await begin(cookie, "busy");
+    googleAnswers(profile.sub, started.nonce, CALENDAR_SCOPES.busy);
+    const response = await finish(`${started.oauth}; ${cookie}`, started.state);
+
+    expect(response.headers.get("Location")).toBe("/g/abc/schedule?notice=calendar-connected");
+    expect(store.findMember(group.id, member.id)?.calendarSync).toBe(false);
   });
 
   it("refuses a different Google account from the one signed in", async () => {

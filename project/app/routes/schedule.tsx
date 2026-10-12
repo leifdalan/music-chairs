@@ -9,7 +9,7 @@ import {
 } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { redirectWithToast } from "~/.server/flash";
-import { CALENDAR_SCOPES } from "~/.server/google";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { findViewer, publicOrigin } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
 import {
@@ -49,7 +49,7 @@ import {
 } from "~/lib/overlap";
 import { groupPath } from "~/lib/group-address";
 import { rehearsalPath, rehearsalSlugs, requestPath, withJoin } from "~/lib/request-address";
-import { calendarNotice } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT, calendarNotice } from "~/lib/calendar-notices";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 import { Switch, useSwitch } from "~/components/view-switch";
@@ -909,6 +909,7 @@ function CalendarPanel({
           </a>
         </p>
       ) : null}
+      {google?.state === "connect" ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
       {google?.state === "other-account" ? (
         <p className="hint">
           To add rehearsals to your Google Calendar, sign in with Google as this member.

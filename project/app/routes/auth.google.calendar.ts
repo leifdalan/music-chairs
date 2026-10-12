@@ -4,12 +4,12 @@ import { redirect } from "react-router";
 
 import {
   authorizationUrl,
-  CALENDAR_SCOPES,
   CONTACTS_SCOPES,
   callbackUrl,
   googleConfig,
   pkcePair,
 } from "~/.server/google";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { readAccount, safeReturnTo, writeOAuthState } from "~/.server/membership";
 
 import type { Route } from "./+types/auth.google.calendar";

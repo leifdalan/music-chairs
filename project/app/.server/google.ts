@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { publicOrigin } from "./membership";
+import { CALENDAR_SCOPES } from "~/lib/google-scopes";
+
 import { getStore, type GoogleProfile } from "./store";
 
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -13,16 +15,6 @@ const PEOPLE_API = "https://people.googleapis.com/v1";
 const GOOGLE_TIMEOUT_MS = 10_000;
 // Sign-in asks for the basic profile only.
 const SIGN_IN_SCOPES = ["openid", "email", "profile"];
-
-/**
- * The Calendar permissions, each requested only from the feature that needs it
- * (plan/phase-7.md, Decisions): busy periods for import, and writing events on
- * calendars the member owns.
- */
-export const CALENDAR_SCOPES = {
-  busy: "https://www.googleapis.com/auth/calendar.freebusy",
-  write: "https://www.googleapis.com/auth/calendar.events.owned",
-} as const;
 
 /**
  * Reading an organizer's contacts (plan/phase-13.md): saved contacts, and the

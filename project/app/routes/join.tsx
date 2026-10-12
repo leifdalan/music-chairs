@@ -10,7 +10,9 @@ import {
   safeReturnTo,
 } from "~/.server/membership";
 import { redirectWithToast } from "~/.server/flash";
+import { syncAccount } from "~/.server/calendar-sync";
 import { findRehearsalBySlug } from "~/.server/request-address";
+import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
 import { todayInZone } from "~/lib/availability";
 import { groupPath, inviteCodeOf, invitePath } from "~/lib/group-address";
 import { requestPath } from "~/lib/request-address";
@@ -227,6 +229,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
     throw error;
   }
+  // Joining with a Google account that may write: confirmed rehearsals go into
+  // the calendar now rather than at the next sweep (plan/phase-32.md).
+  if (account && member.calendarSync) syncAccount(account.id);
   return redirectWithToast(then ?? firstStop(group), `You joined ${group.name}`, {
     headers: { "Set-Cookie": await rememberMembership(request, group.id, member.deviceToken) },
   });
@@ -258,6 +263,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
           </a>
         </p>
       ) : null}
+      {loaderData.signInUrl ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
       {choices ? (
         <section aria-labelledby="choices-heading">
           <h2 id="choices-heading">Which one are you?</h2>

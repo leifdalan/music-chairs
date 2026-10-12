@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { eventId, stopWritingFor, syncMember, whenSynced } from "../app/.server/calendar-sync";
 import { readToast } from "../app/.server/flash";
-import { CALENDAR_SCOPES, forgetAccessToken } from "../app/.server/google";
+import { forgetAccessToken } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { readAccount } from "../app/.server/membership";
 import { getStore } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";

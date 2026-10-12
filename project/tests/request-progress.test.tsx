@@ -7,7 +7,7 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { CALENDAR_SCOPES } from "../app/.server/google";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { rememberMembership } from "../app/.server/membership";
 import { requestProgress } from "../app/.server/progress";
 import { getStore } from "../app/.server/store";
@@ -384,8 +384,9 @@ describe("your requests on the home screen", () => {
         "sign in with Google from the group page",
       );
       expect(await google(signedInCellist)).toBe("connect");
+      // Connecting comes back to the request's page, in its group (plan/phase-32.md).
       expect(renderHome(await loadHome(signedInCellist))).toContain(
-        `/auth/google/calendar?scope=write&amp;returnTo=%2F"`,
+        `/auth/google/calendar?scope=write&amp;returnTo=${encodeURIComponent(requestHrefOf(group, gig))}"`,
       );
       store.saveGrant(account.id, "refresh-1", [CALENDAR_SCOPES.write]);
       expect(await google(signedInCellist)).toBe("off");
@@ -403,7 +404,7 @@ describe("your requests on the home screen", () => {
       expect((turnedOn as Response).headers.get("Location")).toBe("/");
       expect(await google(signedInCellist)).toBe("on");
       expect(renderHome(await loadHome(signedInCellist))).toContain(
-        "Already in your Google Calendar",
+        "Being added to your Google Calendar",
       );
 
       // Signed in as Cellist on Viola's device: Viola's state, and the hint to sign in as Viola.
