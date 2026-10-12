@@ -136,6 +136,8 @@ describe("buttons", () => {
     const { group, organizer } = store.createGroup("Look Band", "Viola", "Europe/London");
     const cookie = await deviceCookie(group.id, organizer.deviceToken);
     const requestId = requestIn(group.id, { name: "Look request" });
+    // Answered, so the cap is its own form, past the first answer's draft (plan/phase-31.md).
+    store.touchResponse(group.id, requestId, organizer.id);
     store.addRehearsal(
       group.id,
       requestId,

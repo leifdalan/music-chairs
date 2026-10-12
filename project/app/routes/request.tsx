@@ -10,7 +10,13 @@ import { findViewer, publicOrigin } from "~/.server/membership";
 import { landOrJoin, requestFromSlug } from "~/.server/request-address";
 import { getStore, type Group, type Member, type ScheduleRequest } from "~/.server/store";
 import { ProposedList } from "~/components/proposed-list";
-import { RequestDates, type DateErrors, type DateValues } from "~/components/request-dates";
+import {
+  RequestDates,
+  type DateErrors,
+  type DateValues,
+  type LimitValues,
+  CLEAR_DATES_PROMPT,
+} from "~/components/request-dates";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { CopyLink } from "~/components/copy-link";
 import { ProblemAlert } from "~/components/problem-alert";
@@ -60,6 +66,27 @@ export function meta({ loaderData }: Route.MetaArgs) {
 /** The largest preferred number of rehearsals a member can give. */
 const LIMIT_MAX = 99;
 
+/** The preferred number of rehearsals a form sends: null for "as many as possible". */
+function readLimit(
+  form: FormData,
+): { ok: true; limit: number | null } | { ok: false; error: string } {
+  if (form.get("limit") !== "most") return { ok: true, limit: null };
+  // An empty field reads as 0, which is refused like any other out-of-range count.
+  const count = Number(form.get("limitCount"));
+  if (!Number.isInteger(count) || count < 1 || count > LIMIT_MAX) {
+    return { ok: false, error: `Choose a number of rehearsals from 1 to ${LIMIT_MAX}.` };
+  }
+  return { ok: true, limit: count };
+}
+
+/** The preferred number exactly as sent, to show again when a Send is refused. */
+function postedLimit(form: FormData): LimitValues {
+  return {
+    most: form.get("limit") === "most",
+    count: String(form.get("limitCount") ?? ""),
+  };
+}
+
 /**
  * The group, the member viewing it and the request its address names
  * (plan/phase-30.md). A visitor goes back to the group page, or joins first
@@ -91,6 +118,23 @@ function overlapsWindows(range: TimeWindow, windows: TimeWindow[]): boolean {
 /** A time within the request's windows: one of the member's times for it. */
 function inWindows(slot: Slot, windows: TimeWindow[]): boolean {
   return overlapsWindows(slot, windows);
+}
+
+/** The dates in `span` on which the member has times within the request's windows. */
+function savedDates(
+  memberId: string,
+  span: { from: string; to: string },
+  windows: TimeWindow[],
+): Set<string> {
+  return new Set(
+    getStore()
+      .listSlots(memberId)
+      .filter(
+        (slot) =>
+          slot.startDate >= span.from && slot.startDate <= span.to && inWindows(slot, windows),
+      )
+      .map((slot) => slot.startDate),
+  );
 }
 
 /** The dates a member can still give times for: the rest of the request's span. */
@@ -268,6 +312,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       : ({ state: "none" } as const),
     notice: calendarNotice(request),
     mine: own ? view(own) : null,
+    // A first answer is a draft (plan/phase-31.md): nothing is saved until Send.
+    draft: answering && own === undefined,
     answers: isOrganizer
       ? members.map((member) => {
           const answer = answers.find((item) => item.memberId === member.id);
@@ -330,6 +376,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   // saved dates left unticked are cleared, saved dates still ticked keep their times.
   if (intent === "save-dates") {
     if (!answerable(scheduleRequest, today)) return problem(NOT_TAKING);
+    // A first answer's Send (plan/phase-31.md) carries the preferred number too;
+    // once the member has answered, it is an ordinary save and the number is left alone.
+    const firstAnswer =
+      form.get("draft") === "1" &&
+      !store.listAnswers(group.id, scheduleRequest.id).some((item) => item.memberId === viewer.id);
     const span = openSpan(scheduleRequest, today);
     const ticked = [
       ...new Set(form.getAll("date").filter((value): value is string => typeof value === "string")),
@@ -339,35 +390,73 @@ export async function action({ request, params }: Route.ActionArgs) {
       startTime: String(form.get("startTime") ?? ""),
       endTime: String(form.get("endTime") ?? ""),
     };
+    // A refused Send keeps everything the member sent, the number included.
+    const limitValues = firstAnswer ? postedLimit(form) : undefined;
     if (ticked.some((date) => !isDate(date) || date < span.from || date > span.to)) {
-      return data({ dateErrors: { dates: DATE_GONE }, dateValues: values }, { status: 400 });
+      return data(
+        { dateErrors: { dates: DATE_GONE }, dateValues: values, limitValues },
+        { status: 400 },
+      );
     }
-    const saved = new Set(
-      store
-        .listSlots(viewer.id)
-        .filter(
-          (slot) =>
-            slot.startDate >= span.from &&
-            slot.startDate <= span.to &&
-            inWindows(slot, scheduleRequest.windows),
-        )
-        .map((slot) => slot.startDate),
-    );
+    const saved = savedDates(viewer.id, span, scheduleRequest.windows);
     const added = ticked.filter((date) => !saved.has(date));
     let stretch: TimeWindow | null = null;
     if (added.length > 0) {
       const read = readRequestStretch(form, scheduleRequest.windows);
       if (!isStretch(read)) {
-        return data({ dateErrors: read, dateValues: values }, { status: 400 });
+        return data({ dateErrors: read, dateValues: values, limitValues }, { status: 400 });
       }
       stretch = read;
+    }
+    // Everything is checked before anything is written.
+    const limit = firstAnswer ? readLimit(form) : null;
+    if (limit && !limit.ok) {
+      return data(
+        { dateErrors: {}, dateValues: values, limitValues, capProblem: limit.error },
+        { status: 400 },
+      );
     }
     for (const date of saved) {
       if (!ticked.includes(date)) setDateTimes(viewer.id, date, scheduleRequest.windows, null);
     }
     for (const date of added) setDateTimes(viewer.id, date, scheduleRequest.windows, stretch);
+    if (limit?.ok) {
+      store.answerRequest(group.id, scheduleRequest.id, viewer.id, limit.limit);
+      return redirectWithToast(here, "Dates sent");
+    }
     store.touchResponse(group.id, scheduleRequest.id, viewer.id);
     return redirectWithToast(here, "Times saved");
+  }
+  // Select all once answered (plan/phase-31.md): every date still on offer
+  // with no times yet gets the chosen stretch; dates with times keep them.
+  if (intent === "fill-dates") {
+    if (!answerable(scheduleRequest, today)) {
+      return data({ dateProblem: NOT_TAKING }, { status: 400 });
+    }
+    const read = readRequestStretch(form, scheduleRequest.windows);
+    if (!isStretch(read)) {
+      return data({ dateProblem: read.startTime ?? read.endTime ?? DATE_GONE }, { status: 400 });
+    }
+    const span = openSpan(scheduleRequest, today);
+    const saved = savedDates(viewer.id, span, scheduleRequest.windows);
+    for (let date = span.from; date <= span.to; date = addDays(date, 1)) {
+      if (!saved.has(date)) setDateTimes(viewer.id, date, scheduleRequest.windows, read);
+    }
+    store.touchResponse(group.id, scheduleRequest.id, viewer.id);
+    return { dateSaved: true };
+  }
+  // Clear all once answered, after "are you sure": the member's times on every
+  // date still on offer, within the request's times of day.
+  if (intent === "clear-dates") {
+    if (!answerable(scheduleRequest, today)) return problem(NOT_TAKING);
+    const confirm = confirmationNeeded(form, CLEAR_DATES_PROMPT);
+    if (confirm) return data(confirm);
+    const span = openSpan(scheduleRequest, today);
+    for (const date of savedDates(viewer.id, span, scheduleRequest.windows)) {
+      setDateTimes(viewer.id, date, scheduleRequest.windows, null);
+    }
+    store.touchResponse(group.id, scheduleRequest.id, viewer.id);
+    return redirectWithToast(here, "Dates cleared");
   }
   // The preferred number of rehearsals: saved through a fetcher as it changes,
   // or by the Save button without JavaScript.
@@ -376,16 +465,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     // Shown beside the choice, whether it came through a fetcher or the Save button.
     const refuse = (message: string) => data({ capProblem: message }, { status: 400 });
     if (!answerable(scheduleRequest, today)) return refuse(NOT_TAKING);
-    let limit: number | null = null;
-    if (form.get("limit") === "most") {
-      // An empty field reads as 0, which is refused like any other out-of-range count.
-      const count = Number(form.get("limitCount"));
-      if (!Number.isInteger(count) || count < 1 || count > LIMIT_MAX) {
-        return refuse(`Choose a number of rehearsals from 1 to ${LIMIT_MAX}.`);
-      }
-      limit = count;
-    }
-    if (!store.answerRequest(group.id, scheduleRequest.id, viewer.id, limit)) {
+    const read = readLimit(form);
+    if (!read.ok) return refuse(read.error);
+    if (!store.answerRequest(group.id, scheduleRequest.id, viewer.id, read.limit)) {
       return refuse(NOT_TAKING);
     }
     return viaFetcher ? { capSaved: true } : redirectWithToast(here, "Saved");
@@ -481,6 +563,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
     clashes,
     notice,
     mine,
+    draft,
     answers,
     overlap,
     freeRange,
@@ -507,6 +590,16 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
       clashes={clashes}
       notice={notice}
       result={datesResult}
+      draft={draft}
+      capFields={
+        draft ? (
+          <CapFields
+            most={datesResult?.limitValues?.most ?? false}
+            count={datesResult?.limitValues?.count ?? 2}
+            problem={capProblem}
+          />
+        ) : null
+      }
     />
   );
   const proposedSection = (
@@ -709,7 +802,8 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                   : `${datesCount} ${datesCount === 1 ? "date" : "dates"} in this span`}
               </summary>
               {yourTimes}
-              {capSection}
+              {/* In a first answer the number is part of the Send (plan/phase-31.md). */}
+              {draft ? null : capSection}
             </details>
           </section>
           {answers ? (
@@ -744,7 +838,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             <h2 id="your-times-heading">Your times</h2>
             {yourTimes}
           </section>
-          {capSection}
+          {draft ? null : capSection}
           {proposedSection}
         </>
       )}
@@ -811,8 +905,6 @@ function CapForm({
   });
   const problem = fetcher.data?.capProblem ?? refused;
   const form = useRef<HTMLFormElement>(null);
-  const most = useRef<HTMLInputElement>(null);
-  const count = useRef<HTMLInputElement>(null);
   const save = useRef<() => void>(() => {});
   useEffect(() => {
     save.current = () => {
@@ -822,15 +914,6 @@ function CapForm({
       void fetcher.submit(values, { method: "post" });
     };
   });
-  // The number's native change event fires when it is committed; React's
-  // onChange would fire on every keystroke.
-  useEffect(() => {
-    const input = count.current;
-    if (!input) return;
-    const committed = () => save.current();
-    input.addEventListener("change", committed);
-    return () => input.removeEventListener("change", committed);
-  }, []);
   const status =
     fetcher.state !== "idle"
       ? "Saving…"
@@ -849,48 +932,12 @@ function CapForm({
       onSubmit={hydrated ? (event) => event.preventDefault() : undefined}
     >
       <input type="hidden" name="intent" value="answer" />
-      <fieldset className="limit" aria-describedby={problem ? "cap-error" : undefined}>
-        <legend>How many rehearsals would you like in these dates?</legend>
-        <label>
-          <input
-            type="radio"
-            name="limit"
-            value="any"
-            defaultChecked={limit === null}
-            onChange={() => save.current()}
-          />
-          As many as possible
-        </label>
-        <label className="limit-most">
-          <input
-            type="radio"
-            name="limit"
-            value="most"
-            ref={most}
-            defaultChecked={limit !== null}
-            onChange={() => save.current()}
-          />
-          <input
-            type="number"
-            name="limitCount"
-            ref={count}
-            min={1}
-            max={LIMIT_MAX}
-            defaultValue={limit ?? 2}
-            aria-label="Preferred number of rehearsals"
-            inputMode="numeric"
-            onInput={() => {
-              if (most.current) most.current.checked = true;
-            }}
-          />{" "}
-          rehearsals
-        </label>
-        {problem ? (
-          <p className="field-error" id="cap-error" role="alert">
-            {problem}
-          </p>
-        ) : null}
-      </fieldset>
+      <CapFields
+        most={limit !== null}
+        count={limit ?? 2}
+        problem={problem}
+        onSave={() => save.current()}
+      />
       {hydrated ? (
         <p className="hint save-status" aria-live="polite">
           {status}
@@ -899,6 +946,83 @@ function CapForm({
         <SubmitButton feedbackKey="request-answer">Save</SubmitButton>
       )}
     </Form>
+  );
+}
+
+/**
+ * The preferred number of rehearsals: as many as possible, or a number. In
+ * the answer form each committed change calls `onSave`; in a first answer's
+ * draft (plan/phase-31.md) the fields go with the Send and save nothing alone.
+ */
+function CapFields({
+  most,
+  count,
+  problem,
+  onSave,
+}: {
+  most: boolean;
+  count: number | string;
+  problem: string | null;
+  onSave?: () => void;
+}) {
+  const mostRef = useRef<HTMLInputElement>(null);
+  const countRef = useRef<HTMLInputElement>(null);
+  const save = useRef(onSave);
+  useEffect(() => {
+    save.current = onSave;
+  });
+  // The number's native change event fires when it is committed; React's
+  // onChange would fire on every keystroke.
+  useEffect(() => {
+    const input = countRef.current;
+    if (!input) return;
+    const committed = () => save.current?.();
+    input.addEventListener("change", committed);
+    return () => input.removeEventListener("change", committed);
+  }, []);
+  return (
+    <fieldset className="limit" aria-describedby={problem ? "cap-error" : undefined}>
+      <legend>How many rehearsals would you like in these dates?</legend>
+      <label>
+        <input
+          type="radio"
+          name="limit"
+          value="any"
+          defaultChecked={!most}
+          onChange={() => save.current?.()}
+        />
+        As many as possible
+      </label>
+      <label className="limit-most">
+        <input
+          type="radio"
+          name="limit"
+          value="most"
+          ref={mostRef}
+          defaultChecked={most}
+          onChange={() => save.current?.()}
+        />
+        <input
+          type="number"
+          name="limitCount"
+          ref={countRef}
+          min={1}
+          max={LIMIT_MAX}
+          defaultValue={count}
+          aria-label="Preferred number of rehearsals"
+          inputMode="numeric"
+          onInput={() => {
+            if (mostRef.current) mostRef.current.checked = true;
+          }}
+        />{" "}
+        rehearsals
+      </label>
+      {problem ? (
+        <p className="field-error" id="cap-error" role="alert">
+          {problem}
+        </p>
+      ) : null}
+    </fieldset>
   );
 }
 

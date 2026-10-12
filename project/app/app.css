@@ -985,6 +985,15 @@
     @apply mt-2;
   }
 
+  /* Select all, Clear all and the count of ticked dates (plan/phase-31.md). */
+  .select-dates {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .select-dates p {
+    @apply m-0;
+  }
+
   .share-link {
     @apply mt-2 grid gap-2;
   }

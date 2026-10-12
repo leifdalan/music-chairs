@@ -4595,3 +4595,13 @@ Lessons:
 
 Remaining:
 - None beyond Phase 30's parked User Demo and decisions.
+
+## 2026-10-11 23:33 — START
+Phase 31 — Answering in one go: every free date already ticked, select all, and one Send
+
+Execution trace: 70a0026c7d564edb8e73f8999a5008fa
+
+Planned work:
+- When a member opens an availability request they haven't sent dates for, every date still on offer is ticked except those that clash with their Google Calendar at the request's chosen time of day; a member without Google Calendar connected finds every date ticked.
+- "Select all" and "Clear all" on the request's dates.
+- Nothing the page ticked for them is saved, and nothing reaches organizers, until the member confirms with one button (for example "Send these dates").
