@@ -106,8 +106,8 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 30](phase-30.md) | Links that read like the group and land on the action, and Google sign-in that finds the groups you were added to | ✅     |
 | [Phase 31](phase-31.md) | Answering in one go: every free date already ticked, select all, and one Send | ✅     |
 | [Phase 32](phase-32.md) | Google Calendar permission means your calendar: granting it adds rehearsals, and the app says so | ✅     |
-| [Phase 33](phase-33.md) | A steady page: answering and confirming without the page jumping, and buttons that keep their size | 🚧     |
-| [Phase 34](phase-34.md) | Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network | ⏳     |
+| [Phase 33](phase-33.md) | A steady page: answering and confirming without the page jumping, and buttons that keep their size | ✅     |
+| [Phase 34](phase-34.md) | Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network | ⬅️     |
 | [Phase 35](phase-35.md) | An error-state catalogue: every failure photographed in a real browser for review | ⏳     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
