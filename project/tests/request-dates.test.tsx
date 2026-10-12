@@ -186,9 +186,10 @@ function box(html: string, label: string): string {
 const freeBusyCalls = () => google.calendarCalls().filter((call) => call.url.endsWith("/freeBusy"));
 
 describe("a member's page", () => {
-  it("leads with the request's dates and the hour bar, then the cap, with nothing to send", async () => {
-    const { group, pianistCookie } = await band();
+  it("once answered, leads with the request's dates and the hour bar, then the cap, with nothing to send", async () => {
+    const { group, pianist, pianistCookie } = await band();
     const request = concert(group.id);
+    getStore().touchResponse(group.id, request.id, pianist.id);
 
     const html = render(await load(group, request.id, pianistCookie));
 
@@ -520,8 +521,9 @@ describe("the rehearsal cap", () => {
   });
 
   it("shows a refused Save beside the cap without JavaScript", async () => {
-    const { group, pianistCookie } = await band();
+    const { group, pianist, pianistCookie } = await band();
     const request = concert(group.id);
+    getStore().touchResponse(group.id, request.id, pianist.id);
 
     const refused = await post(group, request.id, pianistCookie, [
       ["intent", "answer"],

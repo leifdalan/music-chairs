@@ -272,6 +272,8 @@ describe("the group page", () => {
 describe("the request page", () => {
   it("lists its proposed and coming confirmed rehearsals, each linking to the schedule", async () => {
     const b = await band();
+    // Answered, so the page is past the first answer's draft (plan/phase-31.md).
+    getStore().touchResponse(b.group.id, b.autumn.id, b.cellist.id);
     const asMember = await requestPage(b, b.autumn.id, b.cellistCookie);
     const asOrganizer = await requestPage(b, b.autumn.id, b.organizerCookie);
 

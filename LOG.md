@@ -4595,3 +4595,114 @@ Lessons:
 
 Remaining:
 - None beyond Phase 30's parked User Demo and decisions.
+
+## 2026-10-11 23:33 — START
+Phase 31 — Answering in one go: every free date already ticked, select all, and one Send
+
+Execution trace: 70a0026c7d564edb8e73f8999a5008fa
+
+Planned work:
+- When a member opens an availability request they haven't sent dates for, every date still on offer is ticked except those that clash with their Google Calendar at the request's chosen time of day; a member without Google Calendar connected finds every date ticked.
+- "Select all" and "Clear all" on the request's dates.
+- Nothing the page ticked for them is saved, and nothing reaches organizers, until the member confirms with one button (for example "Send these dates").
+
+## 2026-10-12 00:00 — END
+Phase 31 — Answering in one go: every free date already ticked, select all, and one Send
+
+Phase 31 is accepted on its gates. When a member (or an organizer, for their own times) opens an availability request they haven't answered yet, every date is already ticked except the ones their Google Calendar shows them busy at the request's time of day; a member without Google Calendar connected, or whose calendar can't be read right now, finds every date ticked. Dates they already gave times for on another request stay ticked, even busy ones. Select all and Clear all sit below the dates with a count ("12 of 13 dates ticked"), the preferred number of rehearsals sits in the same place, and one "Send these dates" button sends it all. Nothing is saved, and organizers see nothing from them, until they press it. After that the page works as before: each tick saves straight away, and Select all and Clear all (which asks first) save at once. How it feels on your phone, with your own calendar, is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 70a0026c7d564edb8e73f8999a5008fa
+
+Files changed:
+- plan/phase-31.md — your 2026-10-11 rulings, before capture
+- project/app/lib/date-toggle.ts — startingTicks: the dates ticked on a first answer
+- project/app/components/request-dates.tsx — the first-answer draft (ticked dates, Select all, Clear all, count, Send), and Select all / Clear all once answered
+- project/app/routes/request.tsx — the draft flag; Send saves dates and the preferred number together after checking everything; Select all and Clear all actions; the preferred-number fields shared between the draft and the answered page
+- project/app/app.css — the Select all / Clear all row
+- project/scripts/smoke.sh — checks a first answer starts with its free date ticked and one Send
+- project/tests/one-go.test.tsx (new); four existing test files now answer first where they check the answered page's layout
+
+Build status:
+- smoke.local: OK
+- ci.check: OK — CI run 38214759963, check success for commit f6a6231 (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 697/697, pytest 180/180
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none. Critic: harness_version=2.1.295, observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 178.2 s; first event 0.63 s; longest idle 51.4 s; success
+- Critic (code review): 232.6 s; first event 0.63 s; longest idle 27.8 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 1610.738 s; intelligence 410.788 s; gates 147.912 s; wait 409.856 s; orchestration 1578.156 s; unattributed 32.582 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 31 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=1134485f… final=1d5f8a1e552bdf2508cba5c36061dd0bb3b4a2cf86141b6d0ee44722023a4df2 (the corrected candidate; the in-progress commit did not move it)
+- Findings: plan review 11 (all adopted); code critique 7 (5 adopted, 1 declined: Select all / Clear all stay below the dates on both pages for consistency, and Clear all reports by toast; 1 deferred to you: Enter in the number box sends a first answer)
+- Gates: 3 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The branch tracked origin/main and was pushed without changing that, so the final changed-path gate ran the whole changed estate (Vitest and pytest) rather than nothing, as lesson ubiquitous-cuckoo proposed.
+- Three debugging rounds went to markup assertions that assumed React's attribute order (lesson warping-fox).
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the starting ticks (busy dates at the request's first time left out, given dates kept, every date without Google Calendar, when it can't be read, or before it is connected); the draft for members and organizers' own times, with one preferred-number field and no other way to save; Send saving dates and number together only after every check, keeping the member's ticks and number when refused; the number left alone once answered; Select all and Clear all (with confirmation) once answered, refused on a closed request. Select all, Clear all and the count were also checked in Chrome on the built app.
+- Parked for you: the User Demo below, with a real Google Calendar; and whether pressing Enter in the preferred-number box should send a first answer (today it does, as an ordinary form submit).
+
+Delivery:
+- default — commit and delivery through pull request 25, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- none — Phase 32 (Google Calendar permission switching writing on) takes nothing pinned from this phase
+
+Lessons:
+- new local lesson warping-fox: React's server render orders attributes its own way; assert attributes independently (written before this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (6), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=37); reviewer/claude opus — hard 1800 s, idle 600 s (n=34); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the site as a member of a group with an open availability request you haven't answered yet (signed in with Google, with something in your calendar during the request's time of day on one of its dates):
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Open the availability request.
+    2. Look at which dates are ticked; untick one and tick a greyed (busy) date.
+    3. Press "Clear all", then "Select all".
+    4. Send your dates.
+    5. As the organizer, open the same request and look under "When people are free".
+  - **What to look for.**
+    - Every date is ticked on arrival except the ones your calendar is busy for at that time.
+    - Select all and Clear all change every date at once.
+    - The organizer sees nothing from you until you send, then exactly the dates you sent.
+  - **Variations to explore.** A member not signed in with Google (every date ticked); opening the request again after sending; a request with two times of day; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo and the Enter-key question above.
+
+## 2026-10-12 00:00 — NOTE
+Phase 31 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 31 ✅ and Phase 32 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: warping-fox filed (local). ./bin/lessons validate OK.

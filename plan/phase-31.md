@@ -23,7 +23,10 @@ From the operator's feedback after Phase 30 ("there should be an option for a me
 - **No calendar, every date:** with no Google Calendar connected nothing is known to clash, so every date is ticked.
 - **Order:** this phase comes before Phase 32 (Google Calendar permission switching writing on).
 
-To settle at phase start: what ticking and unticking does after the member has sent their dates once (save as they go, as today, or another Send); and whether a member's times already given on another request covering these dates change the starting ticks.
+Rulings at phase start (operator, 2026-10-11), each the recommended option:
+
+- **After the first Send, save as they go:** once a member has sent their dates, each later tick or untick saves straight away, as today, with its "Saved" feedback; the Send button is only for the first answer.
+- **Earlier times are kept:** the starting ticks are every non-clashing date plus any date the member already gave times for (on another request covering it), even a busy one, so nothing they said earlier is dropped.
 
 ## Acceptance
 

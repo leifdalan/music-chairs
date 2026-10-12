@@ -161,6 +161,13 @@ request_path="$(curl -s -D - -o /dev/null -X POST -H "Cookie: $cookie" "$origin$
   --data-urlencode "windowEnd-0=22:00" | tr -d '\r' |
   awk -F': ' 'tolower($1) == "location" { print $2 }')"
 [ "$request_path" = "$location/autumn-rehearsals" ] || fail "creating a request did not redirect to its readable address: $request_path"
+# A first answer is a draft with every free date already ticked and one Send (plan/phase-31.md).
+curl -s -H "Cookie: $cookie" "$origin$request_path" | sed 's/<!-- -->//g' >"$work/draft.html"
+grep -q ">Send these dates<" "$work/draft.html" || fail "a first answer offers no Send button"
+grep -q "1 of 1 date ticked" "$work/draft.html" || fail "a first answer does not start with its free date ticked"
+grep -q "name=\"date\" checked=\"\" value=\"$rehearsal_date\"" "$work/draft.html" \
+  || fail "a first answer's free date is not ticked"
+echo "  a first answer starts with its free date ticked and one Send"
 # Times are given on the request's own page (plan/phase-23.md); this is its Save without JavaScript.
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$request_path" \
   --data-urlencode "intent=save-dates" --data-urlencode "date=$rehearsal_date" \

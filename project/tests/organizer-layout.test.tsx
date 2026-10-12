@@ -57,6 +57,8 @@ async function band(name: string, alone = false) {
   return {
     group,
     requestId: request.id,
+    organizerId: organizer.id,
+    cellistId: cellist?.id ?? "",
     organizerCookie: await deviceCookie(group.id, organizer.deviceToken),
     cellistCookie: cellist ? await deviceCookie(group.id, cellist.deviceToken) : "",
   };
@@ -113,6 +115,8 @@ function detailsAfter(html: string, marker: string): string {
 describe("the request page", () => {
   it("leads with when people are free for organizers, then their folded times and cap, then responses", async () => {
     const b = await band("Order Quartet");
+    // Answered, so the cap is its own section, past the first answer's draft (plan/phase-31.md).
+    getStore().touchResponse(b.group.id, b.requestId, b.organizerId);
     const html = await requestPage(b, b.organizerCookie);
     const at = (id: string) => html.indexOf(`id="${id}"`);
 
@@ -136,7 +140,7 @@ describe("the request page", () => {
     const answers = detailsAfter(html, 'id="answers-heading"');
     expect(answers).toContain("<summary>Show who has responded</summary>");
     expect(answers).toContain("Cellist");
-    expect(html).toContain("Responses (0 of 2)");
+    expect(html).toContain("Responses (1 of 2)");
   });
 
   it("keeps Edit, Close and Repeat in the request menu", async () => {
@@ -156,6 +160,7 @@ describe("the request page", () => {
 
   it("keeps a member's own times and cap first, with no menu, heat map or responses list", async () => {
     const b = await band("Member Quartet");
+    getStore().touchResponse(b.group.id, b.requestId, b.cellistId);
     const html = await requestPage(b, b.cellistCookie);
 
     expect(html.indexOf('id="your-times-heading"')).toBeGreaterThan(-1);
