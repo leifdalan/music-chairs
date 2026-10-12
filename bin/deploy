@@ -58,6 +58,8 @@ PROTECTED = {
 NOT_UPLOADED = {"terraform", "terraform-release.json"}
 REMOTE_DEPLOY_DIR = "/tmp/music-chairs-deploy"
 REMOTE_ARCHIVE = "/tmp/music-chairs-release.tgz"
+# The letters of a group's invite code (project/app/lib/group-address.ts, SHORT_ID_ALPHABET).
+INVITE_ALPHABET = "23456789abcdefghijkmnpqrstuvwxyz"
 
 
 class DeployError(Exception):
@@ -498,11 +500,19 @@ class Deployment:
             ("GET /healthz", fetch("/healthz"), 200, "ok"),
             ("GET /privacy", privacy, 200, "including the Limited Use requirements"),
             ("GET /privacy (contact)", privacy, 200, "leifdalan+rtc@gmail.com"),
+            # Invite links end in an 8-character code (Phase 30); an unknown
+            # one is a 404, and the long links from before say they changed.
             (
                 "GET /join/<unknown>",
-                fetch(f"/join/{secrets.token_urlsafe(16)}"),
+                fetch(f"/join/smoke-{''.join(secrets.choice(INVITE_ALPHABET) for _ in range(8))}"),
                 404,
                 "Page not found",
+            ),
+            (
+                "GET /join/<old long link>",
+                fetch(f"/join/{secrets.token_urlsafe(16)}"),
+                410,
+                "This invite link has changed",
             ),
             (
                 "POST /?index with a blank name",
