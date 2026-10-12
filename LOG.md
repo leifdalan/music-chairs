@@ -4929,3 +4929,124 @@ Phase 33 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 33 ✅ and Phase 34 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: bouncy-bat filed (local). ./bin/lessons validate OK.
+
+## 2026-10-12 14:03 — START
+Phase 34 — Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network
+
+Execution trace: ed12601dcefd4b708de8c3f42c5fc0ac
+
+Planned work:
+- An inventory of every HTTP call the app makes or serves (page loads, form posts, in-page saves, the Google sign-in and consent round trips, and the app's own calls to Google), each with its failure outcomes, kept in the repository.
+- A clear, specific error state in the UI for each failure outcome: validation refusals, a missing or removed group, request or rehearsal, a closed request, not being allowed, the server failing, and a save the server never answered.
+- Google sign-in and permission outcomes each have their own state: cancelled, refused, a different Google account, an unverified email, no refresh token, only some permissions granted (Calendar busy times without writing, writing without busy times, contacts withheld), access later revoked, and Google itself failing or slow, both at sign-in and when the app reads or writes the calendar.
+- Failures in the browser itself — saving while offline, a request that times out, the server unreachable mid-save — say so and offer a retry, without losing what the person entered.
+- Every error state is covered by a test that drives it and checks what the person sees.
+
+## 2026-10-12 15:23 — END
+Phase 34 — Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network
+
+Phase 34 is accepted on its gates. When a save fails in the browser (the connection drops, the server errs, or there's no answer in 20 seconds), the page stays as it was with what you entered, and says "Not saved." or "Maybe not saved." with the reason and a Retry button that sends the form as it is now; nothing resends on its own, as you ruled. Saves that would make something twice (a new group, joining, a new request, proposing, adding a member) offer a way to check instead of Retry. Date ticks and the preferred number keep your change beside a Retry. Forms that post to another page (profile, sign out, Disconnect, the groups page, Add to Google Calendar on the start page) save without leaving, so a failure stays where you are; their refusals come back as red error toasts, which never turn a button to "Saved ✓". The error page now tells a missing page, an organizer-only page, our failure and a lost connection apart, with Try again. Every Google sign-in and permission outcome returns to where you started and says what happened (cancelled, took too long, failed, unavailable, Calendar not allowed or only partly allowed, no lasting access, an unverified email, contacts only partly allowed). Calendar and contacts reads give up after 5 seconds and say whether they couldn't read, access was removed, or nothing was found; your schedule says when your Google Calendar couldn't be updated. The inventory in project/tests/error-states/inventory.ts lists all 60 calls and their outcomes with what proves each, and a test keeps it complete and replays its probes. The real Google cases on your phone are yours to try through the User Demo below; merging the pull request deploys it.
+
+Execution trace: ed12601dcefd4b708de8c3f42c5fc0ac
+
+Files changed:
+- plan/phase-34.md — your 2026-10-12 ruling, before capture
+- project/app/lib/client-failure.ts (new) — the client actions' failure handling, kept results, Retry of the live form
+- project/app/components/failure-alert.tsx, elsewhere-form.tsx (new) — the failure alert and background posting for cross-page forms
+- project/app/lib/notices.ts (renamed from calendar-notices.ts) — every notice, rendered in context or by the root
+- project/app/root.tsx — no reload after a failure, the error page by status and for a lost connection, root notices, the failure stack beside the toasts
+- every route with an action (request, schedule, group, groups, home, join, members.add, requests.new, profile, auth.google.disconnect, auth.sign-out) — a client action, kept results and the failure alert
+- project/app/components/request-dates.tsx, routes/request.tsx — date ticks, Select all and the preferred number keep the change with Retry
+- project/app/routes/auth.google.ts, auth.google.calendar.ts, auth.google.callback.ts — every outcome back where it started with a notice
+- project/app/.server/google.ts, clashes.ts, calendar-sync.ts, members.add.tsx, schedule.tsx, calendar-actions.tsx — 5-second reads, removed access, write failures shown
+- project/app/.server/flash.ts, components/toast.tsx, submit-button.tsx, profile.ts, group.tsx, schedule.tsx, auth.google.disconnect.tsx — error toasts
+- project/app/routes/request-calendar.ts — an unavailable download returns to the request
+- project/tests/client-failure.test.ts, error-states.test.tsx, error-states/inventory.ts (new); auth, consent, groups, schedule, request and other tests updated
+- bin/deploy, tests/test_deploy.py, reports/test-governance/music-chairs-reset.jsonl, project/README.md — the smoke reads the new unavailable answer; its changed cases admitted
+
+Build status:
+- smoke.local: OK
+- browser.failures: OK — headless Chrome on the built app with requests failed through DevTools, 16 checks (RSVP dropped and 500, profile save dropped and retried after an edit, a date tick, a page load offline, a new request)
+- browser.steady: OK — Phase 33's steadiness checks still pass
+- ci.check: OK — CI run 38315695948, check success for commit 90456ed (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 761/761, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 324.5 s; first event 0.58 s; longest idle 71.9 s; success
+- Critic (code review): 452.0 s; first event 0.56 s; longest idle 55.0 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 4795.624 s; intelligence 776.468 s; gates 272.096 s; wait 775.474 s; orchestration 4794.939 s; retry/rework 209.117 s; unattributed 0.685 s; failed work 0
+- Awaiting user input: none recorded for phase 34 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=6e8abfa59b273927cdca492a7cf759687c3278ab5dd177a38f840137e526d161 final=4bdc48ce6fee025bcc8f7121dbd6c43f9e8250f1daa69373ce191dd0e227bcae (corrected after critique, then a direct fix after CI for the test-governance admission)
+- Findings: plan review 11 (all adopted); code critique 12 (11 adopted, 1 deferred: a stale .ics download link may save the request page as a file; noted in the inventory for Phase 35's browser look)
+- Plan deviations: recorded (Retry of the live form as planned after critique; failure views as tested pure functions; failures floating with the toasts; ElsewhereForm; notices module renamed; ics-unavailable key; executable inventory probes)
+- Gates: attempt 1 (smoke, both browser gates) superseded after CI refused the unadmitted deploy cases; attempt 2, all five final gates, on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- Proving React Router's behaviour first in a headless in-memory router (a failed client action with an error status reloads nothing) settled the design before any page was touched.
+- The headless browser gate found a create offering Retry (the Save button sends intent=save) and a toast covering a failure; both fixed before critique.
+- CI's test governance refused changed parametrized cases of a root proof; admitting them cost one extra CI round (lesson evasive-skua recurrence).
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the inventory lists every page load, action intent and Google call with outcomes, and a check fails on a missing one or a missing client action; its 60+ probes answer as listed; every failure kind classified and worded, no reload after a failure, kept results, the error page by status, notices, error toasts, Google outcomes, reads and writes, all in Vitest; in Chrome on the built app, dropped and failed saves stay with what was entered and Retry works, a page load offline shows Try again.
+- Parked for you: the User Demo below with real Google on your phone (cancelling, unticking permissions, airplane mode, revoking access); how the alerts read and look to you.
+
+Delivery:
+- default — commit and delivery through pull request 29, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phase 35 (the screenshot catalogue) works from the inventory this phase committed, as planned; it inherits the stale .ics download case for its browser look
+
+Lessons:
+- recurrence of evasive-skua: changing a parametrized root proof's cases needs admission and retirement too (written before this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (6), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=40); reviewer/claude opus — hard 1800 s, idle 600 s (n=37); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the site signed out:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Start Google sign-in and cancel it on Google's screen.
+    2. Sign in again and untick the Calendar permissions on Google's screen.
+    3. On an availability request, turn on airplane mode and tick a date; then turn it off and retry.
+    4. Open a link to a request that was deleted.
+  - **What to look for.**
+    - Each case says plainly what happened and what you can do next; nothing shows a raw error or a blank page.
+    - What you entered is still there after a failed save.
+  - **Variations to explore.** Revoking music-chairs' access in your Google account settings, then opening a request; light and dark mode.
+
+Remaining:
+- None beyond the parked User Demo and the deferred .ics note.
+
+## 2026-10-12 15:24 — NOTE
+Phase 34 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 34 ✅ and Phase 35 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: evasive-skua recurrence recorded (local). ./bin/lessons validate OK.

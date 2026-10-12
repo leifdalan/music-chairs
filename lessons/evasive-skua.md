@@ -9,8 +9,12 @@ source: kickoff
 occurrences:
   - date: 2026-10-03
     ref: "Phase 14 END"
+  - date: 2026-10-12
+    ref: "Phase 34 END"
 ---
 
 Phase 14's plan added a test to `tests/test_deploy.py` asserting that `project/deploy/provision.sh` keeps server logs 30 days. `./bin/check policy` then failed `policy-test-governance`: "replayed proof estate does not match inventory (unadmitted=[...])". Root pytest proofs are governed by `tests/proof-estate.yaml` and need a recorded `proof_admission` (contract, oracle, red witness, non-subsumption, family size) under `policies/test-suite-governance.md`; the plan had not accounted for that. The check guarded the deliverable's own policy text and deploy file, both under `project/`, so it moved to `project/tests/privacy.test.tsx`, where no admission is needed.
 
 Do differently: when a phase plan adds a test, decide its suite at planning time. Product behaviour and files under `project/` go to Vitest in `project/tests`; a new root pytest is planned together with its proof-estate admission.
+
+Phase 34 recurrence: changing the cases of an existing parametrized root proof (`tests/test_deploy.py`, the smoke's sign-in check, after `/auth/google` stopped answering 503) is also a new proof, because each case id is part of the proof's identity. CI refused it as unadmitted plus a shadow of the old case. It was corrected with two `proof_admission` records carrying observed red witnesses and a consolidating `proof_retirement` of the old case; `./bin/test-governance validate` then passed. Changing a case is planned like adding a test: admit the new ids, retire the old, and run `./bin/test-governance validate` before pushing.

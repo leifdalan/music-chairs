@@ -1,4 +1,4 @@
-import { data, redirect } from "react-router";
+import { redirect } from "react-router";
 
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
 import { findViewer, publicOrigin } from "~/.server/membership";
@@ -6,6 +6,8 @@ import { requestProgress } from "~/.server/progress";
 import { groupFromAddress } from "~/.server/group-address";
 import { requestFromSlug } from "~/.server/request-address";
 import { groupPath } from "~/lib/group-address";
+import { withNotice } from "~/lib/notices";
+import { requestPath } from "~/lib/request-address";
 import { addDays, todayInZone } from "~/lib/availability";
 import { renderFeed } from "~/lib/ics";
 
@@ -36,7 +38,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const progress = requestProgress(group, today).find(
     (item) => item.requestId === scheduleRequest.id,
   );
-  if (!progress?.complete) throw data(null, { status: 404 });
+  // An old or early link goes to the request, saying why there's no file (plan/phase-34.md).
+  if (!progress?.complete) {
+    throw redirect(
+      withNotice(requestPath(groupPath(group), scheduleRequest.slug), "ics-unavailable"),
+    );
+  }
   const dates = calendarDates(group, viewer.id, addDays(today, -28)).filter(
     ({ rehearsal }) => rehearsal.requestId === scheduleRequest.id,
   );

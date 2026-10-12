@@ -4,6 +4,7 @@ import { readToast } from "../app/.server/flash";
 import { findViewer } from "../app/.server/membership";
 import { getStore, type Group } from "../app/.server/store";
 import { addDays, todayInZone } from "../app/lib/availability";
+import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { groupPath, invitePath } from "../app/lib/group-address";
 import { loader as startSignIn } from "../app/routes/auth.google";
 import { loader as callback } from "../app/routes/auth.google.callback";
@@ -121,10 +122,12 @@ describe("starting Google sign-in", () => {
   it("is unavailable without the client secret", async () => {
     vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "");
 
-    const response = (await startSignIn(routeArgs("/auth/google", {}))) as Response;
+    const response = (await startSignIn(
+      routeArgs("/auth/google?returnTo=%2Fgroups", {}),
+    )) as Response;
 
-    expect(response.status).toBe(503);
-    expect(await response.text()).toContain("isn't available");
+    // Back where it started, saying so, never a bare error page (plan/phase-34.md).
+    expect(response.headers.get("Location")).toBe("/groups?notice=google-unavailable");
   });
 
   it("goes to Google with a callback on this site and remembers the flow in a cookie", async () => {
@@ -175,7 +178,9 @@ describe("Google's callback", () => {
       cookie: device,
     });
 
-    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=linked`);
+    expect(response.headers.get("Location")).toBe(
+      `${groupPath(group)}?notice=linked&notice=signin-calendar-declined`,
+    );
     const cookies = setCookies(response);
     expect(cookies.mc_oauth).toBe("mc_oauth=");
     expect(cookies.mc_session).toMatch(/^mc_session=.+/);
@@ -208,7 +213,7 @@ describe("Google's callback", () => {
 
     const response = await signInThroughGoogle({ ...amy, email_verified: true }, { returnTo: "/" });
 
-    expect(response.headers.get("Location")).toBe("/");
+    expect(response.headers.get("Location")).toBe("/?notice=signin-calendar-declined");
     // Claimed by the callback itself, before any page lists them.
     const account = store.findAccountBySub("amy-claims")!;
     expect(store.findMemberByAccount(first.id, account.id)?.displayName).toBe("Amy");
@@ -237,7 +242,9 @@ describe("Google's callback", () => {
       { returnTo: groupPath(group), cookie: device },
     );
 
-    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=linked`);
+    expect(response.headers.get("Location")).toBe(
+      `${groupPath(group)}?notice=linked&notice=signin-calendar-declined`,
+    );
     const account = store.findAccountBySub(profile.sub)!;
     expect(store.findMemberByAccount(group.id, account.id)?.id).toBe(cellist.id);
     expect(store.findMemberByAccount(other.id, account.id)?.displayName).toBe("Cello");
@@ -264,7 +271,9 @@ describe("Google's callback", () => {
       { sub: "dee-trip", email: "dee-trip@example.test", name: "Dee", email_verified: true },
       { returnTo: invite },
     );
-    expect(signedInResponse.headers.get("Location")).toBe(invite);
+    expect(signedInResponse.headers.get("Location")).toBe(
+      `${invite}&notice=signin-calendar-declined`,
+    );
 
     const session = setCookies(signedInResponse).mc_session;
     const back = (await thrownBy(
@@ -301,7 +310,9 @@ describe("Google's callback", () => {
       cookie: await deviceCookie(group.id, pianist.deviceToken),
     });
 
-    expect(response.headers.get("Location")).toBe(`${groupPath(group)}?notice=account-taken`);
+    expect(response.headers.get("Location")).toBe(
+      `${groupPath(group)}?notice=account-taken&notice=signin-calendar-declined`,
+    );
     expect(getStore().findMember(group.id, pianist.id)?.googleEmail).toBeNull();
     const cookie = [
       await deviceCookie(group.id, pianist.deviceToken),
@@ -326,7 +337,7 @@ describe("Google's callback", () => {
       cookie: await deviceCookie(group.id, cellist.deviceToken),
     });
 
-    expect(response.headers.get("Location")).toBe("/");
+    expect(response.headers.get("Location")).toBe("/?notice=signin-calendar-declined");
     expect(getStore().findMember(group.id, cellist.id)?.googleEmail).toBeNull();
   });
 
@@ -347,15 +358,31 @@ describe("Google's callback", () => {
     expect(count("sessions")).toBe(sessions);
   });
 
-  it("reports a cancelled sign-in without contacting Google", async () => {
+  it("reports a cancelled sign-in without contacting Google, back where it started", async () => {
+    const started = (await startSignIn(
+      routeArgs("/auth/google?returnTo=%2Fgroups", {}),
+    )) as Response;
+    const oauth = Object.values(setCookies(started))[0];
     const fake = vi.fn();
     vi.stubGlobal("fetch", fake);
 
     const response = (await callback(
-      routeArgs("/auth/google/callback?error=access_denied&state=x", {}),
+      routeArgs("/auth/google/callback?error=access_denied&state=x", {}, { cookie: oauth }),
     )) as Response;
 
-    expect(response.headers.get("Location")).toBe("/?notice=signin-cancelled");
+    expect(response.headers.get("Location")).toBe("/groups?notice=signin-cancelled");
+    expect(fake).not.toHaveBeenCalled();
+  });
+
+  it("says a sign-in took too long when its saved state is gone (plan/phase-34.md)", async () => {
+    const fake = vi.fn();
+    vi.stubGlobal("fetch", fake);
+
+    const response = (await callback(
+      routeArgs("/auth/google/callback?code=abc&state=x", {}),
+    )) as Response;
+
+    expect(response.headers.get("Location")).toBe("/?notice=signin-expired");
     expect(fake).not.toHaveBeenCalled();
   });
 });
@@ -662,5 +689,140 @@ describe("sessions", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// Every way a Google sign-in can end, said on the page it started from (plan/phase-34.md).
+describe("what a Google sign-in says when it doesn't fully work", () => {
+  const { busy: BUSY, write: WRITE } = CALENDAR_SCOPES;
+  const from = "/groups";
+  const notices = (response: Response) =>
+    new URL(response.headers.get("Location")!, "http://x").searchParams.getAll("notice");
+  const landing = (response: Response) =>
+    new URL(response.headers.get("Location")!, "http://x").pathname;
+
+  it("goes back where it started with sign-in failed when Google doesn't answer the exchange", async () => {
+    const started = (await startSignIn(
+      routeArgs(`/auth/google?returnTo=${encodeURIComponent(from)}`, {}),
+    )) as Response;
+    const oauth = Object.values(setCookies(started))[0];
+    const state = new URL(started.headers.get("Location")!).searchParams.get("state")!;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    const response = (await callback(
+      routeArgs(`/auth/google/callback?code=abc&state=${state}`, {}, { cookie: oauth }),
+    )) as Response;
+
+    expect(response.headers.get("Location")).toBe(`${from}?notice=signin-failed`);
+    expect(setCookies(response).mc_session).toBeUndefined();
+  });
+
+  it("goes back with sign-in failed when Google's answer can't even be read", async () => {
+    const started = (await startSignIn(
+      routeArgs(`/auth/google?returnTo=${encodeURIComponent(from)}`, {}),
+    )) as Response;
+    const oauth = Object.values(setCookies(started))[0];
+    const state = new URL(started.headers.get("Location")!).searchParams.get("state")!;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ id_token: "not.a-token.at-all" })),
+    );
+    const response = (await callback(
+      routeArgs(`/auth/google/callback?code=abc&state=${state}`, {}, { cookie: oauth }),
+    )) as Response;
+
+    expect(response.headers.get("Location")).toBe(`${from}?notice=signin-failed`);
+  });
+
+  it("goes back with Google unavailable when sign-in was switched off on the way", async () => {
+    const started = (await startSignIn(
+      routeArgs(`/auth/google?returnTo=${encodeURIComponent(from)}`, {}),
+    )) as Response;
+    const oauth = Object.values(setCookies(started))[0];
+    const state = new URL(started.headers.get("Location")!).searchParams.get("state")!;
+    vi.stubEnv("MUSIC_CHAIRS_GOOGLE_CLIENT_SECRET", "");
+
+    const response = (await callback(
+      routeArgs(`/auth/google/callback?code=abc&state=${state}`, {}, { cookie: oauth }),
+    )) as Response;
+
+    expect(response.headers.get("Location")).toBe(`${from}?notice=google-unavailable`);
+  });
+
+  it("says Calendar was connected for clashes only when writing wasn't allowed", async () => {
+    const response = await signInThroughGoogle(
+      { sub: "partial-busy", email: "partial-busy@example.test", name: "Pat" },
+      {
+        returnTo: from,
+        tokens: { scope: `openid email profile ${BUSY}`, refresh_token: "r-busy" },
+      },
+    );
+
+    expect(landing(response)).toBe(from);
+    expect(notices(response)).toEqual(["calendar-partial-busy"]);
+  });
+
+  it("says Calendar was connected for writing only when clashes weren't allowed", async () => {
+    const response = await signInThroughGoogle(
+      { sub: "partial-write", email: "partial-write@example.test", name: "Pat" },
+      {
+        returnTo: from,
+        tokens: { scope: `openid email profile ${WRITE}`, refresh_token: "r-write" },
+      },
+    );
+
+    expect(notices(response)).toEqual(["calendar-partial-write"]);
+  });
+
+  it("says Calendar isn't connected when Google gave no lasting access", async () => {
+    const response = await signInThroughGoogle(
+      { sub: "no-refresh", email: "no-refresh@example.test", name: "Pat" },
+      { returnTo: from, tokens: { scope: `openid email profile ${BUSY} ${WRITE}` } },
+    );
+
+    expect(notices(response)).toEqual(["calendar-unsaved"]);
+    expect(getStore().findGrant(getStore().findAccountBySub("no-refresh")!.id)).toBeNull();
+  });
+
+  it("says nothing more when everything was allowed", async () => {
+    const response = await signInThroughGoogle(
+      { sub: "all-allowed", email: "all-allowed@example.test", name: "Pat" },
+      {
+        returnTo: from,
+        tokens: { scope: `openid email profile ${BUSY} ${WRITE}`, refresh_token: "r-all" },
+      },
+    );
+
+    expect(notices(response)).toEqual([]);
+  });
+
+  it("says an unverified email can't claim the places added for it, only when there are some", async () => {
+    const { group } = band();
+    getStore().addInvitedMember(group.id, "Una", "una@example.test");
+    const unverified = await signInThroughGoogle(
+      { sub: "una", email: "una@example.test", name: "Una", email_verified: false },
+      { returnTo: from },
+    );
+    const nobodyWaiting = await signInThroughGoogle(
+      { sub: "ned", email: "ned@example.test", name: "Ned", email_verified: false },
+      { returnTo: from },
+    );
+
+    expect(notices(unverified)).toEqual(["signin-calendar-declined", "unverified-email"]);
+    expect(notices(nobodyWaiting)).toEqual(["signin-calendar-declined"]);
+    expect(getStore().hasInvitation("UNA@example.test ")).toBe(true);
+  });
+
+  it("drops a notice carried over from an earlier round trip", async () => {
+    const response = await signInThroughGoogle(cellistProfile, {
+      returnTo: "/groups?notice=calendar-failed",
+    });
+
+    expect(notices(response)).toEqual(["signin-calendar-declined"]);
   });
 });

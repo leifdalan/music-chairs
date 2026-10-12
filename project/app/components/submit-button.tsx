@@ -7,15 +7,17 @@ import {
   useReducer,
   type ReactNode,
 } from "react";
-import { useNavigation, useRouteLoaderData } from "react-router";
+import { useFetchers, useNavigation, useRouteLoaderData } from "react-router";
 import { buttonVariants, type ButtonSize, type ButtonVariant } from "~/components/ui/button";
+import { ELSEWHERE } from "~/lib/client-failure";
 import { cn } from "~/lib/utils";
 
 /**
  * Feedback for the button that was pressed (plan/phase-8.md, Decisions):
  * "Saving…" while its submission is in flight, then "Saved ✓" for two seconds
- * when it succeeded. Success means the root loader brought a new toast: every
- * successful change leaves one, and a refused submission never does.
+ * when it succeeded. Success means the root loader brought a new confirmation
+ * toast: every successful change leaves one, and a refused submission never
+ * does (a refusal's toast is an error toast, plan/phase-34.md).
  *
  * The state lives above the pages, keyed by each button's `feedbackKey`, so a
  * form rebuilt after a save still shows "Saved ✓".
@@ -63,16 +65,28 @@ type FeedbackContext = { state: FeedbackState; press: (key: string) => void };
 
 const Feedback = createContext<FeedbackContext>({ state: IDLE, press: () => {} });
 
+/** The id of a confirmation toast; a refusal's toast (plan/phase-34.md) isn't one. */
+export function confirmationId(
+  toast: { id: string; kind: "success" | "error" } | null | undefined,
+): string | null {
+  return toast?.kind === "success" ? toast.id : null;
+}
+
 function useToastId(): string | null {
-  const root = useRouteLoaderData("root") as { toast?: { id: string } | null } | undefined;
-  return root?.toast?.id ?? null;
+  const root = useRouteLoaderData("root") as
+    { toast?: { id: string; kind: "success" | "error" } | null } | undefined;
+  return confirmationId(root?.toast);
 }
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(nextFeedback, IDLE);
   const navigation = useNavigation();
   const toastId = useToastId();
-  const busy = navigation.state !== "idle";
+  // A form posted to another page's action saves through a fetcher (plan/phase-34.md).
+  const elsewhere = useFetchers().some(
+    (fetcher) => fetcher.key.startsWith(ELSEWHERE) && fetcher.state !== "idle",
+  );
+  const busy = navigation.state !== "idle" || elsewhere;
 
   useEffect(() => {
     if (busy) dispatch({ type: "navigating" });

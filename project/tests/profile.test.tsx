@@ -203,7 +203,7 @@ describe("the header's profile data", () => {
 
     expect(first.member?.displayName).toBe("Pianist");
     expect(second.member?.displayName).toBe("Bassoon");
-    expect(shouldRevalidate()).toBe(true);
+    expect(shouldRevalidate({})).toBe(true);
   });
 });
 

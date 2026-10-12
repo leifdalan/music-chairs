@@ -11,6 +11,7 @@ import {
 } from "~/.server/google";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 import { readAccount, safeReturnTo, writeOAuthState } from "~/.server/membership";
+import { withNotice } from "~/lib/notices";
 
 import type { Route } from "./+types/auth.google.calendar";
 
@@ -21,22 +22,18 @@ import type { Route } from "./+types/auth.google.calendar";
  * access so the app can act later. Google returns to the shared callback.
  */
 export async function loader({ request }: Route.LoaderArgs) {
-  const config = googleConfig();
-  if (!config) {
-    return new Response("Google Calendar isn't available right now.", {
-      status: 503,
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-    });
-  }
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"), request);
+  const config = googleConfig();
+  // Back where it started, saying so (plan/phase-34.md).
+  if (!config) return redirect(withNotice(returnTo, "google-unavailable"));
   const account = await readAccount(request);
   if (!account) {
     throw redirect(`/auth/google?returnTo=${encodeURIComponent(returnTo)}`);
   }
   const wanted = url.searchParams.get("scope");
   if (wanted !== "busy" && wanted !== "write" && wanted !== "contacts") {
-    return new Response("Unknown Google permission.", { status: 400 });
+    return redirect(withNotice(returnTo, "calendar-failed"));
   }
   // Contacts are asked for together: saved and "other" contacts (plan/phase-13.md).
   const scopes =

@@ -5,7 +5,7 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
-import { CALENDAR_ACCESS_HINT } from "../app/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT } from "../app/lib/notices";
 import { CALENDAR_SCOPES } from "../app/lib/google-scopes";
 import { LIMITED_USE, POLICY } from "../app/lib/privacy";
 import { ErrorBoundary, Layout } from "../app/root";

@@ -236,3 +236,16 @@ export function expandOccurrences(slots: Slot[], from: string, to: string): Occu
 export function windowEnd(today: string): string {
   return addDays(today, UPCOMING_WEEKS * 7 - 1);
 }
+
+/** An instant as the group's day and time, "Sun 11 Oct, 6:27 PM". */
+export function formatInstant(instant: string | Date, zone: string): string {
+  const at = new Date(instant);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
+  return `${formatDate(todayInZone(zone, at))}, ${formatMinutes(part("hour") * 60 + part("minute"))}`;
+}

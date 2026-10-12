@@ -22,6 +22,8 @@ import { pageMeta } from "~/lib/site";
 import { zoneLabel } from "~/lib/time-zones";
 
 import type { Route } from "./+types/requests.new";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return pageMeta("Not found");
@@ -131,10 +133,18 @@ export async function action({ request, params }: Route.ActionArgs) {
   );
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["(default)", "save"] });
+}
+
 export default function RequestForm({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   const { groupHref, groupName, timeZone, editing } = loaderData;
-  const result = actionData && "values" in actionData ? actionData : undefined;
-  const problem = actionData && "problem" in actionData ? actionData.problem : null;
+  const result = kept && "values" in kept ? kept : undefined;
+  const problem = kept && "problem" in kept ? kept.problem : null;
   const values = result?.values ?? loaderData.values;
   const errors: RequestErrors = result?.errors ?? {};
   // A stored request shows its windows and one empty row; a form sent back
@@ -146,6 +156,14 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
 
   return (
     <main>
+      {/* Whether a create went through shows where requests are listed, not on this blank form. */}
+      <PageFailure
+        failure={failure}
+        check={{
+          href: backTo,
+          label: editing ? "See the request" : "See the group's requests",
+        }}
+      />
       <p className="eyebrow">
         <Link to={groupHref}>{groupName}</Link>
       </p>

@@ -95,6 +95,6 @@ describe("public URL", () => {
       expect(header).toMatch(/; Secure/);
       expect(header).not.toMatch(/Domain=/i);
     }
-    expect(finished.headers.get("Location")).toBe("/");
+    expect(finished.headers.get("Location")).toBe("/?notice=signin-calendar-declined");
   });
 });

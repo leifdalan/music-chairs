@@ -5,6 +5,7 @@ import type { ConfirmPrompt } from "~/.server/confirm";
 import { buttonVariants, type ButtonSize, type ButtonVariant } from "~/components/ui/button";
 import { useHydrated } from "~/lib/use-hydrated";
 
+import { ElsewhereForm, useElsewhereBusy } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
 
 /**
@@ -40,7 +41,7 @@ export function ConfirmForm({
   /** Accessible name when the trigger's text alone doesn't say what it affects. */
   triggerLabel?: string;
   className?: string;
-  /** Where the form posts, when not to the current page. */
+  /** Where the form posts, when not to the current page; it then posts in the background (plan/phase-34.md). */
   action?: string;
   /** The action goes to another page; otherwise the page keeps its scroll (plan/phase-33.md). */
   leavesPage?: boolean;
@@ -48,7 +49,9 @@ export function ConfirmForm({
   const hydrated = useHydrated();
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const busy = useNavigation().state !== "idle";
+  const navigating = useNavigation().state !== "idle";
+  const posting = useElsewhereBusy(feedbackKey);
+  const busy = navigating || (action !== undefined && posting);
   // The dialog stays open, its button showing "Saving…", until the
   // submission settles; then it closes, whether the change succeeded or not.
   const submitted = useRef(false);
@@ -57,17 +60,12 @@ export function ConfirmForm({
     submitted.current = false;
     dialog.current?.close();
   }, [busy]);
-  return (
-    <Form
-      method="post"
-      action={action}
-      preventScrollReset={!leavesPage}
-      replace
-      className={className ? `confirm-form ${className}` : "confirm-form"}
-      onSubmit={() => {
-        if (dialog.current?.open) submitted.current = true;
-      }}
-    >
+  const formClass = className ? `confirm-form ${className}` : "confirm-form";
+  const onSubmit = () => {
+    if (dialog.current?.open) submitted.current = true;
+  };
+  const content = (
+    <>
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
@@ -109,6 +107,27 @@ export function ConfirmForm({
           </div>
         </dialog>
       ) : null}
+    </>
+  );
+  return action ? (
+    <ElsewhereForm
+      action={action}
+      fetcherKey={feedbackKey}
+      preventScrollReset={!leavesPage}
+      className={formClass}
+      onSubmit={onSubmit}
+    >
+      {content}
+    </ElsewhereForm>
+  ) : (
+    <Form
+      method="post"
+      preventScrollReset={!leavesPage}
+      replace
+      className={formClass}
+      onSubmit={onSubmit}
+    >
+      {content}
     </Form>
   );
 }

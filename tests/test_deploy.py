@@ -843,7 +843,8 @@ def local_site(status: int, location: str = ""):
     ("status", "location", "expected"),
     [
         (302, "https://accounts.google.com/o/oauth2/v2/auth?x=1", "available"),
-        (503, "", "unavailable"),
+        (302, "/?notice=google-unavailable", "unavailable"),
+        (503, "", None),
         (302, "/", None),
         (200, "", None),
     ],

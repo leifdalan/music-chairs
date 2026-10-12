@@ -5,6 +5,7 @@ import { groupFromAddress } from "~/.server/group-address";
 import {
   calendarViewer,
   googleWriteState,
+  writeFailedAt,
   rewriteGroupEvents,
   scheduleSync,
 } from "~/.server/calendar-sync";
@@ -36,6 +37,7 @@ import {
   addDays,
   expandOccurrences,
   formatDate,
+  formatInstant,
   timeRange,
   todayInZone,
   weekdayName,
@@ -50,7 +52,12 @@ import {
 } from "~/lib/overlap";
 import { groupPath } from "~/lib/group-address";
 import { rehearsalPath, rehearsalSlugs, requestPath, withJoin } from "~/lib/request-address";
-import { CALENDAR_ACCESS_HINT, calendarNotice } from "~/lib/calendar-notices";
+import {
+  CALENDAR_ACCESS_HINT,
+  CALENDAR_NOTICE_KEYS,
+  noticeText,
+  type NoticeHandle,
+} from "~/lib/notices";
 import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 import { Switch, useSwitch } from "~/components/view-switch";
@@ -61,6 +68,8 @@ import { missingSentence, missingSummaries } from "~/lib/warnings";
 import { zoneLabel } from "~/lib/time-zones";
 
 import type { Route } from "./+types/schedule";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `Schedule · ${loaderData.groupName}` : "Not found");
@@ -78,6 +87,9 @@ async function groupAndViewer(
 }
 
 const ANSWERS: RsvpAnswer[] = ["yes", "no", "maybe"];
+
+/** Google Calendar notices show by the calendar panel. */
+export const handle: NoticeHandle = { notices: CALENDAR_NOTICE_KEYS };
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { group, viewer } = await groupAndViewer(request, params.groupAddress);
@@ -316,12 +328,16 @@ async function calendarPanel(request: Request, group: Group, viewer: Member) {
   const origin = publicOrigin() ?? new URL(request.url).origin;
   const feedUrl = new URL(`/calendar/${store.feedTokenFor(viewer.id)}.ics`, origin).href;
   const state = await googleWriteState(request, group, viewer);
+  // A failed update shows only to its own member, while writing is on (plan/phase-34.md).
+  const failedAt = state === "on" ? writeFailedAt(viewer.id) : null;
   return {
     feedUrl,
     webcalUrl: feedUrl.replace(/^https?:/, "webcal:"),
-    google: state ? { state } : null,
+    google: state
+      ? { state, failedAt: failedAt ? formatInstant(failedAt, group.timeZone) : null }
+      : null,
     connectUrl: `/auth/google/calendar?scope=write&returnTo=${encodeURIComponent(`${groupPath(group)}/schedule`)}`,
-    notice: calendarNotice(request),
+    notice: noticeText(request, CALENDAR_NOTICE_KEYS),
   };
 }
 
@@ -348,7 +364,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     const capable = await calendarViewer(request, group);
     const grant = capable ? store.findGrant(capable.account.id) : null;
     if (!capable || !grant?.scopes.includes(CALENDAR_SCOPES.write)) {
-      return problem("Connect Google Calendar first.");
+      // From home, where the form posts in the background (plan/phase-34.md), it goes back there.
+      return form.get("returnTo") === "/"
+        ? redirectWithToast("/", "Connect Google Calendar first.", { kind: "error" })
+        : problem("Connect Google Calendar first.");
     }
     const on = form.get("value") === "on";
     if (!on) {
@@ -412,6 +431,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   return problem("Something went wrong. Please try again.");
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md).
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args);
+}
+
 /**
  * After an action, focus goes somewhere sensible without scrolling
  * (plan/phase-33.md, the page stays put). The pressed button is remembered when
@@ -456,6 +480,8 @@ function useFocusAfterRemoval() {
 }
 
 export default function Schedule({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   useFocusAfterRemoval();
   const {
     groupName,
@@ -474,7 +500,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     freeView,
   } = loaderData;
   const link = useSwitch(["notice"]);
-  const pageProblem = actionData && "problem" in actionData ? actionData.problem : null;
+  const pageProblem = kept && "problem" in kept ? kept.problem : null;
   const stretchRow = (stretch: (typeof days)[number]["stretches"][number]) => (
     <li
       key={stretch.startMinute}
@@ -553,6 +579,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       : "Showing how many people are free.";
   return (
     <main>
+      <PageFailure failure={failure} />
       <p className="eyebrow">
         <Link to=".." relative="path">
           {groupName}
@@ -560,10 +587,8 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       </p>
       <h1>Schedule</h1>
       <p className="hint">All times are in {zoneLabel(timeZone)}.</p>
-      {pageProblem && actionData ? (
-        <ProblemAlert message={pageProblem} response={actionData} />
-      ) : null}
-      {actionData && "confirm" in actionData ? <ConfirmPanel prompt={actionData.confirm} /> : null}
+      {pageProblem && kept ? <ProblemAlert message={pageProblem} response={kept} /> : null}
+      {kept && "confirm" in kept ? <ConfirmPanel prompt={kept.confirm} /> : null}
 
       <RehearsalList
         title="Confirmed rehearsals"
@@ -914,7 +939,7 @@ function CalendarPanel({
   calendar: {
     feedUrl: string;
     webcalUrl: string;
-    google: { state: GoogleWriteState } | null;
+    google: { state: GoogleWriteState; failedAt: string | null } | null;
     connectUrl: string;
     notice: string | null;
   };
@@ -933,6 +958,12 @@ function CalendarPanel({
           <p className="hint">
             Confirmed rehearsals are added to your Google Calendar, except dates you said No to.
           </p>
+          {google.failedAt ? (
+            <p className="field-error" role="alert">
+              Your Google Calendar couldn&apos;t be updated (last tried {google.failedAt}).
+              music-chairs keeps trying every hour.
+            </p>
+          ) : null}
           <ConfirmForm
             fields={{ intent: "set-calendar", value: "off" }}
             trigger="Stop adding rehearsals to my Google Calendar"
@@ -953,10 +984,17 @@ function CalendarPanel({
           </SubmitButton>
         </Form>
       ) : null}
-      {google?.state === "connect" ? (
+      {google?.state === "revoked" ? (
+        <p className="field-error" role="alert">
+          Google Calendar access was removed, so rehearsals aren&apos;t being added to it.
+        </p>
+      ) : null}
+      {google?.state === "connect" || google?.state === "revoked" ? (
         <p>
           <a className={buttonVariants()} href={calendar.connectUrl}>
-            Connect Google Calendar to add rehearsals
+            {google.state === "revoked"
+              ? "Reconnect Google Calendar"
+              : "Connect Google Calendar to add rehearsals"}
           </a>
         </p>
       ) : null}

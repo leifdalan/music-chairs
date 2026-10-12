@@ -12,7 +12,7 @@ import {
 import { redirectWithToast } from "~/.server/flash";
 import { syncAccount } from "~/.server/calendar-sync";
 import { findRehearsalBySlug } from "~/.server/request-address";
-import { CALENDAR_ACCESS_HINT } from "~/lib/calendar-notices";
+import { CALENDAR_ACCESS_HINT } from "~/lib/notices";
 import { todayInZone } from "~/lib/availability";
 import { groupPath, inviteCodeOf, invitePath } from "~/lib/group-address";
 import { requestPath } from "~/lib/request-address";
@@ -26,6 +26,8 @@ import { pageMeta } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/join";
+import { useActionResult, withFailures } from "~/lib/client-failure";
+import { PageFailure } from "~/components/failure-alert";
 
 /**
  * The group an invite link names by its code (plan/phase-30.md), whatever name
@@ -237,11 +239,19 @@ export async function action({ request, params }: Route.ActionArgs) {
   });
 }
 
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md);
+// sending these again could make something twice, so they offer Reload instead.
+export async function clientAction(args: Route.ClientActionArgs) {
+  return withFailures(args, { creates: ["(default)", "new", "pick"] });
+}
+
 export default function Join({ loaderData, actionData }: Route.ComponentProps) {
+  // A failed save keeps the last result's errors and values (plan/phase-34.md).
+  const { result: kept, failure } = useActionResult(actionData);
   // A second tap while the POST is in flight carries no membership cookie yet,
   // so it would add a second member; SubmitButton keeps the pressed button inert
   // until the next page loads.
-  if ("changed" in loaderData || (actionData && "changed" in actionData)) {
+  if ("changed" in loaderData || (kept && "changed" in kept)) {
     return (
       <main>
         <h1>This invite link has changed</h1>
@@ -249,11 +259,12 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
       </main>
     );
   }
-  const choices = actionData && "choices" in actionData ? actionData.choices : null;
-  const error = actionData && "error" in actionData ? actionData.error : undefined;
+  const choices = kept && "choices" in kept ? kept.choices : null;
+  const error = kept && "error" in kept ? kept.error : undefined;
   const then = loaderData.then ? <input type="hidden" name="then" value={loaderData.then} /> : null;
   return (
     <main>
+      <PageFailure failure={failure} />
       <p className="eyebrow">You're invited to join</p>
       <h1>{loaderData.groupName}</h1>
       {loaderData.signInUrl ? (
@@ -269,8 +280,8 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
           <h2 id="choices-heading">Which one are you?</h2>
           <p className="hint">
             {choices.length > 1
-              ? `More than one member is called ${actionData?.value}.`
-              : `A member is already called ${actionData?.value}.`}
+              ? `More than one member is called ${kept?.value}.`
+              : `A member is already called ${kept?.value}.`}
           </p>
           <ul className="choices">
             {choices.map((choice) => (
@@ -279,7 +290,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
                   <input type="hidden" name="intent" value="pick" />
                   {then}
                   <input type="hidden" name="memberId" value={choice.id} />
-                  <input type="hidden" name="displayName" value={actionData?.value ?? ""} />
+                  <input type="hidden" name="displayName" value={kept?.value ?? ""} />
                   <SubmitButton feedbackKey={`pick-${choice.id}`} variant="outline">
                     {choice.displayName}
                     {choice.instrument ? ` · ${choice.instrument}` : ""}
@@ -287,14 +298,14 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
                 </Form>
               </li>
             ))}
-            {actionData && "canJoinAsNew" in actionData && actionData.canJoinAsNew ? (
+            {kept && "canJoinAsNew" in kept && kept.canJoinAsNew ? (
               <li>
                 <Form method="post" replace>
                   <input type="hidden" name="intent" value="new" />
                   {then}
-                  <input type="hidden" name="displayName" value={actionData.value} />
+                  <input type="hidden" name="displayName" value={kept.value} />
                   <SubmitButton feedbackKey="join-new">
-                    No, I&apos;m new: join as {actionData.value}
+                    No, I&apos;m new: join as {kept.value}
                   </SubmitButton>
                 </Form>
               </li>
@@ -307,7 +318,7 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
         <TextField
           name="displayName"
           label="Your name"
-          defaultValue={actionData?.value ?? loaderData.account?.name}
+          defaultValue={kept?.value ?? loaderData.account?.name}
           error={error}
         />
         <p className="hint">

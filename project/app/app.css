@@ -214,6 +214,16 @@
     @apply flex items-center justify-between gap-4 border-b font-semibold;
   }
 
+  /* The error page's ways out (plan/phase-34.md). */
+  .error-links {
+    @apply flex flex-wrap gap-x-6 gap-y-2;
+  }
+
+  /* Notices the page doesn't show itself (plan/phase-34.md), above it. */
+  .route-notices {
+    @apply mx-auto grid max-w-2xl gap-2 px-4 pt-4 md:pt-6;
+  }
+
   .site-header > a {
     @apply text-foreground no-underline;
   }
@@ -363,14 +373,27 @@
     min-height: 1lh;
   }
 
-  .toast-region {
-    @apply fixed left-1/2 z-10 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2;
+  /* Toasts and failures float at the bottom of the screen, one above the other. */
+  .float-stack {
+    @apply pointer-events-none fixed left-1/2 z-10 flex w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-2;
     bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .float-stack > * > * {
+    @apply pointer-events-auto;
+  }
+
+  #failure-slot {
+    @apply flex flex-col gap-2;
   }
 
   .toast {
     @apply flex items-center justify-between gap-3 rounded-xl bg-foreground px-4 py-3 text-background shadow-lg;
     animation: toast-in 0.2s ease-out;
+  }
+
+  .toast-error {
+    @apply bg-destructive text-white dark:bg-[oklch(0.5_0.19_25)];
   }
 
   .toast-dismiss {
@@ -384,6 +407,20 @@
 
   .problem-alert {
     @apply flex items-start justify-between gap-3 rounded-lg border border-destructive/50 px-4 py-3 text-sm text-destructive;
+  }
+
+  /* A save that failed in the browser (plan/phase-34.md). */
+  .failure-alert p {
+    @apply m-0 self-center;
+  }
+
+  .failure-actions {
+    @apply flex shrink-0 items-center gap-1;
+  }
+
+  /* A page form's failure floats with the toasts, so it is seen wherever the form was. */
+  .failure-alert.floating {
+    @apply bg-background shadow-lg;
   }
 
   /* Lists of rows. */

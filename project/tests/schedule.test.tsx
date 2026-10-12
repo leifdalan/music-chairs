@@ -720,11 +720,15 @@ describe("rehearsals in members' calendars", () => {
 
       expect((await load(group.id, organizerCookie)).calendar.google).toEqual({
         state: "unlinked",
+        failedAt: null,
       });
       expect(
         (await load(group.id, `${cellistCookie}; ${stranger.cookie}`)).calendar.google,
-      ).toEqual({ state: "other-account" });
-      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({ state: "connect" });
+      ).toEqual({ state: "other-account", failedAt: null });
+      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({
+        state: "connect",
+        failedAt: null,
+      });
     } finally {
       cleanUp();
     }
@@ -814,7 +818,10 @@ describe("rehearsals in members' calendars", () => {
       await post(group.id, cellistSignedIn, { intent: "set-calendar", value: "on" });
       await whenSynced();
       expect(getStore().findMember(group.id, cellist.id)?.calendarSync).toBe(true);
-      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({ state: "on" });
+      expect((await load(group.id, cellistSignedIn)).calendar.google).toEqual({
+        state: "on",
+        failedAt: null,
+      });
 
       await propose(group.id, organizerCookie, nextThursday);
       const [proposed] = getStore().listRehearsals(group.id);

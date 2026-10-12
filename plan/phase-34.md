@@ -21,7 +21,9 @@ informs: ["35"]
 
 From the operator's feedback after Phase 32 ("I'd like for all the error scenarios to be covered. We need error states in the UI for each HTTP call, and we need to consider partial authorization states from the google auth, or error states from google auth … UI Error states should also be in the test suite") and their answers: failures in the browser itself (offline, timeouts, an unreachable server) are included, not only errors the server reports. Order: after Phase 33, before the screenshot catalogue (Phase 35).
 
-To settle at phase start: whether a failed in-page save retries by itself or waits for the person to retry.
+Ruling at phase start (operator, 2026-10-12), the recommended option:
+
+- **Retry button, nothing lost:** a save that fails because the connection dropped or the server didn't answer shows "Not saved" with a short reason and a Retry button; what the person entered stays on screen until they retry or leave. Nothing is resent on its own, so the person always knows what reached the group.
 
 ## Acceptance
 

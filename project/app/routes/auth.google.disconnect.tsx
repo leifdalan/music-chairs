@@ -11,6 +11,7 @@ import { DISCONNECT_PROMPT } from "~/lib/privacy";
 import { pageMeta } from "~/lib/site";
 
 import type { Route } from "./+types/auth.google.disconnect";
+import { DISCONNECT_TIMEOUT_MS, withFailures } from "~/lib/client-failure";
 
 export function meta() {
   return pageMeta("Disconnect Google");
@@ -29,7 +30,7 @@ function back(request: Request): string {
  */
 export async function action({ request }: Route.ActionArgs) {
   const account = await readAccount(request);
-  if (!account) return redirectWithToast("/", "You're not signed in");
+  if (!account) return redirectWithToast("/", "You're not signed in", { kind: "error" });
   const form = await request.formData();
   const prompt = confirmationNeeded(form, DISCONNECT_PROMPT);
   if (prompt) return prompt;
@@ -50,12 +51,20 @@ export async function action({ request }: Route.ActionArgs) {
     allRemoved ? null : "some upcoming rehearsals may still be in your Google Calendar",
     revoked ? null : "Google didn't answer, so remove music-chairs at myaccount.google.com too",
   ].filter((note) => note !== null);
-  return redirectWithToast(
-    back(request),
-    notes.length === 0
-      ? "Disconnected from Google"
-      : `Disconnected from Google here, but ${notes.join(", and ")}.`,
-  );
+  return notes.length === 0
+    ? redirectWithToast(back(request), "Disconnected from Google")
+    : redirectWithToast(
+        back(request),
+        `Disconnected from Google here, but ${notes.join(", and ")}.`,
+        // Partly done: said as a problem, so it doesn't read as all saved (plan/phase-34.md).
+        { kind: "error" },
+      );
+}
+
+// In the browser a failed save stays on the page with Retry (plan/phase-34.md).
+export async function clientAction(args: Route.ClientActionArgs) {
+  // Disconnect waits for the calendar's events to go, then for Google: longer than other saves.
+  return withFailures(args, { timeoutMs: DISCONNECT_TIMEOUT_MS });
 }
 
 export function loader({ request }: Route.LoaderArgs) {
