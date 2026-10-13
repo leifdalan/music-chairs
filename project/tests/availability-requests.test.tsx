@@ -93,6 +93,7 @@ async function band() {
   });
   return {
     group,
+    organizer,
     cellist,
     autumn,
     summer,
@@ -226,7 +227,7 @@ describe("the group page", () => {
     const summer = requests.slice(requests.indexOf("Summer tour"));
     const summerRow = summer.slice(0, summer.indexOf("proposed-rehearsals"));
     expect(summerRow).toContain('<span class="request-status">Closed</span>');
-    expect(summerRow).not.toContain("Not yet");
+    expect(summerRow).not.toContain("Your times:");
     expect(summerRow).not.toContain("responded");
     expect(summer).toContain(`#rehearsal-${b.touring.id}`);
     expect(requests).not.toContain("Spring");
@@ -352,5 +353,61 @@ describe("the calendar feed", () => {
     expect(feed.replace(/\r\n /g, "")).toContain(
       'DESCRIPTION:Rehearsal for Phase Band\\, from the availability request "Autumn concert". Answer or see the schedule: ',
     );
+  });
+});
+
+describe("the organizer's next step (plan/phase-37.md)", () => {
+  it("confirms a proposal the band has answered, and none only the organizer or the past has", async () => {
+    const b = await band();
+    const store = getStore();
+    // Summer tour (closed): the organizer's own answer doesn't make it ready,
+    // nor does a member's answer on a proposal whose date has passed.
+    store.setRsvp(b.group.id, b.touring.id, b.organizer.id, "yes");
+    const gone = store.addRehearsal(
+      b.group.id,
+      b.summer.id,
+      { date: "2026-09-30", startMinute: 1140, endMinute: 1260 },
+      "Bus",
+    );
+    store.setRsvp(b.group.id, gone.id, b.cellist.id, "yes");
+
+    const { data, html } = await groupPage(b, b.organizerCookie);
+
+    expect(data.steps).toEqual([
+      {
+        kind: "confirm",
+        text: "Confirm a time for Autumn concert",
+        href: `${groupPath(b.group)}/schedule`,
+      },
+    ]);
+    expect(html).toContain(">Confirm a time for Autumn concert</a>");
+    // Members don't get the organizer's block.
+    expect((await groupPage(b, b.cellistCookie)).data.steps).toBeNull();
+  });
+
+  it("still asks to choose when the only proposal has passed", async () => {
+    const b = await band();
+    const store = getStore();
+    const winter = store.createRequest(b.group.id, {
+      name: "Winter",
+      startDate: "2026-10-05",
+      endDate: "2026-10-31",
+      windows: [EVENING],
+    });
+    store.touchResponse(b.group.id, winter.id, b.organizer.id);
+    store.touchResponse(b.group.id, winter.id, b.cellist.id);
+    store.addRehearsal(
+      b.group.id,
+      winter.id,
+      { date: "2026-09-30", startMinute: 1140, endMinute: 1260 },
+      "Hall",
+    );
+
+    const { data } = await groupPage(b, b.organizerCookie);
+
+    expect(data.steps?.map((step) => step.text)).toEqual([
+      "Confirm a time for Autumn concert",
+      "Choose times for Winter",
+    ]);
   });
 });

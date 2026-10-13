@@ -5278,3 +5278,14 @@ Phase 36 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 36 ✅; no planned phase follows (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: none new this phase. ./bin/lessons validate OK.
+
+## 2026-10-13 10:59 — START
+Phase 37 — The organizer's next step: a group page that leads with what needs you, and a request page that shows each step when it's needed
+
+Execution trace: 423c54824a2b4206a2912af6f1dbe07d
+
+Planned work:
+- The organizer's group page opens with what needs them: a "Needs you" block under the title with the one most useful action in indigo (for example "Confirm a time for Winter concert" or "Add your times to Spring tour"), and the rest as plain links; the invite's Copy link is no longer the page's only primary button once the band has members, and statuses say whose ("Your times: not given", not a bare "Not yet").
+- The organizer's availability request page follows the order of the job: who is free first; the location, notes and Propose controls appear only once a time is ticked (Propose can't be pressed with nothing ticked; without JavaScript the form stays reachable); the organizer's own times are raised when they haven't given them; the per-member "Preferred number of rehearsals" line becomes one summary.
+- Switching the free times between Calendar and List keeps the ticks not yet proposed (the warning that they're cleared goes).
+- Tests cover the new group-page action choice, the request page's step order without JavaScript, and ticks surviving the view switch; the browser gate checks the organizer's path on phone and laptop.

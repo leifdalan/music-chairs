@@ -127,6 +127,8 @@ export function SubmitButton({
   value,
   label,
   pressed,
+  unavailable = false,
+  describedBy,
 }: {
   feedbackKey: string;
   children: ReactNode;
@@ -140,6 +142,12 @@ export function SubmitButton({
   label?: string;
   /** For toggle-like buttons, whether this choice is the current one. */
   pressed?: boolean;
+  /**
+   * Can't be pressed yet, but stays focusable (plan/phase-37.md); `describedBy`
+   * says why.
+   */
+  unavailable?: boolean;
+  describedBy?: string;
 }) {
   const { state, press } = useContext(Feedback);
   const busy = useNavigation().state !== "idle";
@@ -159,13 +167,15 @@ export function SubmitButton({
         // Utilities, so tailwind-merge replaces the variant's own colours.
         saving && "is-saving cursor-progress opacity-85",
         saved && "is-saved bg-success text-success-foreground hover:bg-success",
+        unavailable && !saving && !saved && "cursor-not-allowed opacity-50",
       )}
       disabled={busy && !saving}
-      aria-disabled={saving || undefined}
+      aria-disabled={saving || unavailable || undefined}
+      aria-describedby={describedBy}
       aria-pressed={pressed}
       aria-label={label ? (status ? `${label}: ${status}` : label) : undefined}
       onClick={(event) => {
-        if (saving) {
+        if (saving || unavailable) {
           event.preventDefault();
           return;
         }

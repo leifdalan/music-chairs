@@ -462,8 +462,8 @@ describe("saving without JavaScript", () => {
 });
 
 describe("the organizer's own times", () => {
-  it("fold below the heat map, opening for the List view", async () => {
-    const { group, organizerCookie } = await band();
+  it("fold below the heat map once given, opening for the List view; flagged while not", async () => {
+    const { group, organizer, organizerCookie } = await band();
     const request = concert(group.id);
 
     const html = render(await load(group, request.id, organizerCookie));
@@ -476,7 +476,25 @@ describe("the organizer's own times", () => {
     expect(html.indexOf('id="overlap-heading"')).toBeLessThan(
       html.indexOf('id="your-times-heading"'),
     );
-    expect(html).toContain('<details class="your-times"><summary>None yet</summary>');
+    // Not given yet: flagged near the top and open (plan/phase-37.md).
+    expect(html).toContain('<details class="your-times" open=""><summary>None yet</summary>');
+    expect(html.indexOf("Your times: not given.")).toBeLessThan(
+      html.indexOf('id="overlap-heading"'),
+    );
+    expect(html).toContain('<a href="#your-times-heading">Add your times</a>');
+    // Given: folded, opening for the List view.
+    getStore().touchResponse(group.id, request.id, organizer.id);
+    const given = render(await load(group, request.id, organizerCookie));
+    const givenListed = render(
+      await load(group, request.id, organizerCookie, "?times=list"),
+      undefined,
+      "/g/x/r?times=list",
+    );
+    expect(given).not.toContain("Your times: not given");
+    expect(given).toContain('<details class="your-times"><summary>None yet</summary>');
+    expect(givenListed).toContain(
+      '<details class="your-times" open=""><summary>None yet</summary>',
+    );
     expect(listed).toContain('<details class="your-times" open=""><summary>None yet</summary>');
     const page = await load(group, request.id, organizerCookie);
     const dateError = {

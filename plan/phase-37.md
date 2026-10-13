@@ -20,7 +20,9 @@ informs: []
 
 From the Impeccable critique and audit of 2026-10-13 (`.impeccable/critique/2026-10-13T07-24-02Z__app.md`: critique 27/40, audit 15/20) and the operator's answers: the organizer's next step first, then one look for failures, a calmer schedule, and the accessibility fixes with every smaller observation (scope: everything); Delete stays red now that red also means a failed save.
 
-To settle at phase start: whether ticking a date on the request page may also offer "Confirm now" (skipping the schedule), or proposing stays the only step there.
+Ruling at phase start (operator, 2026-10-13), the recommended option:
+
+- **Propose only:** ticking a free date on the request page leads to Propose, as today; members still answer on the schedule before the organizer confirms. No "Confirm now" on the request page.
 
 ## Acceptance
 

@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getStore } from "../app/.server/store";
 import { initialRange } from "../app/components/request-dates";
-import { preferenceEntry, preferenceText } from "../app/lib/preference";
+import { preferenceSummary, preferenceText } from "../app/lib/preference";
 import RequestPage, { loader } from "../app/routes/request";
 import {
   addressOf,
@@ -41,9 +41,20 @@ describe("the words", () => {
     expect(preferenceText(null)).toBe("as many as possible");
     expect(preferenceText(1)).toBe("1 rehearsal");
     expect(preferenceText(3)).toBe("3 rehearsals");
-    expect(preferenceEntry("Cellist", { limit: 2 })).toBe("Cellist: 2");
-    expect(preferenceEntry("Pianist", { limit: null })).toBe("Pianist: as many as possible");
-    expect(preferenceEntry("Oboe", null)).toBe("Oboe: not answered");
+  });
+
+  it("sum everyone's preferences up in one line, numbers first", () => {
+    expect(
+      preferenceSummary([
+        { name: "Viola", answer: null },
+        { name: "Pianist", answer: { limit: null } },
+        { name: "Cellist", answer: { limit: 3 } },
+        { name: "Gee", answer: { limit: 2 } },
+        { name: "Oboe", answer: { limit: 3 } },
+      ]),
+    ).toBe("2 (Gee), 3 (Cellist, Oboe), as many as possible (Pianist)");
+    // Nobody has answered: no line at all.
+    expect(preferenceSummary([{ name: "Viola", answer: null }])).toBeNull();
   });
 });
 
@@ -136,22 +147,23 @@ describe("a member's request page", () => {
       "Tick the dates you&#x27;re free; for another time of day, change it below first.",
     );
     expect(html).not.toMatch(/Rehearsals you can make|Any and all|No more than/);
-    expect(html).not.toContain("preferred-summary");
+    expect(html).not.toContain("Preferred number of rehearsals:");
     expect(html).not.toContain("Pianist");
   });
 });
 
 describe("the organizer's request page", () => {
-  it("lists every member's preferred number above the heat map", async () => {
+  it("sums up members' preferred numbers above the heat map", async () => {
     const b = await band();
     const html = await page(b, b.organizerCookie);
     const section = html.slice(html.indexOf('id="overlap-heading"'));
 
+    // One line; who hasn't answered is in Responses (plan/phase-37.md).
     expect(section).toContain(
-      '<ul class="preferred-summary" role="list" aria-labelledby="preferred-label"><li>Viola: not answered</li><li>Cellist: 2</li><li>Pianist: as many as possible</li><li>Oboe: not answered</li></ul>',
+      '<p class="hint">Preferred number of rehearsals: 2 (Cellist), as many as possible (Pianist).</p>',
     );
     // Above the Calendar/List switch, so it is there while ticking dates.
-    expect(section.indexOf("preferred-summary")).toBeLessThan(
+    expect(section.indexOf("Preferred number of rehearsals:")).toBeLessThan(
       section.indexOf("How to show when people are free"),
     );
     // The Responses list uses the same words.

@@ -5,7 +5,7 @@ import { createRoutesStub } from "react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { getStore } from "../app/.server/store";
-import { tickedLabel } from "../app/components/propose-times";
+import { TICK_FIRST, tickedLabel } from "../app/components/propose-times";
 import { groupPath } from "../app/lib/group-address";
 import GroupPage, { loader as groupLoader } from "../app/routes/group";
 import Groups, { loader as groupsLoader } from "../app/routes/groups";
@@ -120,6 +120,7 @@ describe("the request page", () => {
     const html = await requestPage(b, b.organizerCookie);
     const at = (id: string) => html.indexOf(`id="${id}"`);
 
+    expect(html).not.toContain("Your times: not given");
     expect(at("overlap-heading")).toBeGreaterThan(-1);
     expect(at("overlap-heading")).toBeLessThan(at("your-times-heading"));
     expect(at("your-times-heading")).toBeLessThan(at("cap-heading"));
@@ -174,11 +175,45 @@ describe("the request page", () => {
     ).not.toContain("<details");
   });
 
+  it("raises the organizer's own times while they haven't given them", async () => {
+    const b = await band("Flag Quartet");
+    const html = await requestPage(b, b.organizerCookie);
+    const at = (id: string) => html.indexOf(`id="${id}"`);
+
+    // Before who is free, linking to the section, which starts open (plan/phase-37.md).
+    expect(html.indexOf("Your times: not given.")).toBeGreaterThan(-1);
+    expect(html.indexOf("Your times: not given.")).toBeLessThan(at("overlap-heading"));
+    expect(html).toContain('<a href="#your-times-heading">Add your times</a>');
+    expect(html).toContain('<details class="your-times" open="">');
+  });
+
+  it("keeps the propose form whole and pressable without JavaScript", async () => {
+    const b = await band("Plain Propose Quartet");
+    const html = await requestPage(b, b.organizerCookie);
+    const form = html.slice(
+      html.indexOf('<form class="propose-times"'),
+      html.indexOf("</form>", html.indexOf('<form class="propose-times"')),
+    );
+    const button = form.slice(form.lastIndexOf("<button"));
+
+    expect(form).toContain('id="propose-location"');
+    expect(form).toContain('id="propose-notes"');
+    expect(form).not.toContain('hidden=""');
+    expect(button).toContain(">Propose selected<");
+    expect(button).not.toMatch(/ disabled=""| aria-disabled=| aria-describedby=/);
+    // The count and the instruction need the page to be interactive.
+    expect(form).not.toContain("ticked-count");
+    expect(form).not.toContain(TICK_FIRST);
+    // Without JavaScript the view switch is a page load that drops the ticks, and says so.
+    expect(html).toContain("Switching views clears ticks you haven&#x27;t proposed.");
+  });
+
   it("counts ticked times only once the page is interactive", async () => {
     const b = await band("Tick Quartet");
     const html = await requestPage(b, b.organizerCookie);
 
     expect(html).not.toContain("ticked-count");
+    expect(TICK_FIRST).toBe("Tick a free time to propose it.");
     expect([0, 1, 3].map(tickedLabel)).toEqual([
       "No times ticked",
       "1 time ticked",
@@ -271,6 +306,40 @@ describe("the group page", () => {
     expect(at(soloHtml, "invite-heading")).toBeLessThan(at(soloHtml, "requests-heading"));
     expect(at(duoHtml, "invite-heading")).toBeGreaterThan(at(duoHtml, "members-heading"));
     expect(at(duoHtml, "invite-heading")).toBeLessThan(at(duoHtml, "settings-heading"));
+  });
+
+  it("opens with what needs the organizer: one primary button under the title", async () => {
+    const b = await band("Next Quartet");
+    const html = await groupPage(b, b.organizerCookie);
+    const needs = html.slice(
+      html.indexOf('<section class="needs-you"'),
+      html.indexOf("</section>", html.indexOf('<section class="needs-you"')),
+    );
+    const invite = html.slice(html.indexOf('id="invite-heading"'));
+
+    // Straight after the title and its time zone line (plan/phase-37.md).
+    expect(html.indexOf('id="needs-you-heading"')).toBeGreaterThan(html.indexOf("</h1>"));
+    expect(html.indexOf('id="needs-you-heading"')).toBeLessThan(html.indexOf("You are "));
+    expect(needs).toContain(">Needs you</h2>");
+    expect(needs.match(/<a [^>]*\bbg-primary\b/g)).toHaveLength(1);
+    expect(needs).toMatch(
+      /href="[^"]*\/next-quartet-[^"]*\/[^"]+"[^>]*>Add your times to Next Quartet concert</,
+    );
+    // The invite's Copy link is no longer a primary button.
+    const copy = invite.slice(invite.indexOf("<button"), invite.indexOf(">Copy link"));
+    expect(copy).not.toContain("bg-primary");
+    // Statuses say whose.
+    expect(html).toContain("Your times: not given");
+  });
+
+  it("keeps the invite as the sole organizer's first thing, with no Needs you", async () => {
+    const b = await band("Lone Quartet", true);
+    const html = await groupPage(b, b.organizerCookie);
+    const invite = html.slice(html.indexOf('id="invite-heading"'));
+    const copy = invite.slice(invite.indexOf("<button"), invite.indexOf(">Copy link"));
+
+    expect(html).not.toContain("needs-you");
+    expect(copy).toContain("bg-primary");
   });
 
   it("gives a member no actions or settings", async () => {
