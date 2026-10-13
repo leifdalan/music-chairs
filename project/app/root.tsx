@@ -14,6 +14,7 @@ import {
   useRevalidator,
 } from "react-router";
 
+import { crashRequested } from "~/.server/faults";
 import { readToast } from "~/.server/flash";
 import { headerProfile } from "~/.server/profile";
 import { ProfileMenu } from "~/components/profile-menu";
@@ -36,6 +37,8 @@ export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: styl
  * toast arrives with the redirected page.
  */
 export async function loader({ request }: Route.LoaderArgs) {
+  // The server failing, on cue, in local fault mode only (plan/phase-35.md).
+  if (crashRequested(request)) throw new Error("music-chairs: fault mode crash");
   const { toast, clear } = await readToast(request);
   return data(
     { toast, profile: await headerProfile(request) },

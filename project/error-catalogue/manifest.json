@@ -1,0 +1,2376 @@
+{
+  "generated": "2026-10-13",
+  "states": [
+    {
+      "key": "routes/calendar-feed GET",
+      "outcome": "unknown-feed",
+      "when": "A calendar app asks for a feed that no longer exists (member removed)",
+      "sees": "The calendar app reports the feed is gone",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-calendar-feed-get--unknown-feed--phone-light.webp",
+        "phone-dark": "images/routes-calendar-feed-get--unknown-feed--phone-dark.webp",
+        "desktop-light": "images/routes-calendar-feed-get--unknown-feed--desktop-light.webp",
+        "desktop-dark": "images/routes-calendar-feed-get--unknown-feed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group GET",
+      "outcome": "unknown-group",
+      "when": "The group's address matches no group (deleted, or a mistyped link)",
+      "sees": "“Page not found”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-get--unknown-group--phone-light.webp",
+        "phone-dark": "images/routes-group-get--unknown-group--phone-dark.webp",
+        "desktop-light": "images/routes-group-get--unknown-group--desktop-light.webp",
+        "desktop-dark": "images/routes-group-get--unknown-group--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-group-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-group-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-group-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/groups GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-groups-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-groups-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-groups-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-groups-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/healthz GET",
+      "outcome": "ok",
+      "when": "The deploy checks the server",
+      "sees": "Nobody: the deploy reads “ok”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-healthz-get--ok--phone-light.webp",
+        "phone-dark": "images/routes-healthz-get--ok--phone-dark.webp",
+        "desktop-light": "images/routes-healthz-get--ok--desktop-light.webp",
+        "desktop-dark": "images/routes-healthz-get--ok--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/home GET",
+      "outcome": "notice",
+      "when": "Back from Google sign-in or consent that didn't fully work",
+      "sees": "What happened, in a notice at the top",
+      "proofs": [
+        "tests/error-states.test.tsx: home and each page show their own notices; the root shows the rest, each once"
+      ],
+      "images": {
+        "phone-light": "images/routes-home-get--notice--phone-light.webp",
+        "phone-dark": "images/routes-home-get--notice--phone-dark.webp",
+        "desktop-light": "images/routes-home-get--notice--desktop-light.webp",
+        "desktop-dark": "images/routes-home-get--notice--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/home GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-home-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-home-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-home-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-home-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join GET",
+      "outcome": "unknown-invite",
+      "when": "An invite link that matches no group",
+      "sees": "“Page not found”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-join-get--unknown-invite--phone-light.webp",
+        "phone-dark": "images/routes-join-get--unknown-invite--phone-dark.webp",
+        "desktop-light": "images/routes-join-get--unknown-invite--desktop-light.webp",
+        "desktop-dark": "images/routes-join-get--unknown-invite--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-join-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-join-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-join-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-join-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add GET",
+      "outcome": "contacts-none",
+      "when": "Google has no contacts with an email address",
+      "sees": "“No contacts with an email address were found”",
+      "proofs": [
+        "tests/error-states.test.tsx: says what happened to Google contacts: unreadable, removed or none found"
+      ],
+      "images": {
+        "phone-light": "images/routes-members-add-get--contacts-none--phone-light.webp",
+        "phone-dark": "images/routes-members-add-get--contacts-none--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-get--contacts-none--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-get--contacts-none--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add GET",
+      "outcome": "contacts-unreadable",
+      "when": "Google contacts can't be read (an error, no answer within 5 seconds, or access removed)",
+      "sees": "“Couldn't read your Google contacts right now” or “access was removed” with Reconnect; typing a name still works",
+      "proofs": [
+        "tests/error-states.test.tsx: says what happened to Google contacts: unreadable, removed or none found"
+      ],
+      "images": {
+        "phone-light": "images/routes-members-add-get--contacts-unreadable--phone-light.webp",
+        "phone-dark": "images/routes-members-add-get--contacts-unreadable--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-get--contacts-unreadable--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-get--contacts-unreadable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add GET",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "“Only organizers can see this”, with the way back to the group",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-members-add-get--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-members-add-get--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-get--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-get--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-members-add-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-members-add-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add GET",
+      "outcome": "visitor",
+      "when": "Someone this device isn't a member as opens it",
+      "sees": "The group's page, where they can join",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-members-add-get--visitor--phone-light.webp",
+        "phone-dark": "images/routes-members-add-get--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-get--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-get--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/profile GET",
+      "outcome": "to-group",
+      "when": "Someone opens the profile address itself",
+      "sees": "The group's page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-profile-get--to-group--phone-light.webp",
+        "phone-dark": "images/routes-profile-get--to-group--phone-dark.webp",
+        "desktop-light": "images/routes-profile-get--to-group--desktop-light.webp",
+        "desktop-dark": "images/routes-profile-get--to-group--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/rehearsal-link GET",
+      "outcome": "unknown-group",
+      "when": "A link into a group that was deleted",
+      "sees": "The start page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-rehearsal-link-get--unknown-group--phone-light.webp",
+        "phone-dark": "images/routes-rehearsal-link-get--unknown-group--phone-dark.webp",
+        "desktop-light": "images/routes-rehearsal-link-get--unknown-group--desktop-light.webp",
+        "desktop-dark": "images/routes-rehearsal-link-get--unknown-group--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/rehearsal-link GET",
+      "outcome": "unknown-rehearsal",
+      "when": "A link to a proposed time that was deleted",
+      "sees": "The schedule, saying “That link is out of date: what it pointed to was deleted or changed.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-rehearsal-link-get--unknown-rehearsal--phone-light.webp",
+        "phone-dark": "images/routes-rehearsal-link-get--unknown-rehearsal--phone-dark.webp",
+        "desktop-light": "images/routes-rehearsal-link-get--unknown-rehearsal--desktop-light.webp",
+        "desktop-dark": "images/routes-rehearsal-link-get--unknown-rehearsal--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/rehearsal-link GET",
+      "outcome": "unknown-request",
+      "when": "A link to a proposed time in a request that was deleted",
+      "sees": "The schedule, saying “That link is out of date: what it pointed to was deleted or changed.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-rehearsal-link-get--unknown-request--phone-light.webp",
+        "phone-dark": "images/routes-rehearsal-link-get--unknown-request--phone-dark.webp",
+        "desktop-light": "images/routes-rehearsal-link-get--unknown-request--desktop-light.webp",
+        "desktop-dark": "images/routes-rehearsal-link-get--unknown-request--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request GET",
+      "outcome": "clashes-access-removed",
+      "when": "Google refused the calendar access music-chairs had",
+      "sees": "“Google Calendar access was removed, so clashes can't be shown.” with Reconnect",
+      "proofs": [
+        "tests/error-states.test.tsx: says Google Calendar access was removed, not that it was never given"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-get--clashes-access-removed--phone-light.webp",
+        "phone-dark": "images/routes-request-get--clashes-access-removed--phone-dark.webp",
+        "desktop-light": "images/routes-request-get--clashes-access-removed--desktop-light.webp",
+        "desktop-dark": "images/routes-request-get--clashes-access-removed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request GET",
+      "outcome": "clashes-unreadable",
+      "when": "Google Calendar can't be read for clashes (any error, or no answer within 5 seconds)",
+      "sees": "“Couldn't read your Google Calendar right now; nothing is greyed.” (in a first answer: every date ticked, check them)",
+      "proofs": [
+        "tests/error-states.test.tsx: reads clashes whatever goes wrong, giving up after 5 seconds"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-get--clashes-unreadable--phone-light.webp",
+        "phone-dark": "images/routes-request-get--clashes-unreadable--phone-dark.webp",
+        "desktop-light": "images/routes-request-get--clashes-unreadable--desktop-light.webp",
+        "desktop-dark": "images/routes-request-get--clashes-unreadable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request GET",
+      "outcome": "unknown-request",
+      "when": "The request was deleted, or the link is mistyped",
+      "sees": "“Page not found”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-get--unknown-request--phone-light.webp",
+        "phone-dark": "images/routes-request-get--unknown-request--phone-dark.webp",
+        "desktop-light": "images/routes-request-get--unknown-request--desktop-light.webp",
+        "desktop-dark": "images/routes-request-get--unknown-request--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-request-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-request-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-request-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request GET",
+      "outcome": "visitor",
+      "when": "Someone not in the group opens a request's address (the share link joins first)",
+      "sees": "The group's page, where they can join",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-get--visitor--phone-light.webp",
+        "phone-dark": "images/routes-request-get--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-request-get--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-request-get--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request-calendar GET",
+      "outcome": "not-ready",
+      "when": "The download is opened before the request's rehearsals are confirmed (only a link copied or kept from before: the page offers it once they are)",
+      "sees": "The request page, saying there's no calendar file yet (a browser told to download the link may save that page as a file instead)",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-calendar-get--not-ready--phone-light.webp",
+        "phone-dark": "images/routes-request-calendar-get--not-ready--phone-dark.webp",
+        "desktop-light": "images/routes-request-calendar-get--not-ready--desktop-light.webp",
+        "desktop-dark": "images/routes-request-calendar-get--not-ready--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request-calendar GET",
+      "outcome": "unknown-group",
+      "when": "A download link into a group that was deleted",
+      "sees": "The start page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-calendar-get--unknown-group--phone-light.webp",
+        "phone-dark": "images/routes-request-calendar-get--unknown-group--phone-dark.webp",
+        "desktop-light": "images/routes-request-calendar-get--unknown-group--desktop-light.webp",
+        "desktop-dark": "images/routes-request-calendar-get--unknown-group--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request-calendar GET",
+      "outcome": "unknown-request",
+      "when": "A download link for a request that was deleted",
+      "sees": "The group's page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-calendar-get--unknown-request--phone-light.webp",
+        "phone-dark": "images/routes-request-calendar-get--unknown-request--phone-dark.webp",
+        "desktop-light": "images/routes-request-calendar-get--unknown-request--desktop-light.webp",
+        "desktop-dark": "images/routes-request-calendar-get--unknown-request--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request-calendar GET",
+      "outcome": "visitor",
+      "when": "Someone this device isn't a member as opens it",
+      "sees": "The group's page, where they can join",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-calendar-get--visitor--phone-light.webp",
+        "phone-dark": "images/routes-request-calendar-get--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-request-calendar-get--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-request-calendar-get--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new GET",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "“Only organizers can see this”, with the way back to the group",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-get--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-get--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-get--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-get--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new GET",
+      "outcome": "unknown-edit",
+      "when": "Editing or repeating a request that no longer exists",
+      "sees": "“Page not found”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-get--unknown-edit--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-get--unknown-edit--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-get--unknown-edit--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-get--unknown-edit--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-requests-new-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new GET",
+      "outcome": "visitor",
+      "when": "Someone this device isn't a member as opens it",
+      "sees": "The group's page, where they can join",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-get--visitor--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-get--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-get--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-get--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule GET",
+      "outcome": "calendar-access-removed",
+      "when": "Google refused the calendar access music-chairs had (removed at myaccount.google.com)",
+      "sees": "“Google Calendar access was removed” with Reconnect Google Calendar",
+      "proofs": [
+        "tests/error-states.test.tsx: says Google Calendar access was removed, not that it was never given"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-get--calendar-access-removed--phone-light.webp",
+        "phone-dark": "images/routes-schedule-get--calendar-access-removed--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-get--calendar-access-removed--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-get--calendar-access-removed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule GET",
+      "outcome": "calendar-write-failed",
+      "when": "Google Calendar couldn't be updated the last time music-chairs tried",
+      "sees": "“Your Google Calendar couldn't be updated (last tried …)” in the calendar panel, to that member only",
+      "proofs": [
+        "tests/error-states.test.tsx: shows a calendar that couldn't be updated to its member until an update works"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-get--calendar-write-failed--phone-light.webp",
+        "phone-dark": "images/routes-schedule-get--calendar-write-failed--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-get--calendar-write-failed--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-get--calendar-write-failed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule GET",
+      "outcome": "unknown-group",
+      "when": "The group's address matches no group (deleted, or a mistyped link)",
+      "sees": "“Page not found”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-get--unknown-group--phone-light.webp",
+        "phone-dark": "images/routes-schedule-get--unknown-group--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-get--unknown-group--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-get--unknown-group--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule GET",
+      "outcome": "unreachable",
+      "when": "Moving to this page in the app while the connection is down, or the server errs",
+      "sees": "“Couldn't reach music-chairs” (or “Something went wrong on our side”) with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection",
+        "browser gate: page load offline: the connection error page with Try again"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-get--unreachable--phone-light.webp",
+        "phone-dark": "images/routes-schedule-get--unreachable--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-get--unreachable--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-get--unreachable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule GET",
+      "outcome": "visitor",
+      "when": "Someone this device isn't a member as opens it",
+      "sees": "The group's page, where they can join",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-get--visitor--phone-light.webp",
+        "phone-dark": "images/routes-schedule-get--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-get--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-get--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/home POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-home-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-home-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-home-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-home-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/home POST (default)",
+      "outcome": "refused",
+      "when": "A group name, your name or the time zone is missing or too long",
+      "sees": "The form again with what was typed and the reason beside each field",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-home-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-home-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-home-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-home-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/groups POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-groups-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-groups-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-groups-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-groups-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/groups POST (default)",
+      "outcome": "refused",
+      "when": "A group name, your name or the time zone is missing or too long",
+      "sees": "The form again with what was typed and the reason beside each field",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-groups-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-groups-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-groups-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-groups-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST (default)",
+      "outcome": "unknown-intent",
+      "when": "A form posts something this page doesn't do (an old page, or a tampered form)",
+      "sees": "“Something went wrong. Please try again.” at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-default--unknown-intent--phone-light.webp",
+        "phone-dark": "images/routes-group-post-default--unknown-intent--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-default--unknown-intent--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-default--unknown-intent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST delete-group",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-delete-group--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-delete-group--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-delete-group--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-delete-group--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST delete-group",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-delete-group--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-group-post-delete-group--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-delete-group--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-delete-group--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST leave",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-leave--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-leave--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-leave--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-leave--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST leave",
+      "outcome": "last-organizer",
+      "when": "The only organizer tries to leave",
+      "sees": "Why they can't, at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-leave--last-organizer--phone-light.webp",
+        "phone-dark": "images/routes-group-post-leave--last-organizer--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-leave--last-organizer--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-leave--last-organizer--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST leave",
+      "outcome": "last-organizer-from-groups",
+      "when": "The same, from the groups page",
+      "sees": "Back on the groups page with the reason in an error toast",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-leave--last-organizer-from-groups--phone-light.webp",
+        "phone-dark": "images/routes-group-post-leave--last-organizer-from-groups--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-leave--last-organizer-from-groups--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-leave--last-organizer-from-groups--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST remove-member",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-remove-member--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-remove-member--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-remove-member--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-remove-member--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST remove-member",
+      "outcome": "last-organizer",
+      "when": "Removing the only organizer",
+      "sees": "Why not, at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-remove-member--last-organizer--phone-light.webp",
+        "phone-dark": "images/routes-group-post-remove-member--last-organizer--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-remove-member--last-organizer--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-remove-member--last-organizer--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST remove-member",
+      "outcome": "unknown-member",
+      "when": "The member was removed meanwhile",
+      "sees": "“Not saved. This was deleted or changed …”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-remove-member--unknown-member--phone-light.webp",
+        "phone-dark": "images/routes-group-post-remove-member--unknown-member--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-remove-member--unknown-member--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-remove-member--unknown-member--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST rename-member",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-rename-member--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-rename-member--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-rename-member--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-rename-member--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST rename-member",
+      "outcome": "refused",
+      "when": "The new name is empty or too long",
+      "sees": "Why, at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-rename-member--refused--phone-light.webp",
+        "phone-dark": "images/routes-group-post-rename-member--refused--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-rename-member--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-rename-member--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST rename-member",
+      "outcome": "unknown-member",
+      "when": "The member was removed meanwhile",
+      "sees": "“Not saved. This was deleted or changed …”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-rename-member--unknown-member--phone-light.webp",
+        "phone-dark": "images/routes-group-post-rename-member--unknown-member--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-rename-member--unknown-member--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-rename-member--unknown-member--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-optional",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-set-optional--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-optional--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-optional--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-optional--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-optional",
+      "outcome": "unknown-member",
+      "when": "The member was removed meanwhile",
+      "sees": "In the browser “Not saved. This was deleted or changed …” with Reload",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-set-optional--unknown-member--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-optional--unknown-member--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-optional--unknown-member--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-optional--unknown-member--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-privacy",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-set-privacy--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-privacy--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-privacy--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-privacy--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-privacy",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-set-privacy--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-privacy--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-privacy--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-privacy--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-role",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-set-role--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-role--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-role--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-role--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-role",
+      "outcome": "last-organizer",
+      "when": "Removing the only organizer's role",
+      "sees": "Why not, at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-set-role--last-organizer--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-role--last-organizer--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-role--last-organizer--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-role--last-organizer--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST set-role",
+      "outcome": "unknown-member",
+      "when": "The member was removed meanwhile",
+      "sees": "“Not saved. This was deleted or changed …”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-set-role--unknown-member--phone-light.webp",
+        "phone-dark": "images/routes-group-post-set-role--unknown-member--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-set-role--unknown-member--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-set-role--unknown-member--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST update-group",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-group-post-update-group--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-group-post-update-group--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-update-group--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-update-group--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST update-group",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-update-group--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-group-post-update-group--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-update-group--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-update-group--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST update-group",
+      "outcome": "refused",
+      "when": "The new name is empty or too long",
+      "sees": "The settings form with the reason beside the name",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-update-group--refused--phone-light.webp",
+        "phone-dark": "images/routes-group-post-update-group--refused--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-update-group--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-update-group--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/group POST update-group",
+      "outcome": "refused-from-groups",
+      "when": "The same, renamed from the groups page",
+      "sees": "Back on the groups page with the reason in an error toast",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-group-post-update-group--refused-from-groups--phone-light.webp",
+        "phone-dark": "images/routes-group-post-update-group--refused-from-groups--phone-dark.webp",
+        "desktop-light": "images/routes-group-post-update-group--refused-from-groups--desktop-light.webp",
+        "desktop-dark": "images/routes-group-post-update-group--refused-from-groups--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST (default)",
+      "outcome": "unknown-intent",
+      "when": "A form posts something this page doesn't do (an old page, or a tampered form)",
+      "sees": "“Something went wrong. Please try again.” at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-default--unknown-intent--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-default--unknown-intent--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-default--unknown-intent--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-default--unknown-intent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST confirm",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-confirm--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-confirm--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-confirm--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-confirm--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST confirm",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-confirm--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-confirm--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-confirm--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-confirm--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST confirm",
+      "outcome": "unknown-rehearsal",
+      "when": "The proposed time was deleted meanwhile",
+      "sees": "“Not saved. This was deleted or changed …”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-confirm--unknown-rehearsal--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-confirm--unknown-rehearsal--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-confirm--unknown-rehearsal--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-confirm--unknown-rehearsal--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST delete",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-delete--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-delete--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-delete--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-delete--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST delete",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-delete--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-delete--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-delete--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-delete--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST delete",
+      "outcome": "unknown-rehearsal",
+      "when": "Already deleted",
+      "sees": "“Not saved. This was deleted or changed …”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-delete--unknown-rehearsal--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-delete--unknown-rehearsal--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-delete--unknown-rehearsal--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-delete--unknown-rehearsal--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST notes",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-notes--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-notes--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-notes--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-notes--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST notes",
+      "outcome": "refused",
+      "when": "Notes longer than 1,000 characters",
+      "sees": "Why, at the top of the schedule",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-notes--refused--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-notes--refused--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-notes--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-notes--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST rsvp",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-rsvp--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-rsvp--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-rsvp--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-rsvp--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST rsvp",
+      "outcome": "no-answer",
+      "when": "An answer is saved and the server doesn't answer within 20 seconds",
+      "sees": "“Maybe not saved.” and “The server didn't answer in time.”, with Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-rsvp--no-answer--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-rsvp--no-answer--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-rsvp--no-answer--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-rsvp--no-answer--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST rsvp",
+      "outcome": "refused",
+      "when": "Not yes, no or maybe (a tampered form)",
+      "sees": "Why, at the top of the schedule",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-rsvp--refused--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-rsvp--refused--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-rsvp--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-rsvp--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST rsvp",
+      "outcome": "server-error",
+      "when": "An answer is saved while a gateway in front of the app answers with an error",
+      "sees": "“Maybe not saved.” and “Something went wrong on our side.”, with Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-rsvp--server-error--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-rsvp--server-error--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-rsvp--server-error--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-rsvp--server-error--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST rsvp",
+      "outcome": "unknown-rehearsal",
+      "when": "The proposed time was deleted meanwhile",
+      "sees": "“Not saved. This was deleted or changed …” with Reload",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-rsvp--unknown-rehearsal--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-rsvp--unknown-rehearsal--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-rsvp--unknown-rehearsal--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-rsvp--unknown-rehearsal--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST set-calendar",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-set-calendar--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-set-calendar--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-set-calendar--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-set-calendar--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST set-calendar",
+      "outcome": "browser-failure-from-home",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-set-calendar--browser-failure-from-home--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-set-calendar--browser-failure-from-home--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-set-calendar--browser-failure-from-home--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-set-calendar--browser-failure-from-home--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST set-calendar",
+      "outcome": "not-connected",
+      "when": "Google Calendar isn't connected (any more)",
+      "sees": "“Connect Google Calendar first.” at the top of the schedule",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-set-calendar--not-connected--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-set-calendar--not-connected--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-set-calendar--not-connected--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-set-calendar--not-connected--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/schedule POST set-calendar",
+      "outcome": "not-connected-from-home",
+      "when": "The same, from the start page",
+      "sees": "Back on the start page with the reason in an error toast",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-schedule-post-set-calendar--not-connected-from-home--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-set-calendar--not-connected-from-home--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-set-calendar--not-connected-from-home--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-set-calendar--not-connected-from-home--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST (default)",
+      "outcome": "unknown-intent",
+      "when": "A form posts something this page doesn't do (an old page, or a tampered form)",
+      "sees": "“Something went wrong. Please try again.” at the top of the page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-default--unknown-intent--phone-light.webp",
+        "phone-dark": "images/routes-request-post-default--unknown-intent--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-default--unknown-intent--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-default--unknown-intent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST answer",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded",
+        "tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-answer--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-answer--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-answer--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-answer--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST answer",
+      "outcome": "refused",
+      "when": "A preferred number out of range",
+      "sees": "“Not saved” beside the number, with the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-answer--refused--phone-light.webp",
+        "phone-dark": "images/routes-request-post-answer--refused--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-answer--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-answer--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST clear-dates",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-clear-dates--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-clear-dates--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-clear-dates--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-clear-dates--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST clear-dates",
+      "outcome": "confirm",
+      "when": "Without JavaScript, before saying yes",
+      "sees": "“Clear all your dates?” with the confirm button",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-clear-dates--confirm--phone-light.webp",
+        "phone-dark": "images/routes-request-post-clear-dates--confirm--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-clear-dates--confirm--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-clear-dates--confirm--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST close",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-close--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-close--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-close--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-close--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST close",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-close--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-request-post-close--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-close--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-close--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST fill-dates",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded",
+        "tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-fill-dates--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-fill-dates--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-fill-dates--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-fill-dates--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST fill-dates",
+      "outcome": "refused",
+      "when": "The chosen stretch isn't within the request's times",
+      "sees": "“Not saved” by the dates, with the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-fill-dates--refused--phone-light.webp",
+        "phone-dark": "images/routes-request-post-fill-dates--refused--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-fill-dates--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-fill-dates--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-propose--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-propose--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose",
+      "outcome": "refused",
+      "when": "A missing or past date, or a time that isn't one",
+      "sees": "“Propose a different time” open with what was typed and the reasons",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-propose--refused--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose--refused--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose-times",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-propose-times--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose-times--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose-times--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose-times--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose-times",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-propose-times--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose-times--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose-times--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose-times--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST propose-times",
+      "outcome": "refused",
+      "when": "No time ticked, or a time that isn't free any more",
+      "sees": "The reason above the free times",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-propose-times--refused--phone-light.webp",
+        "phone-dark": "images/routes-request-post-propose-times--refused--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-propose-times--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-propose-times--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST reopen",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-reopen--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-reopen--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-reopen--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-reopen--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST reopen",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-reopen--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-request-post-reopen--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-reopen--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-reopen--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST save-dates",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-save-dates--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-save-dates--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-save-dates--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-save-dates--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST save-dates",
+      "outcome": "refused",
+      "when": "A date no longer on offer, or a time that isn't one",
+      "sees": "The dates with the reason, as ticked",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-save-dates--refused--phone-light.webp",
+        "phone-dark": "images/routes-request-post-save-dates--refused--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-save-dates--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-save-dates--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST set-date",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded",
+        "tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-set-date--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-request-post-set-date--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-set-date--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-set-date--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST set-date",
+      "outcome": "date-gone",
+      "when": "The date is no longer on offer (the request was edited, or the day passed)",
+      "sees": "“Not saved” by the dates, with the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-request-post-set-date--date-gone--phone-light.webp",
+        "phone-dark": "images/routes-request-post-set-date--date-gone--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-set-date--date-gone--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-set-date--date-gone--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST set-date",
+      "outcome": "no-answer",
+      "when": "A date is ticked and the server doesn't answer within 20 seconds",
+      "sees": "“Maybe not saved.” and “The server didn't answer in time.” by the dates, with Retry",
+      "proofs": [
+        "tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-set-date--no-answer--phone-light.webp",
+        "phone-dark": "images/routes-request-post-set-date--no-answer--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-set-date--no-answer--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-set-date--no-answer--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/request POST set-date",
+      "outcome": "server-error",
+      "when": "A date is ticked while a gateway in front of the app answers with an error",
+      "sees": "“Maybe not saved.” and “Something went wrong on our side.” by the dates, with Retry",
+      "proofs": [
+        "tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded"
+      ],
+      "images": {
+        "phone-light": "images/routes-request-post-set-date--server-error--phone-light.webp",
+        "phone-dark": "images/routes-request-post-set-date--server-error--phone-dark.webp",
+        "desktop-light": "images/routes-request-post-set-date--server-error--desktop-light.webp",
+        "desktop-dark": "images/routes-request-post-set-date--server-error--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-requests-new-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new POST (default)",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-post-default--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-post-default--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-post-default--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-post-default--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new POST (default)",
+      "outcome": "refused",
+      "when": "A missing name, dates or times",
+      "sees": "The form with what was typed and the reasons",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new POST add-window",
+      "outcome": "added",
+      "when": "Another time of day is asked for",
+      "sees": "One more row, everything typed kept",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-requests-new-post-add-window--added--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-post-add-window--added--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-post-add-window--added--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-post-add-window--added--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/requests.new POST add-window",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-requests-new-post-add-window--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-requests-new-post-add-window--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-requests-new-post-add-window--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-requests-new-post-add-window--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-members-add-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-members-add-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add POST (default)",
+      "outcome": "organizer-only",
+      "when": "A member who isn't an organizer asks (for example after losing the role)",
+      "sees": "In the browser “Not saved. Only organizers can do that.”; without JavaScript “Only organizers can see this”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-members-add-post-default--organizer-only--phone-light.webp",
+        "phone-dark": "images/routes-members-add-post-default--organizer-only--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-post-default--organizer-only--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-post-default--organizer-only--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/members.add POST (default)",
+      "outcome": "refused",
+      "when": "No name, or the name or email is already in the group",
+      "sees": "The form with what was typed and the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-members-add-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-members-add-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-members-add-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-members-add-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-join-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-join-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST (default)",
+      "outcome": "refused",
+      "when": "No name, or a name only Google can get back into",
+      "sees": "The form with the name and the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-join-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-join-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST new",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-join-post-new--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-join-post-new--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-new--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-new--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST new",
+      "outcome": "refused",
+      "when": "No name",
+      "sees": "The form with the reason",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-join-post-new--refused--phone-light.webp",
+        "phone-dark": "images/routes-join-post-new--refused--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-new--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-new--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST pick",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-join-post-pick--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-join-post-pick--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-pick--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-pick--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/join POST pick",
+      "outcome": "no-longer-a-match",
+      "when": "The member picked isn't one of the matches any more",
+      "sees": "“That member isn't one of the matches any more. Type your name again.”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-join-post-pick--no-longer-a-match--phone-light.webp",
+        "phone-dark": "images/routes-join-post-pick--no-longer-a-match--phone-dark.webp",
+        "desktop-light": "images/routes-join-post-pick--no-longer-a-match--desktop-light.webp",
+        "desktop-dark": "images/routes-join-post-pick--no-longer-a-match--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/profile POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-profile-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-profile-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-profile-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-profile-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/profile POST (default)",
+      "outcome": "refused",
+      "when": "An empty or too-long name or instrumentation",
+      "sees": "Back on the same page with the reason in an error toast",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-profile-post-default--refused--phone-light.webp",
+        "phone-dark": "images/routes-profile-post-default--refused--phone-dark.webp",
+        "desktop-light": "images/routes-profile-post-default--refused--desktop-light.webp",
+        "desktop-dark": "images/routes-profile-post-default--refused--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/profile POST (default)",
+      "outcome": "visitor",
+      "when": "This device is no longer a member",
+      "sees": "The group's page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-profile-post-default--visitor--phone-light.webp",
+        "phone-dark": "images/routes-profile-post-default--visitor--phone-dark.webp",
+        "desktop-light": "images/routes-profile-post-default--visitor--desktop-light.webp",
+        "desktop-dark": "images/routes-profile-post-default--visitor--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.disconnect POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-disconnect-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-disconnect-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-disconnect-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-disconnect-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.disconnect POST (default)",
+      "outcome": "not-signed-in",
+      "when": "Not signed in (signed out in another tab)",
+      "sees": "The start page, “You're not signed in” as an error toast",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-auth-google-disconnect-post-default--not-signed-in--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-disconnect-post-default--not-signed-in--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-disconnect-post-default--not-signed-in--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-disconnect-post-default--not-signed-in--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.disconnect POST (default)",
+      "outcome": "partly-done",
+      "when": "Google doesn't answer, or some events couldn't be removed",
+      "sees": "“Disconnected from Google here, but …” as an error toast, never “Saved ✓”",
+      "proofs": [
+        "tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved",
+        "tests/error-states.test.tsx: is waited for longer than its own worst case, so a slow Google isn't called a failure"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-disconnect-post-default--partly-done--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-disconnect-post-default--partly-done--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-disconnect-post-default--partly-done--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-disconnect-post-default--partly-done--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.sign-out POST (default)",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-sign-out-post-default--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-auth-sign-out-post-default--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-auth-sign-out-post-default--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-sign-out-post-default--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.sign-out POST (default)",
+      "outcome": "signed-out",
+      "when": "Signing out when already signed out",
+      "sees": "The start page, “Signed out”",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-auth-sign-out-post-default--signed-out--phone-light.webp",
+        "phone-dark": "images/routes-auth-sign-out-post-default--signed-out--phone-dark.webp",
+        "desktop-light": "images/routes-auth-sign-out-post-default--signed-out--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-sign-out-post-default--signed-out--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google GET",
+      "outcome": "unavailable",
+      "when": "Signing in with Google isn't set up on this server",
+      "sees": "Back on the page, “Signing in with Google isn't available right now”",
+      "proofs": ["tests/auth.test.ts: is unavailable without the client secret"],
+      "images": {
+        "phone-light": "images/routes-auth-google-get--unavailable--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-get--unavailable--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-get--unavailable--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-get--unavailable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.calendar GET",
+      "outcome": "signed-out",
+      "when": "Asking for a Google permission while not signed in",
+      "sees": "Signing in with Google first",
+      "proofs": [
+        "tests/calendar-consent.test.ts: sends a visitor who isn't signed in to sign in first"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-calendar-get--signed-out--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-calendar-get--signed-out--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-calendar-get--signed-out--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-calendar-get--signed-out--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.calendar GET",
+      "outcome": "unavailable",
+      "when": "Google isn't set up on this server",
+      "sees": "Back on the page, “Signing in with Google isn't available right now”",
+      "proofs": [
+        "tests/calendar-consent.test.ts: goes back with Google unavailable when sign-in with Google is switched off"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-calendar-get--unavailable--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-calendar-get--unavailable--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-calendar-get--unavailable--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-calendar-get--unavailable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.calendar GET",
+      "outcome": "unknown-permission",
+      "when": "An unknown permission is asked for (a tampered link)",
+      "sees": "Back on the page, “Connecting Google Calendar didn't work”",
+      "proofs": [
+        "tests/calendar-consent.test.ts: refuses an unknown permission, back where it started with a notice"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-calendar-get--unknown-permission--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-calendar-get--unknown-permission--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-calendar-get--unknown-permission--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-calendar-get--unknown-permission--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "account-taken",
+      "when": "This Google account is already another member of the group",
+      "sees": "“This Google account is already … stays name-only”",
+      "proofs": [
+        "tests/auth.test.ts: refuses a second member of the same group for one Google account, and says so"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--account-taken--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--account-taken--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--account-taken--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--account-taken--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "calendar-declined",
+      "when": "Signed in but Google Calendar wasn't allowed",
+      "sees": "“Signed in. Google Calendar wasn't allowed …”",
+      "proofs": ["tests/auth.test.ts: drops a notice carried over from an earlier round trip"],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--calendar-declined--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--calendar-declined--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--calendar-declined--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--calendar-declined--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "calendar-partial-busy",
+      "when": "Only seeing clashes was allowed",
+      "sees": "“connected for clashes only”",
+      "proofs": [
+        "tests/auth.test.ts: says Calendar was connected for clashes only when writing wasn't allowed"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--calendar-partial-busy--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--calendar-partial-busy--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--calendar-partial-busy--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--calendar-partial-busy--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "calendar-partial-write",
+      "when": "Only adding rehearsals was allowed",
+      "sees": "“connected for adding rehearsals only”",
+      "proofs": [
+        "tests/auth.test.ts: says Calendar was connected for writing only when clashes weren't allowed"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--calendar-partial-write--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--calendar-partial-write--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--calendar-partial-write--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--calendar-partial-write--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "calendar-unsaved",
+      "when": "Google gave no lasting access",
+      "sees": "“isn't connected. Please try again.”",
+      "proofs": [
+        "tests/auth.test.ts: says Calendar isn't connected when Google gave no lasting access"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--calendar-unsaved--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--calendar-unsaved--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--calendar-unsaved--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--calendar-unsaved--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "cancelled",
+      "when": "Cancelled on Google's screen",
+      "sees": "Back where it started, “Google sign-in was cancelled”",
+      "proofs": [
+        "tests/auth.test.ts: reports a cancelled sign-in without contacting Google, back where it started"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--cancelled--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--cancelled--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--cancelled--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--cancelled--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "consent-failed",
+      "when": "Google refuses or doesn't answer a Calendar or contacts consent",
+      "sees": "Back where it started, “Connecting … didn't work”",
+      "proofs": [
+        "tests/calendar-consent.test.ts: goes back with Calendar failed when Google refuses the exchange, saving nothing",
+        "tests/calendar-consent.test.ts: goes back with contacts failed, not a sign-in notice, when Google doesn't answer"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--consent-failed--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--consent-failed--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--consent-failed--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--consent-failed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "contacts-partial",
+      "when": "Only saved contacts were allowed",
+      "sees": "“connected for your saved contacts only”",
+      "proofs": [
+        "tests/calendar-consent.test.ts: says contacts were connected for saved contacts only when the others weren't allowed"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--contacts-partial--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--contacts-partial--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--contacts-partial--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--contacts-partial--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "exchange-failed",
+      "when": "Google refuses or doesn't answer the sign-in",
+      "sees": "Back where it started, “Google sign-in didn't work”",
+      "proofs": [
+        "tests/auth.test.ts: goes back where it started with sign-in failed when Google doesn't answer the exchange"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--exchange-failed--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--exchange-failed--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--exchange-failed--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--exchange-failed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "expired",
+      "when": "Took too long, or the browser lost the sign-in cookie",
+      "sees": "The start page, “That took too long … please try again”",
+      "proofs": [
+        "tests/auth.test.ts: says a sign-in took too long when its saved state is gone (plan/phase-34.md)"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--expired--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--expired--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--expired--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--expired--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "forged",
+      "when": "Google's answer doesn't belong to this browser",
+      "sees": "Back where it started, “Google sign-in didn't work”",
+      "proofs": [
+        "tests/auth.test.ts: creates no session when Google's state does not match this browser's"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--forged--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--forged--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--forged--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--forged--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "unavailable",
+      "when": "Google sign-in was switched off on the way",
+      "sees": "Back where it started, “isn't available right now”",
+      "proofs": [
+        "tests/auth.test.ts: goes back with Google unavailable when sign-in was switched off on the way"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--unavailable--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--unavailable--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--unavailable--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--unavailable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.callback GET",
+      "outcome": "unverified-email",
+      "when": "Google hasn't verified the email an organizer added a place for",
+      "sees": "“places organizers added for it can't be found until it does”",
+      "proofs": [
+        "tests/auth.test.ts: says an unverified email can't claim the places added for it, only when there are some"
+      ],
+      "images": {
+        "phone-light": "images/routes-auth-google-callback-get--unverified-email--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-callback-get--unverified-email--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-callback-get--unverified-email--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-callback-get--unverified-email--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.google.disconnect GET",
+      "outcome": "back",
+      "when": "Someone opens the disconnect address",
+      "sees": "The start page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-auth-google-disconnect-get--back--phone-light.webp",
+        "phone-dark": "images/routes-auth-google-disconnect-get--back--phone-dark.webp",
+        "desktop-light": "images/routes-auth-google-disconnect-get--back--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-google-disconnect-get--back--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "routes/auth.sign-out GET",
+      "outcome": "to-start",
+      "when": "Someone opens the sign-out address",
+      "sees": "The start page",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-auth-sign-out-get--to-start--phone-light.webp",
+        "phone-dark": "images/routes-auth-sign-out-get--to-start--phone-dark.webp",
+        "desktop-light": "images/routes-auth-sign-out-get--to-start--desktop-light.webp",
+        "desktop-dark": "images/routes-auth-sign-out-get--to-start--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google accessTokenFor",
+      "outcome": "revoked",
+      "when": "Google refuses the saved access (removed by the person)",
+      "sees": "“access was removed” with Reconnect wherever it was used",
+      "proofs": [
+        "tests/error-states.test.tsx: says Google Calendar access was removed, not that it was never given"
+      ],
+      "images": {
+        "phone-light": "images/google-accesstokenfor--revoked--phone-light.webp",
+        "phone-dark": "images/google-accesstokenfor--revoked--phone-dark.webp",
+        "desktop-light": "images/google-accesstokenfor--revoked--desktop-light.webp",
+        "desktop-dark": "images/google-accesstokenfor--revoked--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google accessTokenFor",
+      "outcome": "silent",
+      "when": "Google doesn't answer",
+      "sees": "As the read or write that needed it",
+      "proofs": [
+        "tests/error-states.test.tsx: reads clashes whatever goes wrong, giving up after 5 seconds"
+      ],
+      "images": {
+        "phone-light": "images/google-accesstokenfor--silent--phone-light.webp",
+        "phone-dark": "images/google-accesstokenfor--silent--phone-dark.webp",
+        "desktop-light": "images/google-accesstokenfor--silent--desktop-light.webp",
+        "desktop-dark": "images/google-accesstokenfor--silent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google exchangeCode",
+      "outcome": "refused-or-silent",
+      "when": "Google refuses the code or doesn't answer within 10 seconds",
+      "sees": "Back where it started, “… didn't work. Please try again.”",
+      "proofs": [
+        "tests/auth.test.ts: goes back where it started with sign-in failed when Google doesn't answer the exchange",
+        "tests/calendar-consent.test.ts: goes back with Calendar failed when Google refuses the exchange, saving nothing"
+      ],
+      "images": {
+        "phone-light": "images/google-exchangecode--refused-or-silent--phone-light.webp",
+        "phone-dark": "images/google-exchangecode--refused-or-silent--phone-dark.webp",
+        "desktop-light": "images/google-exchangecode--refused-or-silent--desktop-light.webp",
+        "desktop-dark": "images/google-exchangecode--refused-or-silent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google listContacts",
+      "outcome": "unreadable",
+      "when": "Any error, or no answer within 5 seconds",
+      "sees": "“Couldn't read your Google contacts right now”",
+      "proofs": [
+        "tests/error-states.test.tsx: says what happened to Google contacts: unreadable, removed or none found"
+      ],
+      "images": {
+        "phone-light": "images/google-listcontacts--unreadable--phone-light.webp",
+        "phone-dark": "images/google-listcontacts--unreadable--phone-dark.webp",
+        "desktop-light": "images/google-listcontacts--unreadable--desktop-light.webp",
+        "desktop-dark": "images/google-listcontacts--unreadable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google putEvent",
+      "outcome": "failed",
+      "when": "Adding or updating an event fails",
+      "sees": "The calendar panel says it couldn't be updated, until an update works",
+      "proofs": [
+        "tests/error-states.test.tsx: shows a calendar that couldn't be updated to its member until an update works"
+      ],
+      "images": {
+        "phone-light": "images/google-putevent--failed--phone-light.webp",
+        "phone-dark": "images/google-putevent--failed--phone-dark.webp",
+        "desktop-light": "images/google-putevent--failed--desktop-light.webp",
+        "desktop-dark": "images/google-putevent--failed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google queryBusy",
+      "outcome": "unreadable",
+      "when": "Any error, or no answer within 5 seconds",
+      "sees": "“Couldn't read your Google Calendar right now”",
+      "proofs": [
+        "tests/error-states.test.tsx: reads clashes whatever goes wrong, giving up after 5 seconds"
+      ],
+      "images": {
+        "phone-light": "images/google-querybusy--unreadable--phone-light.webp",
+        "phone-dark": "images/google-querybusy--unreadable--phone-dark.webp",
+        "desktop-light": "images/google-querybusy--unreadable--desktop-light.webp",
+        "desktop-dark": "images/google-querybusy--unreadable--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google removeEvent",
+      "outcome": "failed",
+      "when": "Removing an event fails",
+      "sees": "The calendar panel says it couldn't be updated, until an update works",
+      "proofs": [
+        "tests/error-states.test.tsx: shows a calendar that couldn't be updated to its member until an update works"
+      ],
+      "images": {
+        "phone-light": "images/google-removeevent--failed--phone-light.webp",
+        "phone-dark": "images/google-removeevent--failed--phone-dark.webp",
+        "desktop-light": "images/google-removeevent--failed--desktop-light.webp",
+        "desktop-dark": "images/google-removeevent--failed--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "google revokeGrant",
+      "outcome": "silent",
+      "when": "Google doesn't answer the revoke",
+      "sees": "“… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as an error toast",
+      "proofs": [
+        "tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved"
+      ],
+      "images": {
+        "phone-light": "images/google-revokegrant--silent--phone-light.webp",
+        "phone-dark": "images/google-revokegrant--silent--phone-dark.webp",
+        "desktop-light": "images/google-revokegrant--silent--desktop-light.webp",
+        "desktop-dark": "images/google-revokegrant--silent--desktop-dark.webp"
+      }
+    },
+    {
+      "key": "server",
+      "outcome": "crash",
+      "when": "The server itself fails while building a page (a bug, or a database it can't read)",
+      "sees": "“Something went wrong” with Try again and the way back",
+      "proofs": [
+        "tests/error-states.test.tsx: the error page names a missing page, an organizer-only page, our failure and a lost connection"
+      ],
+      "images": {
+        "phone-light": "images/server--crash--phone-light.webp",
+        "phone-dark": "images/server--crash--phone-dark.webp",
+        "desktop-light": "images/server--crash--desktop-light.webp",
+        "desktop-dark": "images/server--crash--desktop-dark.webp"
+      }
+    }
+  ]
+}

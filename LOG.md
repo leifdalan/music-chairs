@@ -5050,3 +5050,116 @@ Phase 34 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 34 ✅ and Phase 35 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: evasive-skua recurrence recorded (local). ./bin/lessons validate OK.
+
+## 2026-10-12 16:10 — START
+Phase 35 — An error-state catalogue: every failure photographed in a real browser for review
+
+Execution trace: 74dce619941447de861d189d3ad63cd1
+
+Planned work:
+- Local-only fault switches that make the built app fail on cue (a fake Google that refuses, grants part of a permission, fails or is slow; the server failing or not answering a given request); they exist only when a local environment variable is set, and the app refuses to start in production with them on.
+- A script anyone can rerun that starts the built app in that mode, drives a headless browser into every error state in the Phase 34 inventory (including going offline mid-save), and screenshots each at phone and desktop widths in light and dark mode.
+- The catalogue committed to the repository: the screenshots and an index page grouped by flow, naming for each state what triggers it, what the person sees and the test that proves it.
+- A check that fails when an inventory state has no screenshot in the catalogue.
+
+## 2026-10-12 17:48 — END
+Phase 35 — An error-state catalogue: every failure photographed in a real browser for review
+
+Phase 35 is accepted on its gates. The catalogue is in project/error-catalogue/: every state from the Phase 34 inventory (now 152 after this phase's additions), plus a server crash and a server error and a no-answer on an answer and a date tick, each photographed at phone and desktop widths in light and dark mode (628 WebP pictures, 12.7 MB), with an index page grouped by flow that says for each state when it happens, what you see and the test that proves it. The pictures are the real app: a local-only fault mode points it at a stand-in for Google that can refuse, grant only part of a permission, fail or be slow, and the server refuses to start in that mode unless its own address and the stand-in are local, so it can't take effect on the live site. Dropped connections, gateway errors and no answer are made in the browser. "corepack pnpm run catalogue" regenerates it in about ten minutes, and --only regenerates just some states; a test fails if a state has no pictures or no index entry. Making the catalogue found a real bug: a link to a deleted proposed time, or a calendar download of a deleted request, showed a bare "null" page; such links now go to the schedule, the group's page or the start page, saying "That link is out of date: what it pointed to was deleted or changed." That new message and those redirects are yours to judge. Whether each picture is right, and the User Demo below, are yours too; merging the pull request deploys it without fault mode.
+
+Execution trace: 74dce619941447de861d189d3ad63cd1
+
+Files changed:
+- plan/phase-35.md — your 2026-10-12 rulings (project/error-catalogue/, one screenful at the error in WebP), before capture
+- project/app/.server/faults.ts (new) — the local-only fault mode and its refusal to start
+- project/app/.server/google.ts — Google's endpoints through the fault mode's base (Google itself when off)
+- project/app/root.tsx — the fault mode's crash cookie fails the page's loader (local only)
+- project/app/.server/request-address.ts, routes/rehearsal-link.ts, routes/request-calendar.ts, lib/notices.ts — out-of-date links say so instead of a bare error
+- project/scripts/error-catalogue/run.ts, seed.ts, states.ts, fake-google.ts (new) — the catalogue script
+- project/error-catalogue/ (new, generated) — README.md index, manifest.json, 628 images
+- project/tests/error-catalogue.test.ts (new) — fault mode and catalogue coverage; tests/error-states/inventory.ts, links and request-progress tests updated
+- project/package.json, tsconfig.json, README.md — the catalogue script, .ts imports for the scripts, how to regenerate
+
+Build status:
+- smoke.local: OK
+- faults.refuse: OK — the built server exits non-zero with its refusal when fault mode is on with the live site's address
+- browser.catalogue: OK — the script regenerated all 157 states into a temporary directory, matching the committed catalogue
+- ci.check: OK — CI run 38327984548, check success for commit 67b166f (CHECK ALL PASS)
+- test.changed: OK — widened to the full suite: Vitest 768/768, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 246.5 s; first event 0.62 s; longest idle 55.5 s; success
+- Critic (code review): 342.5 s; first event 0.58 s; longest idle 43.1 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 5853.536 s; intelligence 588.981 s; gates 701.777 s; wait 587.871 s; orchestration 5852.886 s; unattributed 0.650 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 35 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=356200e3deea744d6a09822202c97212a84de8d78e3fff68cce0320e6fc5d889 final=6c9242071a9fdc6b53692658bcc3b28eeac74c2b455ada853cedf217fbb6939a (corrected after critique)
+- Findings: plan review 11 (all adopted); code critique 9 (all adopted)
+- Plan deviations: recorded (scenario set in-process; googleBase returns four hosts; members' saves on organizer-only pages made as an organizer who lost the role; out-of-date link handling added; the add-window probe sends two rows; tsconfig allowImportingTsExtensions; extra catalogue states)
+- Gates: 5 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- A full catalogue run takes about ten minutes; --only runs of the changed states (about a minute each) found and fixed most faults before full runs.
+- One full run hung restarting the app server (a graceful stop waiting on the browser's open connections); stop() now force-kills after three seconds.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the script regenerates every state and its states match the committed catalogue; the coverage check passes; the app refuses to start with fault mode and a production address (test and gate); the out-of-date links (tests); ./bin/check all passes and CI is green.
+- Parked for you: whether each picture is right and reads well; the new "That link is out of date" message and redirects; the User Demo below.
+
+Delivery:
+- default — commit and delivery through pull request 30, merged when green, after the handoff gate; merging deploys (without fault mode)
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phase 35 is the last planned phase; no row follows it
+
+Lessons:
+- recurrence of lively-salamander: bin/node resolves relative paths from the repository root, as bin/python does (written before this block)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=41); reviewer/claude opus — hard 1800 s, idle 600 s (n=38); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On a computer, open the catalogue's index page in the repository on GitHub:
+
+https://github.com/leifdalan/music-chairs/tree/main/project/error-catalogue
+
+  - **Suggested inputs.**
+    1. Walk the catalogue flow by flow.
+    2. Pick two states and rerun the script locally to regenerate them.
+  - **What to look for.**
+    - Every error state from Phase 34 is there, at phone and desktop widths, light and dark.
+    - Each screenshot says what triggers it, and the page shown is the real app.
+  - **Variations to explore.** Compare a state's screenshot with its test.
+
+Remaining:
+- No planned phase follows; the next work comes from your review and feedback.
+
+## 2026-10-12 17:48 — NOTE
+Phase 35 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 35 ✅; no planned phase follows (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: lively-salamander recurrence recorded (local). ./bin/lessons validate OK.

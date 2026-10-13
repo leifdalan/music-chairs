@@ -325,6 +325,26 @@ export const INVENTORY: Call[] = [
     key: "routes/request-calendar GET",
     outcomes: [
       {
+        id: "unknown-group",
+        when: "A download link into a group that was deleted",
+        sees: "The start page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+        probe: {
+          as: "visitor",
+          path: "/g/nosuchgroup-zzzzzzzz/no-such-request/calendar.ics",
+          expect: { status: 302, location: "/?notice=link-gone" },
+        },
+      },
+      {
+        id: "unknown-request",
+        when: "A download link for a request that was deleted",
+        sees: "The group's page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+        probe: {
+          as: "member",
+          path: "{group}/no-such-request/calendar.ics",
+          expect: { status: 302, location: "{group}?notice=link-gone" },
+        },
+      },
+      {
         id: "not-ready",
         when: "The download is opened before the request's rehearsals are confirmed (only a link copied or kept from before: the page offers it once they are)",
         sees: "The request page, saying there's no calendar file yet (a browser told to download the link may save that page as a file instead)",
@@ -343,8 +363,32 @@ export const INVENTORY: Call[] = [
       {
         id: "unknown-rehearsal",
         when: "A link to a proposed time that was deleted",
-        sees: "“Page not found”",
-        probe: { as: "member", path: "{open}/no-such-time", expect: { status: 404 } },
+        sees: "The schedule, saying “That link is out of date: what it pointed to was deleted or changed.”",
+        probe: {
+          as: "member",
+          path: "{open}/no-such-time",
+          expect: { status: 302, location: "{group}/schedule?notice=link-gone" },
+        },
+      },
+      {
+        id: "unknown-request",
+        when: "A link to a proposed time in a request that was deleted",
+        sees: "The schedule, saying “That link is out of date: what it pointed to was deleted or changed.”",
+        probe: {
+          as: "member",
+          path: "{group}/no-such-request/no-such-time",
+          expect: { status: 302, location: "{group}/schedule?notice=link-gone" },
+        },
+      },
+      {
+        id: "unknown-group",
+        when: "A link into a group that was deleted",
+        sees: "The start page, saying “That link is out of date: what it pointed to was deleted or changed.”",
+        probe: {
+          as: "visitor",
+          path: "/g/nosuchgroup-zzzzzzzz/no-such-request/no-such-time",
+          expect: { status: 302, location: "/?notice=link-gone" },
+        },
       },
     ],
   },
@@ -981,7 +1025,14 @@ export const INVENTORY: Call[] = [
         probe: {
           as: "organizer",
           path: "{group}/requests/new",
-          form: { intent: "add-window", name: "X" },
+          form: {
+            intent: "add-window",
+            name: "X",
+            "windowStart-0": "09:00",
+            "windowEnd-0": "12:00",
+            "windowStart-1": "19:00",
+            "windowEnd-1": "22:00",
+          },
           expect: { status: 200, data: "extraRow" },
         },
       },
