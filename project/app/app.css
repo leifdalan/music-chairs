@@ -46,6 +46,9 @@
   --success: oklch(0.52 0.13 150);
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.47 0.12 72);
+  /* A yellow surface with dark text, the same in both schemes: the warning toast (plan/phase-36.md). */
+  --warning-surface: oklch(0.88 0.15 92);
+  --warning-surface-foreground: oklch(0.24 0.05 75);
   --border: oklch(0.922 0 0);
   --input: oklch(0.87 0 0);
   --ring: oklch(0.42 0 0);
@@ -103,6 +106,8 @@
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-warning-surface-foreground: var(--warning-surface-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -388,8 +393,17 @@
   }
 
   .toast {
-    @apply flex items-center justify-between gap-3 rounded-xl bg-foreground px-4 py-3 text-background shadow-lg;
+    @apply flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-lg;
     animation: toast-in 0.2s ease-out;
+  }
+
+  /* Green when a change worked, yellow when done but not fully, red when refused (plan/phase-36.md). */
+  .toast-success {
+    @apply bg-success text-success-foreground;
+  }
+
+  .toast-warning {
+    @apply bg-warning-surface text-warning-surface-foreground;
   }
 
   .toast-error {
@@ -400,9 +414,30 @@
     @apply min-h-11 min-w-11 text-xl leading-none text-inherit;
   }
 
-  /* The toast is dark on light (and light on dark): its focus ring uses the page colour. */
+  /* Each toast's focus ring is its own text colour, which contrasts with its surface. */
   .toast :focus-visible {
-    @apply outline-background;
+    outline-color: currentColor;
+  }
+
+  /* A page change taking longer than 300 ms (plan/phase-36.md): a thin bar along the top. */
+  .page-progress {
+    @apply pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px] origin-left bg-primary;
+    transform: scaleX(0);
+    opacity: 0;
+  }
+
+  .page-progress[data-phase="shown"] {
+    opacity: 1;
+    transform: scaleX(0.8);
+    transition: transform 6s cubic-bezier(0.1, 0.6, 0.3, 1);
+  }
+
+  .page-progress[data-phase="finishing"] {
+    opacity: 0;
+    transform: scaleX(1);
+    transition:
+      transform 0.15s ease-out,
+      opacity 0.2s ease-in 0.15s;
   }
 
   .problem-alert {
@@ -1249,5 +1284,13 @@
   .spinner,
   .toast {
     animation: none;
+  }
+
+  .page-progress[data-phase] {
+    transition: none;
+  }
+
+  .page-progress[data-phase="shown"] {
+    transform: scaleX(1);
   }
 }

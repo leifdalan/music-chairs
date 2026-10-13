@@ -11,7 +11,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { googleWriteState, scheduleSync, whenSynced } from "../app/.server/calendar-sync";
 import { googleClashes } from "../app/.server/clashes";
-import { readToast } from "../app/.server/flash";
+import { readToast, redirectWithToast } from "../app/.server/flash";
+import { toastKind } from "../app/lib/toast-kind";
 import {
   accessRevoked,
   CONTACTS_SCOPES,
@@ -787,7 +788,35 @@ describe("error toasts", () => {
     expect(html).toContain('class="toast toast-error" role="alert"');
   });
 
-  it("a partial disconnect and a refused profile are error toasts, never saved", async () => {
+  it("are green for success, yellow for done but not fully, red for refusals; only red is an alert", () => {
+    const render = (kind: "success" | "warning" | "error") =>
+      renderToString(
+        createElement(createRoutesStub([{ id: "root", path: "/", Component: Toaster }]), {
+          initialEntries: ["/"],
+          hydrationData: { loaderData: { root: { toast: { id: kind, message: "M", kind } } } },
+        }),
+      );
+    // The always-mounted region announces success and warnings politely.
+    for (const kind of ["success", "warning"] as const) {
+      const html = render(kind);
+      expect(html).toContain(`class="toast toast-${kind}"`);
+      expect(html).not.toContain('role="alert"');
+      expect(html).toContain('role="status"');
+    }
+    expect(render("error")).toContain('class="toast toast-error" role="alert"');
+    // A warning is not a confirmation: the pressed button doesn't say Saved.
+    expect(confirmationId({ id: "w", kind: "warning" })).toBeNull();
+  });
+
+  it("keep their kind through the toast cookie, and read anything unknown as success", async () => {
+    for (const kind of ["success", "warning", "error"] as const) {
+      const sent = await redirectWithToast("/", "M", { kind });
+      expect((await answerOf(sent)).toast).toBe(kind);
+    }
+    expect(toastKind("surprise")).toBe("success");
+  });
+
+  it("a partial disconnect is a yellow warning and a refused profile a red error, neither saved", async () => {
     stubClientEnv();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const toastOf = async (response: Response) => (await answerOf(response)).toast;
@@ -807,7 +836,7 @@ describe("error toasts", () => {
     const partly = (await disconnect.action(
       routeArgs("/auth/google/disconnect", {}, { cookie, form: { confirmed: "1" } }),
     )) as Response;
-    expect(await toastOf(partly)).toBe("error");
+    expect(await toastOf(partly)).toBe("warning");
     const toast = await readToast(
       new Request(ORIGIN, {
         headers: {

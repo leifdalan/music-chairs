@@ -109,7 +109,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 33](phase-33.md) | A steady page: answering and confirming without the page jumping, and buttons that keep their size | ✅     |
 | [Phase 34](phase-34.md) | Every failure says what happened: an error state for each request, Google sign-in and permissions, and the network | ✅     |
 | [Phase 35](phase-35.md) | An error-state catalogue: every failure photographed in a real browser for review | ✅     |
-| [Phase 36](phase-36.md) | Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages | ⬅️     |
+| [Phase 36](phase-36.md) | Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages | ✅     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 

@@ -5163,3 +5163,118 @@ Phase 35 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 35 ✅; no planned phase follows (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: lively-salamander recurrence recorded (local). ./bin/lessons validate OK.
+
+## 2026-10-12 21:03 — START
+Phase 36 — Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages
+
+Execution trace: befde9b32d964c3ba03db6ffaace67a7
+
+Planned work:
+- A thin progress bar across the top of the page, like YouTube's, while moving to another page; it appears only when the move takes longer than 300 ms, so quick moves show nothing, and it finishes and fades when the page arrives (or the move fails).
+- Toasts coloured by what happened: green when a change worked, yellow when it was done but not fully, red when it was refused or failed; the colours hold their contrast in light and dark mode, and the colour is never the only signal (wording and the alert role for problems stay).
+- Messages that today report "done, but not fully" as an error (for example "Disconnected from Google here, but Google didn't answer…") become yellow warnings; refusals, where nothing changed, stay red.
+- The error-state catalogue (`project/error-catalogue/`) shows the new colours: the states whose pictures change are regenerated.
+- Tests prove the bar's 300 ms threshold and each toast kind's colour and role.
+
+## 2026-10-12 21:36 — END
+Phase 36 — Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages
+
+Phase 36 is accepted on its gates. When moving to another page takes longer than 300 ms, a thin indigo bar now runs along the top of the screen, creeping forward until the page arrives, then finishing and fading; quick page changes show nothing, and saves never show it (they keep their button's "Saving…", as you ruled), including the profile menu's saves. Toasts now say at a glance how a change went: green when it worked (fading after four seconds), yellow when it was done but not fully, and red when it was refused or failed (both staying until dismissed); the partly done "Disconnected from Google here, but …" is now yellow, and the true refusals stay red. Every colour reads at 4.5:1 or better in light and dark mode, and the wording still says what happened. The error-state catalogue's three pictures whose toast changed colour are retaken. How the bar and colours feel on your phone is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: befde9b32d964c3ba03db6ffaace67a7
+
+Files changed:
+- project/app/components/page-progress.tsx (new) — the bar, its state machine and the page-move rule
+- project/app/root.tsx — the bar at the top of every page
+- project/app/lib/toast-kind.ts (new) — the three toast kinds
+- project/app/.server/flash.ts, components/toast.tsx, components/submit-button.tsx — toasts by kind, only success counted as saved
+- project/app/routes/auth.google.disconnect.tsx — the partial Disconnect as a warning
+- project/app/app.css — the bar, the toast colours and the yellow tokens
+- project/scripts/error-catalogue/run.ts — logs which toast each state shows
+- project/error-catalogue/ — three states' pictures and entries regenerated
+- project/tests/page-progress.test.ts (new); error-states tests and inventory updated
+
+Build status:
+- smoke.local: OK
+- browser.progress: OK — headless Chrome on the built app, watched every frame: a page move held 900 ms shows the bar and it is gone on arrival; a quick move, a held answer save and a held profile save never show it; toast text 4.5:1 or better on green, yellow and red and the bar 3:1 or better, light and dark
+- ci.check: OK — CI run 38346638775, check success for commit a932269 (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 777/777, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 250.8 s; first event 0.66 s; longest idle 46.7 s; success
+- Critic (code review): 225.2 s; first event 0.67 s; longest idle 26.2 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 1949.137 s; intelligence 475.948 s; gates 163.505 s; wait 474.717 s; orchestration 1948.530 s; unattributed 0.607 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 36 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=10891e275ea5435a690a911d20c31a11e5a767f0448199d35a2b470e74c0dde4 final=31609f8ec97fa72b4a27d5381d8d09f6f0ffeca352f181adf3849bf02cb26c3a (corrected after critique)
+- Findings: plan review 9 (all adopted); code critique 4 (3 adopted, 1 declined: a timer-level unit test, as the reducer is tested and the browser gate measures the wiring)
+- Plan deviations: recorded (toastKind reader; the script logs toasts; the bar grows by transform)
+- Gates: 4 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- Logging the toast on screen per state let a scratch run find exactly the three pictures to retake, rather than regenerating all 628.
+- The gate's first run awaited the navigation before sampling the bar mid-move (a gate bug, corrected).
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the bar shows only for page moves past 300 ms and never for saves (tests and the browser gate); each toast kind's colour, role and persistence, only success counted as saved, the partial Disconnect a warning (tests); contrast of every toast colour and the bar in both schemes (browser gate); the catalogue's coverage check.
+- Parked for you: how the bar and the colours look and feel on your phone (the User Demo below).
+
+Delivery:
+- default — commit and delivery through pull request 32, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — no planned phase follows
+
+Lessons:
+- none new this phase (the page-move rule's subtlety, a background save's redirect looking like a link, is recorded where it lives, in page-progress.tsx)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=42); reviewer/claude opus — hard 1800 s, idle 600 s (n=39); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** On your phone, open the site and go to an availability request:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Move between the group page, the schedule and an availability request, including one where your Google Calendar is read for clashes.
+    2. Answer a rehearsal Yes (a green toast).
+    3. Open your profile, clear your name and Save (a red toast).
+    4. Open the error-state catalogue on GitHub and find "Disconnected from Google here, but…" (a yellow toast).
+  - **What to look for.**
+    - A slow page change shows a thin bar at the top; a quick one shows nothing.
+    - Green, yellow and red read clearly in light and dark mode.
+  - **Variations to explore.** A slow connection; dark mode.
+
+Remaining:
+- None beyond the parked User Demo; no planned phase follows.
+
+## 2026-10-12 21:36 — NOTE
+Phase 36 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 36 ✅; no planned phase follows (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: none new this phase. ./bin/lessons validate OK.

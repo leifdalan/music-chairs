@@ -2,14 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import { createCookie, redirect } from "react-router";
 
+import { toastKind, type ToastKind } from "~/lib/toast-kind";
+
 import { publicOrigin } from "./membership";
 
 /**
  * A short message shown once after a change (plan/phase-8.md, Decisions): a
- * confirmation, or a refusal (`error`, plan/phase-34.md), which never counts
- * as saved.
+ * confirmation, something done but not fully (`warning`, plan/phase-36.md),
+ * or a refusal (`error`, plan/phase-34.md); only a confirmation counts as saved.
  */
-export type Toast = { id: string; message: string; kind: "success" | "error" };
+export type Toast = { id: string; message: string; kind: ToastKind };
 
 const secure = publicOrigin()?.startsWith("https:") ?? false;
 
@@ -48,6 +50,6 @@ export async function readToast(
   const { id, message, kind } = value as Record<string, unknown>;
   const clear = await toastCookie.serialize("", { maxAge: 0 });
   return typeof id === "string" && typeof message === "string"
-    ? { toast: { id, message, kind: kind === "error" ? "error" : "success" }, clear }
+    ? { toast: { id, message, kind: toastKind(kind) }, clear }
     : { toast: null, clear };
 }

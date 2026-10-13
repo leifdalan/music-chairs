@@ -3,6 +3,8 @@
 // complete (every loader, every action intent, every Google call) and replays
 // each probe against the routes; Phase 35's screenshots work from it.
 
+import type { ToastKind } from "../../app/lib/toast-kind";
+
 /** A request the test replays against the route, with `{placeholders}` from its fixture. */
 export type Probe = {
   /** Who asks: nobody known, a name-only member, an organizer, or a signed-in stranger. */
@@ -18,7 +20,7 @@ export type Probe = {
     /** A key of the returned data the page renders. */
     data?: string;
     /** The kind of toast the redirect leaves. */
-    toast?: "success" | "error";
+    toast?: ToastKind;
   };
 };
 
@@ -1260,11 +1262,11 @@ export const INVENTORY: Call[] = [
       {
         id: "partly-done",
         when: "Google doesn't answer, or some events couldn't be removed",
-        sees: "“Disconnected from Google here, but …” as an error toast, never “Saved ✓”",
+        sees: "“Disconnected from Google here, but …” as a yellow warning toast, never “Saved ✓”",
         proof: [
           {
             file: STATES,
-            test: "a partial disconnect and a refused profile are error toasts, never saved",
+            test: "a partial disconnect is a yellow warning and a refused profile a red error, neither saved",
           },
           {
             file: STATES,
@@ -1302,11 +1304,11 @@ export const INVENTORY: Call[] = [
       {
         id: "silent",
         when: "Google doesn't answer the revoke",
-        sees: "“… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as an error toast",
+        sees: "“… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as a yellow warning toast",
         proof: [
           {
             file: STATES,
-            test: "a partial disconnect and a refused profile are error toasts, never saved",
+            test: "a partial disconnect is a yellow warning and a refused profile a red error, neither saved",
           },
         ],
       },

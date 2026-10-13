@@ -56,8 +56,8 @@ export async function action({ request }: Route.ActionArgs) {
     : redirectWithToast(
         back(request),
         `Disconnected from Google here, but ${notes.join(", and ")}.`,
-        // Partly done: said as a problem, so it doesn't read as all saved (plan/phase-34.md).
-        { kind: "error" },
+        // Done, but not fully: a warning, never read as all saved (plan/phase-36.md).
+        { kind: "warning" },
       );
 }
 
