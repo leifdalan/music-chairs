@@ -1914,9 +1914,9 @@
       "key": "routes/auth.google.disconnect POST (default)",
       "outcome": "partly-done",
       "when": "Google doesn't answer, or some events couldn't be removed",
-      "sees": "“Disconnected from Google here, but …” as an error toast, never “Saved ✓”",
+      "sees": "“Disconnected from Google here, but …” as a yellow warning toast, never “Saved ✓”",
       "proofs": [
-        "tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved",
+        "tests/error-states.test.tsx: a partial disconnect is a yellow warning and a refused profile a red error, neither saved",
         "tests/error-states.test.tsx: is waited for longer than its own worst case, so a slow Google isn't called a failure"
       ],
       "images": {
@@ -2346,9 +2346,9 @@
       "key": "google revokeGrant",
       "outcome": "silent",
       "when": "Google doesn't answer the revoke",
-      "sees": "“… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as an error toast",
+      "sees": "“… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as a yellow warning toast",
       "proofs": [
-        "tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved"
+        "tests/error-states.test.tsx: a partial disconnect is a yellow warning and a refused profile a red error, neither saved"
       ],
       "images": {
         "phone-light": "images/google-revokegrant--silent--phone-light.webp",

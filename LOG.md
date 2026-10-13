@@ -5163,3 +5163,15 @@ Phase 35 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 35 ✅; no planned phase follows (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: lively-salamander recurrence recorded (local). ./bin/lessons validate OK.
+
+## 2026-10-12 21:03 — START
+Phase 36 — Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages
+
+Execution trace: befde9b32d964c3ba03db6ffaace67a7
+
+Planned work:
+- A thin progress bar across the top of the page, like YouTube's, while moving to another page; it appears only when the move takes longer than 300 ms, so quick moves show nothing, and it finishes and fades when the page arrives (or the move fails).
+- Toasts coloured by what happened: green when a change worked, yellow when it was done but not fully, red when it was refused or failed; the colours hold their contrast in light and dark mode, and the colour is never the only signal (wording and the alert role for problems stay).
+- Messages that today report "done, but not fully" as an error (for example "Disconnected from Google here, but Google didn't answer…") become yellow warnings; refusals, where nothing changed, stay red.
+- The error-state catalogue (`project/error-catalogue/`) shows the new colours: the states whose pictures change are regenerated.
+- Tests prove the bar's 300 ms threshold and each toast kind's colour and role.

@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouteLoaderData } from "react-router";
 
+import type { ToastKind } from "~/lib/toast-kind";
+
 const SHOW_MS = 4000;
 
-type Toast = { id: string; message: string; kind: "success" | "error" };
+type Toast = { id: string; message: string; kind: ToastKind };
 
 /**
  * The confirmation left by the last change, shown at the bottom of the screen
  * and faded after a few seconds. The live region is always mounted so screen
- * readers announce each new message. A refusal (plan/phase-34.md) is an alert
- * and stays until dismissed.
+ * readers announce each new message. Its colour says how it went
+ * (plan/phase-36.md): green when the change worked, yellow when it was done
+ * but not fully, red when it was refused or failed. A warning or an error
+ * stays until dismissed, and an error is also an alert (plan/phase-34.md).
  */
 export function Toaster() {
   const root = useRouteLoaderData("root") as { toast?: Toast | null } | undefined;
@@ -35,16 +39,16 @@ export function Toaster() {
 /** One message; keyed by id, so its hover/focus hold ends with it. */
 function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   const [held, setHeld] = useState(false);
-  const error = toast.kind === "error";
+  const stays = toast.kind !== "success";
   useEffect(() => {
-    if (held || error) return;
+    if (held || stays) return;
     const timer = setTimeout(onClose, SHOW_MS);
     return () => clearTimeout(timer);
-  }, [held, error, onClose]);
+  }, [held, stays, onClose]);
   return (
     <div
-      className={error ? "toast toast-error" : "toast"}
-      role={error ? "alert" : undefined}
+      className={`toast toast-${toast.kind}`}
+      role={toast.kind === "error" ? "alert" : undefined}
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}

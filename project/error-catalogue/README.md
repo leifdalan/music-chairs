@@ -1301,8 +1301,8 @@ Desktop: [light](images/routes-auth-google-disconnect-post-default--not-signed-i
 ### routes/auth.google.disconnect POST (default) · partly-done
 
 - **When:** Google doesn't answer, or some events couldn't be removed
-- **You see:** “Disconnected from Google here, but …” as an error toast, never “Saved ✓”
-- **Proved by:** tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved; tests/error-states.test.tsx: is waited for longer than its own worst case, so a slow Google isn't called a failure
+- **You see:** “Disconnected from Google here, but …” as a yellow warning toast, never “Saved ✓”
+- **Proved by:** tests/error-states.test.tsx: a partial disconnect is a yellow warning and a refused profile a red error, neither saved; tests/error-states.test.tsx: is waited for longer than its own worst case, so a slow Google isn't called a failure
 
 <img src="images/routes-auth-google-disconnect-post-default--partly-done--phone-light.webp" width="195" alt="partly-done, phone, light"> <img src="images/routes-auth-google-disconnect-post-default--partly-done--phone-dark.webp" width="195" alt="partly-done, phone, dark">
 
@@ -1595,8 +1595,8 @@ Desktop: [light](images/google-removeevent--failed--desktop-light.webp) · [dark
 ### google revokeGrant · silent
 
 - **When:** Google doesn't answer the revoke
-- **You see:** “… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as an error toast
-- **Proved by:** tests/error-states.test.tsx: a partial disconnect and a refused profile are error toasts, never saved
+- **You see:** “… Google didn't answer, so remove music-chairs at myaccount.google.com too.” as a yellow warning toast
+- **Proved by:** tests/error-states.test.tsx: a partial disconnect is a yellow warning and a refused profile a red error, neither saved
 
 <img src="images/google-revokegrant--silent--phone-light.webp" width="195" alt="silent, phone, light"> <img src="images/google-revokegrant--silent--phone-dark.webp" width="195" alt="silent, phone, dark">
 

@@ -17,6 +17,7 @@ import {
 import { crashRequested } from "~/.server/faults";
 import { readToast } from "~/.server/flash";
 import { headerProfile } from "~/.server/profile";
+import { PageProgress } from "~/components/page-progress";
 import { ProfileMenu } from "~/components/profile-menu";
 import { FeedbackProvider } from "~/components/submit-button";
 import { buttonVariants } from "~/components/ui/button";
@@ -66,6 +67,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <Links />
       </head>
       <body>
+        <PageProgress />
         <FeedbackProvider>
           <header className="site-header">
             <Link to="/" aria-label={`${siteName}, home`}>
