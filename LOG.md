@@ -5389,3 +5389,9 @@ Phase 37 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 37 ✅ and Phase 38 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: none new this phase. ./bin/lessons validate OK.
+
+## 2026-10-13 12:04 — NOTE
+Phase 39 — scope added by the operator
+
+- The operator asked for proposed rehearsals on the schedule as a Calendar (default) or a List, each calendar date opening a popup with Yes / No / Maybe / Clear, and a button at the top to answer them all. Rulings (recommended options): the button answers Yes to every proposed rehearsal the viewer hasn't answered, leaving given answers; folded into Phase 39 (it reshapes the same cards; order stays 38 → 39 → 40); the Calendar/List view is for everyone.
+- plan/phase-39.md updated (goal, deliverables, decisions, tests, User Demo). Phase 38 stays next.
