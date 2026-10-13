@@ -5050,3 +5050,14 @@ Phase 34 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 34 ✅ and Phase 35 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: evasive-skua recurrence recorded (local). ./bin/lessons validate OK.
+
+## 2026-10-12 16:10 — START
+Phase 35 — An error-state catalogue: every failure photographed in a real browser for review
+
+Execution trace: 74dce619941447de861d189d3ad63cd1
+
+Planned work:
+- Local-only fault switches that make the built app fail on cue (a fake Google that refuses, grants part of a permission, fails or is slow; the server failing or not answering a given request); they exist only when a local environment variable is set, and the app refuses to start in production with them on.
+- A script anyone can rerun that starts the built app in that mode, drives a headless browser into every error state in the Phase 34 inventory (including going offline mid-save), and screenshots each at phone and desktop widths in light and dark mode.
+- The catalogue committed to the repository: the screenshots and an index page grouped by flow, naming for each state what triggers it, what the person sees and the test that proves it.
+- A check that fails when an inventory state has no screenshot in the catalogue.

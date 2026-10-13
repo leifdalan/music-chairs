@@ -3,8 +3,8 @@ import { redirect } from "react-router";
 import { calendarDates, feedEvents } from "~/.server/calendar-sync";
 import { findViewer, publicOrigin } from "~/.server/membership";
 import { requestProgress } from "~/.server/progress";
-import { groupFromAddress } from "~/.server/group-address";
-import { requestFromSlug } from "~/.server/request-address";
+import { linkedGroup, linkGone } from "~/.server/request-address";
+import { getStore } from "~/.server/store";
 import { groupPath } from "~/lib/group-address";
 import { withNotice } from "~/lib/notices";
 import { requestPath } from "~/lib/request-address";
@@ -29,10 +29,11 @@ function fileName(name: string): string {
  * for this request (minus those they said No to), from four weeks back on.
  */
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const group = groupFromAddress(request, params.groupAddress);
+  const group = linkedGroup(request, params.groupAddress);
   const viewer = await findViewer(request, group);
   if (!viewer) throw redirect(groupPath(group));
-  const scheduleRequest = requestFromSlug(group, params.requestSlug);
+  const scheduleRequest = getStore().findRequestBySlug(group.id, params.requestSlug);
+  if (!scheduleRequest) throw linkGone(groupPath(group));
   const now = new Date();
   const today = todayInZone(group.timeZone, now);
   const progress = requestProgress(group, today).find(

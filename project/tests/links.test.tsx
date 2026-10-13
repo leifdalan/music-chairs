@@ -354,8 +354,26 @@ describe("rehearsal links", () => {
 
     expect(slug).toMatch(/^[a-z]{3}-\d{1,2}-[a-z]{3}-7-30pm$/);
     expect(locationOf(response)).toBe(`${groupPath(b.group)}/schedule#rehearsal-${b.rehearsal.id}`);
-    expect(statusOf(await thrownBy(openRehearsal(b, "mon-1-jan-7pm", "", b.cellistCookie)))).toBe(
-      404,
+    // A link to a time that's gone says so on the schedule (plan/phase-35.md), never a bare error.
+    expect(locationOf(await thrownBy(openRehearsal(b, "mon-1-jan-7pm", "", b.cellistCookie)))).toBe(
+      `${groupPath(b.group)}/schedule?notice=link-gone`,
+    );
+    const gone = (groupAddress: string, requestSlug: string) =>
+      thrownBy(
+        rehearsalLink(
+          routeArgs(
+            `/g/${groupAddress}/${requestSlug}/${slug}`,
+            { groupAddress, requestSlug, rehearsalSlug: slug },
+            { cookie: b.cellistCookie },
+          ),
+        ),
+      );
+    // A request that's gone: the schedule; a group that's gone: the start page.
+    expect(locationOf(await gone(addressOf(b.group), "no-such-request"))).toBe(
+      `${groupPath(b.group)}/schedule?notice=link-gone`,
+    );
+    expect(locationOf(await gone("nosuchgroup-zzzzzzzz", "spring-concert"))).toBe(
+      "/?notice=link-gone",
     );
   });
 

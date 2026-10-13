@@ -24,7 +24,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "catalogue": "node scripts/error-catalogue/run.ts"
   },
   "dependencies": {
     "@react-router/node": "8.4.0",

@@ -1,8 +1,8 @@
-import { data, redirect } from "react-router";
+import { redirect } from "react-router";
 
-import { groupFromAddress } from "~/.server/group-address";
 import { findViewer } from "~/.server/membership";
-import { findRehearsalBySlug, landOrJoin, requestFromSlug } from "~/.server/request-address";
+import { findRehearsalBySlug, landOrJoin, linkedGroup, linkGone } from "~/.server/request-address";
+import { getStore } from "~/.server/store";
 import { groupPath } from "~/lib/group-address";
 
 import type { Route } from "./+types/rehearsal-link";
@@ -13,11 +13,13 @@ import type { Route } from "./+types/rehearsal-link";
  * group's invite code joins first, then lands there.
  */
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const group = groupFromAddress(request, params.groupAddress);
+  const group = linkedGroup(request, params.groupAddress);
   // Visitors are sent on before the address is looked up, so it reveals nothing.
   if (!(await findViewer(request, group))) landOrJoin(request, group, false);
-  const scheduleRequest = requestFromSlug(group, params.requestSlug);
+  const schedule = `${groupPath(group)}/schedule`;
+  const scheduleRequest = getStore().findRequestBySlug(group.id, params.requestSlug);
+  if (!scheduleRequest) throw linkGone(schedule);
   const rehearsal = findRehearsalBySlug(group, scheduleRequest.id, params.rehearsalSlug);
-  if (!rehearsal) throw data(null, { status: 404 });
-  throw redirect(`${groupPath(group)}/schedule#rehearsal-${rehearsal.id}`);
+  if (!rehearsal) throw linkGone(schedule);
+  throw redirect(`${schedule}#rehearsal-${rehearsal.id}`);
 }

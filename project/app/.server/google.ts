@@ -1,16 +1,18 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { googleBase } from "./faults";
 import { publicOrigin } from "./membership";
 import { CALENDAR_SCOPES } from "~/lib/google-scopes";
 
 import { getStore, type GoogleProfile } from "./store";
 
-const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
-const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-const REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
+// Google's endpoints, or the local fake's in fault mode (plan/phase-35.md).
+const authorizationEndpoint = () => `${googleBase().accounts}/o/oauth2/v2/auth`;
+const tokenEndpoint = () => `${googleBase().oauth}/token`;
+const revokeEndpoint = () => `${googleBase().oauth}/revoke`;
+const calendarApi = () => `${googleBase().apis}/calendar/v3`;
+const peopleApi = () => `${googleBase().people}/v1`;
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
-const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
-const PEOPLE_API = "https://people.googleapis.com/v1";
 // A stalled call to Google fails after this long instead of holding a page or a sync.
 export const GOOGLE_TIMEOUT_MS = 10_000;
 /** Reads a page waits on (clashes, contacts) give up sooner (plan/phase-34.md). */
@@ -90,7 +92,7 @@ export function authorizationUrl(
     extra?: Record<string, string>;
   },
 ): string {
-  const url = new URL(AUTHORIZATION_ENDPOINT);
+  const url = new URL(authorizationEndpoint());
   url.search = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: params.redirectUri,
@@ -119,7 +121,7 @@ export async function exchangeCode(
 ): Promise<{ profile: GoogleProfile; tokens: GoogleTokens }> {
   let response: Response;
   try {
-    response = await fetch(TOKEN_ENDPOINT, {
+    response = await fetch(tokenEndpoint(), {
       signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -197,7 +199,7 @@ export function accessRevoked(accountId: string): boolean {
  */
 export async function revokeGrant(refreshToken: string): Promise<boolean> {
   try {
-    const response = await fetch(REVOKE_ENDPOINT, {
+    const response = await fetch(revokeEndpoint(), {
       signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -229,7 +231,7 @@ export async function accessTokenFor(
   if (!config) throw new GoogleApiError("Google is not configured");
   let response: Response;
   try {
-    response = await fetch(TOKEN_ENDPOINT, {
+    response = await fetch(tokenEndpoint(), {
       signal: AbortSignal.timeout(timeoutMs),
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -304,7 +306,7 @@ function calendarFetch(
   body?: unknown,
   timeoutMs?: number,
 ): Promise<Response> {
-  return googleFetch(accountId, method, CALENDAR_API + path, body, timeoutMs);
+  return googleFetch(accountId, method, calendarApi() + path, body, timeoutMs);
 }
 
 /** A contact suggestion: a name (empty when Google has none) and an email. */
@@ -358,12 +360,12 @@ export async function listContacts(accountId: string, now: Date = new Date()): P
   if (!grant?.scopes.includes(CONTACTS_SCOPES.saved)) return [];
   const saved = await readPeople(
     accountId,
-    `${PEOPLE_API}/people/me/connections?personFields=names,emailAddresses&pageSize=1000`,
+    `${peopleApi()}/people/me/connections?personFields=names,emailAddresses&pageSize=1000`,
   );
   const other = grant.scopes.includes(CONTACTS_SCOPES.other)
     ? await readPeople(
         accountId,
-        `${PEOPLE_API}/otherContacts?readMask=names,emailAddresses&pageSize=1000`,
+        `${peopleApi()}/otherContacts?readMask=names,emailAddresses&pageSize=1000`,
       )
     : [];
   const byEmail = new Map<string, Contact>();

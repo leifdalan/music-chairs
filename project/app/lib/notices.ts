@@ -33,6 +33,7 @@ export const NOTICES: Record<string, string> = {
   "contacts-wrong-account":
     "That was a different Google account from the one you're signed in with, so nothing changed.",
   "contacts-failed": "Connecting Google contacts didn't work. Please try again.",
+  "link-gone": "That link is out of date: what it pointed to was deleted or changed.",
   "ics-unavailable":
     "There's no calendar file for this availability request yet: it comes once its rehearsals are confirmed.",
 };

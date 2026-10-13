@@ -5,8 +5,10 @@
 import { data, redirect } from "react-router";
 
 import { groupPath, invitePath } from "~/lib/group-address";
+import { withNotice } from "~/lib/notices";
 import { rehearsalSlugs } from "~/lib/request-address";
 
+import { findGroupByAddress, groupFromAddress } from "./group-address";
 import { pagePath } from "./membership";
 import { getStore, type Group, type Rehearsal, type ScheduleRequest } from "./store";
 
@@ -54,4 +56,20 @@ export function landOrJoin(request: Request, group: Group, isMember: boolean): v
     throw redirect(`${invitePath(group)}?then=${encodeURIComponent(target)}`);
   }
   throw redirect(groupPath(group));
+}
+
+/**
+ * For a link with no page of its own (a rehearsal's link, a calendar
+ * download): when the group, request or rehearsal no longer exists, the
+ * person goes to `fallback`, told the link is out of date, instead of a bare
+ * error (plan/phase-35.md).
+ */
+export function linkGone(fallback: string): Response {
+  return redirect(withNotice(fallback, "link-gone"));
+}
+
+/** The group a link names, via `groupFromAddress` (and its renamed-address redirect); gone → the start page. */
+export function linkedGroup(request: Request, address: string | undefined): Group {
+  if (!address || !findGroupByAddress(address)) throw linkGone("/");
+  return groupFromAddress(request, address);
 }

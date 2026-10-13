@@ -109,11 +109,6 @@ function download(groupId: string, requestId: string, cookie?: string) {
   );
 }
 
-function statusOf(value: unknown): number | undefined {
-  if (value instanceof Response) return value.status;
-  return (value as { init?: ResponseInit | null }).init?.status;
-}
-
 describe("request progress", () => {
   it("counts confirmed of all, members answering every open proposal, and completion", async () => {
     const { store, group, organizer, cellist, pianist } = await band();
@@ -509,7 +504,10 @@ describe("downloading a complete request", () => {
         `${requestHrefOf(group, requestId)}?notice=ics-unavailable`,
       );
     }
-    expect(statusOf(await thrownBy(download(group.id, foreign, cellistCookie)))).toBe(404);
+    // A link to a request that isn't this group's, or is gone, says so on the group's page (plan/phase-35.md).
+    const gone = `${groupPath(group)}?notice=link-gone`;
+    const foreignLink = (await thrownBy(download(group.id, foreign, cellistCookie))) as Response;
+    expect(foreignLink.headers.get("Location")).toBe(gone);
     const unknown = downloadLoader(
       routeArgs(
         `/g/${addressFor(group.id)}/no-such-request/calendar.ics`,
@@ -517,7 +515,17 @@ describe("downloading a complete request", () => {
         { cookie: cellistCookie },
       ),
     );
-    expect(statusOf(await thrownBy(unknown))).toBe(404);
+    expect(((await thrownBy(unknown)) as Response).headers.get("Location")).toBe(gone);
+    const noGroup = downloadLoader(
+      routeArgs(
+        "/g/nosuchgroup-zzzzzzzz/no-such-request/calendar.ics",
+        { groupAddress: "nosuchgroup-zzzzzzzz", requestSlug: "no-such-request" },
+        { cookie: cellistCookie },
+      ),
+    );
+    expect(((await thrownBy(noGroup)) as Response).headers.get("Location")).toBe(
+      "/?notice=link-gone",
+    );
     const visitor = await thrownBy(download(theirs.group.id, foreign));
     expect((visitor as Response).headers.get("Location")).toBe(groupPath(theirs.group));
   });
