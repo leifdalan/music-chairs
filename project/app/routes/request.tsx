@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { data, Form, Link, redirect, useFetcher, useLocation } from "react-router";
 
 import { googleClashes } from "~/.server/clashes";
@@ -55,7 +55,7 @@ import {
 import { answerable, clipToWindows, type TimeWindow } from "~/lib/requests";
 import { pageMeta } from "~/lib/site";
 import { useHydrated } from "~/lib/use-hydrated";
-import { preferenceEntry, preferenceText } from "~/lib/preference";
+import { preferenceSummary, preferenceText } from "~/lib/preference";
 import { zoneLabel } from "~/lib/time-zones";
 import { buttonVariants } from "~/components/ui/button";
 
@@ -577,7 +577,12 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
   const datesResult = result && "dateErrors" in result ? result : undefined;
   const capProblem = result && "capProblem" in result ? result.capProblem : null;
   const link = useSwitch(["notice"]);
+  const hydrated = useHydrated();
+  // Open while the organizer's own times aren't given, and still open once they
+  // send them, rather than closing under them (plan/phase-37.md).
+  const [openWhileDraft] = useState(draft);
   const datesCount = new Set(oneOffs.map((slot) => slot.date)).size;
+  const preferred = answers ? preferenceSummary(answers) : null;
   const yourTimes = (
     <RequestDates
       requestId={requestId}
@@ -706,20 +711,19 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
           (plan/phase-21.md, plan/phase-23.md). */}
       {isOrganizer ? (
         <>
+          {/* The organizer's own times count in who is free (plan/phase-37.md). */}
+          {draft ? (
+            <p className="notice your-times-flag">
+              Your times: not given. <a href="#your-times-heading">Add your times</a>
+            </p>
+          ) : null}
           {overlap ? (
             <section aria-labelledby="overlap-heading">
               <h2 id="overlap-heading">When people are free</h2>
               <p className="hint">Within this availability request's dates and times of day.</p>
-              {answers ? (
+              {preferred ? (
                 <div className="preferred">
-                  <p className="hint" id="preferred-label">
-                    Preferred number of rehearsals:
-                  </p>
-                  <ul className="preferred-summary" role="list" aria-labelledby="preferred-label">
-                    {answers.map((item, index) => (
-                      <li key={index}>{preferenceEntry(item.name, item.answer)}</li>
-                    ))}
-                  </ul>
+                  <p className="hint">Preferred number of rehearsals: {preferred}.</p>
                 </div>
               ) : null}
               <Switch
@@ -729,7 +733,10 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
                   { text: "List", to: link("free", "list"), current: freeView === "list" },
                 ]}
               />
-              <p className="hint">Switching views clears ticks you haven't proposed.</p>
+              {/* Once interactive, the ticks survive the switch (plan/phase-37.md). */}
+              {hydrated ? null : (
+                <p className="hint">Switching views clears ticks you haven't proposed.</p>
+              )}
               <ProposeTimes
                 hasTimes={overlap.length > 0}
                 problem={pickProblem}
@@ -786,6 +793,7 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
             <details
               className="your-times"
               open={
+                openWhileDraft ||
                 timesView === "list" ||
                 notice !== null ||
                 datesResult !== undefined ||

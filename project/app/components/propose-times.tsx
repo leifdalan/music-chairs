@@ -1,9 +1,10 @@
-import { useCallback, useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Form } from "react-router";
 
 import { formatDate, timeRange } from "~/lib/availability";
 import { timeValue } from "~/lib/propose";
 import { NOTES_MAX } from "~/lib/rehearsal";
+import { rememberTick, restoreTicks } from "~/lib/tick-memory";
 
 import { SubmitButton } from "./submit-button";
 
@@ -12,7 +13,9 @@ import { SubmitButton } from "./submit-button";
  * (plan/phase-15.md), wrapped around a page's own list of free times. The
  * location and notes apply to every ticked time, each proposed for its whole
  * free time (plan/phase-29.md); a refusal shows here, next to the button. The
- * controls appear only when there is a time to tick.
+ * controls appear only when there is a time to tick; once the page is
+ * interactive, the location and notes wait for a tick and Propose selected
+ * can't be pressed without one (plan/phase-37.md).
  */
 export function ProposeTimes({
   hasTimes,
@@ -47,24 +50,46 @@ function ProposeTimesForm({
   children: ReactNode;
 }) {
   const [form, setForm] = useState<HTMLFormElement | null>(null);
+  const count = useTickedCount(form);
+  const hintId = useId();
+  // Unknown before the page is interactive: everything shows, as without JavaScript.
+  const none = count === 0;
   return (
     <Form ref={setForm} method="post" className="propose-times" replace preventScrollReset>
       <input type="hidden" name="intent" value="propose-times" />
       {children}
       {hasTimes ? (
         <div className="propose-times-controls stack">
-          <div className="field">
-            <label htmlFor="propose-location">Location (optional)</label>
-            <input id="propose-location" name="location" type="text" autoComplete="off" />
+          {/* Hidden, not removed, so what was typed survives an untick. */}
+          <div className="stack" hidden={none}>
+            <div className="field">
+              <label htmlFor="propose-location">Location (optional)</label>
+              <input id="propose-location" name="location" type="text" autoComplete="off" />
+            </div>
+            <NotesField id="propose-notes" />
           </div>
-          <NotesField id="propose-notes" />
           {problem ? (
             <p className="field-error" role="alert">
               {problem}
             </p>
           ) : null}
-          <TickedCount form={form} />
-          <SubmitButton feedbackKey="propose-times">Propose selected</SubmitButton>
+          {count === null ? null : (
+            <p className="hint ticked-count" aria-live="polite">
+              {tickedLabel(count)}
+            </p>
+          )}
+          {none ? (
+            <p className="hint" id={hintId}>
+              {TICK_FIRST}
+            </p>
+          ) : null}
+          <SubmitButton
+            feedbackKey="propose-times"
+            unavailable={none}
+            describedBy={none ? hintId : undefined}
+          >
+            Propose selected
+          </SubmitButton>
         </div>
       ) : null}
     </Form>
@@ -213,36 +238,48 @@ export function tickedLabel(count: number): string {
   return `${count} ${count === 1 ? "time" : "times"} ticked`;
 }
 
+/** Beside the unavailable Propose selected, with nothing ticked. */
+export const TICK_FIRST = "Tick a free time to propose it.";
+
 /**
  * How many times are ticked, beside "Propose selected" (plan/phase-21.md),
- * once the page is interactive. Always read from the form itself, never
- * accumulated: at hydration (ticks the browser restored after a reload count),
- * on every change, and whenever the view switches and swaps the tick boxes
- * (a mutation observer sees the new boxes).
+ * once the page is interactive; null before. Always read from the form itself,
+ * never accumulated: at hydration (ticks the browser restored after a reload
+ * count), on every change, and whenever the view switches and swaps the tick
+ * boxes (a mutation observer sees the new boxes). The switch keeps the ticks
+ * (plan/phase-37.md): the form remembers them and ticks the new boxes before
+ * the count is read.
  */
-function TickedCount({ form }: { form: HTMLFormElement | null }) {
+function useTickedCount(form: HTMLFormElement | null): number | null {
+  const ticked = useRef(new Set<string>());
   const subscribe = useCallback(
     (notify: () => void) => {
       if (!form) return () => {};
-      const observer = new MutationObserver(notify);
+      const boxes = () => form.querySelectorAll<HTMLInputElement>('input[name="time"]');
+      restoreTicks(ticked.current, boxes());
+      const observer = new MutationObserver(() => {
+        restoreTicks(ticked.current, boxes());
+        notify();
+      });
       observer.observe(form, { childList: true, subtree: true });
-      form.addEventListener("change", notify);
+      const changed = (event: Event) => {
+        const box = event.target;
+        if (box instanceof HTMLInputElement && box.name === "time") {
+          rememberTick(ticked.current, box);
+        }
+        notify();
+      };
+      form.addEventListener("change", changed);
       return () => {
         observer.disconnect();
-        form.removeEventListener("change", notify);
+        form.removeEventListener("change", changed);
       };
     },
     [form],
   );
-  const count = useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => (form ? form.querySelectorAll('input[name="time"]:checked').length : null),
     () => null,
-  );
-  if (count === null) return null;
-  return (
-    <p className="hint ticked-count" aria-live="polite">
-      {tickedLabel(count)}
-    </p>
   );
 }

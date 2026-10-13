@@ -20,6 +20,8 @@ import { SubmitButton } from "~/components/submit-button";
 import { TextField } from "~/components/text-field";
 import { canonicalTimeZone, formatDate, timeRange, todayInZone } from "~/lib/availability";
 import { groupPath, invitePath } from "~/lib/group-address";
+import { nextSteps, type NextStep } from "~/lib/next-step";
+import { isUpcoming } from "~/lib/rehearsal";
 import { requestPath } from "~/lib/request-address";
 import { deletionPrompt, LAST_ORGANIZER, leavePrompt } from "~/lib/group-prompts";
 import { DISPLAY_NAME_MAX, GROUP_NAME_MAX, validateName } from "~/lib/names";
@@ -73,20 +75,36 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const rehearsalsByRequest = viewer
     ? requestRehearsals(group, today)
     : new Map<string, ProposedItem[]>();
+  // Proposed rehearsals still to come, for the organizer's next step (plan/phase-37.md).
+  const upcomingProposed = new Set(
+    store
+      .listRehearsals(group.id)
+      .filter((rehearsal) => rehearsal.status === "proposed" && isUpcoming(rehearsal, today))
+      .map((rehearsal) => rehearsal.id),
+  );
+  // A proposal waits for the band before it is confirmed: anyone's answer but the viewer's.
+  const answeredByOthers = new Set(
+    store
+      .listRsvps(group.id)
+      .filter((rsvp) => rsvp.memberId !== viewer?.id)
+      .map((rsvp) => rsvp.rehearsalId),
+  );
   const requests = viewer
     ? store
         .listRequests(group.id)
         .map((item) => {
-          const proposed = (rehearsalsByRequest.get(item.id) ?? []).filter(
-            (rehearsal) => rehearsal.status === "proposed",
-          );
+          const rehearsals = rehearsalsByRequest.get(item.id) ?? [];
+          const proposed = rehearsals.filter((rehearsal) => rehearsal.status === "proposed");
+          const current = item.open && item.endDate >= today;
           return {
             id: item.id,
             href: requestPath(groupPath(group), item.slug),
             name: item.name,
             startDate: item.startDate,
             endDate: item.endDate,
-            current: item.open && item.endDate >= today,
+            current,
+            // On the page's list: still taking answers, or with proposed rehearsals.
+            listed: current || proposed.length > 0,
             // Kept in view while it has proposed rehearsals, marked as no longer open.
             status: !item.open ? "Closed" : item.endDate < today ? "Ended" : null,
             proposed,
@@ -94,12 +112,31 @@ export async function loader({ request, params }: Route.LoaderArgs) {
               .listAnswers(group.id, item.id)
               .some((answer) => answer.memberId === viewer.id),
             answerCount: isOrganizer ? item.answerCount : null,
+            readyToConfirm: proposed.filter(
+              (rehearsal) =>
+                upcomingProposed.has(rehearsal.id) && answeredByOthers.has(rehearsal.id),
+            ).length,
+            // Past proposals can't be acted on, so they don't count as chosen.
+            rehearsals: rehearsals.filter(
+              (rehearsal) => rehearsal.status === "confirmed" || upcomingProposed.has(rehearsal.id),
+            ).length,
           };
         })
-        .filter((item) => isOrganizer || item.current || item.proposed.length > 0)
+        .filter((item) => isOrganizer || item.listed)
     : null;
+  const listed = requests?.filter((item) => item.listed) ?? [];
   return {
     requests,
+    // What needs the organizer, first thing on the page (plan/phase-37.md).
+    steps:
+      isOrganizer && requests
+        ? nextSteps({
+            requests: listed.map((item) => ({ ...item, answerCount: item.answerCount ?? 0 })),
+            memberCount,
+            scheduleHref: `${groupPath(group)}/schedule`,
+            newRequestHref: `${groupPath(group)}/requests/new`,
+          })
+        : null,
     // Confirmed rehearsal dates from today, for members only (plan/phase-24.md).
     upcoming: viewer ? upcomingRehearsals(group, today) : null,
     memberCount: isOrganizer ? memberCount : null,
@@ -321,6 +358,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
     memberCount,
     settings,
     groupHref,
+    steps,
   } = loaderData;
   const confirmPrompt = kept && "confirm" in kept ? kept.confirm : null;
   const settingsResult = kept && "settingsErrors" in kept ? kept : null;
@@ -330,6 +368,7 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
       <PageFailure failure={failure} />
       <h1>{groupName}</h1>
       <p className="hint">Times in {zoneLabel(timeZone)}</p>
+      {steps && steps.length > 0 ? <NeedsYou steps={steps} /> : null}
       {viewer ? (
         <>
           <p className="hint">
@@ -494,7 +533,8 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
         </ul>
       </section>
       {inviteUrl && !soleMember ? (
-        <InvitePanel inviteUrl={inviteUrl} groupName={groupName} />
+        // The page's one primary button is its next step (plan/phase-37.md).
+        <InvitePanel inviteUrl={inviteUrl} groupName={groupName} copyVariant="outline" />
       ) : null}
       {settings ? (
         <GroupSettings
@@ -593,6 +633,33 @@ function GroupSettings({
   );
 }
 
+/**
+ * What needs the organizer (plan/phase-37.md): the first step as the page's
+ * primary button, any others as plain links.
+ */
+function NeedsYou({ steps }: { steps: NextStep[] }) {
+  const [first, ...rest] = steps;
+  return (
+    <section className="needs-you" aria-labelledby="needs-you-heading">
+      <h2 id="needs-you-heading">Needs you</h2>
+      <p>
+        <Link to={first.href} className={buttonVariants()}>
+          {first.text}
+        </Link>
+      </p>
+      {rest.length > 0 ? (
+        <ul className="needs-you-more">
+          {rest.map((step) => (
+            <li key={`${step.kind}-${step.href}-${step.text}`}>
+              <Link to={step.href}>{step.text}</Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 type RequestItem = NonNullable<Route.ComponentProps["loaderData"]["requests"]>[number];
 
 /**
@@ -638,8 +705,8 @@ function RequestsSection({
   scheduleHref: string;
 }) {
   const organizer = memberCount !== null;
-  const current = requests.filter((item) => item.current || item.proposed.length > 0);
-  const past = requests.filter((item) => !item.current && item.proposed.length === 0);
+  const current = requests.filter((item) => item.listed);
+  const past = requests.filter((item) => !item.listed);
   const span = (item: RequestItem) =>
     `${formatDate(item.startDate)} to ${formatDate(item.endDate)}`;
   return (
@@ -664,7 +731,7 @@ function RequestsSection({
               ) : (
                 <>
                   <span className={item.answered ? "request-answered" : "request-unanswered"}>
-                    {item.answered ? "Responded" : "Not yet"}
+                    {item.answered ? "Your times: given" : "Your times: not given"}
                   </span>
                   {item.answerCount !== null ? (
                     <span className="hint">
@@ -771,12 +838,20 @@ export function inviteMailto(groupName: string, inviteUrl: string): string {
   return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function InvitePanel({ inviteUrl, groupName }: { inviteUrl: string; groupName: string }) {
+function InvitePanel({
+  inviteUrl,
+  groupName,
+  copyVariant = "default",
+}: {
+  inviteUrl: string;
+  groupName: string;
+  copyVariant?: "default" | "outline";
+}) {
   return (
     <section className="invite" aria-labelledby="invite-heading">
       <h2 id="invite-heading">Invite link</h2>
       <p className="hint">Share this link with your band. Anyone with it can join by name.</p>
-      <CopyLink url={inviteUrl} label="Invite link">
+      <CopyLink url={inviteUrl} label="Invite link" variant={copyVariant}>
         <a
           className={buttonVariants({ variant: "outline" })}
           href={inviteMailto(groupName, inviteUrl)}

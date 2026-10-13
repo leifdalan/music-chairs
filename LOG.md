@@ -5278,3 +5278,114 @@ Phase 36 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 36 ✅; no planned phase follows (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: none new this phase. ./bin/lessons validate OK.
+
+## 2026-10-13 10:59 — START
+Phase 37 — The organizer's next step: a group page that leads with what needs you, and a request page that shows each step when it's needed
+
+Execution trace: 423c54824a2b4206a2912af6f1dbe07d
+
+Planned work:
+- The organizer's group page opens with what needs them: a "Needs you" block under the title with the one most useful action in indigo (for example "Confirm a time for Winter concert" or "Add your times to Spring tour"), and the rest as plain links; the invite's Copy link is no longer the page's only primary button once the band has members, and statuses say whose ("Your times: not given", not a bare "Not yet").
+- The organizer's availability request page follows the order of the job: who is free first; the location, notes and Propose controls appear only once a time is ticked (Propose can't be pressed with nothing ticked; without JavaScript the form stays reachable); the organizer's own times are raised when they haven't given them; the per-member "Preferred number of rehearsals" line becomes one summary.
+- Switching the free times between Calendar and List keeps the ticks not yet proposed (the warning that they're cleared goes).
+- Tests cover the new group-page action choice, the request page's step order without JavaScript, and ticks surviving the view switch; the browser gate checks the organizer's path on phone and laptop.
+
+## 2026-10-13 11:33 — END
+Phase 37 — The organizer's next step: a group page that leads with what needs you, and a request page that shows each step when it's needed
+
+Phase 37 is accepted on its gates. An organizer's group page now opens, right under the title, with "Needs you": the one most useful next action as the page's only indigo button — "Confirm a time for …" once a member has answered a proposed time, "Add your times to …" while your own aren't given, "Choose times for …" once others have answered and nothing is proposed yet, or "Start an availability request" when none is open — with any others as plain links; the invite's Copy link is outlined once the band has members, and each request says "Your times: given" or "Your times: not given". On an availability request, the location and notes appear once you tick a free time, and Propose selected can't be pressed with nothing ticked (it stays reachable by keyboard and says "Tick a free time to propose it."); without JavaScript the form works as before. While you haven't given your own times, a line near the top says so and your times open; they stay open after you send them. The preferred numbers read as one line, and times you've ticked but not proposed now survive switching between Calendar and List. As you ruled, there is no "Confirm now" on the request page. How it reads and feels is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 423c54824a2b4206a2912af6f1dbe07d
+
+Files changed:
+- project/app/lib/next-step.ts (new) — the choice of the organizer's next steps
+- project/app/routes/group.tsx — Needs you, whose statuses, the outlined Copy link, the loader's inputs
+- project/app/lib/tick-memory.ts (new) — ticks remembered and restored across the view switch
+- project/app/components/propose-times.tsx — controls on a tick, the unavailable Propose, tick memory
+- project/app/components/submit-button.tsx — a button that can't be pressed yet but stays focusable
+- project/app/lib/preference.ts, project/app/routes/request.tsx — one preference line, the not-given flag and open section, the switch hint before hydration only
+- project/app/app.css — the Needs you block
+- project/tests/next-step.test.ts, project/tests/tick-memory.test.ts (new); answering, availability-requests, group, organizer-layout, request-dates and request-routes tests updated
+
+Build status:
+- smoke.local: OK
+- browser.organizer: OK — headless Chrome on the built app at 390 and 1280 px, 27/27: Needs you first with one visible primary button; nothing ticked hides location and notes and makes Propose unavailable, focusable and described, sending nothing; ticks in a one-tap date and a several-times panel kept across Calendar→List→Calendar with count, controls and typed location; unticks stay unticked; propose after a switch; the organizer's section stays open after their first Send (this check fails on the code before the critique's fix). Headless Chrome restored no ticks after a reload, so that check passed trivially.
+- ci.check: OK — CI run 38446715974, check success for commit 02e4c11 (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 794/794, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 206.3 s; first event 0.86 s; longest idle 47.9 s; success
+- Critic (code review): 227.8 s; first event 0.70 s; longest idle 33.9 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 2032.114 s; intelligence 434.056 s; gates 177.153 s; wait 432.644 s; orchestration 2031.175 s; unattributed 0.938 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 37 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=295b637e480f960fe2772528de65c571e1a6f6c6212181c40891dc5d6eb935ef final=c69ec9bb48a3d1629649b93c3ecd1326a5b6f726dffa3f2c3c8cd42c62bc1b33 (corrected after critique)
+- Findings: plan review 12 (all adopted); code critique 6 (all adopted; F003 and F005 in part: Confirm stays while answered proposals remain after one is confirmed, and remembered ticks aren't cleared on revalidation)
+- Plan deviations: recorded (describedBy, TICK_FIRST, loader fields; the reload check trivial in headless Chrome; the gate's fresh port)
+- Gates: 4 implementation-final gates, all on the final candidate; the browser gate's review was superseded once to correct its check count (28 → 27)
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The browser gate twice reached a previous run's server: it had stopped listening but kept answering Chrome's kept-alive connection with that run's database. I first misread it as IPv6 localhost; the gate now uses a fresh port and kills its server outright.
+- Mutation checks (22/22) found one weak test (a closed request asking for times), tightened.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the next-step choice in every organizer state (tests); Needs you first with one primary button and the outlined Copy link (tests, browser gate); the no-JavaScript propose form whole and pressable (tests); controls on a tick, the unavailable Propose, ticks across the switch, the section open after a Send (browser gate at both widths).
+- Parked for you: whether "Needs you" picks what you'd do next, and how the request page reads on your phone (the User Demo below).
+
+Delivery:
+- default — commit and delivery through pull request 34, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phases 38–40 don't refer to anything this phase changed
+
+Lessons:
+- none new this phase (the stale-server cause is specific to this session's gate harness, fixed there)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=43); reviewer/claude opus — hard 1800 s, idle 600 s (n=40); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** Open the site:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. As an organizer, open your group's page.
+    2. Open an availability request with answers, tick a free date, then switch between Calendar and List.
+  - **What to look for.**
+    - The group page's first thing is what needs you, with one clear button.
+    - The request page shows the propose form only after you tick a time, and the ticks survive the switch.
+  - **Variations to explore.** Phone and laptop; light and dark mode.
+
+Remaining:
+- The parked User Demo; next: Phase 38 — One look for failures (where failed saves show is settled at its start).
+
+## 2026-10-13 11:33 — NOTE
+Phase 37 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 37 ✅ and Phase 38 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: none new this phase. ./bin/lessons validate OK.

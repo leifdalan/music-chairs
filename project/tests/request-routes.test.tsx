@@ -430,7 +430,7 @@ describe("answering a request", () => {
     ]);
     const html = render(asOrganizer);
     expect(html).toContain("2 rehearsals");
-    expect(html).toContain("<li>Cellist: 2</li>");
+    expect(html).toContain("Preferred number of rehearsals: 2 (Cellist).");
     expect(html).toContain("Responses (1 of 3)");
     expect((await load(group.id, weekly, organizerCookie)).answers?.[1].answer).toBeNull();
 
@@ -547,8 +547,10 @@ describe("requests on the group page", () => {
     );
     expect(asCellist.memberCount).toBeNull();
     const html = renderGroup(asCellist);
-    expect(html).toContain("Not yet");
+    expect(html).toContain("Your times: not given");
     expect(html).not.toContain("New availability request");
+    // A member gets no "Needs you": that is the organizer's (plan/phase-37.md).
+    expect(asCellist.steps).toBeNull();
 
     const asOrganizer = (await groupLoader(
       routeArgs(groupPath(group), { groupAddress: addressOf(group) }, { cookie: organizerCookie }),

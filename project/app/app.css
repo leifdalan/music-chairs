@@ -295,6 +295,7 @@
 
   /* Panels: shadcn's card look for notices, the invite, the account and calendar panels. */
   .notice,
+  .needs-you,
   .invite,
   .account,
   .calendar-panel,
@@ -302,12 +303,24 @@
     @apply rounded-xl border bg-card p-4 text-card-foreground shadow-sm;
   }
 
+  .needs-you,
   .invite,
   .account,
   .calendar-panel {
     @apply mt-6 grid gap-2;
   }
 
+  /* The organizer's next step, under the group's title (plan/phase-37.md). */
+  .needs-you {
+    @apply mt-4;
+  }
+
+  .needs-you-more {
+    @apply m-0 grid list-none gap-1 p-0;
+  }
+
+  .needs-you h2,
+  .needs-you p,
   .invite h2,
   .invite p,
   .account h2,
@@ -572,15 +585,6 @@
   /* Each member's preferred number of rehearsals, above the heat map (plan/phase-28.md). */
   .preferred .hint {
     @apply mb-1;
-  }
-
-  .preferred-summary {
-    @apply mt-0 mb-3 flex list-none flex-wrap gap-x-1.5 p-0 text-sm text-muted-foreground;
-  }
-
-  /* The separator ends an entry, so a wrapped line never starts with one. */
-  .preferred-summary li:not(:last-child)::after {
-    content: " ·" / "";
   }
 
   .time-pair,

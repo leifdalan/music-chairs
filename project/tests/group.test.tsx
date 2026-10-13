@@ -150,6 +150,14 @@ describe("group route", () => {
       showNames: false,
       inviteUrl: `${ORIGIN}/join/${inviteOf(group)}`,
       requests: [],
+      // No request yet: the organizer's next step is starting one (plan/phase-37.md).
+      steps: [
+        {
+          kind: "start",
+          text: "Start an availability request",
+          href: `${groupPath(group)}/requests/new`,
+        },
+      ],
       upcoming: [],
       memberCount: 2,
       settings: { timeZones: expect.arrayContaining(["UTC", "Europe/London"]) },
