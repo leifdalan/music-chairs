@@ -664,10 +664,49 @@
     @apply flex flex-wrap items-center gap-2;
   }
 
-  /* Delete stands apart from Confirm, at the end of the row. Its form is
-     display: contents, so the button itself moves. */
-  .slot-actions .confirm-form > button {
-    margin-left: auto;
+  /* Confirm on its own; everything else apart, under More at the end of the
+     row (plan/phase-39.md). Open, More takes the row's whole width below. */
+  .more-menu {
+    @apply ml-auto;
+  }
+
+  .more-menu[open] {
+    @apply ml-0 basis-full;
+  }
+
+  .more-menu > summary {
+    @apply inline-flex min-h-11 cursor-pointer list-none items-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs;
+  }
+
+  .more-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .more-panel {
+    @apply mt-2 grid justify-items-start gap-2;
+  }
+
+  /* Yes to all keeps its line's height when nothing is left, so nothing below moves. */
+  .yes-to-all {
+    @apply mb-3;
+    min-height: calc(2.75rem + 0.25rem + 1lh);
+  }
+
+  .yes-to-all-form {
+    @apply grid justify-items-start gap-1;
+  }
+
+  .yes-to-all p {
+    @apply m-0;
+  }
+
+  /* A date with proposed rehearsals; one not yet answered is tinted. */
+  .proposed-day {
+    @apply border-primary;
+  }
+
+  .proposed-day.needs-answer {
+    background: color-mix(in oklab, var(--primary) 18%, var(--background));
   }
 
   .slot details {

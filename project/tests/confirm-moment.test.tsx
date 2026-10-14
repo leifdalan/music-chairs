@@ -145,12 +145,13 @@ describe("the schedule card", () => {
     getStore().confirmRehearsal(b.group.id, b.rehearsal.id);
     const html = await schedule(b, b.organizerCookie);
     const actions = html.slice(html.indexOf('class="slot-actions"'));
-    // The row ends where the notes disclosure begins.
-    const row = actions.slice(0, actions.indexOf("<details"));
+    // Nothing to confirm: the row is only More, with Delete inside it (plan/phase-39.md).
+    const row = actions.slice(0, actions.indexOf('class="more-menu"'));
+    const more = actions.slice(actions.indexOf('class="more-menu"'));
 
-    expect(row).not.toContain("Confirm for everyone");
-    expect(row.match(/<button/g)).toHaveLength(1);
-    expect(row).toContain('data-variant="outline-destructive"');
+    expect(row).not.toContain("<button");
+    expect(more).toContain(">More</summary>");
+    expect(more).toContain('data-variant="outline-destructive"');
   });
 
   it("shows members no warnings", async () => {
@@ -161,7 +162,7 @@ describe("the schedule card", () => {
     expect(html).not.toContain("isn&#x27;t free on");
   });
 
-  it("styles warnings amber from their own token, and moves Delete to the end", () => {
+  it("styles warnings amber from their own token, and puts More at the end", () => {
     const css = readFileSync(join(__dirname, "../app/app.css"), "utf8");
     const rule = /\.warnings \{([^}]*)\}/.exec(css)?.[1] ?? "";
 
@@ -169,7 +170,7 @@ describe("the schedule card", () => {
     expect(rule).not.toContain("destructive");
     expect(css.match(/--warning: oklch\(/g)).toHaveLength(2);
     expect(css).toContain("--color-warning: var(--warning);");
-    expect(css).toMatch(/\.slot-actions \.confirm-form > button \{\s*margin-left: auto;\s*\}/);
+    expect(css).toMatch(/\.more-menu \{\s*@apply ml-auto;\s*\}/);
     expect(/\.slot-actions \{([^}]*)\}/.exec(css)?.[1]).toContain("flex-wrap");
   });
 });

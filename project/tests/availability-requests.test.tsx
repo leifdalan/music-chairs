@@ -221,7 +221,9 @@ describe("the group page", () => {
     const autumn = requests.slice(requests.indexOf("Autumn concert"));
     expect(autumn).toContain("Thu 8 Oct, 7–9 PM");
     expect(autumn).toContain("1 of 3 answered");
-    expect(autumn).toContain(`href="${groupPath(b.group)}/schedule#rehearsal-${b.proposed.id}"`);
+    expect(autumn).toContain(
+      `href="${groupPath(b.group)}/schedule?on=${b.proposed.date}#rehearsal-${b.proposed.id}"`,
+    );
     // The closed request still shows its proposed rehearsal, even to members,
     // marked closed rather than waiting on anyone.
     const summer = requests.slice(requests.indexOf("Summer tour"));
@@ -285,7 +287,7 @@ describe("the request page", () => {
     expect(list).toContain("Confirmed");
     expect(list).not.toContain("29 Sep");
     expect(list).toContain(
-      `href="${groupPath(b.group)}/schedule#rehearsal-${b.proposed.id}" data-discover="true">Answer on the schedule`,
+      `href="${groupPath(b.group)}/schedule?on=${b.proposed.date}#rehearsal-${b.proposed.id}" data-discover="true">Answer on the schedule`,
     );
     const at = (html: string, id: string) => html.indexOf(`id="${id}"`);
     expect(at(asMember, "your-times-heading")).toBeLessThan(at(asMember, "cap-heading"));
@@ -321,9 +323,10 @@ describe("the schedule", () => {
     }
     expect(html.slice(at("calendar-heading"))).not.toContain("<section");
     const card = html.slice(html.indexOf(`id="rehearsal-${b.proposed.id}"`));
-    expect(card.slice(0, card.indexOf("</li>"))).toContain("From Autumn concert");
-    // Its own answers only, not the other rehearsal's.
-    expect(card.slice(0, card.indexOf('class="your-answer"'))).toContain("1 of 3 answered");
+    // In the organizer's facts: its own answers only, not the other rehearsal's (plan/phase-39.md).
+    expect(card.slice(0, card.indexOf("</li>"))).toMatch(
+      /From <a href="[^"]+"[^>]*>Autumn concert<\/a> · 1 of 3 answered/,
+    );
     const free = section(html, "overlap-heading");
     expect(free).toContain("2 of 3 members have given times between Fri 2 Oct and Thu 26 Nov.");
     expect(free).toContain("Autumn concert</a>: 0 of 3 responded");

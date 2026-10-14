@@ -5507,3 +5507,16 @@ Phase 38 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 38 ✅ and Phase 39 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: none new this phase. ./bin/lessons validate OK.
+
+## 2026-10-13 22:46 — START
+Phase 39 — A calmer schedule: proposed rehearsals that ask one thing, and confirming kept apart from deleting
+
+Execution trace: fdc74d9ad8ed4549ae5da9b2ab8c4527
+
+Planned work:
+- The schedule shows proposed rehearsals as a Calendar (the default) or a List, for members and organizers alike. In the calendar, each date with a proposed rehearsal opens a popup with the rehearsal's time, place and notes and Yes / No / Maybe / Clear for the viewer's own answer; an organizer's popup also carries the organizer's controls (below). The List is the proposed rehearsals as cards. Both views work without JavaScript.
+- A "Yes to all" button at the top of the proposed rehearsals answers Yes to every proposed rehearsal the viewer hasn't answered yet; answers already given are left as they are. It isn't offered when nothing is left unanswered.
+- A proposed rehearsal (in the List and in a date's popup) shows a member what they need to answer: the date, the place, the notes and Yes / No / Maybe, without repeating its request or its counts.
+- An organizer's controls on a proposed rehearsal are one row with "Confirm for everyone" and the rest (Edit notes, Share a link, Delete) together and away from it.
+- The confirmed rehearsal's card states its date once; "No one has answered yet" and "0 yes · 0 no · 0 maybe" are not both shown.
+- Tests cover what members and organizers see on a proposed and a confirmed rehearsal, the Calendar/List choice without JavaScript, answering from a date's popup, and "Yes to all" leaving given answers alone; the browser gate checks the schedule's length on a phone, answering from the calendar popup and "Yes to all" on phone and laptop, and that the page still doesn't jump (Phase 33).

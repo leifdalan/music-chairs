@@ -28,6 +28,7 @@ import { buttonVariants } from "~/components/ui/button";
 import type { Route } from "./+types/join";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import { rehearsalHref } from "~/lib/rehearsal-href";
 
 /**
  * The group an invite link names by its code (plan/phase-30.md), whatever name
@@ -71,7 +72,7 @@ function landing(request: Request, group: Group, then: unknown): string | null {
     const rehearsal = scheduleRequest
       ? findRehearsalBySlug(group, scheduleRequest.id, rehearsalSlug)
       : null;
-    if (rehearsal) return `${base}/schedule#rehearsal-${rehearsal.id}`;
+    if (rehearsal) return rehearsalHref(`${base}/schedule`, rehearsal);
   }
   return target;
 }

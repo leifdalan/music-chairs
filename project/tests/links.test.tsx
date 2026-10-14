@@ -325,7 +325,9 @@ describe("joining from a copied link", () => {
     const b = await band();
     const joined = await join(b.group, { displayName: "Horn", then: b.rehearsalHref });
 
-    expect(locationOf(joined)).toBe(`${groupPath(b.group)}/schedule#rehearsal-${b.rehearsal.id}`);
+    expect(locationOf(joined)).toBe(
+      `${groupPath(b.group)}/schedule?on=${b.rehearsal.date}#rehearsal-${b.rehearsal.id}`,
+    );
   });
 
   it("ignores a link outside the group, landing on the first open request instead", async () => {
@@ -353,7 +355,9 @@ describe("rehearsal links", () => {
     const response = await thrownBy(openRehearsal(b, slug, "", b.cellistCookie));
 
     expect(slug).toMatch(/^[a-z]{3}-\d{1,2}-[a-z]{3}-7-30pm$/);
-    expect(locationOf(response)).toBe(`${groupPath(b.group)}/schedule#rehearsal-${b.rehearsal.id}`);
+    expect(locationOf(response)).toBe(
+      `${groupPath(b.group)}/schedule?on=${b.rehearsal.date}#rehearsal-${b.rehearsal.id}`,
+    );
     // A link to a time that's gone says so on the schedule (plan/phase-35.md), never a bare error.
     expect(locationOf(await thrownBy(openRehearsal(b, "mon-1-jan-7pm", "", b.cellistCookie)))).toBe(
       `${groupPath(b.group)}/schedule?notice=link-gone`,

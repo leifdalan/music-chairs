@@ -7,6 +7,12 @@ import { heatLevel } from "~/lib/heat";
 import { useHydrated } from "~/lib/use-hydrated";
 
 /**
+ * The one name every calendar date's disclosure shares, so one popup is open
+ * at a time on a page with two calendars (plan/phase-39.md).
+ */
+export const DATE_POPUP = "date-popup";
+
+/**
  * A calendar of who is free (plan/phase-20.md): the dates shaded by how many
  * people are free together, each date with free time opening a panel of its
  * free times. The request page's panels tick times to propose; the schedule's
@@ -143,7 +149,7 @@ function DateDetails<S extends { startMinute: number; endMinute: number }>({
     details.current.querySelector("summary")?.focus();
   };
   return (
-    <details className={`day free-day heat-${level}`} name="free-date" ref={details}>
+    <details className={`day free-day heat-${level}`} name={DATE_POPUP} ref={details}>
       <summary aria-label={`${formatDate(date)}: ${heatWords(free, total)}`}>
         <span className="day-number">{day}</span>
         <span className="day-free" aria-hidden="true">

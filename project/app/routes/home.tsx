@@ -28,6 +28,7 @@ import type { Route } from "./+types/home";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
 import { Notice } from "~/components/notice";
+import { rehearsalHref } from "~/lib/rehearsal-href";
 
 export function meta() {
   return pageMeta();
@@ -99,7 +100,13 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <ul className="pending-requests">
             {proposals.map((item) => (
               <li key={item.rehearsalId}>
-                <Link to={`${item.groupHref}/schedule#rehearsal-${item.rehearsalId}`}>
+                <Link
+                  to={rehearsalHref(`${item.groupHref}/schedule`, {
+                    id: item.rehearsalId,
+                    date: item.date,
+                    status: "proposed",
+                  })}
+                >
                   <span className="pending-name">Proposed rehearsal: {item.summary}</span>
                   <span className="hint">
                     {item.groupName}
@@ -133,7 +140,11 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 key={`${item.rehearsalId}-${item.date}`}
                 payoff={item}
                 groupName={item.groupName}
-                href={`${item.groupHref}/schedule#rehearsal-${item.rehearsalId}`}
+                href={rehearsalHref(`${item.groupHref}/schedule`, {
+                  id: item.rehearsalId,
+                  date: item.date,
+                  status: "confirmed",
+                })}
               />
             ))}
           </ul>
@@ -156,7 +167,12 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                       <ul className="proposed-list">
                         {item.progress.proposed.map((rehearsal) => (
                           <li key={rehearsal.id}>
-                            <Link to={`${item.groupHref}/schedule#rehearsal-${rehearsal.id}`}>
+                            <Link
+                              to={rehearsalHref(`${item.groupHref}/schedule`, {
+                                ...rehearsal,
+                                status: "proposed",
+                              })}
+                            >
                               Proposed rehearsal: {rehearsal.summary}
                             </Link>
                           </li>

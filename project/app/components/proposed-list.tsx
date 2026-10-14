@@ -1,8 +1,10 @@
 import { Link } from "react-router";
+import { rehearsalHref } from "~/lib/rehearsal-href";
 
 /** One rehearsal from an availability request, as `requestRehearsals` gives it. */
 export type ProposedItem = {
   id: string;
+  date: string;
   status: "proposed" | "confirmed";
   summary: string;
   location: string;
@@ -40,7 +42,7 @@ export function ProposedList({
               : `${item.answered} of ${item.memberCount} answered`}
           </span>
           {item.notes ? <span className="notes">{item.notes}</span> : null}
-          <Link to={`${scheduleHref}#rehearsal-${item.id}`} className="proposed-link">
+          <Link to={rehearsalHref(scheduleHref, item)} className="proposed-link">
             Answer on the schedule
           </Link>
         </li>

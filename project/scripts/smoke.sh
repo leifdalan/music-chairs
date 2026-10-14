@@ -201,7 +201,10 @@ rehearsal_link="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
 [ -n "$rehearsal_link" ] || fail "the schedule offers organizers no link to the proposed rehearsal"
 card="$(curl -s -D - -o /dev/null -H "Cookie: $cookie" "${rehearsal_link%%\?*}" | tr -d '\r' |
   awk -F': ' 'tolower($1) == "location" { print $2 }')"
-[ "$card" = "$location/schedule#rehearsal-$rehearsal" ] || fail "the rehearsal link went to $card"
+case "$card" in
+  "$location/schedule?on=$rehearsal_date#rehearsal-$rehearsal") ;;
+  *) fail "the rehearsal link went to $card" ;;
+esac
 echo "  ${rehearsal_link%%\?*} lands a member on the rehearsal's card"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=confirm" --data-urlencode "rehearsalId=$rehearsal")"

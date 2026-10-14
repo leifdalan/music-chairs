@@ -6,6 +6,7 @@ import { getStore } from "~/.server/store";
 import { groupPath } from "~/lib/group-address";
 
 import type { Route } from "./+types/rehearsal-link";
+import { rehearsalHref } from "~/lib/rehearsal-href";
 
 /**
  * A proposed rehearsal's link (plan/phase-30.md): a member lands on its card on
@@ -21,5 +22,5 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!scheduleRequest) throw linkGone(schedule);
   const rehearsal = findRehearsalBySlug(group, scheduleRequest.id, params.rehearsalSlug);
   if (!rehearsal) throw linkGone(schedule);
-  throw redirect(`${schedule}#rehearsal-${rehearsal.id}`);
+  throw redirect(rehearsalHref(schedule, rehearsal));
 }

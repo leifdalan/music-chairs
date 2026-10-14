@@ -190,7 +190,7 @@ describe("the request page's calendar of who is free", () => {
     expect(html).not.toContain('class="days"');
     // Mon: 2 of 3 together all evening (the 3-person sliver is only 30 minutes).
     expect(html).toMatch(
-      /<details class="day free-day heat-3" name="free-date"><summary aria-label="Mon 5 Oct: up to 2 of 3 free">/,
+      /<details class="day free-day heat-3" name="date-popup"><summary aria-label="Mon 5 Oct: up to 2 of 3 free">/,
     );
     // Tue has one free time: the date is its own tick box, with no panel (plan/phase-29.md).
     const tuesday = html.slice(html.indexOf('<label class="day free-day one-time heat-2">'));
@@ -202,7 +202,7 @@ describe("the request page's calendar of who is free", () => {
       '<span class="day-time" aria-hidden="true">7–10 PM</span>',
     );
     expect(html).toContain('aria-label="Wed 7 Oct: nobody free"');
-    expect(html.match(/name="free-date"/g)).toHaveLength(1);
+    expect(html.match(/name="date-popup"/g)).toHaveLength(1);
   });
 
   it("lists each date's free times with who is free, as the same tick boxes as the list", async () => {
@@ -334,9 +334,11 @@ describe("a rehearsal on the schedule page", () => {
     expect(card).not.toContain("Answer every date");
     expect(at('aria-label="Yes for')).toBeLessThan(at(">For organizers<"));
     expect(at(">For organizers<")).toBeLessThan(at(">Confirm for everyone<"));
-    expect(at(">For organizers<")).toBeLessThan(at("Add notes"));
+    // Confirm first in the organizer's row; notes, sharing and Delete apart under More (plan/phase-39.md).
+    expect(at(">Confirm for everyone<")).toBeLessThan(at('class="more-menu"'));
+    expect(at('class="more-menu"')).toBeLessThan(at("Add notes"));
+    expect(at("Add notes")).toBeLessThan(at('data-variant="outline-destructive"'));
     expect(card).not.toContain("Cancel a date");
-    expect(card).toContain("Confirming makes it a rehearsal on everyone&#x27;s schedule.");
     expect(card).not.toContain(">Confirm<");
     expect(member).toContain(">Your answer<");
     expect(member).not.toContain("For organizers");

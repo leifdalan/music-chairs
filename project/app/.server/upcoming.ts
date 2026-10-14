@@ -37,6 +37,7 @@ export function upcomingRehearsals(group: Group, today: string): UpcomingDate[] 
 
 export type RequestRehearsal = {
   id: string;
+  date: string;
   status: "proposed" | "confirmed";
   summary: string;
   location: string;
@@ -67,6 +68,7 @@ export function requestRehearsals(group: Group, today: string): Map<string, Requ
     const list = byRequest.get(rehearsal.requestId) ?? [];
     list.push({
       id: rehearsal.id,
+      date: rehearsal.date,
       status: rehearsal.status,
       summary: describeRehearsal(rehearsal),
       location: rehearsal.location,
