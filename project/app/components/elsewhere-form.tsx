@@ -30,7 +30,6 @@ export function ElsewhereForm({
       {failure ? (
         <FailureAlert
           failure={failure}
-          floating
           busy={fetcher.state !== "idle"}
           onRetry={() =>
             retrySubmit(failure, (form) => {

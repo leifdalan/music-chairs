@@ -15,7 +15,7 @@ export const buttonVariants = cva(
         // Dark mode's --destructive is a light red for error text on the dark page;
         // white button text needs a darker red (about 6:1).
         destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 dark:bg-[oklch(0.5_0.19_25)] dark:hover:bg-[oklch(0.45_0.19_25)]",
+          "bg-destructive-surface text-destructive-surface-foreground shadow-xs hover:bg-destructive-surface-hover",
         outline:
           "border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50",
         // A quieter destructive control (plan/phase-21.md): red text and border on the

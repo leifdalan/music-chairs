@@ -325,9 +325,11 @@ describe("Google's callback", () => {
         { cookie },
       ),
     );
-    expect(page.notice).toBe(
-      "This Google account is already Cellist in this group, so Pianist stays name-only.",
-    );
+    // A refused link reads as a problem (plan/phase-38.md).
+    expect(page.notice).toEqual({
+      text: "This Google account is already Cellist in this group, so Pianist stays name-only.",
+      tone: "problem",
+    });
   });
 
   it("links nothing when sign-in starts from the start page", async () => {

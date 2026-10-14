@@ -60,6 +60,7 @@ import { zoneLabel } from "~/lib/time-zones";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/request";
+import { Notice } from "~/components/notice";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `${loaderData.name} · ${loaderData.groupName}` : "Not found");
@@ -713,9 +714,9 @@ export default function RequestPage({ loaderData, actionData }: Route.ComponentP
         <>
           {/* The organizer's own times count in who is free (plan/phase-37.md). */}
           {draft ? (
-            <p className="notice your-times-flag">
+            <Notice tone="info" className="your-times-flag">
               Your times: not given. <a href="#your-times-heading">Add your times</a>
-            </p>
+            </Notice>
           ) : null}
           {overlap ? (
             <section aria-labelledby="overlap-heading">

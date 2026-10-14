@@ -5,7 +5,15 @@ import { rewriteGroupEvents, scheduleRemovals } from "~/.server/calendar-sync";
 import { confirmationNeeded } from "~/.server/confirm";
 import { timeZoneChoices } from "~/.server/create-group";
 import { TimeZoneOptions } from "~/components/time-zone-options";
-import { CALENDAR_ACCESS_HINT, noticeKeys, NOTICES, type NoticeHandle } from "~/lib/notices";
+import {
+  CALENDAR_ACCESS_HINT,
+  noticeKeys,
+  NOTICE_TONES,
+  NOTICES,
+  type NoticeHandle,
+  type ShownNotice,
+} from "~/lib/notices";
+import { Notice } from "~/components/notice";
 import { zoneLabel } from "~/lib/time-zones";
 import { redirectWithToast } from "~/.server/flash";
 import { googleConfig } from "~/.server/google";
@@ -39,15 +47,22 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 /** The sentence for a `notice` left by Google sign-in, if any. */
-async function signInNotice(request: Request, groupId: string, viewerName: string | undefined) {
+async function signInNotice(
+  request: Request,
+  groupId: string,
+  viewerName: string | undefined,
+): Promise<ShownNotice | null> {
   const keys = noticeKeys(request.url);
-  if (keys.includes("linked")) return NOTICES.linked;
+  if (keys.includes("linked")) return { text: NOTICES.linked, tone: NOTICE_TONES.linked };
   if (!keys.includes("account-taken")) return null;
   const account = await readAccount(request);
   const taken = account ? getStore().findMemberByAccount(groupId, account.id) : null;
-  return taken
-    ? `This Google account is already ${taken.displayName} in this group, so ${viewerName ?? "this device's member"} stays name-only.`
-    : NOTICES["account-taken"];
+  return {
+    text: taken
+      ? `This Google account is already ${taken.displayName} in this group, so ${viewerName ?? "this device's member"} stays name-only.`
+      : NOTICES["account-taken"],
+    tone: NOTICE_TONES["account-taken"],
+  };
 }
 
 // Device tokens identify a device's membership (see `.server/membership.ts`)
@@ -400,15 +415,11 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
           </p>
         </>
       ) : (
-        <p className="notice">
+        <Notice tone="info">
           You haven't joined this group on this device. Ask an organizer for the invite link.
-        </p>
+        </Notice>
       )}
-      {notice ? (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      ) : null}
+      {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
       {kept && "problem" in kept ? <ProblemAlert message={kept.problem} response={kept} /> : null}
       {confirmPrompt ? <ConfirmPanel prompt={confirmPrompt} /> : null}
       {/* A group of one needs its invite before anything else (plan/phase-21.md). */}

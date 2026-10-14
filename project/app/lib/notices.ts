@@ -2,7 +2,7 @@
 // repeat), on whichever page it started from. Each page renders the keys it
 // lists in its route `handle` in context; the root layout renders any other,
 // so none is dropped (plan/phase-34.md).
-export const NOTICES: Record<string, string> = {
+export const NOTICES = {
   "signin-cancelled": "Google sign-in was cancelled.",
   "signin-failed": "Google sign-in didn't work. Please try again.",
   "signin-expired": "That took too long, so you weren't signed in. Please try again.",
@@ -36,32 +36,87 @@ export const NOTICES: Record<string, string> = {
   "link-gone": "That link is out of date: what it pointed to was deleted or changed.",
   "ics-unavailable":
     "There's no calendar file for this availability request yet: it comes once its rehearsals are confirmed.",
+} as const satisfies Record<string, string>;
+
+export type NoticeKey = keyof typeof NOTICES;
+
+/**
+ * How a notice looks (plan/phase-38.md): something failed or was refused is a
+ * problem (red); got less than asked for is a warning (yellow); declined
+ * everything, or nothing went wrong, is information (neutral).
+ */
+export type NoticeTone = "info" | "warning" | "problem";
+
+export const NOTICE_TONES: Record<NoticeKey, NoticeTone> = {
+  "signin-cancelled": "info",
+  "signin-failed": "problem",
+  "signin-expired": "problem",
+  "signin-calendar-declined": "warning",
+  "google-unavailable": "problem",
+  "unverified-email": "warning",
+  linked: "info",
+  "account-taken": "problem",
+  "calendar-connected": "info",
+  "calendar-writing": "info",
+  "calendar-declined": "info",
+  "calendar-wrong-account": "problem",
+  "calendar-failed": "problem",
+  "calendar-partial-busy": "warning",
+  "calendar-partial-write": "warning",
+  "calendar-unsaved": "problem",
+  "contacts-connected": "info",
+  "contacts-partial": "warning",
+  "contacts-declined": "info",
+  "contacts-wrong-account": "problem",
+  "contacts-failed": "problem",
+  "link-gone": "problem",
+  "ics-unavailable": "info",
 };
 
+/** A notice to show: its words and how it looks. */
+export type ShownNotice = { text: string; tone: NoticeTone };
+
+const SEVERITY: NoticeTone[] = ["info", "warning", "problem"];
+
+/** The most severe of these tones. */
+export function gravest(tones: NoticeTone[]): NoticeTone {
+  return tones.reduce<NoticeTone>(
+    (worst, tone) => (SEVERITY.indexOf(tone) > SEVERITY.indexOf(worst) ? tone : worst),
+    "info",
+  );
+}
+
 const keysStarting = (prefix: string) =>
-  Object.keys(NOTICES).filter((key) => key.startsWith(prefix));
+  (Object.keys(NOTICES) as NoticeKey[]).filter((key) => key.startsWith(prefix));
 
 /** Notices of Google Calendar consent and writing. */
 export const CALENDAR_NOTICE_KEYS = keysStarting("calendar-");
 /** Notices of Google contacts consent. */
 export const CONTACTS_NOTICE_KEYS = keysStarting("contacts-");
 /** Notices of signing in with Google. */
-export const SIGNIN_NOTICE_KEYS = [
+export const SIGNIN_NOTICE_KEYS: NoticeKey[] = [
   ...keysStarting("signin-"),
   "google-unavailable",
   "unverified-email",
 ];
 
 /** The address's known notices, once each, in order. */
-export function noticeKeys(url: string | URL): string[] {
+export function noticeKeys(url: string | URL): NoticeKey[] {
   const keys = new URL(url, "http://site.invalid").searchParams.getAll("notice");
-  return [...new Set(keys)].filter((key) => key in NOTICES);
+  return [...new Set(keys)].filter((key): key is NoticeKey => key in NOTICES);
 }
 
-/** The sentences of the request's notices among `keys`, if any. */
-export function noticeText(request: Request, keys: readonly string[]): string | null {
+/**
+ * The request's notices among `keys`, if any: their sentences together, in
+ * the most severe of their tones.
+ */
+export function noticeText(request: Request, keys: readonly NoticeKey[]): ShownNotice | null {
   const shown = noticeKeys(request.url).filter((key) => keys.includes(key));
-  return shown.length > 0 ? shown.map((key) => NOTICES[key]).join(" ") : null;
+  if (shown.length === 0) return null;
+  return {
+    text: shown.map((key) => NOTICES[key]).join(" "),
+    tone: gravest(shown.map((key) => NOTICE_TONES[key])),
+  };
 }
 
 /**
@@ -76,7 +131,7 @@ export function withNotice(path: string, ...notices: string[]): string {
 }
 
 /** The notices a route renders itself, from its `handle`. */
-export type NoticeHandle = { notices?: readonly string[] };
+export type NoticeHandle = { notices?: readonly NoticeKey[] };
 
 /**
  * What granting Google Calendar access does, said beside every way to sign in

@@ -70,6 +70,8 @@ import { zoneLabel } from "~/lib/time-zones";
 import type { Route } from "./+types/schedule";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import type { ShownNotice } from "~/lib/notices";
+import { Notice } from "~/components/notice";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `Schedule · ${loaderData.groupName}` : "Not found");
@@ -941,28 +943,24 @@ function CalendarPanel({
     webcalUrl: string;
     google: { state: GoogleWriteState; failedAt: string | null } | null;
     connectUrl: string;
-    notice: string | null;
+    notice: ShownNotice | null;
   };
 }) {
   const google = calendar.google;
   return (
     <section className="calendar-panel" aria-labelledby="calendar-heading">
       <h2 id="calendar-heading">Rehearsals in your calendar</h2>
-      {calendar.notice ? (
-        <p className="notice" role="status">
-          {calendar.notice}
-        </p>
-      ) : null}
+      {calendar.notice ? <Notice tone={calendar.notice.tone}>{calendar.notice.text}</Notice> : null}
       {google?.state === "on" ? (
         <>
           <p className="hint">
             Confirmed rehearsals are added to your Google Calendar, except dates you said No to.
           </p>
           {google.failedAt ? (
-            <p className="field-error" role="alert">
+            <Notice tone="problem">
               Your Google Calendar couldn&apos;t be updated (last tried {google.failedAt}).
               music-chairs keeps trying every hour.
-            </p>
+            </Notice>
           ) : null}
           <ConfirmForm
             fields={{ intent: "set-calendar", value: "off" }}
@@ -985,9 +983,9 @@ function CalendarPanel({
         </Form>
       ) : null}
       {google?.state === "revoked" ? (
-        <p className="field-error" role="alert">
+        <Notice tone="problem">
           Google Calendar access was removed, so rehearsals aren&apos;t being added to it.
-        </p>
+        </Notice>
       ) : null}
       {google?.state === "connect" || google?.state === "revoked" ? (
         <p>

@@ -43,6 +43,12 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* A filled red surface (the destructive button, the red toast) and its text. */
+  --destructive-surface: var(--destructive);
+  --destructive-surface-foreground: oklch(1 0 0);
+  --destructive-surface-hover: color-mix(in oklab, var(--destructive) 90%, transparent);
+  /* Behind a confirm dialog. */
+  --backdrop: oklch(0 0 0 / 45%);
   --success: oklch(0.52 0.13 150);
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.47 0.12 72);
@@ -71,6 +77,8 @@
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
+    --destructive-surface: oklch(0.5 0.19 25);
+    --destructive-surface-hover: oklch(0.45 0.19 25);
     --success: oklch(0.72 0.15 150);
     --success-foreground: oklch(0.145 0 0);
     --warning: oklch(0.82 0.14 80);
@@ -103,6 +111,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-surface: var(--destructive-surface);
+  --color-destructive-surface-foreground: var(--destructive-surface-foreground);
+  --color-destructive-surface-hover: var(--destructive-surface-hover);
+  --color-backdrop: var(--backdrop);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -345,7 +357,7 @@
   }
 
   .confirm-dialog::backdrop {
-    background: rgb(0 0 0 / 45%);
+    background: var(--backdrop);
   }
 
   .confirm-dialog h2,
@@ -401,6 +413,12 @@
     @apply pointer-events-auto;
   }
 
+  /* Room below the page while a failure shows, so the last control on a page
+     can still scroll clear above the card (plan/phase-38.md). */
+  body:has(#failure-slot > *) {
+    padding-bottom: 10rem;
+  }
+
   #failure-slot {
     @apply flex flex-col gap-2;
   }
@@ -420,7 +438,7 @@
   }
 
   .toast-error {
-    @apply bg-destructive text-white dark:bg-[oklch(0.5_0.19_25)];
+    @apply bg-destructive-surface text-destructive-surface-foreground;
   }
 
   .toast-dismiss {
@@ -457,6 +475,28 @@
     @apply flex items-start justify-between gap-3 rounded-lg border border-destructive/50 px-4 py-3 text-sm text-destructive;
   }
 
+  /* Notices by tone (plan/phase-38.md): a problem looks like every other
+     failure on the page; a warning like the yellow toast. */
+  .notice-problem {
+    @apply rounded-lg border-destructive/50 bg-background px-4 py-3 text-sm text-destructive shadow-none;
+  }
+
+  .notice-warning {
+    @apply border-transparent bg-warning-surface text-warning-surface-foreground;
+  }
+
+  /* Inside a panel, a notice is its tone's colour without a card of its own
+     (no cards inside cards); a warning keeps its yellow, which its ink needs. */
+  .calendar-panel .notice:not(.notice-warning),
+  .account .notice:not(.notice-warning) {
+    @apply rounded-none border-0 bg-transparent p-0 shadow-none;
+  }
+
+  .calendar-panel .notice-warning,
+  .account .notice-warning {
+    @apply rounded-lg px-4 py-3 shadow-none;
+  }
+
   /* A save that failed in the browser (plan/phase-34.md). */
   .failure-alert p {
     @apply m-0 self-center;
@@ -466,8 +506,8 @@
     @apply flex shrink-0 items-center gap-1;
   }
 
-  /* A page form's failure floats with the toasts, so it is seen wherever the form was. */
-  .failure-alert.floating {
+  /* Every failed save floats with the toasts, so it is seen wherever the form was. */
+  .failure-alert {
     @apply bg-background shadow-lg;
   }
 
@@ -1060,7 +1100,7 @@
     @apply mt-0 mb-2;
   }
 
-  /* Calm amber, not red: red is for destructive actions only (plan/phase-25.md). */
+  /* Calm amber for who isn't free; red means deleting or that something didn't work (plan/phase-25.md, plan/phase-38.md). */
   .warnings {
     @apply mb-2 rounded-lg border border-warning/60 px-3 py-2 text-sm text-warning;
     background: color-mix(in oklab, var(--warning) 8%, var(--background));

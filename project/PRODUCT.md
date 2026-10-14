@@ -36,7 +36,7 @@ A band's group chat is the usual starting point: the organizer shares an invite 
 
 - Voice: plain, calm and friendly to musicians; short sentences; no jargon.
 - Identity "Rehearsal room" (operator ruling, 2026-10-06): an indigo accent on a neutral base, a serif wordmark "music·chairs", and a confirmed rehearsal shown as a "You're on" payoff.
-- Colour meanings are fixed: indigo is the accent, amber is for who isn't free, red is only for destructive actions, green is for saved and answered states.
+- Colour meanings are fixed (operator rulings, Phases 34–36 and 2026-10-13): indigo for the next action, settled things and the page progress bar; green for saved and answered; yellow for done but not fully; amber for who isn't free; red for deleting and for saves that failed or were refused, and for any notice that something didn't work.
 
 ## Evidence on Hand
 
@@ -46,7 +46,7 @@ No testimonials, press or customer content exist; none may be invented.
 
 1. The next step is always obvious: each page leads with the job it exists for.
 2. Fewer taps: changes save as they are made; confirming is one tap.
-3. Calm, not alarming: warnings inform; red is kept for deleting.
+3. Calm, not alarming, and honest: warnings inform; red means deleting or that something didn't work, and every failure looks the same wherever it happens.
 4. Private by default, inclusive by design: name-only joining, counts before names.
 
 ## Accessibility & Inclusion

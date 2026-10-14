@@ -20,7 +20,9 @@ informs: []
 
 From the Impeccable critique and audit of 2026-10-13 (`.impeccable/critique/2026-10-13T07-24-02Z__app.md`: critique 27/40, audit 15/20) and the operator's answers: the organizer's next step first, then one look for failures, a calmer schedule, and the accessibility fixes with every smaller observation (scope: everything); Delete stays red now that red also means a failed save.
 
-To settle at phase start: where a failed save shows on every page (beside what failed, or floating at the bottom of the screen with the toasts).
+Ruling at phase start (operator, 2026-10-13), the recommended option:
+
+- **Floating, with the toasts:** every failed save shows as the red card at the bottom of the screen with Retry, where toasts appear, wherever the person is on the page. The request page's preferred-number and date-tick failures, shown beside their fields today, move there too.
 
 ## Acceptance
 

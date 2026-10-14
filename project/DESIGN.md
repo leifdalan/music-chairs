@@ -6,8 +6,14 @@ colors:
   rehearsal-indigo-night: "oklch(0.72 0.14 275)"
   not-free-amber: "oklch(0.47 0.12 72)"
   not-free-amber-night: "oklch(0.82 0.14 80)"
-  delete-red: "oklch(0.577 0.245 27.325)"
+  red-delete-or-failed: "oklch(0.577 0.245 27.325)"
+  red-delete-or-failed-night: "oklch(0.704 0.191 22.216)"
+  red-surface-night: "oklch(0.5 0.19 25)"
+  red-surface-hover-night: "oklch(0.45 0.19 25)"
   saved-green: "oklch(0.52 0.13 150)"
+  not-fully-yellow: "oklch(0.88 0.15 92)"
+  not-fully-yellow-ink: "oklch(0.24 0.05 75)"
+  backdrop: "oklch(0 0 0 / 45%)"
   paper: "oklch(1 0 0)"
   ink: "oklch(0.145 0 0)"
 typography:
@@ -33,7 +39,7 @@ Recorded in plan Phase 26 (Impeccable `document`) from the shipped tokens in `ap
 
 ### Primary
 
-**Rehearsal indigo** `oklch(0.5 0.17 275)` (dark theme `oklch(0.72 0.14 275)`): primary buttons, the chosen answer, ticked dates, the time bar's fill, selected chips, links styled as buttons, the heat map's shades and the confirmed-rehearsal payoff. About 6.3:1 with white text (AA).
+**Rehearsal indigo** `oklch(0.5 0.17 275)` (dark theme `oklch(0.72 0.14 275)`): primary buttons, the chosen answer, ticked dates, the time bar's fill, selected chips, links styled as buttons, the heat map's shades, the confirmed-rehearsal payoff and the page progress bar. About 6.3:1 with white text (AA).
 
 ### Neutral
 
@@ -42,7 +48,7 @@ shadcn neutral greys for background, cards, borders and muted text; focus rings 
 ### Named Rules
 
 - **One accent.** Indigo is the only accent; nothing else competes with it.
-- **Fixed meanings.** Amber (`--warning`) only for who isn't free; red (`--destructive`) only for destructive actions (Delete uses the outline variant); green (`--success`) only for saved and answered states.
+- **Fixed meanings.** Indigo (`--primary`) for the next action, settled things and the page progress bar; green (`--success`) for saved and answered; yellow (`--warning-surface` with its dark ink) for done but not fully; amber (`--warning`) only for who isn't free; red (`--destructive`) for deleting (Delete uses the outline variant) and for saves that failed or were refused and notices that something didn't work. A filled red surface uses `--destructive-surface` (darker in the dark theme, for white text); the dialog backdrop is `--backdrop`. No colour is written outside the tokens.
 
 ## Typography
 
@@ -73,7 +79,13 @@ Radius 0.625rem (cards and buttons), smaller for chips and cells.
 
 ### Buttons
 
-shadcn variants: primary (indigo), outline (neutral), outline-destructive (red text and border, for Delete), destructive (solid red, kept for confirm dialogs). Minimum height 44 px.
+shadcn variants: primary (indigo), outline (neutral), outline-destructive (red text and border, for Delete), destructive (solid red on `--destructive-surface`, kept for confirm dialogs). Minimum height 44 px.
+
+### Feedback
+
+- **Toasts**, at the bottom of the screen: green when a change worked (fading after four seconds), yellow when it was done but not fully, filled red when it was refused (both staying until dismissed).
+- **A failed save**, on every page, is a card at the bottom with the toasts: red text and border, "Not saved." or "Maybe not saved." with why, and Retry (or Reload).
+- **Notices** near the top of a page, by tone: neutral information; yellow when something was done but not fully; a problem, in the same red text and border as the failure card and a refused change, when something didn't work.
 
 ### Cards / Containers
 
@@ -96,7 +108,7 @@ A confirmed rehearsal's next date: a check icon (lucide `Check`) and "You're on"
 ### Do:
 
 - Use indigo for the one next action and for settled things; keep everything else neutral.
-- Keep warnings amber and inside one status region; keep red for deleting.
+- Keep amber for who isn't free; yellow for done but not fully; red for deleting and for anything that didn't work, shown the same way everywhere.
 - Use the system serif only for the wordmark, `h1` and the payoff headline (operator ruling: no outside fonts).
 
 ### Don't:

@@ -111,7 +111,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 35](phase-35.md) | An error-state catalogue: every failure photographed in a real browser for review | ✅     |
 | [Phase 36](phase-36.md) | Waiting you can see, and toasts in colour: a progress bar for slow page changes, and green, yellow and red messages | ✅     |
 | [Phase 37](phase-37.md) | The organizer's next step: a group page that leads with what needs you, and a request page that shows each step when it's needed | ✅     |
-| [Phase 38](phase-38.md) | One look for failures: the colour rules match the product, and every failure shows the same way | ⬅️     |
+| [Phase 38](phase-38.md) | One look for failures: the colour rules match the product, and every failure shows the same way | 🚧     |
 | [Phase 39](phase-39.md) | A calmer schedule: proposed rehearsals that ask one thing, and confirming kept apart from deleting | ⏳     |
 | [Phase 40](phase-40.md) | Accessible and finished: the audit's fixes, the smaller observations, and a second critique and audit | ⏳     |
 

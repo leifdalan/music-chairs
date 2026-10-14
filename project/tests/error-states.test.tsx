@@ -521,9 +521,14 @@ describe("notices", () => {
     expect(count(handled, NOTICES["calendar-failed"])).toBe(0);
     expect(count(handled, NOTICES["signin-expired"])).toBe(1);
     // The page's own text, from the same address.
-    expect(noticeText(new Request(`${ORIGIN}${at}`), ["calendar-failed", "signin-expired"])).toBe(
-      `${NOTICES["signin-expired"]} ${NOTICES["calendar-failed"]}`,
-    );
+    expect(
+      noticeText(new Request(`${ORIGIN}${at}`), ["calendar-failed", "signin-expired"]),
+    ).toEqual({
+      text: `${NOTICES["signin-expired"]} ${NOTICES["calendar-failed"]}`,
+      tone: "problem",
+    });
+    // Failures the root shows read as problems (plan/phase-38.md).
+    expect(unhandled).toContain('<p class="notice notice-problem" role="alert">');
   });
 });
 
@@ -733,6 +738,20 @@ describe("Google writes", () => {
     const failed = await panel(cookie);
     expect(failed?.state).toBe("on");
     expect(failed?.failedAt).toMatch(/\d/);
+    // Shown in the calendar panel as a problem, flat inside the panel (plan/phase-38.md).
+    const schedulePath = `${groupPath(band)}/schedule`;
+    const whole = await schedule.loader(
+      routeArgs(schedulePath, { groupAddress: groupPath(band).slice(3) }, { cookie }),
+    );
+    const Stub = createRoutesStub([
+      { id: "page", path: "/g/:groupAddress/schedule", Component: schedule.default as never },
+    ]);
+    const html = renderToString(
+      <Stub initialEntries={[schedulePath]} hydrationData={{ loaderData: { page: whole } }} />,
+    );
+    expect(html).toMatch(
+      /<section class="calendar-panel"[\s\S]*<p class="notice notice-problem" role="alert">Your Google Calendar couldn&#x27;t be updated/,
+    );
     // Only to its own member: the organizer's panel says nothing of it.
     expect(
       (await panel(await deviceCookie(band.id, organizer.deviceToken)))?.failedAt ?? null,
@@ -848,5 +867,80 @@ describe("error toasts", () => {
       }),
     );
     expect(toast.toast?.message).toContain("Google didn't answer");
+  });
+});
+
+describe("failures read as problems (plan/phase-38.md)", () => {
+  const stub = (
+    Component: unknown,
+    pattern: string,
+    at: string,
+    data: unknown,
+    action?: unknown,
+  ) => {
+    const Stub = createRoutesStub([{ id: "page", path: pattern, Component: Component as never }]);
+    return renderToString(
+      <Stub
+        initialEntries={[at]}
+        hydrationData={{
+          loaderData: { page: data },
+          actionData: action ? { page: action } : undefined,
+        }}
+      />,
+    ).replaceAll("<!-- -->", "");
+  };
+  const PROBLEM = '<p class="notice notice-problem" role="alert">';
+  const WARNING = '<p class="notice notice-warning" role="status">';
+
+  it("on the group page: a taken account is a problem, a link made is information", async () => {
+    const store = getStore();
+    const { group: band, organizer } = store.createGroup("Tone Band", "Viola", "Europe/London");
+    const cookie = await deviceCookie(band.id, organizer.deviceToken);
+    const at = (notice: string) => `${groupPath(band)}?notice=${notice}`;
+    const page = async (notice: string) =>
+      stub(
+        group.default,
+        "/g/:groupAddress",
+        at(notice),
+        await group.loader(
+          routeArgs(at(notice), { groupAddress: groupPath(band).slice(3) }, { cookie }),
+        ),
+      );
+    expect(await page("account-taken")).toContain(
+      `${PROBLEM}${NOTICES["account-taken"].replace(/'/g, "&#x27;")}`,
+    );
+    expect(await page("linked")).toContain(
+      `<p class="notice notice-info" role="status">${NOTICES.linked}`,
+    );
+  });
+
+  it("on adding members: removed contacts are a problem, unreadable or partial ones a warning", () => {
+    const render = (suggestions: unknown, notice: unknown = null) =>
+      stub(AddMembers, "/add", "/add", { groupHref: "/g/x", groupName: "X", notice, suggestions });
+    expect(render({ state: "connect", revoked: true, connectUrl: "/c" })).toContain(
+      `${PROBLEM}Google contacts access was removed`,
+    );
+    expect(render({ state: "error" })).toContain(
+      `${WARNING}Couldn&#x27;t read your Google contacts`,
+    );
+    expect(
+      render({ state: "sign-in" }, { text: NOTICES["contacts-partial"], tone: "warning" }),
+    ).toContain(`${WARNING}Google contacts connected for your saved contacts only`);
+  });
+
+  it("on a new availability request: a refusal is the page's red alert", async () => {
+    const store = getStore();
+    const { group: band, organizer } = store.createGroup("Refused Band", "Viola", "Europe/London");
+    const cookie = await deviceCookie(band.id, organizer.deviceToken);
+    const path = `${groupPath(band)}/requests/new`;
+    const data = await requestsNew.loader(
+      routeArgs(path, { groupAddress: groupPath(band).slice(3) }, { cookie }),
+    );
+    const html = stub(requestsNew.default, "/g/:groupAddress/requests/new", path, data, {
+      problem: "This availability request is closed. Reopen it to make changes.",
+    });
+    expect(html).toContain(
+      '<p class="field-error problem-alert" role="alert"><span>This availability request is closed.',
+    );
   });
 });

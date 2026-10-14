@@ -240,8 +240,13 @@ describe("contact suggestions", () => {
       ["contacts-declined", "Google contacts access wasn't granted"],
     ]) {
       const page = await load(group.id, organizerCookie, `?notice=${notice}`);
-      expect(page.notice).toContain(text);
+      expect(page.notice?.text).toContain(text);
+      // Declining or connecting is information, not a problem (plan/phase-38.md).
+      expect(page.notice?.tone).toBe("info");
     }
+    // Fewer contacts than asked for is a warning (plan/phase-38.md).
+    const partial = await load(group.id, organizerCookie, "?notice=contacts-partial");
+    expect(partial.notice?.tone).toBe("warning");
   });
 
   it("never reaches the group page or the database", async () => {

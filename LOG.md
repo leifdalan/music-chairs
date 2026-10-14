@@ -5395,3 +5395,14 @@ Phase 39 — scope added by the operator
 
 - The operator asked for proposed rehearsals on the schedule as a Calendar (default) or a List, each calendar date opening a popup with Yes / No / Maybe / Clear, and a button at the top to answer them all. Rulings (recommended options): the button answers Yes to every proposed rehearsal the viewer hasn't answered, leaving given answers; folded into Phase 39 (it reshapes the same cards; order stays 38 → 39 → 40); the Calendar/List view is for everyone.
 - plan/phase-39.md updated (goal, deliverables, decisions, tests, User Demo). Phase 38 stays next.
+
+## 2026-10-13 18:27 — START
+Phase 38 — One look for failures: the colour rules match the product, and every failure shows the same way
+
+Execution trace: 7c17a45da4154f169d429428316d6134
+
+Planned work:
+- PRODUCT.md and DESIGN.md say what colour means now (operator rulings, Phases 34–36 and 2026-10-13): red for deleting and for saves that failed or were refused; yellow for done but not fully; amber for who isn't free; green for saved; indigo for the next action, settled things and the page progress bar. Delete stays red (ruling 2026-10-13).
+- Every failure the person meets uses that scale: Google sign-in and consent notices that report a failure, and the out-of-date link notice, show as problems, not neutral information; a failed save shows in one consistent place on every page.
+- The hand-written colours become tokens: the dark-mode red surface and its text (used in three places) and the dialog backdrop.
+- The error-state catalogue's pictures whose look changes are regenerated; tests and the catalogue's coverage check pass.

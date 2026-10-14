@@ -24,6 +24,7 @@ import { buttonVariants } from "~/components/ui/button";
 import type { Route } from "./+types/members.add";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import { Notice } from "~/components/notice";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `Add members · ${loaderData.groupName}` : "Not found");
@@ -138,20 +139,16 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         <Link to={groupHref}>{groupName}</Link>
       </p>
       <h1>Add members</h1>
-      {notice ? (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      ) : null}
+      {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
       <p className="hint">
         Type a name: that person gets in by typing the same name on the invite link. Or pick someone
         from your Google contacts: they get in by signing in with that Google account.
       </p>
       {offered?.state === "connect" && offered.revoked ? (
-        <p className="field-error" role="alert">
+        <Notice tone="problem">
           Google contacts access was removed, so there are no suggestions. Reconnect to see them
           again.
-        </p>
+        </Notice>
       ) : null}
       {offered?.state === "connect" ? (
         <p>
@@ -164,9 +161,9 @@ export default function AddMembers({ loaderData, actionData }: Route.ComponentPr
         <p className="hint">Sign in with Google to pick people from your contacts.</p>
       ) : null}
       {offered?.state === "error" ? (
-        <p className="field-error" role="alert">
+        <Notice tone="warning">
           Couldn&apos;t read your Google contacts right now; you can still type a name.
-        </p>
+        </Notice>
       ) : null}
       {offered?.state === "ready" && contacts.length === 0 ? (
         <p className="hint">No contacts with an email address were found; type a name instead.</p>
