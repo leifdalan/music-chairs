@@ -896,6 +896,11 @@ export const INVENTORY: Call[] = [
     ],
   },
   {
+    // Yes to every proposed rehearsal the viewer hasn't answered (plan/phase-39.md).
+    key: "routes/schedule POST yes-to-all",
+    outcomes: [browserFailure("page")],
+  },
+  {
     key: "routes/schedule POST confirm",
     outcomes: [
       browserFailure("page"),

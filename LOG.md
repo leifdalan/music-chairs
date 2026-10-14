@@ -5507,3 +5507,120 @@ Phase 38 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 38 ✅ and Phase 39 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: none new this phase. ./bin/lessons validate OK.
+
+## 2026-10-13 22:46 — START
+Phase 39 — A calmer schedule: proposed rehearsals that ask one thing, and confirming kept apart from deleting
+
+Execution trace: fdc74d9ad8ed4549ae5da9b2ab8c4527
+
+Planned work:
+- The schedule shows proposed rehearsals as a Calendar (the default) or a List, for members and organizers alike. In the calendar, each date with a proposed rehearsal opens a popup with the rehearsal's time, place and notes and Yes / No / Maybe / Clear for the viewer's own answer; an organizer's popup also carries the organizer's controls (below). The List is the proposed rehearsals as cards. Both views work without JavaScript.
+- A "Yes to all" button at the top of the proposed rehearsals answers Yes to every proposed rehearsal the viewer hasn't answered yet; answers already given are left as they are. It isn't offered when nothing is left unanswered.
+- A proposed rehearsal (in the List and in a date's popup) shows a member what they need to answer: the date, the place, the notes and Yes / No / Maybe, without repeating its request or its counts.
+- An organizer's controls on a proposed rehearsal are one row with "Confirm for everyone" and the rest (Edit notes, Share a link, Delete) together and away from it.
+- The confirmed rehearsal's card states its date once; "No one has answered yet" and "0 yes · 0 no · 0 maybe" are not both shown.
+- Tests cover what members and organizers see on a proposed and a confirmed rehearsal, the Calendar/List choice without JavaScript, answering from a date's popup, and "Yes to all" leaving given answers alone; the browser gate checks the schedule's length on a phone, answering from the calendar popup and "Yes to all" on phone and laptop, and that the page still doesn't jump (Phase 33).
+
+## 2026-10-13 23:40 — END
+Phase 39 — A calmer schedule: proposed rehearsals that ask one thing, and confirming kept apart from deleting
+
+Phase 39 is accepted on its gates. The schedule's proposed rehearsals are now a calendar by default, with a List beside it, for members and organizers alike, as you asked. Each proposed date opens a popup with the time, place and notes and your Yes / No / Maybe / Clear, and the date's cell shows whether you've answered. "Yes to all unanswered (N)" answers Yes to everything you haven't answered and leaves your other answers alone; once nothing is left it reads "All answered." in the same place, so nothing below moves. A member's proposed card now asks only what to answer, without its request or the counts; an organizer sees the facts (the request, linked, and how many answered) and one row: "Confirm for everyone", with notes, sharing and Delete apart under More. A confirmed card says its date once and no longer shows "0 yes · 0 no · 0 maybe" beside "No one has answered yet". Passed proposals that were never confirmed stay listed for organizers to delete, and every link to a proposed rehearsal opens its date's popup. How it reads and feels on your phone is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: fdc74d9ad8ed4549ae5da9b2ab8c4527
+
+Files changed:
+- project/app/components/proposed-calendar.tsx (new) — the calendar of proposed dates and their popups
+- project/app/routes/schedule.tsx — Calendar/List, Yes to all unanswered, calmer cards, the organizer row with More, passed proposals, popups that come back open
+- project/app/lib/rehearsal-href.ts (new) — every link to a rehearsal, opening its date
+- project/app/routes/home.tsx, join.tsx, rehearsal-link.ts, components/proposed-list.tsx, .server/pending.ts, progress.ts, upcoming.ts — links with the date; home's waiting list on the same rule
+- project/app/components/free-calendar.tsx — one popup open at a time across both calendars
+- project/app/.server/membership.ts — the proposed view kept after a save
+- project/app/app.css — the calendar's cells, Yes to all's line, More
+- project/scripts/smoke.sh — the new link and the payoff's date line
+- project/error-catalogue/ — retaken (158 states, one new)
+- project/tests/schedule-calendar.test.tsx (new); availability-requests, confirm-moment, free-calendar, home, identity, links, one-date, request-progress tests and the error-state inventory updated
+
+Build status:
+- smoke.local: OK (attempt 2) — attempt 1 failed: the smoke script still expected the confirmed card's slot summary; direct fix in the script
+- browser.schedule: OK — headless Chrome on the built app at 390 and 1280 px, 20/20: calendar shorter than list; answering in a popup keeps the page and the popup; Yes to all keeps a given No and its place; links open their date with or without the hash; focus after Confirm in a popup; Escape in Delete's dialog or the notes field leaves the popup open
+- ci.check: OK — CI run 38522784337, check success for commit 0ca1088 (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 819/819, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic; configured astra unavailable, configured alternative opus)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 242.6 s; first event 0.55 s; longest idle 61.0 s; success
+- Critic (code review): 276.6 s; first event 0.80 s; longest idle 36.7 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 3196.680 s; intelligence 519.241 s; gates 195.917 s; wait 518.006 s; orchestration 3195.894 s; unattributed 0.786 s; failed work 3.164 s; retry 3.950 s
+- Awaiting user input: none recorded for phase 39 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=75edbdd9f307de60d4c264fdd61d15f8f67654acaa6305dc67f324fb86d59d63 final=9460511d6811b73f5c986a4b77eb92e39542b40df2f0b65ff613fd69607e1ce5 (corrected after critique, then a direct smoke-script fix)
+- Findings: plan review 12 (all adopted); code critique 7 (all adopted)
+- Plan deviations: recorded (confirmed cards keep their request; small helpers; the inventory entry's single outcome; the full catalogue retaken; the critique's changes)
+- Gates: 4 implementation-final gates on the final candidate (smoke.local at attempt 2 after a recorded, reviewed failure)
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The full catalogue was retaken twice (about 25 minutes each), since the schedule's default view changed under many states.
+- Mutation checks (21/21) found one weak test (another member's answer), tightened.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): Calendar/List and the popups without JavaScript, the on= flow, Yes to all's set and wording, what members and organizers see, passed proposals (tests); the page staying still, focus, Escape and links on the built app (browser gate).
+- Parked for you: whether proposed rehearsals are quick to read and answer on your phone, "Yes to all unanswered" reads right, and Confirm and Delete feel clearly apart (the User Demo below).
+
+Delivery:
+- default — commit and delivery through pull request 37, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phase 40 doesn't refer to anything this phase changed
+
+Lessons:
+- recurred: strict-lynx (changed page markup is also asserted by a smoke script; the smoke gate caught it before merge) — 2 occurrences
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=45); reviewer/claude opus — hard 1800 s, idle 600 s (n=42); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** Open the site:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On your phone, open the schedule of a group with several proposed rehearsals: it shows them on a calendar.
+    2. Tap a proposed date and answer it in the popup; then press "Yes to all"; switch to List.
+    3. As an organizer, confirm one and open another's menu.
+  - **What to look for.**
+    - Each proposed rehearsal is quick to read and answer, from the calendar or the list.
+    - "Yes to all" answers only what you hadn't answered.
+    - Confirm and Delete are clearly apart.
+  - **Variations to explore.** Phone and laptop; light and dark mode.
+
+Remaining:
+- The parked User Demo; next: Phase 40 — Accessible and finished (Gravatar handling is settled at its start).
+
+## 2026-10-13 23:40 — NOTE
+Phase 39 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 39 ✅ and Phase 40 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: strict-lynx recurred (Phase 39 END); ./bin/lessons validate OK.

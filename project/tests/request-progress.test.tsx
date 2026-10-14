@@ -73,10 +73,10 @@ async function band() {
 type ScheduleData = Awaited<ReturnType<typeof scheduleLoader>>;
 type HomeData = Awaited<ReturnType<typeof homeLoader>>;
 
-function loadSchedule(groupId: string, cookie: string) {
+function loadSchedule(groupId: string, cookie: string, search = "") {
   return scheduleLoader(
     routeArgs(
-      `/g/${addressFor(groupId)}/schedule`,
+      `/g/${addressFor(groupId)}/schedule${search}`,
       { groupAddress: addressFor(groupId) },
       { cookie },
     ),
@@ -137,8 +137,8 @@ describe("request progress", () => {
         memberCount: 3,
         complete: false,
         proposed: [
-          { id: b.id, summary: "Fri 9 Oct, 7–9 PM" },
-          { id: c.id, summary: "Sat 10 Oct, 7–9 PM" },
+          { id: b.id, date: "2026-10-09", summary: "Fri 9 Oct, 7–9 PM" },
+          { id: c.id, date: "2026-10-10", summary: "Sat 10 Oct, 7–9 PM" },
         ],
       },
     ]);
@@ -207,7 +207,8 @@ describe("the schedule page by request", () => {
     const { group, cellistCookie, organizerCookie, concert, gig } = await scheduled();
 
     for (const cookie of [cellistCookie, organizerCookie]) {
-      const page = await loadSchedule(group.id, cookie);
+      // The List view groups them under their request (plan/phase-39.md).
+      const page = await loadSchedule(group.id, cookie, "?proposed=list");
       const html = renderSchedule(page);
       const proposed = html.slice(
         html.indexOf('id="proposed-heading"'),
@@ -313,7 +314,9 @@ describe("your requests on the home screen", () => {
     const html = renderHome(data);
     expect(html).toContain("Your availability requests");
     expect(html).toContain(`Proposed rehearsal: Thu 8 Oct, 7–9 PM`);
-    expect(html).toContain(`href="${groupPath(group)}/schedule#rehearsal-${proposed.id}"`);
+    expect(html).toContain(
+      `href="${groupPath(group)}/schedule?on=${proposed.date}#rehearsal-${proposed.id}"`,
+    );
     expect(html).toContain("0 of 1 confirmed · 0 of 3 answered all");
     expect(html).toContain("1 of 1 confirmed");
     expect(html).toContain(`href="${requestHrefOf(group, gig)}/calendar.ics" download=""`);

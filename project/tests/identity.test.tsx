@@ -189,8 +189,10 @@ describe("the payoff on the schedule", () => {
     expect(card(asCellist)).not.toContain("Coming: Cellist");
     // The payoff says where, so the card doesn't say it again.
     expect(card(asOrganizer).slice(0, card(asOrganizer).indexOf("</li>"))).not.toContain("At Hall");
-    expect(card(asOrganizer).indexOf('class="payoff"')).toBeLessThan(
-      card(asOrganizer).indexOf('class="slot-summary"'),
+    // The payoff states the date, so the card doesn't again (plan/phase-39.md).
+    expect(card(asOrganizer).indexOf('class="payoff"')).toBeGreaterThan(-1);
+    expect(card(asOrganizer).slice(0, card(asOrganizer).indexOf("</li>"))).not.toContain(
+      'class="slot-summary"',
     );
   });
 
@@ -226,7 +228,10 @@ describe("the payoff on the home page", () => {
     // A member who sees counts only gets a count, not the name.
     expect(coming).toContain("1 coming");
     expect(coming).not.toContain("Pianist");
-    expect(coming).toContain(`href="${groupPath(b.group)}/schedule#rehearsal-${b.later.id}"`);
+    expect(coming).toContain(
+      // A confirmed rehearsal's link finds its card without opening a date's popup.
+      `href="${groupPath(b.group)}/schedule#rehearsal-${b.later.id}"`,
+    );
     expect(html).toContain("<h1>Your rehearsals</h1>");
   });
 

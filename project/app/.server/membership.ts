@@ -182,7 +182,7 @@ export function pagePath(url: URL): string {
 export function keptView(request: Request): string {
   const from = new URL(pagePath(new URL(request.url)), request.url).searchParams;
   const kept = new URLSearchParams();
-  for (const name of ["free", "times"]) {
+  for (const name of ["free", "times", "proposed"]) {
     const value = from.get(name);
     if (value) kept.set(name, value);
   }

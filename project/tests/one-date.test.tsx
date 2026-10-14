@@ -199,7 +199,7 @@ describe("one date at a time", () => {
     // Tue 6 Oct has one free time: a tick box cell. Mon 5 Oct has two: a panel.
     expect(request).toContain('<label class="day free-day one-time heat-');
     expect(request).toMatch(
-      /<details class="day free-day heat-\d" name="free-date"><summary aria-label="Mon 5 Oct/,
+      /<details class="day free-day heat-\d" name="date-popup"><summary aria-label="Mon 5 Oct/,
     );
     expect(request).not.toMatch(/<details[^>]*><summary aria-label="Tue 6 Oct/);
     expect(schedule).not.toContain("one-time");

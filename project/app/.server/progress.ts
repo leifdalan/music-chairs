@@ -24,7 +24,7 @@ export type RequestProgress = {
   memberCount: number;
   /** At least one rehearsal confirmed and none still proposed. */
   complete: boolean;
-  proposed: { id: string; summary: string }[];
+  proposed: { id: string; date: string; summary: string }[];
 };
 
 /**
@@ -66,6 +66,7 @@ export function requestProgress(group: Group, today: string): RequestProgress[] 
       complete: confirmed.length > 0 && proposed.length === 0,
       proposed: proposed.map((rehearsal) => ({
         id: rehearsal.id,
+        date: rehearsal.date,
         summary: describeRehearsal(rehearsal),
       })),
     });

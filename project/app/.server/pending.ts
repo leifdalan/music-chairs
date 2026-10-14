@@ -36,6 +36,8 @@ export type WaitingProposal = {
   groupHref: string;
   groupName: string;
   rehearsalId: string;
+  /** Its date, so a link opens the schedule's calendar on it (plan/phase-39.md). */
+  date: string;
   summary: string;
   /** The organizer's notes, possibly empty. */
   notes: string;
@@ -102,19 +104,23 @@ export function waitingProposals(
     a.group.name.localeCompare(b.group.name),
   )) {
     const today = todayInZone(group.timeZone, new Date());
+    // The schedule's "unanswered" (plan/phase-39.md): proposed from a request,
+    // still to come, with no answer from the member for its date.
     const answered = new Set(
       store
         .listRsvps(group.id)
         .filter((rsvp) => rsvp.memberId === member.id)
-        .map((rsvp) => rsvp.rehearsalId),
+        .map((rsvp) => `${rsvp.rehearsalId}|${rsvp.date}`),
     );
     for (const rehearsal of store.listRehearsals(group.id)) {
-      if (rehearsal.status !== "proposed" || answered.has(rehearsal.id)) continue;
+      if (rehearsal.status !== "proposed" || rehearsal.requestId === null) continue;
+      if (answered.has(`${rehearsal.id}|${rehearsal.date}`)) continue;
       if (!isUpcoming(rehearsal, today)) continue;
       proposals.push({
         groupHref: groupPath(group),
         groupName: group.name,
         rehearsalId: rehearsal.id,
+        date: rehearsal.date,
         summary: describeRehearsal(rehearsal),
         notes: rehearsal.notes,
         requestName: rehearsal.requestId

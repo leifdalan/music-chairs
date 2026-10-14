@@ -201,7 +201,10 @@ rehearsal_link="$(curl -s -H "Cookie: $cookie" "$origin$location/schedule" |
 [ -n "$rehearsal_link" ] || fail "the schedule offers organizers no link to the proposed rehearsal"
 card="$(curl -s -D - -o /dev/null -H "Cookie: $cookie" "${rehearsal_link%%\?*}" | tr -d '\r' |
   awk -F': ' 'tolower($1) == "location" { print $2 }')"
-[ "$card" = "$location/schedule#rehearsal-$rehearsal" ] || fail "the rehearsal link went to $card"
+case "$card" in
+  "$location/schedule?on=$rehearsal_date#rehearsal-$rehearsal") ;;
+  *) fail "the rehearsal link went to $card" ;;
+esac
 echo "  ${rehearsal_link%%\?*} lands a member on the rehearsal's card"
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Cookie: $cookie" "$origin$location/schedule" \
   --data-urlencode "intent=confirm" --data-urlencode "rehearsalId=$rehearsal")"
@@ -214,7 +217,7 @@ schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
   grep -q "<li class=\"rehearsal confirmed\" id=\"rehearsal-$rehearsal\"><div class=\"payoff\">" "$work/schedule.html" &&
     grep -q "You&#x27;re on" "$work/schedule.html" &&
-    grep -q "<p class=\"slot-summary\">Thu $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
+    grep -q "Thu $rehearsal_label · 7:30–9:30 PM · Studio B" "$work/schedule.html" &&
     grep -q "<p class=\"notes\">Bring the Brahms parts</p>" "$work/schedule.html" &&
     grep -q "7:30–9:30 PM · Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&

@@ -1233,6 +1233,25 @@
       }
     },
     {
+      "key": "routes/schedule POST yes-to-all",
+      "outcome": "browser-failure",
+      "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "proofs": [
+        "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
+        "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
+        "tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer",
+        "tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create",
+        "tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it"
+      ],
+      "images": {
+        "phone-light": "images/routes-schedule-post-yes-to-all--browser-failure--phone-light.webp",
+        "phone-dark": "images/routes-schedule-post-yes-to-all--browser-failure--phone-dark.webp",
+        "desktop-light": "images/routes-schedule-post-yes-to-all--browser-failure--desktop-light.webp",
+        "desktop-dark": "images/routes-schedule-post-yes-to-all--browser-failure--desktop-dark.webp"
+      }
+    },
+    {
       "key": "routes/request POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",

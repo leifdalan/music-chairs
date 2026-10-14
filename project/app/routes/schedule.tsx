@@ -29,6 +29,7 @@ import {
 import { CopyLink } from "~/components/copy-link";
 import { ConfirmForm, ConfirmPanel } from "~/components/confirm-form";
 import { FreeCalendar } from "~/components/free-calendar";
+import { ProposedCalendar } from "~/components/proposed-calendar";
 import { PayoffBody } from "~/components/payoff-card";
 import { NotesField } from "~/components/propose-times";
 import { ProblemAlert } from "~/components/problem-alert";
@@ -38,6 +39,7 @@ import {
   expandOccurrences,
   formatDate,
   formatInstant,
+  isDate,
   timeRange,
   todayInZone,
   weekdayName,
@@ -89,6 +91,39 @@ async function groupAndViewer(
 }
 
 const ANSWERS: RsvpAnswer[] = ["yes", "no", "maybe"];
+
+/**
+ * The proposed rehearsals a member hasn't answered (plan/phase-39.md): from a
+ * request, still to come, with no answer from them for the date. What "Yes to
+ * all unanswered" counts and answers.
+ */
+export function unansweredFor(
+  rehearsals: Rehearsal[],
+  rsvps: { rehearsalId: string; date: string; memberId: string }[],
+  memberId: string,
+  today: string,
+): Rehearsal[] {
+  const answered = new Set(
+    rsvps
+      .filter((rsvp) => rsvp.memberId === memberId)
+      .map((rsvp) => `${rsvp.rehearsalId}|${rsvp.date}`),
+  );
+  return rehearsals.filter(
+    (rehearsal) =>
+      rehearsal.status === "proposed" &&
+      rehearsal.requestId !== null &&
+      isUpcoming(rehearsal, today) &&
+      !answered.has(`${rehearsal.id}|${rehearsal.date}`),
+  );
+}
+
+/** `query` (from `keptView`) with the date whose popup a form came from. */
+function withOn(query: string, on: string | null): string {
+  if (!on) return query;
+  const search = new URLSearchParams(query);
+  search.set("on", on);
+  return `?${search.toString()}`;
+}
 
 /** Google Calendar notices show by the calendar panel. */
 export const handle: NoticeHandle = { notices: CALENDAR_NOTICE_KEYS };
@@ -170,7 +205,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const slugs = rehearsalSlugs(rehearsals);
   const origin = publicOrigin() ?? new URL(request.url).origin;
   const calendar = await calendarPanel(request, group, viewer);
+  const search = new URL(request.url).searchParams;
+  const on = search.get("on");
   return {
+    // Proposed rehearsals as a calendar (the default) or a list (plan/phase-39.md).
+    proposedView: search.get("proposed") === "list" ? ("list" as const) : ("calendar" as const),
+    // The date whose popup a link or an answer opens; the page ignores one with no popup.
+    openOn: on && isDate(on) ? on : null,
+    unanswered: unansweredFor(rehearsals, store.listRsvps(group.id), viewer.id, today).length,
     timesThatWorked: isOrganizer ? timesThatWorked(rehearsals, today) : null,
     calendar,
     groupHref: groupPath(group),
@@ -357,8 +399,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
   const rehearsalId = String(form.get("rehearsalId") ?? "");
   const today = todayInZone(group.timeZone, new Date());
+  // A form inside a date's popup carries the date, so the page comes back with it open.
+  const on = form.get("on");
   const back = (message: string) =>
-    redirectWithToast(`${groupPath(group)}/schedule${keptView(request)}`, message);
+    redirectWithToast(
+      `${groupPath(group)}/schedule${withOn(keptView(request), typeof on === "string" && isDate(on) ? on : null)}`,
+      message,
+    );
   const syncViewer = () =>
     scheduleSync(store.listSyncingMembers(group.id).filter((m) => m.memberId === viewer.id));
 
@@ -371,15 +418,15 @@ export async function action({ request, params }: Route.ActionArgs) {
         ? redirectWithToast("/", "Connect Google Calendar first.", { kind: "error" })
         : problem("Connect Google Calendar first.");
     }
-    const on = form.get("value") === "on";
-    if (!on) {
+    const turnOn = form.get("value") === "on";
+    if (!turnOn) {
       const prompt = confirmationNeeded(form, stopCalendarPrompt());
       if (prompt) return prompt;
     }
-    store.setCalendarSync(group.id, viewer.id, on);
+    store.setCalendarSync(group.id, viewer.id, turnOn);
     // Turning it off removes the upcoming events the app wrote.
     scheduleSync([{ memberId: viewer.id, groupId: group.id, accountId: capable.account.id }]);
-    const message = on
+    const message = turnOn
       ? "Rehearsals will be added to your Google Calendar"
       : "Stopped adding rehearsals to your Google Calendar";
     // The home screen's "Add to Google Calendar" comes back home; nowhere else.
@@ -401,6 +448,21 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
     syncViewer();
     return back(answer ? `Answer saved: ${ANSWER_LABELS[answer]}` : "Answer cleared");
+  }
+
+  // Yes to every proposed rehearsal the viewer hasn't answered, read now, never
+  // from the form; given answers stay (plan/phase-39.md).
+  if (intent === "yes-to-all") {
+    const open = unansweredFor(
+      store.listRehearsals(group.id),
+      store.listRsvps(group.id),
+      viewer.id,
+      today,
+    );
+    if (open.length === 0) return back("Nothing left to answer");
+    for (const rehearsal of open) store.setRsvp(group.id, rehearsal.id, viewer.id, "yes");
+    syncViewer();
+    return back(`Answered Yes to ${open.length} ${open.length === 1 ? "rehearsal" : "rehearsals"}`);
   }
 
   if (viewer.role !== "organizer") throw data(null, { status: 403 });
@@ -449,24 +511,34 @@ export async function clientAction(args: Route.ClientActionArgs) {
  */
 function useFocusAfterRemoval() {
   const navigation = useNavigation();
-  const pressed = useRef<{ button: HTMLElement; heading: HTMLElement | null } | null>(null);
+  const pressed = useRef<{
+    button: HTMLElement;
+    heading: HTMLElement | null;
+    popup: HTMLElement | null;
+  } | null>(null);
   useEffect(() => {
     const remember = (event: SubmitEvent) => {
       const button = event.submitter;
       if (!(button instanceof HTMLElement)) return;
       const heading = button.closest("section")?.querySelector<HTMLElement>("h2[id]") ?? null;
-      pressed.current = { button, heading };
+      // In a date's popup (plan/phase-39.md), its heading while the popup stays open.
+      const popup = button.closest(".day-panel")?.querySelector<HTMLElement>("h4") ?? null;
+      pressed.current = { button, heading, popup };
     };
     document.addEventListener("submit", remember, true);
     return () => document.removeEventListener("submit", remember, true);
   }, []);
   useEffect(() => {
     if (navigation.state !== "idle" || !pressed.current) return;
-    const { button, heading } = pressed.current;
+    const { button, heading, popup } = pressed.current;
     pressed.current = null;
     // After the confirm dialog has closed and handed focus back, if it can.
     const timer = setTimeout(() => {
       if (!button.isConnected) {
+        if (popup?.isConnected && popup.closest("details")?.open) {
+          popup.focus({ preventScroll: true });
+          return;
+        }
         if (!heading?.isConnected) return;
         heading.tabIndex = -1;
         heading.focus({ preventScroll: true });
@@ -500,8 +572,12 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     today,
     summary,
     freeView,
+    proposedView,
+    openOn,
+    unanswered,
   } = loaderData;
-  const link = useSwitch(["notice"]);
+  // A view switch never carries a popup's date (plan/phase-39.md).
+  const link = useSwitch(["notice", "on"]);
   const pageProblem = kept && "problem" in kept ? kept.problem : null;
   const stretchRow = (stretch: (typeof days)[number]["stretches"][number]) => (
     <li
@@ -560,9 +636,12 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   const earlier = rehearsals.filter((item) => item.requestId === null);
   const confirmed = linked.filter((item) => item.status === "confirmed");
   const proposed = linked.filter((item) => item.status === "proposed");
+  // Still to come, answered in the calendar or list; passed ones wait for an organizer.
+  const coming = proposed.filter((item) => item.date !== null);
+  const passed = proposed.filter((item) => item.date === null);
   // Proposed rehearsals under their request, in the order they first appear.
   const byRequest = new Map<string, { name: string; href: string; items: RehearsalItem[] }>();
-  for (const item of proposed) {
+  for (const item of coming) {
     const id = item.requestId as string;
     const group = byRequest.get(id) ?? {
       name: item.requestName ?? "",
@@ -600,22 +679,62 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
       />
       <section aria-labelledby="proposed-heading">
         <h2 id="proposed-heading">Proposed rehearsals</h2>
-        {byRequest.size === 0 ? (
+        {coming.length === 0 && passed.length === 0 ? (
           <p className="hint">No proposed rehearsals.</p>
-        ) : (
-          [...byRequest].map(([requestId, group]) => (
-            <div key={requestId} className="request-group">
-              <h3>
-                From <Link to={group.href}>{group.name}</Link>
-              </h3>
-              <ul className="rehearsals">
-                {group.items.map((item) => (
-                  <RehearsalCard key={item.id} item={item} />
-                ))}
-              </ul>
-            </div>
-          ))
-        )}
+        ) : null}
+        {coming.length > 0 ? (
+          <>
+            <YesToAll unanswered={unanswered} />
+            <Switch
+              label="How to show proposed rehearsals"
+              options={[
+                {
+                  text: "Calendar",
+                  to: link("proposed", null),
+                  current: proposedView === "calendar",
+                },
+                { text: "List", to: link("proposed", "list"), current: proposedView === "list" },
+              ]}
+            />
+            {proposedView === "calendar" ? (
+              <ProposedCalendar
+                items={coming.map((item) => ({
+                  id: item.id,
+                  date: item.date!.date,
+                  mine: item.date!.mine,
+                  item,
+                }))}
+                openOn={kept && "confirm" in kept ? null : openOn}
+                renderCard={({ item, date }) => (
+                  <RehearsalCard key={item.id} item={item} popupDate={date} />
+                )}
+              />
+            ) : (
+              [...byRequest].map(([requestId, group]) => (
+                <div key={requestId} className="request-group">
+                  <h3>
+                    From <Link to={group.href}>{group.name}</Link>
+                  </h3>
+                  <ul className="rehearsals">
+                    {group.items.map((item) => (
+                      <RehearsalCard key={item.id} item={item} />
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </>
+        ) : null}
+        {passed.length > 0 ? (
+          <div className="request-group">
+            <h3>Passed, not confirmed</h3>
+            <ul className="rehearsals">
+              {passed.map((item) => (
+                <RehearsalCard key={item.id} item={item} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
       {earlier.length > 0 ? (
         <RehearsalList title="Earlier rehearsals" id="earlier-heading" items={earlier} empty="" />
@@ -694,6 +813,33 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
 
 type RehearsalItem = Route.ComponentProps["loaderData"]["rehearsals"][number];
 
+/**
+ * Yes to every proposed rehearsal the viewer hasn't answered (plan/phase-39.md).
+ * Its line keeps its height when nothing is left, so nothing below moves.
+ */
+function YesToAll({ unanswered }: { unanswered: number }) {
+  return (
+    <div className="yes-to-all">
+      {unanswered > 0 ? (
+        <Form method="post" replace preventScrollReset className="yes-to-all-form">
+          <input type="hidden" name="intent" value="yes-to-all" />
+          <SubmitButton feedbackKey="yes-to-all" variant="outline">
+            Yes to all unanswered ({unanswered})
+          </SubmitButton>
+          <p className="hint">Your other answers stay.</p>
+        </Form>
+      ) : (
+        <p className="hint">All answered.</p>
+      )}
+    </div>
+  );
+}
+
+/** Inside a date's popup, a form brings the page back with that popup open. */
+function PopupField({ date }: { date: string | undefined }) {
+  return date ? <input type="hidden" name="on" value={date} /> : null;
+}
+
 function RehearsalList({
   title,
   id,
@@ -722,13 +868,20 @@ function RehearsalList({
   );
 }
 
-function RehearsalCard({ item }: { item: RehearsalItem }) {
+/**
+ * One rehearsal (plan/phase-39.md): what to answer — the date, the place, the
+ * notes and the viewer's answer — and, for organizers, the facts and one row
+ * of controls: Confirm, and the rest apart under More. `popupDate` is the date
+ * whose popup holds the card.
+ */
+function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: string }) {
   const organizer = item.organizer;
   const next = item.date;
+  const payoff = item.status === "confirmed" && next;
   return (
     <li className={`rehearsal ${item.status}`} id={`rehearsal-${item.id}`}>
-      {/* The payoff leads a confirmed rehearsal's card (plan/phase-26.md). */}
-      {item.status === "confirmed" && next ? (
+      {/* The payoff leads a confirmed rehearsal's card (plan/phase-26.md) and says its date. */}
+      {payoff ? (
         <PayoffBody
           payoff={{
             date: next.date,
@@ -741,18 +894,15 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
             answered: next.counts.yes + next.counts.no + next.counts.maybe,
           }}
         />
-      ) : null}
-      <p className="slot-summary">{item.summary}</p>
+      ) : (
+        <p className="slot-summary">{item.summary}</p>
+      )}
       {/* The payoff already says where; other cards say it here. */}
-      {item.location && !(item.status === "confirmed" && next) ? (
-        <p className="hint">At {item.location}</p>
-      ) : null}
+      {item.location && !payoff ? <p className="hint">At {item.location}</p> : null}
       {item.notes ? <p className="notes">{item.notes}</p> : null}
-      {item.requestName ? <p className="hint">From {item.requestName}</p> : null}
-      {item.status === "proposed" ? (
-        <p className="hint">
-          {item.answered} of {item.memberCount} answered
-        </p>
+      {/* A confirmed card says where it came from; a proposed one's list or date says enough. */}
+      {item.status === "confirmed" && item.requestName ? (
+        <p className="hint">From {item.requestName}</p>
       ) : null}
       {/* The viewer's own answer, which saves on each tap (plan/phase-20.md). */}
       <div className="your-answer" role="group" aria-labelledby={`answer-${item.id}`}>
@@ -760,7 +910,14 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
           Your answer
         </p>
         {next ? (
-          <RsvpRow rehearsalId={item.id} summary={item.summary} date={next} />
+          <RsvpRow
+            rehearsalId={item.id}
+            summary={item.summary}
+            date={next}
+            popupDate={popupDate}
+            // A member answering a proposal needs only the question (plan/phase-39.md).
+            tally={item.status === "confirmed" || organizer !== null}
+          />
         ) : (
           <p className="hint">This date has passed.</p>
         )}
@@ -771,6 +928,16 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
           <p className="area-label" id={`organize-${item.id}`}>
             For organizers
           </p>
+          {item.status === "proposed" ? (
+            <p className="hint">
+              {item.requestName && item.requestHref ? (
+                <>
+                  From <Link to={item.requestHref}>{item.requestName}</Link> ·{" "}
+                </>
+              ) : null}
+              {item.answered} of {item.memberCount} answered
+            </p>
+          ) : null}
           {organizer.missing.length > 0 ? (
             // One calm region for the whole card.
             <div className="warnings" role="status" aria-label="Who isn't free">
@@ -781,63 +948,72 @@ function RehearsalCard({ item }: { item: RehearsalItem }) {
               </ul>
             </div>
           ) : null}
-          {item.status === "proposed" ? (
-            <p className="hint">Confirming makes it a rehearsal on everyone's schedule.</p>
-          ) : null}
+          {/* Confirm on its own; everything else apart, under More. */}
           <div className="slot-actions">
-            {item.status === "proposed" ? (
+            {item.status === "proposed" && next ? (
               <Form method="post" replace preventScrollReset>
                 <input type="hidden" name="intent" value="confirm" />
                 <input type="hidden" name="rehearsalId" value={item.id} />
+                <PopupField date={popupDate} />
                 <SubmitButton
                   feedbackKey={`confirm-${item.id}`}
-                  label={`Confirm ${item.summary} for everyone`}
+                  label={`Confirm for everyone: ${item.summary}`}
                 >
                   Confirm for everyone
                 </SubmitButton>
               </Form>
             ) : null}
-            <ConfirmForm
-              fields={{ intent: "delete", rehearsalId: item.id }}
-              trigger="Delete"
-              triggerLabel={`Delete ${item.summary}`}
-              triggerVariant="outline-destructive"
-              {...deleteRehearsalPrompt(item.summary)}
-              feedbackKey={`delete-${item.id}`}
-            />
-          </div>
-          <details className="notes-edit">
-            <summary>{item.notes ? "Edit notes" : "Add notes"}</summary>
-            <Form method="post" replace preventScrollReset className="stack">
-              <input type="hidden" name="intent" value="notes" />
-              <input type="hidden" name="rehearsalId" value={item.id} />
-              <NotesField id={`notes-${item.id}`} defaultValue={item.notes} />
-              <SubmitButton
-                feedbackKey={`notes-${item.id}`}
-                variant="outline"
-                label={`Save notes for ${item.summary}`}
-              >
-                Save notes
-              </SubmitButton>
-            </Form>
-          </details>
-          {organizer.shareUrl ? (
-            // A link that lands on this card, joining first if need be (plan/phase-30.md).
-            <details className="notes-edit">
-              <summary>Share a link to this rehearsal</summary>
-              <div className="share-link">
-                <p className="hint">
-                  It opens this rehearsal, where people answer. Anyone not yet in the group joins
-                  first.
-                </p>
-                <CopyLink
-                  url={organizer.shareUrl}
-                  label={`Link to ${item.summary}`}
-                  variant="outline"
+            <details className="more-menu">
+              <summary aria-label={`More for ${item.summary}`}>More</summary>
+              <div className="more-panel">
+                <details className="notes-edit">
+                  <summary>{item.notes ? "Edit notes" : "Add notes"}</summary>
+                  <Form method="post" replace preventScrollReset className="stack">
+                    <input type="hidden" name="intent" value="notes" />
+                    <input type="hidden" name="rehearsalId" value={item.id} />
+                    <PopupField date={popupDate} />
+                    <NotesField id={`notes-${item.id}`} defaultValue={item.notes} />
+                    <SubmitButton
+                      feedbackKey={`notes-${item.id}`}
+                      variant="outline"
+                      label={`Save notes for ${item.summary}`}
+                    >
+                      Save notes
+                    </SubmitButton>
+                  </Form>
+                </details>
+                {organizer.shareUrl ? (
+                  // A link that lands on this card, joining first if need be (plan/phase-30.md).
+                  <details className="notes-edit">
+                    <summary>Share a link to this rehearsal</summary>
+                    <div className="share-link">
+                      <p className="hint">
+                        It opens this rehearsal, where people answer. Anyone not yet in the group
+                        joins first.
+                      </p>
+                      <CopyLink
+                        url={organizer.shareUrl}
+                        label={`Link to ${item.summary}`}
+                        variant="outline"
+                      />
+                    </div>
+                  </details>
+                ) : null}
+                <ConfirmForm
+                  fields={{
+                    intent: "delete",
+                    rehearsalId: item.id,
+                    ...(popupDate ? { on: popupDate } : {}),
+                  }}
+                  trigger="Delete"
+                  triggerLabel={`Delete ${item.summary}`}
+                  triggerVariant="outline-destructive"
+                  {...deleteRehearsalPrompt(item.summary)}
+                  feedbackKey={`delete-${item.id}`}
                 />
               </div>
             </details>
-          ) : null}
+          </div>
         </div>
       ) : null}
     </li>
@@ -882,27 +1058,38 @@ function RsvpRow({
   rehearsalId,
   summary,
   date,
+  popupDate,
+  tally,
 }: {
   rehearsalId: string;
   summary: string;
   date: DateItem;
+  popupDate?: string;
+  /** Show who answered what; only once someone has (plan/phase-39.md). */
+  tally: boolean;
 }) {
   const { counts, names } = date;
   // The rehearsal's date and time, so two rehearsals on one date stay distinguishable.
   const subject = summary;
-  const lines = names
-    ? ANSWERS.filter((answer) => names[answer].length > 0)
-        .map((answer) => `${ANSWER_LABELS[answer]}: ${names[answer].join(", ")}`)
-        .concat(names.none && names.none.length > 0 ? [`No answer: ${names.none.join(", ")}`] : [])
-    : [];
+  const anyone = counts.yes + counts.no + counts.maybe > 0;
+  const lines =
+    tally && names
+      ? ANSWERS.filter((answer) => names[answer].length > 0)
+          .map((answer) => `${ANSWER_LABELS[answer]}: ${names[answer].join(", ")}`)
+          .concat(
+            names.none && names.none.length > 0 ? [`No answer: ${names.none.join(", ")}`] : [],
+          )
+      : [];
   return (
     <div className="rsvp">
       <Form method="post" replace preventScrollReset className="rsvp-form">
         <input type="hidden" name="intent" value="rsvp" />
         <input type="hidden" name="rehearsalId" value={rehearsalId} />
+        <PopupField date={popupDate} />
         <div className="rsvp-top">
+          {/* Never "0 yes · 0 no · 0 maybe" beside "No one has answered yet". */}
           <p className="rsvp-heading hint">
-            {counts.yes} yes · {counts.no} no · {counts.maybe} maybe
+            {tally && anyone ? `${counts.yes} yes · ${counts.no} no · ${counts.maybe} maybe` : ""}
           </p>
           {/* Clear holds its place beside the counts before there is an answer
               to clear, hidden and out of reach, so the first answer moves
@@ -1060,7 +1247,10 @@ function ProgressSection({
   until: string;
 }) {
   // The view the page is showing, so turning writing on brings it back.
-  const listView = new URLSearchParams(useLocation().search).get("free") === "list";
+  const search = new URLSearchParams(useLocation().search);
+  const views = new URLSearchParams();
+  for (const name of ["free", "proposed"]) if (search.get(name)) views.set(name, search.get(name)!);
+  const view = views.toString();
   return (
     <section aria-labelledby="progress-heading">
       <h2 id="progress-heading">Availability requests</h2>
@@ -1081,7 +1271,7 @@ function ProgressSection({
                   requestName={item.name}
                   google={google}
                   until={until}
-                  returnTo={`${groupHref}/schedule${listView ? "?free=list" : ""}`}
+                  returnTo={`${groupHref}/schedule${view ? `?${view}` : ""}`}
                 />
               ) : null}
             </li>

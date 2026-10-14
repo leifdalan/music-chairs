@@ -373,13 +373,16 @@ describe("everything waiting on you, first", () => {
         groupHref: groupPath(group),
         groupName: "Waiting Band",
         rehearsalId: rehearsal.id,
+        date: rehearsal.date,
         summary: expect.any(String),
         notes: "",
         requestName: "Waiting Band gig",
       },
     ]);
     const waiting = html.slice(html.indexOf("Waiting on you"), html.indexOf("</section>"));
-    expect(waiting).toContain(`href="${groupPath(group)}/schedule#rehearsal-${rehearsal.id}"`);
+    expect(waiting).toContain(
+      `href="${groupPath(group)}/schedule?on=${rehearsal.date}#rehearsal-${rehearsal.id}"`,
+    );
     expect(waiting).toContain(`href="${requestHrefOf(group, request.id)}"`);
     expect(html.indexOf("Waiting on you")).toBeLessThan(html.indexOf("Your availability requests"));
     // The proposal also stays under its request, with the figures.

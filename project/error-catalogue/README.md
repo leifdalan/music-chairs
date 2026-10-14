@@ -856,6 +856,16 @@ Desktop: [light](images/routes-schedule-post-set-calendar--not-connected--deskto
 
 Desktop: [light](images/routes-schedule-post-set-calendar--not-connected-from-home--desktop-light.webp) · [dark](images/routes-schedule-post-set-calendar--not-connected-from-home--desktop-dark.webp)
 
+### routes/schedule POST yes-to-all · browser-failure
+
+- **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
+
+<img src="images/routes-schedule-post-yes-to-all--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-yes-to-all--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
+
+Desktop: [light](images/routes-schedule-post-yes-to-all--browser-failure--desktop-light.webp) · [dark](images/routes-schedule-post-yes-to-all--browser-failure--desktop-dark.webp)
+
 ## Saves on an availability request
 
 ### routes/request POST (default) · browser-failure
