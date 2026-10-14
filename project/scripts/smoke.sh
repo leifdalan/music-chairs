@@ -217,7 +217,7 @@ schedule_ok() {
   curl -s -H "Cookie: $cookie" "$origin$location/schedule" | sed 's/<!-- -->//g' >"$work/schedule.html"
   grep -q "<li class=\"rehearsal confirmed\" id=\"rehearsal-$rehearsal\"><div class=\"payoff\">" "$work/schedule.html" &&
     grep -q "You&#x27;re on" "$work/schedule.html" &&
-    grep -q "<p class=\"slot-summary\">Thu $rehearsal_label, 7:30–9:30 PM" "$work/schedule.html" &&
+    grep -q "Thu $rehearsal_label · 7:30–9:30 PM · Studio B" "$work/schedule.html" &&
     grep -q "<p class=\"notes\">Bring the Brahms parts</p>" "$work/schedule.html" &&
     grep -q "7:30–9:30 PM · Studio B" "$work/schedule.html" &&
     grep -q "1 of 1 free" "$work/schedule.html" &&
