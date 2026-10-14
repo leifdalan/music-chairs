@@ -24,7 +24,8 @@ import { buttonVariants } from "~/components/ui/button";
 import { Toaster } from "~/components/toast";
 import { Wordmark } from "~/components/wordmark";
 import { isFailure, rememberSubmits } from "~/lib/client-failure";
-import { noticeKeys, NOTICES, type NoticeHandle } from "~/lib/notices";
+import { noticeKeys, NOTICE_TONES, NOTICES, type NoticeHandle } from "~/lib/notices";
+import { Notice } from "~/components/notice";
 import { siteName } from "~/lib/site";
 
 import type { Route } from "./+types/root";
@@ -110,9 +111,9 @@ function RouteNotices() {
   return (
     <div className="route-notices">
       {keys.map((key) => (
-        <p key={key} className="notice" role="status">
+        <Notice key={key} tone={NOTICE_TONES[key]}>
           {NOTICES[key]}
-        </p>
+        </Notice>
       ))}
     </div>
   );

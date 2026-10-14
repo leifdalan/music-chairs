@@ -643,7 +643,10 @@ describe("clashes with Google Calendar", () => {
     const page = await load(group, request.id, cellistCookie);
 
     expect(page.clashes).toEqual({ state: "error" });
-    expect(render(page)).toContain("Couldn&#x27;t read your Google Calendar right now");
+    // A warning: the dates still work, ungreyed (plan/phase-38.md).
+    expect(render(page)).toContain(
+      '<p class="notice notice-warning" role="status">Couldn&#x27;t read your Google Calendar right now',
+    );
     warn.mockRestore();
   });
 

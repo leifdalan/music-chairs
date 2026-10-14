@@ -24,6 +24,8 @@ import { zoneLabel } from "~/lib/time-zones";
 import type { Route } from "./+types/requests.new";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import { ProblemAlert } from "~/components/problem-alert";
+import { Notice } from "~/components/notice";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return pageMeta("Not found");
@@ -144,7 +146,6 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
   const { result: kept, failure } = useActionResult(actionData);
   const { groupHref, groupName, timeZone, editing } = loaderData;
   const result = kept && "values" in kept ? kept : undefined;
-  const problem = kept && "problem" in kept ? kept.problem : null;
   const values = result?.values ?? loaderData.values;
   const errors: RequestErrors = result?.errors ?? {};
   // A stored request shows its windows and one empty row; a form sent back
@@ -172,15 +173,11 @@ export default function RequestForm({ loaderData, actionData }: Route.ComponentP
         Ask the band when they can rehearse between two dates, at the times of day you choose. All
         times are in {zoneLabel(timeZone)}.
       </p>
-      {problem ? (
-        <p className="notice" role="alert">
-          {problem}
-        </p>
-      ) : null}
+      {kept && "problem" in kept ? <ProblemAlert message={kept.problem} response={kept} /> : null}
       {editing && !editing.open ? (
-        <p className="notice">
+        <Notice tone="info">
           This availability request is closed. <Link to={backTo}>Reopen it</Link> to make changes.
-        </p>
+        </Notice>
       ) : (
         <RequestFields
           values={values}

@@ -622,11 +622,12 @@ async function main(): Promise<number> {
           entry.images[variant.name] = image;
         }
         entries.push(entry);
-        // Which toast the pictures show, so a change to toasts finds the states to redo.
-        const toast = await evaluate<string | null>(
-          `document.querySelector(".toast")?.className.replace("toast ", "") ?? null`,
-        ).catch(() => null);
-        console.log(`✓ ${name}${toast ? ` (${toast})` : ""}`);
+        // Which toast and notice tones the pictures show, so a change to how
+        // they look finds the states to redo.
+        const looks = await evaluate<string[]>(
+          `[...document.querySelectorAll(".toast, .notice, .failure-alert")].map((el) => [...el.classList].find((c) => /^(toast|notice|failure)-/.test(c)) ?? el.className)`,
+        ).catch(() => [] as string[]);
+        console.log(`✓ ${name}${looks.length > 0 ? ` (${[...new Set(looks)].join(", ")})` : ""}`);
       } catch (error) {
         // What was on screen instead, for finding out why.
         const shot = await cdp.send("Page.captureScreenshot", { format: "png" }).catch(() => null);

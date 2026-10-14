@@ -51,8 +51,8 @@ function browserFailure(
 ): Outcome {
   const where =
     how === "fetcher"
-      ? "beside the control, which keeps the change"
-      : "over the page, which stays as it was with what was typed";
+      ? "at the bottom of the screen with the toasts; the control keeps the change"
+      : "at the bottom of the screen with the toasts; the page stays as it was with what was typed";
   return {
     id,
     when: "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",

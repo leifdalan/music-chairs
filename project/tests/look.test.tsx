@@ -1,5 +1,8 @@
 // The shadcn/ui look's checkable parts (plan/phase-19.1.md): the calendar
 // options' order and the .ics download, and one primary button per form.
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -203,5 +206,65 @@ describe("buttons", () => {
     expect(primaries(groupHtml, 'id="settings-heading"')).toBe(1);
     expect(primaries(requestHtml, 'id="cap-heading"')).toBe(1);
     expect(primaries(scheduleHtml, 'name="intent" value="confirm"')).toBe(1);
+  });
+});
+
+describe("colours (plan/phase-38.md)", () => {
+  const css = readFileSync(join(__dirname, "../app/app.css"), "utf8");
+  // Colour functions, hex, and named colours as values (not inside utility names).
+  const LITERAL =
+    /\b(?:oklch|oklab|lab|lch|hwb|rgba?|hsla?|color)\(|#[0-9a-fA-F]{3,8}\b|:\s*(?:white|black|red|yellow|green|blue|gray|grey)\b/;
+
+  it("are written only in the light and dark token blocks", () => {
+    // The two token blocks: :root, and :root inside prefers-color-scheme: dark.
+    const light = css.indexOf(":root {");
+    const lightEnd = css.indexOf("}", light);
+    const dark = css.indexOf(":root {", lightEnd);
+    const darkEnd = css.indexOf("}", dark);
+    expect(css.slice(lightEnd, dark)).toContain("prefers-color-scheme: dark");
+    const outside = css.slice(0, light) + css.slice(lightEnd, dark) + css.slice(darkEnd);
+    const lines = outside.split("\n").filter((line) => LITERAL.test(line));
+    expect(lines).toEqual([]);
+  });
+
+  it("are never written by hand in components or routes", () => {
+    // Arbitrary colours, Tailwind's palette, and colours written in strings or styles.
+    const ARBITRARY = new RegExp(
+      [
+        String.raw`\[(?:oklch|oklab|lab|lch|hwb|rgba?|hsla?|color)\(`,
+        String.raw`\[#[0-9a-fA-F]{3,8}\]`,
+        String.raw`["'\x60]#[0-9a-fA-F]{3,8}["'\x60]`,
+        String.raw`\b(?:bg|text|border|ring|outline|fill|stroke|decoration|from|to|via|shadow)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b`,
+        String.raw`(?:color|background|backgroundColor|borderColor):\s*["'\x60](?!var\()`,
+      ].join("|"),
+    );
+    const found: string[] = [];
+    for (const dir of [".", "components", "components/ui", "routes", "lib"]) {
+      const root = join(__dirname, "../app", dir);
+      for (const name of readdirSync(root)) {
+        if (!name.endsWith(".tsx") && !name.endsWith(".ts")) continue;
+        const text = readFileSync(join(root, name), "utf8");
+        if (ARBITRARY.test(text)) found.push(`${dir}/${name}`);
+      }
+    }
+    expect(found).toEqual([]);
+  });
+
+  it("give the filled red surfaces and the dialog backdrop their tokens", () => {
+    expect(css).toMatch(
+      /\.toast-error \{\s*@apply bg-destructive-surface text-destructive-surface-foreground;/,
+    );
+    expect(css).toMatch(/\.confirm-dialog::backdrop \{\s*background: var\(--backdrop\);/);
+    const destructive = renderToString(<Button variant="destructive">Delete</Button>);
+    expect(destructive).toContain("bg-destructive-surface ");
+    expect(destructive).toContain("hover:bg-destructive-surface-hover");
+    for (const token of [
+      "destructive-surface",
+      "destructive-surface-foreground",
+      "destructive-surface-hover",
+      "backdrop",
+    ]) {
+      expect(css).toContain(`--color-${token}: var(--${token});`);
+    }
   });
 });

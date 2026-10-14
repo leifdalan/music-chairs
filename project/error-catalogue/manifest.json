@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13",
+  "generated": "2026-10-14",
   "states": [
     {
       "key": "routes/calendar-feed GET",
@@ -511,7 +511,7 @@
       "key": "routes/home POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -544,7 +544,7 @@
       "key": "routes/groups POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -577,7 +577,7 @@
       "key": "routes/group POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -609,7 +609,7 @@
       "key": "routes/group POST delete-group",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -641,7 +641,7 @@
       "key": "routes/group POST leave",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -686,7 +686,7 @@
       "key": "routes/group POST remove-member",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -731,7 +731,7 @@
       "key": "routes/group POST rename-member",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -776,7 +776,7 @@
       "key": "routes/group POST set-optional",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -808,7 +808,7 @@
       "key": "routes/group POST set-privacy",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -840,7 +840,7 @@
       "key": "routes/group POST set-role",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -885,7 +885,7 @@
       "key": "routes/group POST update-group",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -943,7 +943,7 @@
       "key": "routes/schedule POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -975,7 +975,7 @@
       "key": "routes/schedule POST confirm",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1020,7 +1020,7 @@
       "key": "routes/schedule POST delete",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1065,7 +1065,7 @@
       "key": "routes/schedule POST notes",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1097,7 +1097,7 @@
       "key": "routes/schedule POST rsvp",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1172,7 +1172,7 @@
       "key": "routes/schedule POST set-calendar",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1191,7 +1191,7 @@
       "key": "routes/schedule POST set-calendar",
       "outcome": "browser-failure-from-home",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1236,7 +1236,7 @@
       "key": "routes/request POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1268,7 +1268,7 @@
       "key": "routes/request POST answer",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1300,7 +1300,7 @@
       "key": "routes/request POST clear-dates",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1332,7 +1332,7 @@
       "key": "routes/request POST close",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1364,7 +1364,7 @@
       "key": "routes/request POST fill-dates",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1396,7 +1396,7 @@
       "key": "routes/request POST propose",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1442,7 +1442,7 @@
       "key": "routes/request POST propose-times",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1488,7 +1488,7 @@
       "key": "routes/request POST reopen",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1520,7 +1520,7 @@
       "key": "routes/request POST save-dates",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1552,7 +1552,7 @@
       "key": "routes/request POST set-date",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1614,7 +1614,7 @@
       "key": "routes/requests.new POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1673,7 +1673,7 @@
       "key": "routes/requests.new POST add-window",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1692,7 +1692,7 @@
       "key": "routes/members.add POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1738,7 +1738,7 @@
       "key": "routes/join POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1771,7 +1771,7 @@
       "key": "routes/join POST new",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1804,7 +1804,7 @@
       "key": "routes/join POST pick",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry",
+      "sees": "“Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1837,7 +1837,7 @@
       "key": "routes/profile POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1882,7 +1882,7 @@
       "key": "routes/auth.google.disconnect POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",
@@ -1930,7 +1930,7 @@
       "key": "routes/auth.sign-out POST (default)",
       "outcome": "browser-failure",
       "when": "In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only",
-      "sees": "“Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
+      "sees": "“Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)",
       "proofs": [
         "tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page",
         "tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart",

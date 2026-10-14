@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigation, useRevalidator, useSubmit } from "react-router";
 
@@ -12,21 +12,19 @@ import { buttonVariants } from "./ui/button";
  * "Maybe not saved" when it may have reached the server) with the reason,
  * and Retry, which sends it again, or Reload when sending it again could
  * make something twice. Nothing is sent again on its own. Like `ProblemAlert`
- * it stays until dismissed or replaced by the next outcome.
+ * it stays until dismissed or replaced by the next outcome. Every failed save
+ * shows here, at the bottom of the screen with the toasts (plan/phase-38.md).
  */
 export function FailureAlert({
   failure,
   onRetry,
   busy = false,
-  floating = false,
   check,
 }: {
   failure: Failure;
   onRetry: () => void;
   /** The retried save is in flight. */
   busy?: boolean;
-  /** Shown where toasts are, over the page, wherever the form was. */
-  floating?: boolean;
   /** Where to see whether a create went through, instead of reloading in place. */
   check?: { href: string; label: string };
 }) {
@@ -34,13 +32,25 @@ export function FailureAlert({
   const [retried, setRetried] = useState<Failure | null>(null);
   const revalidator = useRevalidator();
   const navigating = useNavigation().state !== "idle";
+  // The card mustn't hide what has focus (plan/phase-38.md): the page, which
+  // gains bottom space while a failure shows, scrolls just enough to show it
+  // above the card. Not for what floats itself (the stack, a dialog).
+  useLayoutEffect(() => {
+    if (dismissed === failure) return;
+    const focused = document.activeElement;
+    const stack = document.getElementById("failure-slot")?.parentElement;
+    if (!(focused instanceof HTMLElement) || focused === document.body || !stack) return;
+    if (stack.contains(focused) || focused.closest("dialog")) return;
+    const by = scrollToClear(
+      focused.getBoundingClientRect().bottom,
+      stack.getBoundingClientRect().top,
+    );
+    if (by > 0) window.scrollBy({ top: by });
+  }, [failure, dismissed]);
   if (dismissed === failure) return null;
   const saving = retried === failure && (busy || navigating || revalidator.state !== "idle");
   const alert = (
-    <div
-      className={`field-error problem-alert failure-alert${floating ? " floating" : ""}`}
-      role="alert"
-    >
+    <div className="field-error problem-alert failure-alert" role="alert">
       <p>
         <strong>{failure.certain ? "Not saved." : "Maybe not saved."}</strong> {failure.message}
       </p>
@@ -77,10 +87,16 @@ export function FailureAlert({
       </div>
     </div>
   );
-  // A failure only ever arrives in the browser, where the root's slot is.
-  const slot =
-    floating && typeof document !== "undefined" && document.getElementById("failure-slot");
+  // A failure only ever arrives in the browser, where the root's slot is; the
+  // error page has no slot, so a card there stays where it was rendered.
+  const slot = typeof document !== "undefined" && document.getElementById("failure-slot");
   return slot ? createPortal(alert, slot) : alert;
+}
+
+/** How far to scroll so something ending at `bottom` sits clear above the floating cards' `top`. */
+export function scrollToClear(bottom: number, top: number): number {
+  const GAP = 8;
+  return Math.max(0, Math.ceil(bottom - top + GAP));
 }
 
 /**
@@ -100,7 +116,6 @@ export function PageFailure({
   return (
     <FailureAlert
       failure={failure}
-      floating
       check={check}
       onRetry={() =>
         retrySubmit(failure, (form) => {

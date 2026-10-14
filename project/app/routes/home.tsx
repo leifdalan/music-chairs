@@ -27,6 +27,7 @@ import { buttonVariants } from "~/components/ui/button";
 import type { Route } from "./+types/home";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import { Notice } from "~/components/notice";
 
 export function meta() {
   return pageMeta();
@@ -90,9 +91,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       <h1>{newcomer ? <Wordmark /> : "Your rehearsals"}</h1>
       <p>{siteTagline}</p>
       {loaderData.notice ? (
-        <p className="notice" role="status">
-          {loaderData.notice}
-        </p>
+        <Notice tone={loaderData.notice.tone}>{loaderData.notice.text}</Notice>
       ) : null}
       {waiting.length > 0 || proposals.length > 0 ? (
         <section className="pending waiting" aria-labelledby="waiting-heading">

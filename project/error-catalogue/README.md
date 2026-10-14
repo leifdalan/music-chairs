@@ -383,7 +383,7 @@ Desktop: [light](images/routes-schedule-get--visitor--desktop-light.webp) · [da
 ### routes/home POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-home-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-home-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -405,7 +405,7 @@ Desktop: [light](images/routes-home-post-default--refused--desktop-light.webp) �
 ### routes/groups POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-groups-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-groups-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -427,7 +427,7 @@ Desktop: [light](images/routes-groups-post-default--refused--desktop-light.webp)
 ### routes/group POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -447,7 +447,7 @@ Desktop: [light](images/routes-group-post-default--unknown-intent--desktop-light
 ### routes/group POST delete-group · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-delete-group--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-delete-group--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -467,7 +467,7 @@ Desktop: [light](images/routes-group-post-delete-group--organizer-only--desktop-
 ### routes/group POST leave · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-leave--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-leave--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -497,7 +497,7 @@ Desktop: [light](images/routes-group-post-leave--last-organizer-from-groups--des
 ### routes/group POST remove-member · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-remove-member--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-remove-member--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -527,7 +527,7 @@ Desktop: [light](images/routes-group-post-remove-member--unknown-member--desktop
 ### routes/group POST rename-member · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-rename-member--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-rename-member--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -557,7 +557,7 @@ Desktop: [light](images/routes-group-post-rename-member--unknown-member--desktop
 ### routes/group POST set-optional · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-set-optional--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-set-optional--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -577,7 +577,7 @@ Desktop: [light](images/routes-group-post-set-optional--unknown-member--desktop-
 ### routes/group POST set-privacy · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-set-privacy--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-set-privacy--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -597,7 +597,7 @@ Desktop: [light](images/routes-group-post-set-privacy--organizer-only--desktop-l
 ### routes/group POST set-role · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-set-role--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-set-role--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -627,7 +627,7 @@ Desktop: [light](images/routes-group-post-set-role--unknown-member--desktop-ligh
 ### routes/group POST update-group · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-group-post-update-group--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-group-post-update-group--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -669,7 +669,7 @@ Desktop: [light](images/routes-group-post-update-group--refused-from-groups--des
 ### routes/schedule POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -689,7 +689,7 @@ Desktop: [light](images/routes-schedule-post-default--unknown-intent--desktop-li
 ### routes/schedule POST confirm · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-confirm--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-confirm--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -719,7 +719,7 @@ Desktop: [light](images/routes-schedule-post-confirm--unknown-rehearsal--desktop
 ### routes/schedule POST delete · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-delete--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-delete--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -749,7 +749,7 @@ Desktop: [light](images/routes-schedule-post-delete--unknown-rehearsal--desktop-
 ### routes/schedule POST notes · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-notes--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-notes--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -769,7 +769,7 @@ Desktop: [light](images/routes-schedule-post-notes--refused--desktop-light.webp)
 ### routes/schedule POST rsvp · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-rsvp--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-rsvp--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -819,7 +819,7 @@ Desktop: [light](images/routes-schedule-post-rsvp--unknown-rehearsal--desktop-li
 ### routes/schedule POST set-calendar · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-set-calendar--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-schedule-post-set-calendar--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -829,7 +829,7 @@ Desktop: [light](images/routes-schedule-post-set-calendar--browser-failure--desk
 ### routes/schedule POST set-calendar · browser-failure-from-home
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-schedule-post-set-calendar--browser-failure-from-home--phone-light.webp" width="195" alt="browser-failure-from-home, phone, light"> <img src="images/routes-schedule-post-set-calendar--browser-failure-from-home--phone-dark.webp" width="195" alt="browser-failure-from-home, phone, dark">
@@ -861,7 +861,7 @@ Desktop: [light](images/routes-schedule-post-set-calendar--not-connected-from-ho
 ### routes/request POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -881,7 +881,7 @@ Desktop: [light](images/routes-request-post-default--unknown-intent--desktop-lig
 ### routes/request POST answer · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded; tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing
 
 <img src="images/routes-request-post-answer--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-answer--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -901,7 +901,7 @@ Desktop: [light](images/routes-request-post-answer--refused--desktop-light.webp)
 ### routes/request POST clear-dates · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-clear-dates--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-clear-dates--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -921,7 +921,7 @@ Desktop: [light](images/routes-request-post-clear-dates--confirm--desktop-light.
 ### routes/request POST close · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-close--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-close--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -941,7 +941,7 @@ Desktop: [light](images/routes-request-post-close--organizer-only--desktop-light
 ### routes/request POST fill-dates · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded; tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing
 
 <img src="images/routes-request-post-fill-dates--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-fill-dates--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -961,7 +961,7 @@ Desktop: [light](images/routes-request-post-fill-dates--refused--desktop-light.w
 ### routes/request POST propose · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-propose--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-propose--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -991,7 +991,7 @@ Desktop: [light](images/routes-request-post-propose--refused--desktop-light.webp
 ### routes/request POST propose-times · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-propose-times--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-propose-times--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1021,7 +1021,7 @@ Desktop: [light](images/routes-request-post-propose-times--refused--desktop-ligh
 ### routes/request POST reopen · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-reopen--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-reopen--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1041,7 +1041,7 @@ Desktop: [light](images/routes-request-post-reopen--organizer-only--desktop-ligh
 ### routes/request POST save-dates · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-request-post-save-dates--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-save-dates--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1061,7 +1061,7 @@ Desktop: [light](images/routes-request-post-save-dates--refused--desktop-light.w
 ### routes/request POST set-date · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, beside the control, which keeps the change, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the control keeps the change, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: shows a failed date's change until it's retried or superseded; tests/client-failure.test.ts: stays with an in-page save (a fetcher), reloading nothing
 
 <img src="images/routes-request-post-set-date--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-request-post-set-date--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1103,7 +1103,7 @@ Desktop: [light](images/routes-request-post-set-date--server-error--desktop-ligh
 ### routes/requests.new POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-requests-new-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-requests-new-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1143,7 +1143,7 @@ Desktop: [light](images/routes-requests-new-post-add-window--added--desktop-ligh
 ### routes/requests.new POST add-window · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-requests-new-post-add-window--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-requests-new-post-add-window--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1155,7 +1155,7 @@ Desktop: [light](images/routes-requests-new-post-add-window--browser-failure--de
 ### routes/members.add POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-members-add-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-members-add-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1187,7 +1187,7 @@ Desktop: [light](images/routes-members-add-post-default--refused--desktop-light.
 ### routes/join POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-join-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-join-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1207,7 +1207,7 @@ Desktop: [light](images/routes-join-post-default--refused--desktop-light.webp) �
 ### routes/join POST new · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-join-post-new--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-join-post-new--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1227,7 +1227,7 @@ Desktop: [light](images/routes-join-post-new--refused--desktop-light.webp) · [d
 ### routes/join POST pick · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Reload to check rather than Retry
+- **You see:** “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Reload to check rather than Retry
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: offers a reload to check, not a retry, for something that would be made twice; tests/error-states.test.tsx: a failed save says so with Retry, or Reload for a create; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-join-post-pick--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-join-post-pick--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1249,7 +1249,7 @@ Desktop: [light](images/routes-join-post-pick--no-longer-a-match--desktop-light.
 ### routes/profile POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-profile-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-profile-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1281,7 +1281,7 @@ Desktop: [light](images/routes-profile-post-default--visitor--desktop-light.webp
 ### routes/auth.google.disconnect POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-auth-google-disconnect-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-auth-google-disconnect-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">
@@ -1311,7 +1311,7 @@ Desktop: [light](images/routes-auth-google-disconnect-post-default--partly-done-
 ### routes/auth.sign-out POST (default) · browser-failure
 
 - **When:** In the browser, the connection drops, the server answers with an error or doesn't answer within 20 seconds, or the thing was deleted or is organizer-only
-- **You see:** “Not saved.” or “Maybe not saved.” and why, over the page, which stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
+- **You see:** “Not saved.” or “Maybe not saved.” and why, at the bottom of the screen with the toasts; the page stays as it was with what was typed, with Retry (Reload when it was deleted or isn't theirs)
 - **Proved by:** tests/client-failure.test.ts: stays on the page as data, reloads nothing and never reaches the error page; tests/client-failure.test.ts: tells a thrown status, a lost connection, a crash and a redirect apart; tests/client-failure.test.ts: gives up waiting after 20 seconds and says the server didn't answer; tests/client-failure.test.ts: keeps a form posted to another page's action on the page it came from, as a fetcher; tests/error-states.test.tsx: keeps the last result while a failure shows, and lets a later result replace it
 
 <img src="images/routes-auth-sign-out-post-default--browser-failure--phone-light.webp" width="195" alt="browser-failure, phone, light"> <img src="images/routes-auth-sign-out-post-default--browser-failure--phone-dark.webp" width="195" alt="browser-failure, phone, dark">

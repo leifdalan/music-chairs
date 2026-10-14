@@ -15,6 +15,8 @@ import { FailureAlert } from "./failure-alert";
 import { SubmitButton } from "./submit-button";
 import { TimeRange } from "./time-range";
 import { Switch, useSwitch } from "./view-switch";
+import type { ShownNotice } from "~/lib/notices";
+import { Notice } from "./notice";
 
 export type DateErrors = { dates?: string; startTime?: string; endTime?: string };
 export type DateValues = { dates: string[]; startTime: string; endTime: string };
@@ -108,7 +110,7 @@ export function RequestDates({
   editable: boolean;
   clashes: Clashes;
   /** What happened on the way back from Google's consent screen. */
-  notice: string | null;
+  notice: ShownNotice | null;
   /** A refused Save without JavaScript, or a refused Send. */
   result: { dateErrors: DateErrors; dateValues: DateValues; limitValues?: LimitValues } | undefined;
   /** The member hasn't answered yet: their answer is a draft until Send. */
@@ -132,8 +134,9 @@ export function RequestDates({
       // Select all saved: it supersedes every date's failed change.
       if (key === "all" && !outcome.failure && !outcome.problem) return new Map();
       const next = new Map(current);
+      // The newest failure goes last: it is the one the card shows.
+      next.delete(key);
       if (outcome.failure) next.set(key, outcome);
-      else next.delete(key);
       return next;
     });
   };
@@ -149,7 +152,7 @@ export function RequestDates({
     clearStart.current = null;
   }, [clearing, oneOffs]);
   const fetcherKey = (name: string) => `${SET_DATE}${requestId}-${name}`;
-  const failure = failed.values().next().value?.failure ?? null;
+  const failure = [...failed.values()].at(-1)?.failure ?? null;
   const saving = useFetchers().some(
     (fetcher) => fetcher.key.startsWith(SET_DATE) && fetcher.state !== "idle",
   );
@@ -240,11 +243,7 @@ export function RequestDates({
       >
         <input type="hidden" name="intent" value="save-dates" />
         {drafting ? <input type="hidden" name="draft" value="1" /> : null}
-        {notice ? (
-          <p className="notice" role="status">
-            {notice}
-          </p>
-        ) : null}
+        {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
         {editable ? (
           <>
             <p className="hint">
@@ -268,23 +267,27 @@ export function RequestDates({
               </p>
             ) : null}
             {clashState.state === "connect" ? (
-              <p className={clashState.revoked ? "field-error" : "hint"}>
-                {clashState.revoked
-                  ? "Google Calendar access was removed, so clashes can't be shown. "
-                  : null}
-                <a href={clashState.connectUrl} className="back-link">
-                  {clashState.revoked
-                    ? "Reconnect Google Calendar"
-                    : "See clashes from your Google Calendar"}
-                </a>
-              </p>
+              clashState.revoked ? (
+                <Notice tone="problem">
+                  Google Calendar access was removed, so clashes can&apos;t be shown.{" "}
+                  <a href={clashState.connectUrl} className="back-link">
+                    Reconnect Google Calendar
+                  </a>
+                </Notice>
+              ) : (
+                <p className="hint">
+                  <a href={clashState.connectUrl} className="back-link">
+                    See clashes from your Google Calendar
+                  </a>
+                </p>
+              )
             ) : null}
             {clashState.state === "error" ? (
-              <p className="field-error" role="alert">
+              <Notice tone="warning">
                 {drafting && !result
                   ? "Couldn't read your Google Calendar right now, so every date is ticked; check them before sending."
                   : "Couldn't read your Google Calendar right now; nothing is greyed."}
-              </p>
+              </Notice>
             ) : null}
           </>
         ) : null}
