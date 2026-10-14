@@ -5406,3 +5406,104 @@ Planned work:
 - Every failure the person meets uses that scale: Google sign-in and consent notices that report a failure, and the out-of-date link notice, show as problems, not neutral information; a failed save shows in one consistent place on every page.
 - The hand-written colours become tokens: the dark-mode red surface and its text (used in three places) and the dialog backdrop.
 - The error-state catalogue's pictures whose look changes are regenerated; tests and the catalogue's coverage check pass.
+
+## 2026-10-13 19:24 — END
+Phase 38 — One look for failures: the colour rules match the product, and every failure shows the same way
+
+Phase 38 is accepted on its gates. The design rules now say what colour means: red for deleting and for anything that didn't work, yellow for done but not fully, amber for who isn't free, green for saved, and indigo for the next action, settled things and the page progress bar; Delete stays red. Every notice now has a tone: a Google sign-in or consent that didn't work, an out-of-date link, an account already taken and Google access that was removed read as problems, in the same red text and border as a refused change and announced as alerts; partial Google grants and "couldn't read your calendar or contacts right now" read as yellow warnings; the rest stay neutral. As you ruled, every failed save now floats at the bottom with the toasts, with Retry, including the request page's date ticks and preferred number; if the card would cover what you just tapped, the page makes room and scrolls it clear. The hand-written colours are now tokens with the same values. 70 of the error-state catalogue's 157 states are retaken. How it looks is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 7c17a45da4154f169d429428316d6134
+
+Files changed:
+- project/PRODUCT.md, project/DESIGN.md — the colour scale, the tokens and a Feedback entry
+- project/app/lib/notices.ts — a tone for every notice; notices shown with their most severe tone
+- project/app/components/notice.tsx (new) — the one way a notice renders
+- project/app/root.tsx, routes/group.tsx, home.tsx, schedule.tsx, members.add.tsx, request.tsx, requests.new.tsx, components/request-dates.tsx — notices and Google failure lines by tone; the new-request refusal as the red alert
+- project/app/components/failure-alert.tsx, elsewhere-form.tsx — every failed save floats; the focused control scrolled clear
+- project/app/app.css, components/ui/button.tsx — tokens for the red surface, its hover and text, and the backdrop; notice tones; flat notices in panels; room below the page while a failure shows
+- project/scripts/error-catalogue/run.ts — logs toast, notice and failure looks per state
+- project/error-catalogue/ — 70 states retaken
+- project/tests/notices.test.ts (new); add-members, auth, error-states (and its inventory), look and request-dates tests updated
+
+Build status:
+- smoke.local: OK
+- browser.failures: OK — headless Chrome on the built app at 390 and 1280 px, light and dark, 26/26: problem and warning notices match the refusal alert and the yellow toast at 4.5:1 or better; the red surfaces and backdrop equal the pre-phase colours; offline, failed date ticks (two) and a failed preferred-number save float as one alert with Retry, the focused control clear of it, and Retry saves
+- ci.check: OK — CI run 38500212584, check success for commit 31f460c (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 806/806, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic; configured astra unavailable, configured alternative opus)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 258.1 s; first event 0.59 s; longest idle 51.8 s; success
+- Critic (code review): 256.4 s; first event 0.83 s; longest idle 51.6 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 3378.962 s; intelligence 514.485 s; gates 203.577 s; wait 513.178 s; orchestration 3378.269 s; unattributed 0.693 s; failed work 0; retry 0
+- Awaiting user input: none recorded for phase 38 (phase-summary: no intervals)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=c843632ad43285887309183fac1ed1ef4ec7aa7e23db3704fe54068495d3ba95 final=58ab50fdf93a916a931a7c8780a9dbe3c96dbbecd49289c09e70d96891f280ba (corrected after critique)
+- Findings: plan review 12 (all adopted); code critique 9 (all adopted; CODE-F009 in part — roles on information notices left as they are)
+- Plan deviations: recorded (gravest and ShownNotice; Notice with children; both R12 remedies; floating option removed; flat notices in panels; the catalogue's selection)
+- Gates: 4 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The catalogue was retaken three times as the look settled (after the scroll fix and after critique); selection by the logged look kept each retake to 70 of 157 states.
+- The browser gate caught a real overlap (the card over a focused date) and, after critique, confirmed a second-date bug on the old code before its fix.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): every notice's tone and its class and role where it shows (tests); failures float with Retry and the focused control stays clear (browser gate); token colours unchanged (browser gate, look tests); the catalogue's coverage check.
+- Parked for you: whether every failure looks like a failure, in the same colours and place, on your phone (the User Demo below).
+
+Delivery:
+- default — commit and delivery through pull request 36, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — Phases 39–40 don't refer to anything this phase changed
+
+Lessons:
+- none new this phase (a scripted click doesn't move focus, which the gate now does explicitly; recorded in the gate)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=44); reviewer/claude opus — hard 1800 s, idle 600 s (n=41); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** Open the site:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. Open the error-state catalogue on GitHub and compare a failed save, a Google sign-in failure and an out-of-date link.
+    2. On your phone, open a link to a deleted proposed time.
+  - **What to look for.**
+    - Every failure looks like a failure, in the same colours and place.
+    - Nothing reads as neutral information when something went wrong.
+  - **Variations to explore.** Phone and laptop; light and dark mode.
+
+Remaining:
+- The parked User Demo; next: Phase 39 — A calmer schedule (with the calendar of proposed rehearsals and Yes to all).
+
+## 2026-10-13 19:24 — NOTE
+Phase 38 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 38 ✅ and Phase 39 ⬅️ (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: none new this phase. ./bin/lessons validate OK.
