@@ -896,11 +896,17 @@ function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: s
             answered: next.counts.yes + next.counts.no + next.counts.maybe,
           }}
         />
+      ) : popupDate ? (
+        // In a date's popup the heading says the date (plan/phase-41.md).
+        <p className="slot-summary">
+          {timeRange(item.startMinute, item.endMinute)}
+          {item.location ? ` · ${item.location}` : ""}
+        </p>
       ) : (
         <p className="slot-summary">{item.summary}</p>
       )}
       {/* The payoff already says where; other cards say it here. */}
-      {item.location && !payoff ? <p className="hint">At {item.location}</p> : null}
+      {item.location && !payoff && !popupDate ? <p className="hint">At {item.location}</p> : null}
       {item.notes ? <p className="notes">{item.notes}</p> : null}
       {/* A confirmed card says where it came from; a proposed one's list or date says enough. */}
       {item.status === "confirmed" && item.requestName ? (
@@ -908,7 +914,10 @@ function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: s
       ) : null}
       {/* The viewer's own answer, which saves on each tap (plan/phase-20.md). */}
       <div className="your-answer" role="group" aria-labelledby={`answer-${item.id}`}>
-        <p className="area-label" id={`answer-${item.id}`}>
+        <p
+          className={popupDate ? "area-label visually-hidden" : "area-label"}
+          id={`answer-${item.id}`}
+        >
           Your answer
         </p>
         {next ? (
@@ -917,6 +926,7 @@ function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: s
             summary={item.summary}
             date={next}
             popupDate={popupDate}
+            compact={popupDate !== undefined}
             // A member answering a proposal needs only the question (plan/phase-39.md).
             tally={item.status === "confirmed" || organizer !== null}
           />
@@ -926,8 +936,15 @@ function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: s
       </div>
       {/* Changes for the whole group, apart from the viewer's own answer. */}
       {organizer ? (
-        <div className="organizer-controls" role="group" aria-labelledby={`organize-${item.id}`}>
-          <p className="area-label" id={`organize-${item.id}`}>
+        <div
+          className={popupDate ? "organizer-controls compact" : "organizer-controls"}
+          role="group"
+          aria-labelledby={`organize-${item.id}`}
+        >
+          <p
+            className={popupDate ? "area-label visually-hidden" : "area-label"}
+            id={`organize-${item.id}`}
+          >
             For organizers
           </p>
           {item.status === "proposed" ? (
@@ -945,7 +962,7 @@ function RehearsalCard({ item, popupDate }: { item: RehearsalItem; popupDate?: s
             <div className="warnings" role="status" aria-label="Who isn't free">
               <ul>
                 {organizer.missing.map((summary) => (
-                  <li key={summary.dates[0]}>{missingSentence(summary)}</li>
+                  <li key={summary.dates[0]}>{missingSentence(summary, popupDate)}</li>
                 ))}
               </ul>
             </div>
@@ -1061,12 +1078,15 @@ function RsvpRow({
   summary,
   date,
   popupDate,
+  compact = false,
   tally,
 }: {
   rehearsalId: string;
   summary: string;
   date: DateItem;
   popupDate?: string;
+  /** In a date's popup: who answered on one line, Clear at its end (plan/phase-41.md). */
+  compact?: boolean;
   /** Show who answered what; only once someone has (plan/phase-39.md). */
   tally: boolean;
 }) {
@@ -1082,6 +1102,45 @@ function RsvpRow({
             names.none && names.none.length > 0 ? [`No answer: ${names.none.join(", ")}`] : [],
           )
       : [];
+  // Clear holds its place before there is an answer to clear, hidden and out
+  // of reach, so the first answer moves nothing (plan/phase-33.md).
+  const clear = (
+    <span className={date.mine ? "rsvp-clear" : "rsvp-clear invisible"} inert={!date.mine}>
+      <SubmitButton
+        feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
+        name="answer"
+        value="clear"
+        variant="outline"
+        size="sm"
+        label={`Clear my answer for ${subject}`}
+      >
+        Clear
+      </SubmitButton>
+    </span>
+  );
+  const answers = (
+    <AnswerButtons
+      label={subject}
+      current={date.mine}
+      feedbackPrefix={`rsvp-${rehearsalId}-${date.date}`}
+    />
+  );
+  if (compact) {
+    return (
+      <div className="rsvp compact">
+        <Form method="post" replace preventScrollReset className="rsvp-form">
+          <input type="hidden" name="intent" value="rsvp" />
+          <input type="hidden" name="rehearsalId" value={rehearsalId} />
+          <PopupField date={popupDate} />
+          {answers}
+          <div className="rsvp-foot">
+            <p className="hint rsvp-names">{lines.join(" · ")}</p>
+            {clear}
+          </div>
+        </Form>
+      </div>
+    );
+  }
   return (
     <div className="rsvp">
       <Form method="post" replace preventScrollReset className="rsvp-form">
@@ -1093,27 +1152,9 @@ function RsvpRow({
           <p className="rsvp-heading hint">
             {tally && anyone ? `${counts.yes} yes · ${counts.no} no · ${counts.maybe} maybe` : ""}
           </p>
-          {/* Clear holds its place beside the counts before there is an answer
-              to clear, hidden and out of reach, so the first answer moves
-              nothing (plan/phase-33.md). */}
-          <span className={date.mine ? "rsvp-clear" : "rsvp-clear invisible"} inert={!date.mine}>
-            <SubmitButton
-              feedbackKey={`rsvp-${rehearsalId}-${date.date}-clear`}
-              name="answer"
-              value="clear"
-              variant="outline"
-              size="sm"
-              label={`Clear my answer for ${subject}`}
-            >
-              Clear
-            </SubmitButton>
-          </span>
+          {clear}
         </div>
-        <AnswerButtons
-          label={subject}
-          current={date.mine}
-          feedbackPrefix={`rsvp-${rehearsalId}-${date.date}`}
-        />
+        {answers}
       </Form>
       {lines.map((line) => (
         <p key={line} className="hint rsvp-names">

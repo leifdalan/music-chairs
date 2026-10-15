@@ -61,6 +61,7 @@ import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/request";
 import { Notice } from "~/components/notice";
+import { useDismissOutside } from "~/lib/dismiss";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `${loaderData.name} · ${loaderData.groupName}` : "Not found");
@@ -1065,8 +1066,10 @@ function RequestMenu({ children }: { children: ReactNode }) {
     const details = menu.current;
     if (!details?.open) return;
     details.open = false;
-    if (focusInside.current) details.querySelector("summary")?.focus();
+    if (focusInside.current) details.querySelector("summary")?.focus({ preventScroll: true });
   }, [location.key]);
+  // A tap outside closes it too (plan/phase-41.md).
+  useDismissOutside(menu);
   return (
     <details
       className="request-menu"

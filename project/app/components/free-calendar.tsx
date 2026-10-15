@@ -1,10 +1,9 @@
 import { useRef, type ReactNode } from "react";
 
-import { buttonVariants } from "~/components/ui/button";
 import { formatDate, timeRange } from "~/lib/availability";
 import { monthGrid, WEEKDAY_INITIALS } from "~/lib/calendar-grid";
 import { heatLevel } from "~/lib/heat";
-import { useHydrated } from "~/lib/use-hydrated";
+import { useDismissOutside } from "~/lib/dismiss";
 
 /**
  * The one name every calendar date's disclosure shares, so one popup is open
@@ -42,7 +41,6 @@ export function FreeCalendar<S extends { startMinute: number; endMinute: number 
   /** The tick box for a date's only free time; `heat` is how many are free, in words. */
   tickOne?: (date: string, stretch: S, heat: string) => ReactNode;
 }) {
-  const hydrated = useHydrated();
   const byDate = new Map(days.map((day) => [day.date, day]));
   return (
     <div className="free-calendar">
@@ -104,7 +102,6 @@ export function FreeCalendar<S extends { startMinute: number; endMinute: number 
                     free={free}
                     total={total}
                     stretches={stretches}
-                    hydrated={hydrated}
                     renderStretch={renderStretch}
                   />
                 );
@@ -129,7 +126,6 @@ function DateDetails<S extends { startMinute: number; endMinute: number }>({
   free,
   total,
   stretches,
-  hydrated,
   renderStretch,
 }: {
   date: string;
@@ -138,15 +134,15 @@ function DateDetails<S extends { startMinute: number; endMinute: number }>({
   free: number;
   total: number;
   stretches: S[];
-  hydrated: boolean;
   renderStretch: (date: string, stretch: S) => ReactNode;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
-  // Closing hides the focused Done button, so focus goes back to the date.
+  // A tap outside closes it, as Escape does (plan/phase-41.md); no Done button.
+  useDismissOutside(details);
   const close = () => {
     if (!details.current) return;
     details.current.open = false;
-    details.current.querySelector("summary")?.focus();
+    details.current.querySelector("summary")?.focus({ preventScroll: true });
   };
   return (
     <details className={`day free-day heat-${level}`} name={DATE_POPUP} ref={details}>
@@ -164,11 +160,6 @@ function DateDetails<S extends { startMinute: number; endMinute: number }>({
       >
         <h4>{formatDate(date)}</h4>
         <ul className="stretches">{stretches.map((stretch) => renderStretch(date, stretch))}</ul>
-        {hydrated ? (
-          <button type="button" className={buttonVariants({ variant: "outline" })} onClick={close}>
-            Done
-          </button>
-        ) : null}
       </div>
     </details>
   );

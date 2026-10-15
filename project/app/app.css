@@ -1235,6 +1235,48 @@
     @apply grid grid-cols-3 gap-1.5;
   }
 
+  /* A date's popup is compact on a phone (plan/phase-41.md): who answered on
+     one line with Clear at its end, tighter spacing, no area labels. */
+  .rsvp-foot {
+    @apply mt-1 flex items-center justify-between gap-2;
+  }
+
+  .day-panel .rehearsal {
+    @apply py-2;
+  }
+
+  .day-panel .rehearsal:last-child {
+    @apply border-b-0;
+  }
+
+  .day-panel .slot-summary {
+    @apply mb-1;
+  }
+
+  .day-panel .notes {
+    @apply mt-0 mb-1;
+  }
+
+  .rsvp.compact {
+    @apply mb-0 border-t-0 py-1;
+  }
+
+  .rsvp.compact .rsvp-names {
+    @apply m-0 min-w-0;
+  }
+
+  .organizer-controls.compact {
+    @apply mt-2 gap-1.5 pt-2;
+  }
+
+  .organizer-controls.compact .hint {
+    @apply m-0;
+  }
+
+  .organizer-controls.compact .warnings {
+    @apply mb-0 py-1;
+  }
+
   .rsvp-names {
     @apply mt-1 mb-0 text-sm;
   }

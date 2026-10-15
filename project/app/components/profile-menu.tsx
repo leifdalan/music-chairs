@@ -12,12 +12,14 @@ import { ConfirmForm } from "./confirm-form";
 import { ElsewhereForm } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
 import { BrandText } from "./brand";
+import { useDismissOutside } from "~/lib/dismiss";
 
 /**
  * The viewer's own menu in the header's top-right corner (plan/phase-12.md):
  * their Gravatar over their initials, and a panel with their name and
  * instrumentation in this group, the Gravatar link, and signing in or out. A
- * plain disclosure, so it opens without JavaScript; it closes on navigation.
+ * plain disclosure, so it opens without JavaScript; it closes on navigation
+ * and on a tap outside it (plan/phase-41.md).
  */
 export function ProfileMenu() {
   const root = useRouteLoaderData("root") as { profile?: HeaderProfile } | undefined;
@@ -26,6 +28,7 @@ export function ProfileMenu() {
   useEffect(() => {
     if (menu.current) menu.current.open = false;
   }, [location.key]);
+  useDismissOutside(menu);
   const profile = root?.profile;
   // Error pages may have no root data; the header then shows no menu.
   if (!profile) return null;

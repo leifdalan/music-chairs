@@ -121,7 +121,7 @@ describe("the schedule card", () => {
 
     expect(organizer.match(/role="status"/g)).toHaveLength(1);
     expect(organizer).toContain(
-      '<div class="warnings" role="status" aria-label="Who isn&#x27;t free"><ul><li>Pianist isn&#x27;t free on Thu 15 Oct.</li></ul></div>',
+      '<div class="warnings" role="status" aria-label="Who isn&#x27;t free"><ul><li>Pianist isn&#x27;t free that day.</li></ul></div>',
     );
     expect(organizer).not.toContain("aren&#x27;t checked yet");
   });

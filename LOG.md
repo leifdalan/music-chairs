@@ -5749,3 +5749,15 @@ Phase 41 planned from the operator's feedback
 - The operator reported that the proposed date's popup says the date twice on a phone, that the organizer's version is too tall, and asked to drop "Done", close it as soon as they answer, and have every dialogue go away on a click away.
 - Rulings (recommended options): the popup closes after answering and on a tap outside; a date with two proposals closes once both are answered; its own small phase now, before the paused next focus (the heat map's booked dates and the second audit's accessibility gaps).
 - plan/phase-41.md and its plan/INDEX.md row (⬅️) added.
+
+## 2026-10-15 07:12 — START
+Phase 41 — Popups that get out of the way: a compact date popup that closes on answering, and every popup closing on a tap outside
+
+Execution trace: 136ee3a86e3543af91426e9987579e78
+
+Planned work:
+- A proposed date's popup on the schedule says the date once (its heading), and each rehearsal in it shows only what differs: the time, the place, the notes and the answers.
+- The organizer's version of that popup is compact enough for a phone: its facts, the answers and its controls (Confirm for everyone, More) take noticeably less height, with nothing an organizer needs removed.
+- Tapping Yes, No or Maybe in a date's popup saves the answer and closes the popup (the date's mark shows the new answer); a date with two proposals closes once both are answered. The Done button goes.
+- Every popup, menu and dialog goes away on a tap or click outside it: the schedule's and the request page's date popups (proposed rehearsals and who is free), the profile menu, the request page's Options menu, and the confirm dialogs. Without JavaScript they still close the way they do today.
+- Tests cover the single date, closing on answer and closing on click-away; the browser gate measures the organizer's popup height on a phone before and after, and checks closing on answer and on click-away at phone and laptop widths.

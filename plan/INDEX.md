@@ -114,7 +114,7 @@ Status legend: ⏳ Not Started · ⬅️ Next (at most one) · 🚧 In Progress 
 | [Phase 38](phase-38.md) | One look for failures: the colour rules match the product, and every failure shows the same way | ✅     |
 | [Phase 39](phase-39.md) | A calmer schedule: proposed rehearsals that ask one thing, and confirming kept apart from deleting | ✅     |
 | [Phase 40](phase-40.md) | Accessible and finished: the audit's fixes, the smaller observations, and a second critique and audit | ✅     |
-| [Phase 41](phase-41.md) | Popups that get out of the way: a compact date popup that closes on answering, and every popup closing on a tap outside | ⬅️     |
+| [Phase 41](phase-41.md) | Popups that get out of the way: a compact date popup that closes on answering, and every popup closing on a tap outside | 🚧     |
 
 `kickoff` flips `⬅️` → `🚧` on start, `🚧` → `✅` on completion, and advances the next `⏳` row to `⬅️` per this dependency graph. Status does not live in per-phase frontmatter.
 

@@ -1,9 +1,16 @@
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { useActionData, useNavigation } from "react-router";
 
-import { buttonVariants } from "~/components/ui/button";
 import { formatDate } from "~/lib/availability";
 import { monthGrid, WEEKDAY_INITIALS } from "~/lib/calendar-grid";
-import { useHydrated } from "~/lib/use-hydrated";
+import { useDismissOutside } from "~/lib/dismiss";
 
 import { DATE_POPUP } from "./free-calendar";
 
@@ -31,6 +38,29 @@ export function dateMark(items: { mine: Answer | null }[]): { shown: string; spo
   return { shown: "✓", spoken: `${count}, all answered` };
 }
 
+/** An answer sent from a date's popup. */
+export type SentAnswer = { rehearsalId: string; answer: string };
+
+/**
+ * Whether answering closes the date's popup (plan/phase-41.md): a Yes, No or
+ * Maybe (not Clear) from this popup, saved (no refusal or failure), showing
+ * now as the viewer's answer, with every rehearsal on the date answered.
+ */
+export function closesAfterAnswer({
+  sent,
+  result,
+  after,
+}: {
+  sent: SentAnswer | null;
+  /** The page's action data: a refusal carries `problem`, a failed save `failure`. */
+  result: object | undefined;
+  after: { id: string; mine: Answer | null }[];
+}): boolean {
+  if (!sent || (result && ("problem" in result || "failure" in result))) return false;
+  if (after.find((item) => item.id === sent.rehearsalId)?.mine !== sent.answer) return false;
+  return after.every((item) => item.mine !== null);
+}
+
 /**
  * The proposed rehearsals as a calendar (plan/phase-39.md): each date with
  * one opens a popup with its rehearsals' cards, where people answer. `openOn`
@@ -48,7 +78,6 @@ export function ProposedCalendar<R extends CalendarRehearsal>({
   /** One rehearsal's card in its date's popup, as an `<li>`. */
   renderCard: (item: R) => ReactNode;
 }) {
-  const hydrated = useHydrated();
   const [initial] = useState(openOn);
   const byDate = new Map<string, R[]>();
   for (const item of items) byDate.set(item.date, [...(byDate.get(item.date) ?? []), item]);
@@ -88,7 +117,6 @@ export function ProposedCalendar<R extends CalendarRehearsal>({
                     day={day}
                     items={onDate}
                     open={initial === date}
-                    hydrated={hydrated}
                     renderCard={renderCard}
                   />
                 );
@@ -106,24 +134,43 @@ function ProposedDate<R extends CalendarRehearsal>({
   day,
   items,
   open,
-  hydrated,
   renderCard,
 }: {
   date: string;
   day: number;
   items: R[];
   open: boolean;
-  hydrated: boolean;
   renderCard: (item: R) => ReactNode;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
   const mark = dateMark(items);
-  // Closing hides the focused Done button, so focus goes back to the date.
+  // A tap outside closes it, as Escape does; no Done button (plan/phase-41.md).
+  useDismissOutside(details);
   const close = () => {
     if (!details.current) return;
     details.current.open = false;
-    details.current.querySelector("summary")?.focus();
+    details.current.querySelector("summary")?.focus({ preventScroll: true });
   };
+  // Answering closes it once the date is answered and the save went through.
+  const sent = useRef<SentAnswer | null>(null);
+  const navigation = useNavigation();
+  const result = useActionData() as object | undefined;
+  const onSubmit = (event: FormEvent<HTMLDivElement>) => {
+    const form = event.target as HTMLFormElement;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const data = new FormData(form);
+    sent.current =
+      data.get("intent") === "rsvp" && submitter?.name === "answer"
+        ? { rehearsalId: String(data.get("rehearsalId")), answer: submitter.value }
+        : null;
+  };
+  useEffect(() => {
+    if (navigation.state !== "idle" || !sent.current) return;
+    const answer = sent.current;
+    sent.current = null;
+    // Only a popup still open closes, so focus never leaves one opened since.
+    if (details.current?.open && closesAfterAnswer({ sent: answer, result, after: items })) close();
+  }, [navigation.state, items, result]);
   // Escape closes the popup, but not from a dialog or a field inside it.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape") return;
@@ -144,14 +191,9 @@ function ProposedDate<R extends CalendarRehearsal>({
           {mark.shown}
         </span>
       </summary>
-      <div className="day-panel" onKeyDown={onKeyDown}>
+      <div className="day-panel" onKeyDown={onKeyDown} onSubmitCapture={onSubmit}>
         <h4 tabIndex={-1}>{formatDate(date)}</h4>
         <ul className="rehearsals">{items.map((item) => renderCard(item))}</ul>
-        {hydrated ? (
-          <button type="button" className={buttonVariants({ variant: "outline" })} onClick={close}>
-            Done
-          </button>
-        ) : null}
       </div>
     </details>
   );
