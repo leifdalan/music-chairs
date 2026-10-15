@@ -184,6 +184,18 @@ export const INVENTORY: Call[] = [
       },
     ],
   },
+  {
+    // The header's picture, served from the site (plan/phase-40.md).
+    key: "routes/avatar GET",
+    outcomes: [
+      {
+        id: "no-picture",
+        when: "The header asks for a picture with no Google email behind it, or Gravatar doesn't answer",
+        sees: "Nobody: a transparent image, so the initials show",
+        probe: { as: "visitor", path: "/avatar?v=0", expect: { status: 200 } },
+      },
+    ],
+  },
   { key: "routes/groups GET", outcomes: [PAGE_UNREACHABLE] },
   {
     key: "routes/group GET",

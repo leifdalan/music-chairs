@@ -29,6 +29,7 @@ import type { Route } from "./+types/join";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
 import { rehearsalHref } from "~/lib/rehearsal-href";
+import { BrandText } from "~/components/brand";
 
 /**
  * The group an invite link names by its code (plan/phase-30.md), whatever name
@@ -275,7 +276,11 @@ export default function Join({ loaderData, actionData }: Route.ComponentProps) {
           </a>
         </p>
       ) : null}
-      {loaderData.signInUrl ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
+      {loaderData.signInUrl ? (
+        <p className="hint">
+          <BrandText text={CALENDAR_ACCESS_HINT} />
+        </p>
+      ) : null}
       {choices ? (
         <section aria-labelledby="choices-heading">
           <h2 id="choices-heading">Which one are you?</h2>

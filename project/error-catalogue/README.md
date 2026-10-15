@@ -18,6 +18,16 @@ corepack pnpm run catalogue --only "routes/request POST set-date browser-failure
 
 ## Page loads
 
+### routes/avatar GET · no-picture
+
+- **When:** The header asks for a picture with no Google email behind it, or Gravatar doesn't answer
+- **You see:** Nobody: a transparent image, so the initials show
+- **Proved by:** the probe replayed in tests/error-states.test.tsx (answers every probe as the inventory says)
+
+<img src="images/routes-avatar-get--no-picture--phone-light.webp" width="195" alt="no-picture, phone, light"> <img src="images/routes-avatar-get--no-picture--phone-dark.webp" width="195" alt="no-picture, phone, dark">
+
+Desktop: [light](images/routes-avatar-get--no-picture--desktop-light.webp) · [dark](images/routes-avatar-get--no-picture--desktop-dark.webp)
+
 ### routes/calendar-feed GET · unknown-feed
 
 - **When:** A calendar app asks for a feed that no longer exists (member removed)

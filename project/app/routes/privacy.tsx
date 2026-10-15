@@ -1,7 +1,9 @@
 import { Link } from "react-router";
 
 import { GOOGLE_USER_DATA_POLICY, LIMITED_USE, POLICY } from "~/lib/privacy";
-import { pageMeta, siteName } from "~/lib/site";
+import { pageMeta } from "~/lib/site";
+import { Brand } from "~/components/brand";
+import { BrandText } from "~/components/brand";
 
 export function meta() {
   return pageMeta("Privacy policy");
@@ -17,11 +19,14 @@ export default function Privacy() {
       <h1>Privacy policy</h1>
       <p className="hint">Last updated {POLICY.updated}.</p>
 
-      <h2>Who runs {siteName}</h2>
+      <h2>
+        Who runs <Brand />
+      </h2>
       <p>
-        {POLICY.operator} It helps small music ensembles collect when members are free, find
-        rehearsal times that suit everyone, and confirm who is coming. Questions, and requests to
-        see or delete your data, go to <a href={`mailto:${POLICY.contact}`}>{POLICY.contact}</a>.
+        <BrandText text={POLICY.operator} /> It helps small music ensembles collect when members are
+        free, find rehearsal times that suit everyone, and confirm who is coming. Questions, and
+        requests to see or delete your data, go to{" "}
+        <a href={`mailto:${POLICY.contact}`}>{POLICY.contact}</a>.
       </p>
 
       <h2>What we collect</h2>
@@ -38,11 +43,11 @@ export default function Privacy() {
         <li>
           If you sign in with Google: your Google account&apos;s identifier, name, email address and
           whether Google has verified that address, the Google permissions you granted, and a token
-          that lets {siteName} use them while you are away (for example to keep your calendar up to
+          that lets <Brand /> use them while you are away (for example to keep your calendar up to
           date).
         </li>
         <li>
-          If you let {siteName} add rehearsals to your Google Calendar: the ids of the events it
+          If you let <Brand /> add rehearsals to your Google Calendar: the ids of the events it
           added, so it can update or remove them later.
         </li>
         <li>
@@ -58,7 +63,7 @@ export default function Privacy() {
 
       <h2>The Google permissions we ask for</h2>
       <p>
-        Signing in with Google is optional; you can use {siteName} with just a name. When you sign
+        Signing in with Google is optional; you can use <Brand /> with just a name. When you sign
         in, Google shows you what we ask for and you can untick the Calendar permissions. Contacts
         are asked for only when an organizer chooses to use them.
       </p>
@@ -76,7 +81,9 @@ export default function Privacy() {
                 {row.name}
                 <code>{row.scope}</code>
               </td>
-              <td>{row.purpose}</td>
+              <td>
+                <BrandText text={row.purpose} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -90,11 +97,12 @@ export default function Privacy() {
 
       <h2>How we use it</h2>
       <p>
-        Only to run {siteName}&apos;s features for you and your groups. We never sell your data,
-        never use it for advertising, and never use it to train AI models.
+        Only to run <Brand />
+        &apos;s features for you and your groups. We never sell your data, never use it for
+        advertising, and never use it to train AI models.
       </p>
       <p>
-        {LIMITED_USE} You can read that policy at{" "}
+        <BrandText text={LIMITED_USE} /> You can read that policy at{" "}
         <a href={GOOGLE_USER_DATA_POLICY}>developers.google.com</a>.
       </p>
 
@@ -106,8 +114,10 @@ export default function Privacy() {
         </li>
         <li>Google, for the Google features you choose to use.</li>
         <li>
-          Gravatar (gravatar.com): to show your picture in the top-right corner, your browser sends
-          Gravatar a hash of your Google email address. Only you see your own picture there.
+          Gravatar (gravatar.com): to show your picture in the top-right corner, our server sends
+          Gravatar a hash of your Google email address and shows you the picture itself, so your
+          browser never contacts Gravatar and Gravatar doesn&apos;t see your IP address. Only you
+          see your own picture there.
         </li>
       </ul>
       <p>Nobody else receives your data.</p>
@@ -148,7 +158,7 @@ export default function Privacy() {
       <ul>
         <li>
           Group data stays until an organizer removes the member or deletes the group; removing a
-          member deletes their availability, answers and the calendar events {siteName} added.
+          member deletes their availability, answers and the calendar events <Brand /> added.
         </li>
         <li>
           Your Google account record (name, email address, verified flag) stays until you ask us to
@@ -156,8 +166,8 @@ export default function Privacy() {
         </li>
         <li>
           The Google permission and its token stay until you use <strong>Disconnect Google</strong>.
-          If you remove {siteName} in your Google account instead, or Google stops accepting the
-          token, they stay until {siteName} next tries to use them.
+          If you remove <Brand /> in your Google account instead, or Google stops accepting the
+          token, they stay until <Brand /> next tries to use them.
         </li>
         <li>
           A sign-in ends 90 days after you last used it. Cookies last up to 400 days in your
@@ -175,11 +185,11 @@ export default function Privacy() {
         <li>Organizers can remove a member or delete a whole group from the group page.</li>
         <li>
           <strong>Disconnect Google</strong>, in the menu behind your picture, stops adding
-          rehearsals to your calendar, removes the upcoming ones {siteName} added, and withdraws its
+          rehearsals to your calendar, removes the upcoming ones <Brand /> added, and withdraws its
           Google permissions. You stay in your groups.
         </li>
         <li>
-          You can also remove {siteName} in your Google account: myaccount.google.com → Security →
+          You can also remove <Brand /> in your Google account: myaccount.google.com → Security →
           Your connections to third-party apps &amp; services.
         </li>
         <li>
@@ -195,7 +205,7 @@ export default function Privacy() {
       </p>
       <p>
         <Link to="/" className="back-link">
-          Back to {siteName}
+          Back to <Brand />
         </Link>
       </p>
     </main>

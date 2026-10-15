@@ -103,7 +103,9 @@ describe("time range", () => {
     expect(html).toMatch(/^<div class="time-bar" aria-hidden="true">/);
     expect(html).not.toContain("<button");
     expect(html).not.toContain("tabindex");
-    const labels = [...html.matchAll(/<span style="left:[^"]*">(\d+)<\/span>/g)].map((m) => m[1]);
+    const labels = [
+      ...html.matchAll(/<span (?:class="minor-hour" )?style="left:[^"]*">(\d+)<\/span>/g),
+    ].map((m) => m[1]);
     expect(labels).toEqual([
       "9",
       "10",
@@ -166,5 +168,24 @@ describe("time range", () => {
 
   it("merges extra times into the options once, in order", () => {
     expect(timeOptions([540, 600], [null, 495, 600, 1335])).toEqual([495, 540, 600, 1335]);
+  });
+});
+
+describe("the hour bar's labels on a narrow screen (plan/phase-40.md)", () => {
+  it("keep every third hour, noon and midnight included; the rest are minor", () => {
+    const html = renderToString(
+      <TimeBar
+        shown={{ anchor: null, range: null }}
+        onTap={noop}
+        onDrag={noop}
+        onDragEnd={noop}
+        onCancel={noop}
+      />,
+    );
+    const spans = [
+      ...html.matchAll(/<span( class="minor-hour")? style="left:[^"]*">(\d+)<\/span>/g),
+    ];
+    expect(spans.filter((m) => !m[1]).map((m) => m[2])).toEqual(["9", "12", "3", "6", "9", "12"]);
+    expect(spans.filter((m) => m[1])).toHaveLength(10);
   });
 });

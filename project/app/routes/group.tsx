@@ -41,6 +41,7 @@ import { CopyLink } from "~/components/copy-link";
 import type { Route } from "./+types/group";
 import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
+import { BrandText } from "~/components/brand";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? loaderData.groupName : "Not found");
@@ -406,11 +407,21 @@ export default function GroupPage({ loaderData, actionData }: Route.ComponentPro
               to open this group on your other devices.
             </p>
           ) : null}
-          {!viewer.email && signInAvailable ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
+          {!viewer.email && signInAvailable ? (
+            <p className="hint">
+              <BrandText text={CALENDAR_ACCESS_HINT} />
+            </p>
+          ) : null}
+          {/* The group's main destination, full width; indigo stays the
+              organizer's next step (plan/phase-40.md). */}
           <p className="group-links">
-            {/* Not the primary look: nothing here is "selected" (plan/phase-24.md). */}
-            <Link to="schedule" relative="path" className={buttonVariants({ variant: "outline" })}>
-              Schedule
+            <Link
+              to="schedule"
+              relative="path"
+              className={`${buttonVariants({ variant: "outline" })} schedule-link`}
+            >
+              <span className="schedule-link-name">Schedule</span>
+              <span className="schedule-link-hint">Rehearsals, answers and who is free</span>
             </Link>
           </p>
         </>

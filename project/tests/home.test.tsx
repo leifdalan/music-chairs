@@ -79,9 +79,9 @@ describe("home route", () => {
   it("renders the product name, tagline and create-group form without a browser", () => {
     const html = render({ loaderData: { home: zones } });
 
-    expect(html).toContain(
-      '<h1><span class="wordmark">music<span aria-hidden="true">·</span><span class="visually-hidden">-</span>chairs</span></h1>',
-    );
+    // The header shows the wordmark; the title says what this is (plan/phase-40.md).
+    expect(html).toContain("<h1>Find times your ensemble can rehearse</h1>");
+    expect(html).not.toContain('<h1><span class="wordmark">');
     expect(html).toContain("collect availability");
     expect(html).toContain('name="groupName"');
     expect(html).toContain('name="displayName"');

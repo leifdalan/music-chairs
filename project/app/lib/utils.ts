@@ -1,9 +1,9 @@
-// shadcn/ui's class-name helper (plan/phase-19.1.md): joins conditional classes and
-// lets a later Tailwind utility override an earlier one.
+// shadcn/ui's class-name helper (plan/phase-19.1.md): joins conditional
+// classes. Nothing relies on one utility overriding another (plan/phase-40.md):
+// a pressed button's saving and saved looks are `data-state` rules in app.css.
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 
-/** Joins class names, later Tailwind utilities winning over conflicting earlier ones. */
+/** Joins class names. */
 export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
+  return clsx(inputs);
 }

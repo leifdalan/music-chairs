@@ -74,6 +74,8 @@ import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
 import type { ShownNotice } from "~/lib/notices";
 import { Notice } from "~/components/notice";
+import { Brand } from "~/components/brand";
+import { BrandText } from "~/components/brand";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta(loaderData ? `Schedule · ${loaderData.groupName}` : "Not found");
@@ -1146,7 +1148,7 @@ function CalendarPanel({
           {google.failedAt ? (
             <Notice tone="problem">
               Your Google Calendar couldn&apos;t be updated (last tried {google.failedAt}).
-              music-chairs keeps trying every hour.
+              <Brand /> keeps trying every hour.
             </Notice>
           ) : null}
           <ConfirmForm
@@ -1183,7 +1185,11 @@ function CalendarPanel({
           </a>
         </p>
       ) : null}
-      {google?.state === "connect" ? <p className="hint">{CALENDAR_ACCESS_HINT}</p> : null}
+      {google?.state === "connect" ? (
+        <p className="hint">
+          <BrandText text={CALENDAR_ACCESS_HINT} />
+        </p>
+      ) : null}
       {google?.state === "other-account" ? (
         <p className="hint">
           To add rehearsals to your Google Calendar, sign in with Google as this member.

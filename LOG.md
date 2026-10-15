@@ -5624,3 +5624,121 @@ Phase 39 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 39 ✅ and Phase 40 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: strict-lynx recurred (Phase 39 END); ./bin/lessons validate OK.
+
+## 2026-10-14 11:48 — START
+Phase 40 — Accessible and finished: the audit's fixes, the smaller observations, and a second critique and audit
+
+Execution trace: 812ae0afac764538a453be2ece202704
+
+Planned work:
+- Accessibility: error pages have a page title; the header wraps at large text sizes; text fields and outline buttons have borders of at least 3:1; error toasts are announced once (no alert inside a status region); a skip link; information-bearing text in calendars and the hour bar is at least 12 px; organizer calendar dates are at least 44 px wide at 320 px; the error page's links are 44 px tall; the dark-mode heat-map legend describes what it shows.
+- The smaller observations: the brand is written one way and never breaks across lines; no all-caps labels; the group page's Schedule link reads as the main destination; placeholders don't read as filled-in values in dark mode; the signed-out home page doesn't repeat the wordmark as its title; text links stand alone at a comfortable size; tailwind-merge only where needed; the product's "loads nothing from other sites" statement matches what the app does with Gravatar.
+- A second Impeccable critique and audit of the whole site, recorded in `.impeccable/critique/`, compared with 27/40 and 15/20 (2026-10-13).
+
+## 2026-10-14 20:11 — END
+Phase 40 — Accessible and finished: the audit's fixes, the smaller observations, and a second critique and audit
+
+Phase 40 is accepted on its gates. Every error page now has a title; a "Skip to content" link is the first stop for a keyboard; a toast is announced once (errors and other messages sit in separate regions, never one inside the other); at 200% text nothing on home or the group page runs past a 320 px phone screen (the header wraps, buttons wrap, form fields shrink); the edges of fields, outline buttons, More and the time chips are at 3:1 or better in light and dark; no calendar or hour-bar text is under 12 px (on a narrow screen the hour bar labels 9, 12, 3, 6, 9, 12); error-page and standalone links are 44 px tall; and the heat-map legend reads "Fainter / Stronger", true in dark mode. The name is written "music-chairs" everywhere and never breaks across a line, as you ruled during planning (it matches Google's pending verification); only the header logo shows the styled "music·chairs". There are no all-caps labels, the Schedule link on the group page is full width with a line saying what it holds, placeholders are italic, the signed-out home's title is words, and tailwind-merge is gone. As you ruled at the start, your Gravatar picture is fetched by the server and served from the site, so no page loads anything from another site; the privacy page says so. The second Impeccable review scores the design 27/40 (the same total as 2026-10-13, now on new, larger issues — the 2026-10-13 priorities are gone) and the technical audit 18/20 (was 15/20). Whether it reads well with a screen reader and at your largest text size is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 812ae0afac764538a453be2ece202704
+
+Files changed:
+- project/app/root.tsx — error-page titles, the skip link and its content target
+- project/app/components/toast.tsx — two always-mounted live regions
+- project/app/app.css — control-border token, wrapping header, no capitals, 12 px floors, every-third-hour labels, link targets, italic placeholders, the Schedule link, shrinking fields, the saving/saved/unavailable state rules
+- project/app/components/ui/button.tsx, submit-button.tsx, lib/utils.ts, package.json, pnpm-lock.yaml — buttons wrap; state rules instead of class merging; tailwind-merge removed
+- project/app/components/brand.tsx (new) and its uses (root, toast, notice, home, privacy, schedule, group, join, profile menu, calendar actions, confirm form) — the name on one line
+- project/app/components/free-calendar.tsx, time-range.tsx — the legend; hour labels
+- project/app/routes/home.tsx, group.tsx — the signed-out title; the Schedule link
+- project/app/routes/avatar.ts (new), app/.server/gravatar.ts, profile.ts, routes.ts, routes/privacy.tsx, lib/privacy.ts — Gravatar through the site
+- project/scripts/smoke.sh — no Gravatar exception; project/scripts/error-catalogue/states.ts and project/error-catalogue/ — retaken (159 states, one new)
+- project/tests/accessibility.test.tsx, avatar.test.ts (new); tests for the new markup updated
+
+Build status:
+- smoke.local: OK
+- browser.finished: OK — headless Chrome on the built app at 320, 390 and 1280 px, light and dark, 58/58 (its overflow checks compare with the device width; each layout check was shown to fail on broken code)
+- ci.check: OK — CI run 38674293916, check success for commit b2965bb (CHECK ALL PASS)
+- test.changed: OK — changed-path selection against origin/main: Vitest 837/837, pytest 181/181
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Second Impeccable critique and audit (2026-10-15, production build, seeded band, 320/390/1280 px, light and dark; report in .impeccable/critique/2026-10-15T03-01-46Z__app.md):
+- Critique 27/40 (2026-10-13: 27/40). Gone from the priority list: the organizer's missing next step, the request page's order and lost ticks, failures' three looks, dense schedule cards and Confirm beside Delete. New priorities: [P1] the request heat map doesn't mark dates already proposed or confirmed; [P1] the schedule does five jobs; [P2] proposed-rehearsal rows laid out four ways; [P2] "✓ Confirmed — are you coming?" and an empty band under "Your answer".
+- Audit 18/20, Excellent (2026-10-13: 15/20): Accessibility 3, Performance 4, Responsive 4, Theming 4, Implementation Integrity 3. Verified fixed: titles, header at 200%, borders 1.48:1 → 3.84–4.24:1, toast regions, skip link, 12 px text, no foreign requests. New: [P1] duplicate startTime/endTime ids on the organizer's request page leave their own "Your times" selects unnamed; [P2] the date popup covers the focused date (2.4.11); [P2] autoComplete="off" on the person's own name (1.3.5).
+- These findings are recorded for a future phase, not fixed here.
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic; configured astra unavailable, configured alternative opus)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 324.1 s; first event 0.60 s; longest idle 65.9 s; success
+- Critic (code review): 298.3 s; first event 0.88 s; longest idle 40.5 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 30137.038 s (includes long idle wall-clock between sessions); intelligence 622.486 s; gates 311.825 s; wait 621.189 s; orchestration 30136.355 s; unattributed 0.684 s; failed work 0; retry 0
+- Awaiting user input: none recorded as parks for phase 40 (the brand question during planning was answered in session and is not a recorded interval)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=ae9460aebfedadda1e8fb0a7828dbe4c7bd4e4aad7324ad1e1fe6533ec86caa6 final=293f9b5c922d47a29fed96a73fe6ee1a57895102be5378501bd76f6fb5bc0787 (corrected after critique)
+- Findings: plan review 14 (all adopted; F002 resolved by the operator's ruling); code critique 9 (8 adopted, 1 declined: the tailwind-merge bundle check already sits in the gate's shell wrapper)
+- Operator rulings: Gravatar through the site (phase start, recorded in plan/phase-40.md); the text keeps "music-chairs" (during planning, after capture — recorded in plan-2 R2 and here)
+- Plan deviations: recorded (no calendar change — cells already 44 px; BrandText; toast regions without :empty; the avatar inventory entry; buttons wrap and fields shrink, found by the tightened gate)
+- Gates: 4 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The catalogue was retaken in full twice (about 25 minutes each): borders and the name's wrapper show in every picture.
+- The gate's own overflow checks were too weak until a deliberately broken build passed them; tightening them exposed a real 392 px overflow.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): titles, skip link, toast regions, contrast, overflow at 200% text, 12 px text, 44 px targets, the name on one line, no foreign requests, no tailwind-merge (tests and the browser gate); Gravatar's limits (tests).
+- Parked for you: how it reads with a screen reader and at your phone's largest text size (the User Demo below); which of the second review's findings to take on next.
+
+Delivery:
+- default — commit and delivery through pull request 38, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — no planned phase follows
+
+Lessons:
+- new: daffodil-gibbon (a "fits the screen" check must compare with the emulated device width; a mobile viewport grows to fit overflow)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (7), loyal-dinosaur (5) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=46); reviewer/claude opus — hard 1800 s, idle 600 s (n=43); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** Open the site:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On your phone, set the system text size to the largest and open the group page.
+    2. With a screen reader, cause an error (for example clear your name in your profile and Save).
+  - **What to look for.**
+    - Nothing runs off the screen at large text; every field's edge is visible.
+    - The error is read out once, with a page title on error pages.
+  - **Variations to explore.** Phone and laptop; light and dark mode.
+
+Remaining:
+- The parked User Demo; no planned phase follows — the second review's findings await your choice of what comes next.
+
+## 2026-10-14 20:11 — NOTE
+Phase 40 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 40 ✅; no planned phase follows (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: daffodil-gibbon filed (Phase 40 END); ./bin/lessons validate OK.

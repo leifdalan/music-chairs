@@ -8,6 +8,7 @@ import { buttonVariants } from "~/components/ui/button";
 
 import { ElsewhereForm } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
+import { BrandText } from "./brand";
 
 export type GoogleWriteState = "unlinked" | "other-account" | "connect" | "revoked" | "off" | "on";
 
@@ -85,7 +86,11 @@ export function CalendarActions({
           {google === "revoked" ? "Reconnect Google Calendar" : "Connect Google Calendar"}
         </a>
       ) : null}
-      {googleHint ? <p className="hint">{googleHint}</p> : null}
+      {googleHint ? (
+        <p className="hint">
+          <BrandText text={googleHint} />
+        </p>
+      ) : null}
       {google === "on" ? (
         // Writing is on by default now (plan/phase-32.md); stopping it lives on the schedule.
         <a className="back-link" href={`${groupHref}/schedule#calendar-heading`}>

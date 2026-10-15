@@ -42,6 +42,7 @@ import * as signOut from "../app/routes/auth.sign-out";
 import * as feed from "../app/routes/calendar-feed";
 import * as group from "../app/routes/group";
 import * as groups from "../app/routes/groups";
+import * as avatar from "../app/routes/avatar";
 import * as healthz from "../app/routes/healthz";
 import * as home from "../app/routes/home";
 import * as join_ from "../app/routes/join";
@@ -215,6 +216,7 @@ describe("the error-state inventory", () => {
       "routes/group": group,
       "routes/groups": groups,
       "routes/healthz": healthz,
+      "routes/avatar": avatar,
       "routes/home": home,
       "routes/join": join_,
       "routes/members.add": membersAdd,
@@ -804,7 +806,7 @@ describe("error toasts", () => {
         },
       }),
     );
-    expect(html).toContain('class="toast toast-error" role="alert"');
+    expect(html).toContain('<div class="toast-region" role="alert"><div class="toast toast-error"');
   });
 
   it("are green for success, yellow for done but not fully, red for refusals; only red is an alert", () => {
@@ -815,14 +817,19 @@ describe("error toasts", () => {
           hydrationData: { loaderData: { root: { toast: { id: kind, message: "M", kind } } } },
         }),
       );
-    // The always-mounted region announces success and warnings politely.
+    // Two always-mounted regions, never one inside the other (plan/phase-40.md):
+    // success and warnings in the polite status region, errors in the alert one.
+    const STATUS = '<div class="toast-region" role="status" aria-live="polite">';
+    const ALERT = '<div class="toast-region" role="alert">';
     for (const kind of ["success", "warning"] as const) {
       const html = render(kind);
-      expect(html).toContain(`class="toast toast-${kind}"`);
-      expect(html).not.toContain('role="alert"');
-      expect(html).toContain('role="status"');
+      expect(html).toContain(`${STATUS}<div class="toast toast-${kind}"`);
+      expect(html).toContain(`${ALERT}</div>`);
     }
-    expect(render("error")).toContain('class="toast toast-error" role="alert"');
+    const error = render("error");
+    expect(error).toContain(`${STATUS}</div>`);
+    expect(error).toContain(`${ALERT}<div class="toast toast-error"`);
+    expect(error.match(/role="alert"/g)).toHaveLength(1);
     // A warning is not a confirmation: the pressed button doesn't say Saved.
     expect(confirmationId({ id: "w", kind: "warning" })).toBeNull();
   });

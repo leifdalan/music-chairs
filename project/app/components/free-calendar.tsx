@@ -47,8 +47,8 @@ export function FreeCalendar<S extends { startMinute: number; endMinute: number 
   return (
     <div className="free-calendar">
       <p className="hint heat-legend">
-        <span className="heat-swatch heat-1" aria-hidden="true" /> Paler: fewer free ·{" "}
-        <span className="heat-swatch heat-4" aria-hidden="true" /> Deeper: more free. {legend}
+        <span className="heat-swatch heat-1" aria-hidden="true" /> Fainter: fewer free ·{" "}
+        <span className="heat-swatch heat-4" aria-hidden="true" /> Stronger: more free. {legend}
       </p>
       <div className="months">
         {monthGrid(from, to).map((month) => (

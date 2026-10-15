@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { NoticeTone } from "~/lib/notices";
+import { BrandText } from "./brand";
 
 /**
  * A notice on a working page (plan/phase-38.md): neutral information, a
@@ -22,7 +23,7 @@ export function Notice({
       className={`notice notice-${tone}${className ? ` ${className}` : ""}`}
       role={tone === "problem" ? "alert" : "status"}
     >
-      {children}
+      {typeof children === "string" ? <BrandText text={children} /> : children}
     </p>
   );
 }

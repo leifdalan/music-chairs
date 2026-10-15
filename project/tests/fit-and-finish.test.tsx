@@ -103,18 +103,21 @@ describe("the privacy page", () => {
     const html = renderToString(<Stub initialEntries={["/privacy"]} />).replaceAll("<!-- -->", "");
     expect(html).toContain('<table class="policy-scopes">');
     expect(html).not.toMatch(/<br\/><code>/);
-    expect(html).toMatch(/<a class="back-link" href="\/"[^>]*>Back to music-chairs<\/a>/);
+    expect(html).toMatch(
+      /<a class="back-link" href="\/"[^>]*>Back to <span class="brand">music-chairs<\/span><\/a>/,
+    );
   });
 });
 
 describe("standalone links and hints", () => {
   it("give standalone links a 44px tap area and stop hints at a reading width", () => {
     expect(css).toMatch(
-      /\.eyebrow a,\s*\.group-card h2 a,\s*\.site-header > a,\s*\.site-footer a,\s*a\.request-name,\s*\.payoff-link,\s*\.proposed-link,\s*\.back-link,\s*\.cancel \{\s*@apply inline-flex min-h-11 items-center;/,
+      /\.eyebrow a,\s*\.error-links a,\s*\.your-groups a,\s*\.request-group h3 a,\s*\.organizer-controls \.hint a,\s*\.group-card h2 a,\s*\.site-header > a,\s*\.site-footer a,\s*a\.request-name,\s*\.payoff-link,\s*\.proposed-link,\s*\.back-link,\s*\.cancel \{\s*@apply inline-flex min-h-11 items-center;/,
     );
     // Placeholders take the hint colour (4.5:1), not the browser's half-strength text.
     expect(css).toMatch(
-      /input::placeholder,\s*textarea::placeholder \{\s*@apply text-muted-foreground;/,
+      // Italic, so a placeholder never reads as a typed value in dark mode (plan/phase-40.md).
+      /input::placeholder,\s*textarea::placeholder \{\s*@apply text-muted-foreground italic;/,
     );
     expect(css).toMatch(/\.hint \{\s*@apply text-sm;\s*max-width: 70ch;/);
   });
