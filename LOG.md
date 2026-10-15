@@ -5742,3 +5742,10 @@ Phase 40 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 40 ✅; no planned phase follows (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: daffodil-gibbon filed (Phase 40 END); ./bin/lessons validate OK.
+
+## 2026-10-15 07:05 — NOTE
+Phase 41 planned from the operator's feedback
+
+- The operator reported that the proposed date's popup says the date twice on a phone, that the organizer's version is too tall, and asked to drop "Done", close it as soon as they answer, and have every dialogue go away on a click away.
+- Rulings (recommended options): the popup closes after answering and on a tap outside; a date with two proposals closes once both are answered; its own small phase now, before the paused next focus (the heat map's booked dates and the second audit's accessibility gaps).
+- plan/phase-41.md and its plan/INDEX.md row (⬅️) added.
