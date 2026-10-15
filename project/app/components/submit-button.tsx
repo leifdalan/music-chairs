@@ -161,14 +161,9 @@ export function SubmitButton({
       name={name}
       value={value}
       data-variant={variant}
-      className={cn(
-        buttonVariants({ variant, size }),
-        className,
-        // Utilities, so tailwind-merge replaces the variant's own colours.
-        saving && "is-saving cursor-progress opacity-85",
-        saved && "is-saved bg-success text-success-foreground hover:bg-success",
-        unavailable && !saving && !saved && "cursor-not-allowed opacity-50",
-      )}
+      // The saving and saved looks are app.css rules on this state (plan/phase-40.md).
+      data-state={saving ? "saving" : saved ? "saved" : undefined}
+      className={cn(buttonVariants({ variant, size }), className)}
       disabled={busy && !saving}
       aria-disabled={saving || unavailable || undefined}
       aria-describedby={describedBy}

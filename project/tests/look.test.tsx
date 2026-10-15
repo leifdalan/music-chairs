@@ -94,7 +94,7 @@ describe("a complete request's calendar options", () => {
     expect(actions("on")).toContain('href="/g/g/schedule#calendar-heading">Stop adding them</a>');
     expect(actions("off")).not.toContain("Stop adding them");
     expect(actions("connect")).toContain(
-      "If you allow Google Calendar access, music-chairs adds confirmed rehearsals from the groups you&#x27;ve joined",
+      'If you allow Google Calendar access, <span class="brand">music-chairs</span> adds confirmed rehearsals from the groups you&#x27;ve joined',
     );
   });
 

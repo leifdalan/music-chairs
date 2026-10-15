@@ -11,6 +11,7 @@ import { buttonVariants } from "~/components/ui/button";
 import { ConfirmForm } from "./confirm-form";
 import { ElsewhereForm } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
+import { BrandText } from "./brand";
 
 /**
  * The viewer's own menu in the header's top-right corner (plan/phase-12.md):
@@ -107,7 +108,9 @@ export function ProfileMenu() {
             >
               Sign in with Google
             </a>
-            <p className="hint">{CALENDAR_ACCESS_HINT}</p>
+            <p className="hint">
+              <BrandText text={CALENDAR_ACCESS_HINT} />
+            </p>
           </>
         ) : null}
       </div>

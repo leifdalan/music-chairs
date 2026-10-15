@@ -85,6 +85,7 @@ export function quotedMark(sees: string): string | null {
 const MARKS: Record<string, Mark> = {
   "routes/home GET notice": { selector: ".route-notices .notice, .notice" },
   "routes/healthz GET ok": { path: "/healthz", text: "ok" },
+  "routes/avatar GET no-picture": { path: "/avatar" },
   "routes/schedule GET visitor": { path: "{group}" },
   "routes/profile GET to-group": { path: "{group}" },
   "routes/members.add GET visitor": { path: "{group}" },

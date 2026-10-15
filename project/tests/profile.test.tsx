@@ -54,9 +54,9 @@ describe("profile rules", () => {
     expect(validateInstrument("x".repeat(INSTRUMENT_MAX + 1)).ok).toBe(false);
   });
 
-  it("builds the Gravatar address from the trimmed, lowercased email, blank when none exists", () => {
-    const expected =
-      "https://gravatar.com/avatar/973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b?s=96&d=blank";
+  it("builds the picture's address on this site from the trimmed, lowercased email, none without one", () => {
+    // Served from the site, never gravatar.com (plan/phase-40.md); v follows the email.
+    const expected = "/avatar?v=973dfe463ec85785";
     expect(gravatarUrl("test@example.com")).toBe(expected);
     expect(gravatarUrl("  Test@Example.COM ")).toBe(expected);
     expect(gravatarUrl("")).toBeNull();
@@ -330,7 +330,7 @@ describe("the profile menu", () => {
     });
     expect(visitor).toContain('href="/auth/google?returnTo=%2Fg%2Fabc"');
     expect(visitor).toContain(
-      "If you allow Google Calendar access, music-chairs adds confirmed rehearsals",
+      'If you allow Google Calendar access, <span class="brand">music-chairs</span> adds confirmed rehearsals',
     );
     expect(visitor).not.toContain("<img");
     // No name at all: a person icon, never "?".

@@ -8,7 +8,7 @@ export type PolicyScope = { scope: string; name: string; purpose: string };
 export const POLICY = {
   operator: "music-chairs is run by Leif Dalan as a personal, non-commercial project.",
   contact: "leifdalan+rtc@gmail.com",
-  updated: "12 October 2026",
+  updated: "14 October 2026",
   googleScopes: [
     {
       scope: "openid",

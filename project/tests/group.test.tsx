@@ -57,7 +57,9 @@ describe("group route", () => {
       const { group, cellist } = band();
       const html = render(await load(group.id, await deviceCookie(group.id, cellist.deviceToken)));
       expect(html).toContain(">Sign in with Google<");
-      expect(html.replaceAll("&#x27;", "'")).toContain(CALENDAR_ACCESS_HINT);
+      expect(
+        html.replaceAll("&#x27;", "'").replace(/<span class="brand">([^<]*)<\/span>/g, "$1"),
+      ).toContain(CALENDAR_ACCESS_HINT);
     } finally {
       vi.unstubAllEnvs();
     }

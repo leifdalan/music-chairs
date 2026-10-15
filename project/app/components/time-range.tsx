@@ -368,7 +368,12 @@ export function TimeBar({
       </div>
       <div className="time-bar-labels">
         {HOURS.map((minute) => (
-          <span key={minute} style={{ left: percent(minute) }}>
+          <span
+            key={minute}
+            // Narrow screens or large text keep every third hour: 9, 12, 3, 6, 9, 12.
+            className={(minute - BAR_START) % 180 === 0 ? undefined : "minor-hour"}
+            style={{ left: percent(minute) }}
+          >
             {hourLabel(minute)}
           </span>
         ))}

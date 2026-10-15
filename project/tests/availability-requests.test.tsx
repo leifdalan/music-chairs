@@ -236,9 +236,13 @@ describe("the group page", () => {
     expect(html.indexOf('id="upcoming-heading"')).toBeLessThan(
       html.indexOf('id="requests-heading"'),
     );
-    // The outline look, not the primary one (nothing here is "selected").
-    const schedule = /<a class="([^"]*)" href="[^"]*\/schedule"[^>]*>Schedule<\/a>/.exec(html);
-    expect(schedule?.[1]).toContain("border-input bg-background");
+    // The outline look, full width with what it holds; not the primary one (plan/phase-40.md).
+    const schedule =
+      /<a class="([^"]*)" href="[^"]*\/schedule"[^>]*><span class="schedule-link-name">Schedule<\/span><span class="schedule-link-hint">Rehearsals, answers and who is free<\/span><\/a>/.exec(
+        html,
+      );
+    expect(schedule?.[1]).toContain("border-control-border bg-background");
+    expect(schedule?.[1]).toContain("schedule-link");
     expect(schedule?.[1]).not.toContain("bg-primary");
   });
 

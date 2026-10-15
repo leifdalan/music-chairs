@@ -7,6 +7,7 @@ import { useHydrated } from "~/lib/use-hydrated";
 
 import { ElsewhereForm, useElsewhereBusy } from "./elsewhere-form";
 import { SubmitButton } from "./submit-button";
+import { BrandText } from "./brand";
 
 /**
  * A form for a destructive action (plan/phase-11.md, Decisions). Its button
@@ -148,7 +149,9 @@ export function ConfirmPanel({ prompt }: { prompt: ConfirmPrompt }) {
   return (
     <section className="confirm-panel" role="alertdialog" aria-labelledby={titleId}>
       <h2 id={titleId}>{prompt.title}</h2>
-      <p>{prompt.body}</p>
+      <p>
+        <BrandText text={prompt.body} />
+      </p>
       <Form
         method="post"
         replace

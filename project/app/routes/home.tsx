@@ -6,7 +6,6 @@ import { readAccount } from "~/.server/membership";
 import { visitorGroups } from "~/.server/memberships";
 import { nextRehearsalFor } from "~/.server/upcoming";
 import { PayoffCard } from "~/components/payoff-card";
-import { Wordmark } from "~/components/wordmark";
 import { homeRequests, waitingProposals } from "~/.server/pending";
 import { CalendarActions, ProgressFigures } from "~/components/calendar-actions";
 import { CreateGroupForm } from "~/components/create-group-form";
@@ -21,7 +20,7 @@ import {
   SIGNIN_NOTICE_KEYS,
   type NoticeHandle,
 } from "~/lib/notices";
-import { pageMeta, siteName, siteTagline } from "~/lib/site";
+import { pageMeta, siteTagline } from "~/lib/site";
 import { buttonVariants } from "~/components/ui/button";
 
 import type { Route } from "./+types/home";
@@ -29,6 +28,8 @@ import { useActionResult, withFailures } from "~/lib/client-failure";
 import { PageFailure } from "~/components/failure-alert";
 import { Notice } from "~/components/notice";
 import { rehearsalHref } from "~/lib/rehearsal-href";
+import { Brand } from "~/components/brand";
+import { BrandText } from "~/components/brand";
 
 export function meta() {
   return pageMeta();
@@ -89,7 +90,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
   return (
     <main>
       <PageFailure failure={failure} />
-      <h1>{newcomer ? <Wordmark /> : "Your rehearsals"}</h1>
+      {/* The header shows the wordmark; the title says what this is (plan/phase-40.md). */}
+      <h1>{newcomer ? "Find times your ensemble can rehearse" : "Your rehearsals"}</h1>
       <p>{siteTagline}</p>
       {loaderData.notice ? (
         <Notice tone={loaderData.notice.tone}>{loaderData.notice.text}</Notice>
@@ -215,14 +217,16 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       {/* For newcomers only: anyone with a group or an account knows already (plan/phase-25.md). */}
       {newcomer ? (
         <section className="about" aria-labelledby="about-heading">
-          <h2 id="about-heading">What {siteName} does</h2>
+          <h2 id="about-heading">
+            What <Brand /> does
+          </h2>
           <ul>
             <li>Members give the times they are free for each availability request.</li>
             <li>Organizers see the times that suit everyone and propose rehearsals.</li>
             <li>Everyone confirms whether they are coming.</li>
           </ul>
           <p className="hint">
-            You can join with just a name. Signing in with Google is optional: it lets {siteName}{" "}
+            You can join with just a name. Signing in with Google is optional: it lets <Brand />{" "}
             grey out times your Google Calendar is busy, add confirmed rehearsals to your calendar,
             and, for organizers adding members, suggest people from your contacts. See the{" "}
             <Link to="/privacy">privacy policy</Link> for what is kept and why.
@@ -252,7 +256,9 @@ function AccountPanel({
         <a className={buttonVariants({ variant: "outline" })} href="/auth/google">
           Sign in with Google
         </a>
-        <p className="hint">{CALENDAR_ACCESS_HINT}</p>
+        <p className="hint">
+          <BrandText text={CALENDAR_ACCESS_HINT} />
+        </p>
       </section>
     ) : null;
   }

@@ -20,12 +20,16 @@ tempDatabase();
 
 /** A page's text as a reader sees it: tags dropped, entities decoded, spaces collapsed. */
 function textOf(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replaceAll("&#x27;", "'")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&quot;", '"')
-    .replace(/\s+/g, " ");
+  return (
+    html
+      // The written name sits in a no-break span (plan/phase-40.md).
+      .replace(/<span class="brand">([^<]*)<\/span>/g, "$1")
+      .replace(/<[^>]+>/g, " ")
+      .replaceAll("&#x27;", "'")
+      .replaceAll("&amp;", "&")
+      .replaceAll("&quot;", '"')
+      .replace(/\s+/g, " ")
+  );
 }
 
 function renderPrivacy(): string {
@@ -146,7 +150,7 @@ describe("Google Calendar writing (plan/phase-32.md)", () => {
     expect(write?.purpose).toContain(
       "Once you allow it, adds the confirmed rehearsals of your groups to your calendar until you stop it",
     );
-    expect(POLICY.updated).toBe("12 October 2026");
+    expect(POLICY.updated).toBe("14 October 2026");
   });
 
   it("is said beside the home page's sign-in and the invite's", async () => {

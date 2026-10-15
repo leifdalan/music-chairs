@@ -1,6 +1,19 @@
 {
-  "generated": "2026-10-14",
+  "generated": "2026-10-15",
   "states": [
+    {
+      "key": "routes/avatar GET",
+      "outcome": "no-picture",
+      "when": "The header asks for a picture with no Google email behind it, or Gravatar doesn't answer",
+      "sees": "Nobody: a transparent image, so the initials show",
+      "proofs": [],
+      "images": {
+        "phone-light": "images/routes-avatar-get--no-picture--phone-light.webp",
+        "phone-dark": "images/routes-avatar-get--no-picture--phone-dark.webp",
+        "desktop-light": "images/routes-avatar-get--no-picture--desktop-light.webp",
+        "desktop-dark": "images/routes-avatar-get--no-picture--desktop-dark.webp"
+      }
+    },
     {
       "key": "routes/calendar-feed GET",
       "outcome": "unknown-feed",

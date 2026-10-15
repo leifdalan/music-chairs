@@ -19,7 +19,9 @@ informs: []
 
 From the Impeccable critique and audit of 2026-10-13 (`.impeccable/critique/2026-10-13T07-24-02Z__app.md`: critique 27/40, audit 15/20) and the operator's answers: the organizer's next step first, then one look for failures, a calmer schedule, and the accessibility fixes with every smaller observation (scope: everything); Delete stays red now that red also means a failed save.
 
-To settle at phase start: Gravatar — keep loading your picture from gravatar.com and say so in the product's rules, or fetch it through music-chairs so the browser never contacts another site.
+Ruling at phase start (operator, 2026-10-14), the recommended option:
+
+- **Fetch Gravatar through music-chairs:** the server fetches the picture from Gravatar and serves it from the site itself (cached a while), so the browser never contacts another site and "loads nothing from other sites" stays true; Gravatar sees the server's request, not the person's address. The privacy page says so.
 
 ## Acceptance
 

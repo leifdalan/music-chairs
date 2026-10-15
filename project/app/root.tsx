@@ -30,6 +30,7 @@ import { siteName } from "~/lib/site";
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
+import { BrandText } from "~/components/brand";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: stylesheet }];
 
@@ -68,6 +69,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <Links />
       </head>
       <body>
+        {/* The first stop for a keyboard (plan/phase-40.md). */}
+        <a className="skip-link" href="#content">
+          Skip to content
+        </a>
         <PageProgress />
         <FeedbackProvider>
           <header className="site-header">
@@ -79,8 +84,10 @@ export function Layout({ children }: { children: ReactNode }) {
               <ProfileMenu />
             </nav>
           </header>
-          <RouteNotices />
-          {children}
+          <div id="content" tabIndex={-1}>
+            <RouteNotices />
+            {children}
+          </div>
           <footer className="site-footer">
             <Link to="/privacy">Privacy policy</Link>
           </footer>
@@ -187,7 +194,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const group = /^\/g\/[^/]+/.exec(useLocation().pathname)?.[0];
   return (
     <main>
-      <h1>{page.title}</h1>
+      {/* Every error page has a title (plan/phase-40.md). */}
+      <title>{`${page.title} · ${siteName}`}</title>
+      <h1>
+        <BrandText text={page.title} />
+      </h1>
       <p>{page.body}</p>
       {page.retry ? (
         <p>

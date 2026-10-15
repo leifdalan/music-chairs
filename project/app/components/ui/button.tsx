@@ -7,7 +7,7 @@ import type { ComponentProps } from "react";
 import { cn } from "~/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap no-underline transition-colors disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-center text-sm font-medium no-underline transition-colors disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -17,7 +17,7 @@ export const buttonVariants = cva(
         destructive:
           "bg-destructive-surface text-destructive-surface-foreground shadow-xs hover:bg-destructive-surface-hover",
         outline:
-          "border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-control-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50",
         // A quieter destructive control (plan/phase-21.md): red text and border on the
         // page's own background, which never tints, so contrast holds on hover.
         "outline-destructive":

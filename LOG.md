@@ -5624,3 +5624,13 @@ Phase 39 — close bookkeeping outcomes
 - Status: plan/INDEX.md now shows Phase 39 ✅ and Phase 40 ⬅️ (accepted ledger applied and verified).
 - Ripple: none.
 - Lessons: strict-lynx recurred (Phase 39 END); ./bin/lessons validate OK.
+
+## 2026-10-14 11:48 — START
+Phase 40 — Accessible and finished: the audit's fixes, the smaller observations, and a second critique and audit
+
+Execution trace: 812ae0afac764538a453be2ece202704
+
+Planned work:
+- Accessibility: error pages have a page title; the header wraps at large text sizes; text fields and outline buttons have borders of at least 3:1; error toasts are announced once (no alert inside a status region); a skip link; information-bearing text in calendars and the hour bar is at least 12 px; organizer calendar dates are at least 44 px wide at 320 px; the error page's links are 44 px tall; the dark-mode heat-map legend describes what it shows.
+- The smaller observations: the brand is written one way and never breaks across lines; no all-caps labels; the group page's Schedule link reads as the main destination; placeholders don't read as filled-in values in dark mode; the signed-out home page doesn't repeat the wordmark as its title; text links stand alone at a comfortable size; tailwind-merge only where needed; the product's "loads nothing from other sites" statement matches what the app does with Gravatar.
+- A second Impeccable critique and audit of the whole site, recorded in `.impeccable/critique/`, compared with 27/40 and 15/20 (2026-10-13).

@@ -64,7 +64,8 @@ curl -s "$origin/" | grep -q 'name="groupName"' || fail "home page lacks the cre
 echo "  server-rendered create-group form"
 
 # Everything a page loads is the site's own (plan/phase-19.1.md): stylesheets,
-# scripts and images, apart from Gravatar pictures the privacy policy names.
+# scripts and images, Gravatar pictures included (served by the site since
+# plan/phase-40.md).
 # Links to other sites are not loads and are not checked.
 same_origin_only() {
   curl -s -H "Cookie: ${2:-}" "$origin$1" >"$work/page.html"
@@ -73,7 +74,7 @@ same_origin_only() {
   while IFS= read -r url; do
     case "$url" in
       //*) fail "$1 loads $url from another site" ;;
-      /* | "$origin"/* | https://www.gravatar.com/avatar/*) ;;
+      /* | "$origin"/*) ;;
       *://*) fail "$1 loads $url from another site" ;;
     esac
   done <"$work/loads.txt"
