@@ -65,6 +65,16 @@ export function ConfirmForm({
   const onSubmit = () => {
     if (dialog.current?.open) submitted.current = true;
   };
+  // A press on the backdrop closes the dialog, as Cancel does (plan/phase-41.md):
+  // only when it starts and ends there, never from the keyboard or while saving.
+  const onBackdrop = useRef(false);
+  const onDialog = (event: { target: EventTarget; clientX: number; clientY: number }) => {
+    const box = dialog.current;
+    if (!box || event.target !== box) return false;
+    const rect = box.getBoundingClientRect();
+    const { clientX: x, clientY: y } = event;
+    return x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+  };
   const content = (
     <>
       {Object.entries(fields).map(([name, value]) => (
@@ -85,7 +95,20 @@ export function ConfirmForm({
         {trigger}
       </button>
       {hydrated ? (
-        <dialog ref={dialog} className="confirm-dialog" aria-labelledby={titleId}>
+        <dialog
+          ref={dialog}
+          className="confirm-dialog"
+          aria-labelledby={titleId}
+          onPointerDown={(event) => {
+            onBackdrop.current = onDialog(event);
+          }}
+          onClick={(event) => {
+            const started = onBackdrop.current;
+            onBackdrop.current = false;
+            if (event.detail === 0 || busy || !started || !onDialog(event)) return;
+            dialog.current?.close();
+          }}
+        >
           <h2 id={titleId}>{title}</h2>
           <p>{body}</p>
           <div className="confirm-actions">
