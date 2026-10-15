@@ -21,6 +21,8 @@ occurrences:
     ref: "Phase 29 END"
   - date: 2026-10-12
     ref: "Phase 35 END"
+  - date: 2026-10-15
+    ref: "Phase 41 END"
 ---
 
 In Phase 1 an inline `./../bin/python - <<EOF` edit script launched from `project/` used `project`-relative paths (`vitest.config.ts`). The wrapper resolves the interpreter independently of the caller's working directory and the script raised `FileNotFoundError`; because it was chained with `;` before the test run, the tests ran against the unedited config and wrote a real SQLite file into `project/data/`. The stray file was found and removed before capture.

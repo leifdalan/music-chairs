@@ -5761,3 +5761,106 @@ Planned work:
 - Tapping Yes, No or Maybe in a date's popup saves the answer and closes the popup (the date's mark shows the new answer); a date with two proposals closes once both are answered. The Done button goes.
 - Every popup, menu and dialog goes away on a tap or click outside it: the schedule's and the request page's date popups (proposed rehearsals and who is free), the profile menu, the request page's Options menu, and the confirm dialogs. Without JavaScript they still close the way they do today.
 - Tests cover the single date, closing on answer and closing on click-away; the browser gate measures the organizer's popup height on a phone before and after, and checks closing on answer and on click-away at phone and laptop widths.
+
+## 2026-10-15 07:55 — END
+Phase 41 — Popups that get out of the way: a compact date popup that closes on answering, and every popup closing on a tap outside
+
+Phase 41 is accepted on its gates. A proposed date's popup on the schedule now says the date once: each rehearsal in it starts with its time and place, and the who-isn't-free note says "that day". The organizer's version fits a phone: on the same test band at 390 × 844, the rehearsal's card went from 519 px to 317 px tall (39% shorter) and the whole popup from 643 px to 385 px. The "Your answer" and "For organizers" labels are now for screen readers only, who answered sits on one line with Clear at its end, and the organizer's controls sit closer together; nothing an organizer needs was removed. Tapping Yes, No or Maybe saves and closes the popup; a date with two proposals closes once both are answered; Clear, a refused answer or a failed save keep it open. Done is gone from both calendars. A tap or click outside now closes both calendars' date popups, the profile menu, the request page's Options menu and the confirm dialogs (a tap on the dimmed backdrop); a tap inside, or a drag that starts inside, keeps it open, and a scroll on a phone doesn't close it. Without JavaScript nothing changed. How it feels on your phone is yours to judge through the User Demo below; merging the pull request deploys it.
+
+Execution trace: 136ee3a86e3543af91426e9987579e78
+
+Files changed:
+- project/app/lib/dismiss.ts (new) — closing a popup on a press outside it (outsidePress, useDismissOutside)
+- project/app/components/proposed-calendar.tsx — no Done; closes after answering (closesAfterAnswer); click-away
+- project/app/components/free-calendar.tsx — no Done; click-away
+- project/app/components/profile-menu.tsx, project/app/routes/request.tsx — click-away for the profile menu and the Options menu
+- project/app/components/confirm-form.tsx — a press on the backdrop closes the dialog, never from the keyboard or while saving
+- project/app/routes/schedule.tsx, project/app/app.css — the compact card in a date's popup: time and place first, hidden area labels, one who-answered line with Clear at its end, compact organizer controls
+- project/app/lib/warnings.ts — "isn't free that day" under a heading that already says the date
+- project/tests/popups.test.tsx (new), project/tests/confirm-moment.test.tsx — the closing rules, the press decision, the single date and the warning wording
+
+Build status:
+- test.focused: OK — 6 files, 77 tests
+- smoke.local: OK
+- browser.popups: OK — headless Chrome, the same seeded band on the pre-Phase-41 build and this build; 44/44 checks on this build (height, close on answer, click-away for every popup, menu and dialog, real touch taps and scrolls, focus after a tap outside, no scroll or shift, every button label on one line)
+- ci.check: OK — CI run 38754868823, check success for commit b9a2074 (CHECK ALL PASS, SMOKE PASS)
+- test.changed: OK — but it selected only the governance family (pytest 54/54), because the draft-PR push set the branch's upstream to itself (lesson ubiquitous-cuckoo); the full suite on the same bytes passed locally (Vitest 847/847) and in CI
+- Handoff gate: runs after this tracked END block; completion is contingent on the ignored receipt from the final bare ./bin/check all
+
+Review lane (per policies/review-lanes.md):
+- full
+
+Evidence lane (per policies/review-lanes.md):
+- full
+
+Follow-up route (per policies/review-lanes.md):
+- N/A (initial implementation)
+
+Role model/venue (per policies/role-models.md) — orchestrated by claude, primary mode:
+- Preflight: OK (claude --model opus, read-only: reviewer, critic)
+- Planner: inline (primary)
+- Reviewer (plan review): requested model=opus effort=default venue=claude
+- Coder: inline (primary)
+- Critic (code review): requested model=opus effort=default venue=claude
+- Reviewer and critic: observed_model=claude-opus-5-5, observed_effort=unreported; observation_errors=none.
+
+Role timing (per policies/role-timeouts.md):
+- Reviewer (plan review): 233.8 s; first event 0.61 s; longest idle 60.0 s; success
+- Critic (code review): 277.8 s; first event 0.61 s; longest idle 40.8 s; success
+
+Execution timing (per policies/execution-telemetry.md):
+- Makespan: 2566.389 s; intelligence 511.547 s; gates 68.287 s; wait 510.371 s; orchestration 2565.773 s; unattributed 0.617 s; failed work 0; retry 0
+- Awaiting user input: none recorded as parks for phase 41 (the rulings were given before the phase started)
+- Timing validation: exact monotonic nanoseconds, trace joins OK
+
+Candidate-bound evidence (per policies/orchestration-evidence.md):
+- Candidate: critiqued=1b25318c64d36a75c2937b348c52f62f5f7422161f6a75eb633b5a5263cca2dd final=af8ca30c58ff4907f8c50d07f4403720d06eaa36d6052cb9033b64c6a8639d6e (corrected after critique)
+- Findings: plan review 12 (all adopted into plan-2 R1–R10); code critique 7 (6 adopted, 1 declined: one listener pair per date costs nothing measurable)
+- Plan deviations: recorded (Clear moved to the who-answered line after the gate's screenshots showed it squeezing the answer buttons; the "that day" warning; a dead check removed after mutation testing; the press decision extracted after critique)
+- Gates: 5 implementation-final gates, all on the final candidate
+- Evidence validation: kickoff-evidence validate --level acceptance OK
+
+Wall-clock observations:
+- The browser gate serves the pre-Phase-41 build beside this one from a folder under project/node_modules/.cache, so both builds find their packages; the same seed measures both.
+
+Acceptance (per policies/human-in-the-loop.md):
+- Objective (gate-proved, candidate-bound): the date said once, the card 39% shorter, closing on answering (one and two proposals) and staying open for Clear, refusals and failures, no Done, click-away for every popup, menu and dialog with inside presses and drags ignored, touch taps and scrolls, focus back on the date, no scroll or shift (tests and the browser gate).
+- Parked for you: whether the popup now feels right on your own phone, including iPhone Safari, which the gate doesn't drive (the User Demo below).
+
+Delivery:
+- default — commit and delivery through pull request 40, merged when green, after the handoff gate; merging deploys
+
+Ripple (per policies/phase-ripple.md):
+- AUTO: none needed — no planned phase follows
+
+Lessons:
+- new: tireless-quetzal (a focus or event rule written against an imagined page is dead until a browser check reads its outcome)
+- occurrences: lively-salamander (8), loyal-dinosaur (6), ubiquitous-cuckoo (2)
+- graduation DECIDE: camouflaged-dragon (9), gentle-pug (8), lively-salamander (8), loyal-dinosaur (6) remain ready for your ratification
+- recalibration: critic/claude opus — hard 2700 s, idle 600 s (n=47); reviewer/claude opus — hard 1800 s, idle 600 s (n=44); both match the current settings
+
+User demo (per policies/user-demo-protocols.md):
+- User Demo (per `policies/user-demo-protocols.md`):
+  - **Entry point.** Open the site:
+
+https://rehearse.dalan.dev
+
+  - **Suggested inputs.**
+    1. On your phone, open the schedule of a group with proposed rehearsals and tap a proposed date.
+    2. Tap Yes; then open another date and tap outside it.
+    3. As an organizer, tap a proposed date; open Options on a request page and the profile menu, and tap outside each.
+  - **What to look for.**
+    - The date appears once; the organizer's popup fits comfortably on the phone.
+    - Answering closes the popup; tapping outside closes any popup, menu or dialog.
+  - **Variations to explore.** Phone and laptop; light and dark mode.
+
+Remaining:
+- The parked User Demo. The next focus you chose earlier (marking booked dates on the request heat map, and the second audit's accessibility gaps) is not planned yet.
+
+## 2026-10-15 07:56 — NOTE
+
+Phase 41 — close bookkeeping outcomes
+
+- Status: plan/INDEX.md now shows Phase 41 ✅; no planned phase follows (accepted ledger applied and verified).
+- Ripple: none.
+- Lessons: tireless-quetzal filed; occurrences added to lively-salamander, loyal-dinosaur and ubiquitous-cuckoo; ./bin/lessons validate OK.

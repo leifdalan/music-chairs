@@ -17,6 +17,8 @@ occurrences:
     ref: "Phase 27 PARK"
   - date: 2026-10-11
     ref: "Phase 30 END"
+  - date: 2026-10-15
+    ref: "Phase 41 END"
 ---
 
 In Phase 10 a command chain wrote run variables into the session env file after a step whose failure was hidden behind `| /usr/bin/tail -1`: the pipeline's exit status was tail's, so the `&&` chain continued and appended bad values to the env file. In Phase 13 `check-plan-concreteness` failed (missing Definitions Read rows), but its output went through `| tail`, so the plan was captured and the plan reviewer registered anyway; the plan had to be fixed, recaptured and the review prompt's hash updated. Later in Phase 13 a test run redirected with `>` onto an existing log; the operator's zsh `noclobber` refused the write, the test runner never ran its output into the file, and the next `grep` read the previous run's "454 passed" while the command's own exit status was 1.
